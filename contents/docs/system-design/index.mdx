@@ -1,0 +1,35 @@
+---
+title: 系统设计
+titleEn: System Design
+description: 估算、拆服务、数据模型、瓶颈与权衡。
+descriptionEn: Estimates, service split, data model, bottlenecks and trade-offs.
+date: 2026-08-30
+keywords: ["system design"]
+---
+
+## 开口框架
+
+<Step>
+  <StepItem title="澄清">
+    用户量、读写比、延迟、一致性、是否要登录 / 搜索 / 实时。
+  </StepItem>
+  <StepItem title="估算">
+    QPS、存储、带宽，先给数量级，再画图。
+  </StepItem>
+  <StepItem title="草图">
+    Client → API Gateway → Services → Storage / Cache / Queue。
+  </StepItem>
+  <StepItem title="深挖">
+    选 1–2 个难点：热点、一致性、推送、搜索、多机房。
+  </StepItem>
+</Step>
+
+## 想覆盖的题
+
+- URL Shortener
+- News Feed
+- Chat
+- Rate Limiter
+- Drive / 文件存储
+
+每做完一题，在本页下面加一节：需求、容量、架构图、权衡。

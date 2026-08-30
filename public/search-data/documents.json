@@ -1,0 +1,431 @@
+[
+  {
+    "collection": "docs",
+    "slug": "/docs/algorithms/arrays",
+    "title": "数组与哈希",
+    "titleEn": "Arrays & Hashing",
+    "description": "双指针、滑动窗口、前缀和、哈希表。",
+    "content": "## 模式\n\n* 哈希表做 **O(1) 查找 / 计数**\n* 左右指针处理有序数组\n* 滑动窗口维护区间约束\n* 前缀和把区间询问变成两次前缀相减\n\n## 骨架\n\n```ts\nfunction twoSum(nums: number[], target: number) {\n  const seen = new Map<number, number>()\n  for (let i = 0; i < nums.length; i++) {\n    const need = target - nums[i]\n    if (seen.has(need)) return [seen.get(need)!, i]\n    seen.set(nums[i], i)\n  }\n}\n```\n\n## 代表题\n\n| 题 | 模式 | 状态 |\n| --- | --- | --- |\n| Two Sum | Hash | 待刷 |\n| Valid Anagram | Count | 待刷 |\n| Product of Array Except Self | Prefix | 待刷 |\n| Longest Consecutive Sequence | Hash set | 待刷 |\n\n## 复盘\n\n把做错的题和「当时卡在哪」写在这里。\n",
+    "_searchMeta": {
+      "cleanContent": "模式 哈希表做 o 1 查找 计数 左右指针处理有序数组 滑动窗口维护区间约束 前缀和把区间询问变成两次前缀相减 骨架 代表题 题 模式 状态--- --- ---two sum hash 待刷valid anagram count 待刷product of array except self prefix 待刷longest consecutive sequence hash set 待刷 复盘 把做错的题和 当时卡在哪 写在这里",
+      "headings": [
+        "模式",
+        "骨架",
+        "代表题",
+        "复盘"
+      ],
+      "keywords": [
+        "array",
+        "hash",
+        "two pointers",
+        "模式",
+        "骨架",
+        "代表题",
+        "复盘",
+        "O(1) 查找 / 计数",
+        "ts\nfunction twoSum(nums: number[], target: number) {\n  const seen = new Map<number, number>()\n  for (let i = 0; i < nums.length; i++) {\n    const need = target - nums[i]\n    if (seen.has(need)) return [seen.get(need)!, i]\n    seen.set(nums[i], i)\n  }\n}"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/algorithms/dp",
+    "title": "动态规划",
+    "titleEn": "Dynamic Programming",
+    "description": "一维、二维、背包、子序列、区间 DP。",
+    "content": "## 提问顺序\n\n1. 状态是什么？（通常是「做到 i / 用了 j」）\n2. 决策是什么？（选或不选、从哪转移）\n3. 初始值与边界\n4. 能否压缩空间\n\n## 代表题\n\n| 题 | 模式 | 状态 |\n| --- | --- | --- |\n| Climbing Stairs | 1D | 待刷 |\n| House Robber | 1D | 待刷 |\n| Coin Change | Unbounded knapsack | 待刷 |\n| Longest Increasing Subsequence | Subseq | 待刷 |\n",
+    "_searchMeta": {
+      "cleanContent": "提问顺序 状态是什么 通常是 做到 i 用了 j 决策是什么 选或不选 从哪转移 初始值与边界 能否压缩空间 代表题 题 模式 状态--- --- ---climbing stairs 1d 待刷house robber 1d 待刷coin change unbounded knapsack 待刷longest increasing subsequence subseq 待刷",
+      "headings": [
+        "提问顺序",
+        "代表题"
+      ],
+      "keywords": [
+        "dp",
+        "提问顺序",
+        "代表题"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/algorithms",
+    "title": "算法",
+    "titleEn": "Algorithms",
+    "description": "面试算法的目录页。按题型记，而不是按题号记。",
+    "content": "按模式复习，比按题号刷更适合回看。每做完一类题，在对应页面补 **思路、模板、易错点、代表题**。\n\n## 记录模板\n\n每一类题建议固定四个小标题：\n\n1. **模式一句话**\n2. **代码骨架**\n3. **这周做过的题**\n4. **下次还要过的点**\n",
+    "_searchMeta": {
+      "cleanContent": "按模式复习 比按题号刷更适合回看 每做完一类题 在对应页面补 思路 模板 易错点 代表题 记录模板 每一类题建议固定四个小标题 模式一句话 代码骨架 这周做过的题 下次还要过的点",
+      "headings": [
+        "记录模板"
+      ],
+      "keywords": [
+        "algorithms",
+        "leetcode",
+        "记录模板",
+        "思路、模板、易错点、代表题",
+        "模式一句话",
+        "代码骨架",
+        "这周做过的题",
+        "下次还要过的点"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/algorithms/linked-list",
+    "title": "链表",
+    "titleEn": "Linked Lists",
+    "description": "反转、双指针、环检测、合并有序链表。",
+    "content": "## 模式\n\n* dummy head 处理头节点边界\n* 快慢指针找中点 / 环\n* 反转一段区间时记清 `pre / cur / next`\n\n## 代表题\n\n| 题 | 模式 | 状态 |\n| --- | --- | --- |\n| Reverse Linked List | Reverse | 待刷 |\n| Merge Two Sorted Lists | Dummy | 待刷 |\n| Linked List Cycle | Fast / slow | 待刷 |\n| Reorder List | Split + reverse | 待刷 |\n",
+    "_searchMeta": {
+      "cleanContent": "模式 dummy head 处理头节点边界 快慢指针找中点 环 反转一段区间时记清 pre cur next 代表题 题 模式 状态--- --- ---reverse linked list reverse 待刷merge two sorted lists dummy 待刷linked list cycle fast slow 待刷reorder list split reverse 待刷",
+      "headings": [
+        "模式",
+        "代表题"
+      ],
+      "keywords": [
+        "linked list",
+        "模式",
+        "代表题",
+        "pre / cur / next"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/algorithms/trees",
+    "title": "树与图",
+    "titleEn": "Trees & Graphs",
+    "description": "DFS、BFS、LCA、拓扑排序、最短路。",
+    "content": "## 模式\n\n* 二叉树：递归定义比循环更接近面试表达\n* BFS 层序：队列 + 当前层长度\n* 图：先问清 **有向 / 无向、有权 / 无权、是否有环**\n\n## 代表题\n\n| 题 | 模式 | 状态 |\n| --- | --- | --- |\n| Invert Binary Tree | DFS | 待刷 |\n| Binary Tree Level Order | BFS | 待刷 |\n| Number of Islands | Grid DFS | 待刷 |\n| Course Schedule | Topo | 待刷 |\n",
+    "_searchMeta": {
+      "cleanContent": "模式 二叉树 递归定义比循环更接近面试表达 bfs 层序 队列 当前层长度 图 先问清 有向 无向 有权 无权 是否有环 代表题 题 模式 状态--- --- ---invert binary tree dfs 待刷binary tree level order bfs 待刷number of islands grid dfs 待刷course schedule topo 待刷",
+      "headings": [
+        "模式",
+        "代表题"
+      ],
+      "keywords": [
+        "tree",
+        "graph",
+        "模式",
+        "代表题",
+        "有向 / 无向、有权 / 无权、是否有环"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/behavioral",
+    "title": "行为面试",
+    "titleEn": "Behavioral",
+    "description": "STAR 故事库。每条故事都能讲 2 分钟，也能压到 45 秒。",
+    "content": "准备 8–10 个故事，覆盖：冲突、失败、领导力、模糊需求、技术判断、跨团队。\n\n## 故事卡片\n\n### 示例：推动一次模糊需求落地\n\n* **S** 背景：谁、什么时候、为什么难\n* **T** 你的职责，不是「我们」\n* **A** 你做的 3 个具体动作\n* **R** 可量化结果 + 你学到什么\n\n把真实项目填进上面的结构。不要写得像年终总结。\n",
+    "_searchMeta": {
+      "cleanContent": "准备 8 10 个故事 覆盖 冲突 失败 领导力 模糊需求 技术判断 跨团队 故事卡片 示例 推动一次模糊需求落地 s 背景 谁 什么时候 为什么难 t 你的职责 不是 我们 a 你做的 3 个具体动作 r 可量化结果 你学到什么 把真实项目填进上面的结构 不要写得像年终总结",
+      "headings": [
+        "故事卡片"
+      ],
+      "keywords": [
+        "behavioral",
+        "star",
+        "故事卡片",
+        "S",
+        "T",
+        "A",
+        "R"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/cs-fundamentals",
+    "title": "计算机基础",
+    "titleEn": "CS Fundamentals",
+    "description": "操作系统、网络、数据库。只记会被追问的那一层。",
+    "content": "## 操作系统\n\n* 进程 vs 线程\n* 虚拟内存 / 缺页\n* 锁、死锁四个条件\n\n## 网络\n\n* TCP 三次握手 / 四次挥手，以及为什么\n* HTTP/1.1 vs HTTP/2 vs HTTP/3\n* HTTPS 证书链\n* 从输入 URL 到页面渲染\n\n## 数据库\n\n* 索引为什么是 B+ 树\n* 事务隔离级别与幻读\n* 什么时候反范式\n",
+    "_searchMeta": {
+      "cleanContent": "操作系统 进程 vs 线程 虚拟内存 缺页 锁 死锁四个条件 网络 tcp 三次握手 四次挥手 以及为什么 http 1 1 vs http 2 vs http 3 https 证书链 从输入 url 到页面渲染 数据库 索引为什么是 b 树 事务隔离级别与幻读 什么时候反范式",
+      "headings": [
+        "操作系统",
+        "网络",
+        "数据库"
+      ],
+      "keywords": [
+        "os",
+        "network",
+        "database",
+        "操作系统",
+        "网络",
+        "数据库"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/frontend",
+    "title": "前端",
+    "titleEn": "Frontend",
+    "description": "JavaScript 原理、React、浏览器与性能。",
+    "content": "也把项目里真正做过的性能优化、工程化决策写进来，面试官更吃「你自己踩过的坑」。\n",
+    "_searchMeta": {
+      "cleanContent": "也把项目里真正做过的性能优化 工程化决策写进来 面试官更吃 你自己踩过的坑",
+      "headings": [],
+      "keywords": [
+        "frontend"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/frontend/javascript",
+    "title": "JavaScript",
+    "titleEn": "JavaScript",
+    "description": "闭包、事件循环、原型链、this、异步模型。",
+    "content": "## 必能讲清\n\n* 事件循环：macro / micro、async 到 Promise 的路径\n* 闭包：不是背定义，而是「谁还引用着这块内存」\n* 原型：`__proto__` vs `prototype`\n* `this` 四条绑定规则\n\n## 手写清单\n\n* `debounce` / `throttle`\n* `Promise.all`\n* 深拷贝（循环引用）\n* 发布订阅\n",
+    "_searchMeta": {
+      "cleanContent": "必能讲清 事件循环 macro micro async 到 promise 的路径 闭包 不是背定义 而是 谁还引用着这块内存 原型 _proto_ vs prototype this 四条绑定规则 手写清单 debounce throttle promise all 深拷贝 循环引用 发布订阅",
+      "headings": [
+        "必能讲清",
+        "手写清单"
+      ],
+      "keywords": [
+        "javascript",
+        "必能讲清",
+        "手写清单",
+        "__proto__",
+        "prototype",
+        "this",
+        "debounce",
+        "throttle",
+        "Promise.all"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/frontend/react",
+    "title": "React",
+    "titleEn": "React",
+    "description": "渲染模型、Hooks、状态、性能与并发。",
+    "content": "## 必能讲清\n\n* 为什么 setState 是异步批处理\n* `useEffect` 的依赖与清理\n* 何时 `useMemo` / `useCallback` 真的有用\n* key 的作用，以及列表复用踩坑\n\n## 项目里要准备的故事\n\n挑一个真实组件：它慢在哪、你怎么量、改了什么、数字是多少。\n",
+    "_searchMeta": {
+      "cleanContent": "必能讲清 为什么 setstate 是异步批处理 useeffect 的依赖与清理 何时 usememo usecallback 真的有用 key 的作用 以及列表复用踩坑 项目里要准备的故事 挑一个真实组件 它慢在哪 你怎么量 改了什么 数字是多少",
+      "headings": [
+        "必能讲清",
+        "项目里要准备的故事"
+      ],
+      "keywords": [
+        "react",
+        "必能讲清",
+        "项目里要准备的故事",
+        "useEffect",
+        "useMemo",
+        "useCallback"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/journal",
+    "title": "学习日志",
+    "titleEn": "Journal",
+    "description": "按日期往下追加。一行日期、今天做了什么、卡点、明天先做什么。",
+    "content": "建议每天花 5 分钟写完就停。详细推导放到对应知识页，这里只留索引。\n\n## 2026-08-30\n\n* 初始化北极星站点\n* 搭好笔记 / 投递 / 简历三块结构\n* 下一步：补自我介绍，开始数组题\n",
+    "_searchMeta": {
+      "cleanContent": "建议每天花 5 分钟写完就停 详细推导放到对应知识页 这里只留索引 2026-08-30 初始化北极星站点 搭好笔记 投递 简历三块结构 下一步 补自我介绍 开始数组题",
+      "headings": [
+        "2026-08-30"
+      ],
+      "keywords": [
+        "journal",
+        "2026-08-30"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/overview",
+    "title": "准备手册",
+    "titleEn": "Playbook",
+    "description": "北极星怎么用：用 Markdown 记录，网站自动更新。",
+    "content": "每天只需要做一件事：**打开对应目录，更新或新增一篇 `index.mdx`。** 刷新网站后，笔记、搜索和首页热力图都会跟上。\n\n## 三块内容\n\n## 文件放哪里\n\n```\ncontents/\n  docs/          面试知识点\n  companies/     投递记录\n  resume/        简历与介绍\n  site/\n    profile.json     首页自我介绍\n    timeline.json    首页时间线\n    roadmap.json     底部计划\n```\n\n每一篇文档都是一个文件夹 + `index.mdx`：\n\n```\ncontents/docs/algorithms/arrays/index.mdx\n```\n\n同时在 `settings/documents.ts`（或 companies / resume）里补上导航项，侧边栏才会出现新页面。\n\n## Frontmatter\n\n```md\n---\ntitle: 数组与哈希\ntitleEn: Arrays & Hashing\ndescription: 双指针、哈希表、前缀和。\ndate: 2026-08-30\nkeywords: [\"array\", \"hash\"]\n---\n```\n\n`date` 会点亮首页当月的小方块。同一天更新越多，颜色越深。\n\n## 首页三个开关\n\n| 文件 | 作用 |\n| --- | --- |\n| `contents/site/profile.json` | 主页名字、角色、简介 |\n| `contents/site/timeline.json` | 滚动时间线 |\n| `contents/site/roadmap.json` | Plan / Roadmap |\n\n## 下一步\n\n1. 改掉 `profile.json` 里的名字和自我介绍\n2. 从 [数组与哈希](/docs/algorithms/arrays) 开始记第一题\n3. 投递时复制 [记录模板](/companies/template) 新建公司页\n",
+    "_searchMeta": {
+      "cleanContent": "每天只需要做一件事 打开对应目录 更新或新增一篇 index mdx 刷新网站后 笔记 搜索和首页热力图都会跟上 三块内容 文件放哪里 每一篇文档都是一个文件夹 index mdx 同时在 settings documents ts 或 companies resume 里补上导航项 侧边栏才会出现新页面 frontmatter date 会点亮首页当月的小方块 同一天更新越多 颜色越深 首页三个开关 文件 作用--- ---contents site profile json 主页名字 角色 简介contents site timeline json 滚动时间线contents site roadmap json plan roadmap 下一步 改掉 profile json 里的名字和自我介绍 从 数组与哈希 开始记第一题 投递时复制 记录模板 新建公司页",
+      "headings": [
+        "三块内容",
+        "文件放哪里",
+        "Frontmatter",
+        "首页三个开关",
+        "下一步"
+      ],
+      "keywords": [
+        "overview",
+        "workflow",
+        "markdown",
+        "三块内容",
+        "文件放哪里",
+        "Frontmatter",
+        "首页三个开关",
+        "下一步",
+        "打开对应目录，更新或新增一篇 `index.mdx`。",
+        "index.mdx",
+        "contents/\n  docs/          面试知识点\n  companies/     投递记录\n  resume/        简历与介绍\n  site/\n    profile.json     首页自我介绍\n    timeline.json    首页时间线\n    roadmap.json     底部计划",
+        "每一篇文档都是一个文件夹 +",
+        "：",
+        "contents/docs/algorithms/arrays/index.mdx",
+        "同时在",
+        "（或 companies / resume）里补上导航项，侧边栏才会出现新页面。\n\n## Frontmatter",
+        "md\n---\ntitle: 数组与哈希\ntitleEn: Arrays & Hashing\ndescription: 双指针、哈希表、前缀和。\ndate: 2026-08-30\nkeywords: [\"array\", \"hash\"]\n---",
+        "",
+        "会点亮首页当月的小方块。同一天更新越多，颜色越深。\n\n## 首页三个开关\n\n| 文件 | 作用 |\n| --- | --- |\n|",
+        "| 主页名字、角色、简介 |\n|",
+        "| 滚动时间线 |\n|",
+        "| Plan / Roadmap |\n\n## 下一步\n\n1. 改掉"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/system-design",
+    "title": "系统设计",
+    "titleEn": "System Design",
+    "description": "估算、拆服务、数据模型、瓶颈与权衡。",
+    "content": "## 开口框架\n\n## 想覆盖的题\n\n* URL Shortener\n* News Feed\n* Chat\n* Rate Limiter\n* Drive / 文件存储\n\n每做完一题，在本页下面加一节：需求、容量、架构图、权衡。\n",
+    "_searchMeta": {
+      "cleanContent": "开口框架 想覆盖的题 url shortener news feed chat rate limiter drive 文件存储 每做完一题 在本页下面加一节 需求 容量 架构图 权衡",
+      "headings": [
+        "开口框架",
+        "想覆盖的题"
+      ],
+      "keywords": [
+        "system design",
+        "开口框架",
+        "想覆盖的题"
+      ]
+    }
+  },
+  {
+    "collection": "companies",
+    "slug": "/companies/overview",
+    "title": "投递总览",
+    "titleEn": "Applications Overview",
+    "description": "所有投递的一张表。每投一家公司，就新建一页并在这里加一行。",
+    "content": "复制 [记录模板](/companies/template)，新建 `contents/companies/<company>/index.mdx`，并在 `settings/companies.ts` 加上导航。\n\n## 看板\n\n| 公司 | 角色 | 状态 | 投递日 | 下一轮 |\n| --- | --- | --- | --- | --- |\n| — | — | 准备中 | 2026-08-30 | 先把简历定稿 |\n\n状态建议只用：`准备中` / `已投` / `OA` / `电面` / `Onsite` / `Offer` / `挂` / `放弃`。\n",
+    "_searchMeta": {
+      "cleanContent": "复制 记录模板 新建 contents companies company index mdx 并在 settings companies ts 加上导航 看板 公司 角色 状态 投递日 下一轮--- --- --- --- --- 准备中 2026-08-30 先把简历定稿 状态建议只用 准备中 已投 oa 电面 onsite offer 挂 放弃",
+      "headings": [
+        "看板"
+      ],
+      "keywords": [
+        "applications",
+        "看板",
+        "contents/companies/<company>/index.mdx",
+        "settings/companies.ts",
+        "准备中",
+        "已投",
+        "OA",
+        "电面",
+        "Onsite",
+        "Offer",
+        "挂",
+        "放弃"
+      ]
+    }
+  },
+  {
+    "collection": "companies",
+    "slug": "/companies/template",
+    "title": "记录模板",
+    "titleEn": "Entry Template",
+    "description": "新建公司页时直接复制这一篇。",
+    "content": "把文件夹改成公司名，例如 `contents/companies/stripe/index.mdx`。\n\n```md\n---\ntitle: Stripe\ntitleEn: Stripe\ndescription: New Grad SWE · 已投\ndate: 2026-09-01\nkeywords: [\"stripe\"]\n---\n```\n\n## 基本信息\n\n* 角色：\n* 地点 / 远程：\n* 渠道：内推 / 官网 / LinkedIn\n* JD 链接：\n* 投递日期：\n\n## 时间线\n\n| 日期 | 事件 | 笔记 |\n| --- | --- | --- |\n|  | 投递 |  |\n|  | OA |  |\n|  | 电面 |  |\n\n## 面试题\n\n把原题或回忆版写在这里，并链回笔记页。\n\n## 复盘\n\n* 表现好的地方\n* 卡住的地方\n* 下次改什么\n",
+    "_searchMeta": {
+      "cleanContent": "把文件夹改成公司名 例如 contents companies stripe index mdx 基本信息 角色 地点 远程 渠道 内推 官网 linkedin jd 链接 投递日期 时间线 日期 事件 笔记--- --- ---投递oa电面 面试题 把原题或回忆版写在这里 并链回笔记页 复盘 表现好的地方 卡住的地方 下次改什么",
+      "headings": [
+        "基本信息",
+        "时间线",
+        "面试题",
+        "复盘"
+      ],
+      "keywords": [
+        "template",
+        "基本信息",
+        "时间线",
+        "面试题",
+        "复盘",
+        "contents/companies/stripe/index.mdx",
+        "md\n---\ntitle: Stripe\ntitleEn: Stripe\ndescription: New Grad SWE · 已投\ndate: 2026-09-01\nkeywords: [\"stripe\"]\n---"
+      ]
+    }
+  },
+  {
+    "collection": "resume",
+    "slug": "/resume/about",
+    "title": "个人介绍",
+    "titleEn": "About",
+    "description": "给主页和面试官听的短介绍。改这里就行。",
+    "content": "把这段话改成你真正想让人记住的三件事：**你是谁、你做过什么、你现在找什么。**\n\n## 中文\n\n我是 Followb1ind1y，正在准备 2026 年的软件工程师职位。我把面试准备做成一套可追踪的笔记系统，而不是零散的文档。\n\n## English\n\nI'm Followb1ind1y, preparing for software engineer roles in 2026. This site is the system I use to track notes, applications, and review.\n\n## 现在在找\n\n* 方向：\n* 地点：\n* 时间窗口：2026 年底前\n",
+    "_searchMeta": {
+      "cleanContent": "把这段话改成你真正想让人记住的三件事 你是谁 你做过什么 你现在找什么 中文 我是 followb1ind1y 正在准备 2026 年的软件工程师职位 我把面试准备做成一套可追踪的笔记系统 而不是零散的文档 english i m followb1ind1y preparing for software engineer roles in 2026 this site is the system i use to track notes applications and review 现在在找 方向 地点 时间窗口 2026 年底前",
+      "headings": [
+        "中文",
+        "English",
+        "现在在找"
+      ],
+      "keywords": [
+        "about",
+        "中文",
+        "English",
+        "现在在找",
+        "你是谁、你做过什么、你现在找什么。"
+      ]
+    }
+  },
+  {
+    "collection": "resume",
+    "slug": "/resume/cv",
+    "title": "简历",
+    "titleEn": "Resume",
+    "description": "简历正文。建议同时保留一份 PDF 放在 public/。",
+    "content": "## 教育\n\n* 学校 / 专业 / 时间\n\n## 经历\n\n### 公司或项目名\n\n* 用动词开头的一行结果，带数字\n* 技术栈：\n\n## 项目\n\n### 项目名\n\n* 你解决了什么问题\n* 你做了哪一层（不要只写「参与」）\n\n## 技能\n\n* Languages:\n* Frameworks:\n* Infra:\n",
+    "_searchMeta": {
+      "cleanContent": "教育 学校 专业 时间 经历 公司或项目名 用动词开头的一行结果 带数字 技术栈 项目 项目名 你解决了什么问题 你做了哪一层 不要只写 参与 技能 languages: frameworks: infra:",
+      "headings": [
+        "教育",
+        "经历",
+        "项目",
+        "技能"
+      ],
+      "keywords": [
+        "resume",
+        "教育",
+        "经历",
+        "项目",
+        "技能"
+      ]
+    }
+  },
+  {
+    "collection": "resume",
+    "slug": "/resume/intro",
+    "title": "自我介绍稿",
+    "titleEn": "Self Introduction",
+    "description": "60 秒和 30 秒两个版本，开口前先读一遍。",
+    "content": "## 60 秒\n\n你好，我是 \\_\\_\\_。我最近在 \\_\\_\\_ 做 \\_\\_\\_，其中最能代表我的一段经历是 \\_\\_\\_（问题 → 你做了什么 → 结果）。我现在希望加入 \\_\\_\\_ 类型的团队，继续在 \\_\\_\\_ 方向上做事。\n\n## 30 秒\n\n我是 \\_\\_\\_，做过 \\_\\_\\_，擅长 \\_\\_\\_。这次想来聊聊 \\_\\_\\_ 这个角色，以及我怎么能在前 90 天帮上忙。\n\n## 英文 60s\n\nHi, I'm \\_\\_\\_. Recently at \\_\\_\\_ I worked on \\_\\_\\_. The most representative piece is \\_\\_\\_. I'm looking for \\_\\_\\_ roles where I can \\_\\_\\_.\n",
+    "_searchMeta": {
+      "cleanContent": "60 秒 你好 我是 我最近在 做 其中最能代表我的一段经历是 问题 你做了什么 结果 我现在希望加入 类型的团队 继续在 方向上做事 30 秒 我是 做过 擅长 这次想来聊聊 这个角色 以及我怎么能在前 90 天帮上忙 英文 60s hi i m recently at i worked on the most representative piece is i m looking for roles where i can",
+      "headings": [
+        "60 秒",
+        "30 秒",
+        "英文 60s"
+      ],
+      "keywords": [
+        "intro",
+        "60 秒",
+        "30 秒",
+        "英文 60s"
+      ]
+    }
+  }
+]

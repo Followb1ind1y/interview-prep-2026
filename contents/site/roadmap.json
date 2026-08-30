@@ -1,0 +1,42 @@
+[
+  {
+    "id": "foundation",
+    "phase": { "zh": "01 基础夯实", "en": "01 Foundation" },
+    "time": { "zh": "现在 — 10 月", "en": "Now — Oct" },
+    "status": "doing",
+    "items": {
+      "zh": ["LeetCode 热门 100 / Blind 75", "JavaScript 与 React 核心", "操作系统 / 网络 / 数据库复习"],
+      "en": ["LeetCode Top 100 / Blind 75", "JavaScript & React core", "OS / Networking / Database review"]
+    }
+  },
+  {
+    "id": "system-design",
+    "phase": { "zh": "02 系统设计", "en": "02 System Design" },
+    "time": { "zh": "10 月 — 11 月", "en": "Oct — Nov" },
+    "status": "todo",
+    "items": {
+      "zh": ["高频系统设计题拆解", "自己的项目架构复盘", "画图 + 口头表达练习"],
+      "en": ["High-frequency system design breakdowns", "Architecture recap of personal projects", "Diagramming and verbal walkthroughs"]
+    }
+  },
+  {
+    "id": "applications",
+    "phase": { "zh": "03 投递冲刺", "en": "03 Applications" },
+    "time": { "zh": "11 月 — 12 月", "en": "Nov — Dec" },
+    "status": "todo",
+    "items": {
+      "zh": ["简历定稿与针对性改写", "行为面试 STAR 故事库", "Mock interview 与复盘"],
+      "en": ["Resume freeze and targeted rewrites", "STAR story bank", "Mocks and post-mortems"]
+    }
+  },
+  {
+    "id": "close",
+    "phase": { "zh": "04 Offer 收官", "en": "04 Close" },
+    "time": { "zh": "12 月", "en": "Dec" },
+    "status": "todo",
+    "items": {
+      "zh": ["Onsite 清单", "谈薪与对比", "2026 年终复盘"],
+      "en": ["Onsite checklist", "Offers and negotiation", "Year-end retrospective"]
+    }
+  }
+]

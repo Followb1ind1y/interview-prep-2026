@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#fafafa"/>
+  <rect x="80" y="215" width="72" height="72" rx="18" fill="#171717"/>
+  <path d="M116 228.4L119.5 246.05L137.2 252L119.5 257.95L116 275.6L112.5 257.95L94.8 252L112.5 246.05L116 228.4Z" fill="#fafafa"/>
+  <path d="M116 241.2L127.8 252L116 262.8L104.2 252L116 241.2Z" fill="#171717"/>
+  <text x="176" y="248" font-family="ui-sans-serif, system-ui, sans-serif" font-size="42" font-weight="600" fill="#171717">Å Polaris</text>
+  <text x="176" y="288" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22" fill="#737373">Interview Prep 2026</text>
+</svg>

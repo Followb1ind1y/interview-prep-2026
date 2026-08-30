@@ -1,0 +1,41 @@
+---
+title: 数组与哈希
+titleEn: Arrays & Hashing
+description: 双指针、滑动窗口、前缀和、哈希表。
+descriptionEn: Two pointers, sliding window, prefix sums, hash maps.
+date: 2026-08-30
+keywords: ["array", "hash", "two pointers"]
+---
+
+## 模式
+
+- 哈希表做 **O(1) 查找 / 计数**
+- 左右指针处理有序数组
+- 滑动窗口维护区间约束
+- 前缀和把区间询问变成两次前缀相减
+
+## 骨架
+
+```ts
+function twoSum(nums: number[], target: number) {
+  const seen = new Map<number, number>()
+  for (let i = 0; i < nums.length; i++) {
+    const need = target - nums[i]
+    if (seen.has(need)) return [seen.get(need)!, i]
+    seen.set(nums[i], i)
+  }
+}
+```
+
+## 代表题
+
+| 题 | 模式 | 状态 |
+| --- | --- | --- |
+| Two Sum | Hash | 待刷 |
+| Valid Anagram | Count | 待刷 |
+| Product of Array Except Self | Prefix | 待刷 |
+| Longest Consecutive Sequence | Hash set | 待刷 |
+
+## 复盘
+
+把做错的题和「当时卡在哪」写在这里。
