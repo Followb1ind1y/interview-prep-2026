@@ -14,8 +14,8 @@ const normalizeChart = (input?: string): string => {
   return input
     .replace(/\r/g, '')
     .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
+    .map((line) => line.replace(/\s+$/, ''))
+    .filter((line) => line.trim().length > 0)
     .join('\n')
 }
 

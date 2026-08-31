@@ -1,6 +1,8 @@
+import { CompaniesOverview, CompaniesTemplate } from '@/components/companies/pages'
 import { Card, CardGrid } from '@/components/markdown/card'
 import { FileTree } from '@/components/markdown/filetree'
 import { File, Folder } from '@/components/markdown/filetree/component'
+import { Locale } from '@/components/markdown/locale'
 import { Route } from '@/components/markdown/link'
 import { Mermaid } from '@/components/markdown/mermaid'
 import { Note } from '@/components/markdown/note'
@@ -13,9 +15,12 @@ export const components = {
   a: Route,
   Card,
   CardGrid,
+  CompaniesOverview,
+  CompaniesTemplate,
   FileTree,
   Folder,
   File,
+  Locale,
   Mermaid,
   Note,
   pre: Pre,

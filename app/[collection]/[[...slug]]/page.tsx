@@ -1,15 +1,16 @@
 import { notFound } from 'next/navigation'
 
 import { ArticleBreadcrumb } from '@/components/article/breadcrumb'
+import { DocumentHeading } from '@/components/article/heading'
 import { Pagination } from '@/components/article/pagination'
 import { TableOfContents } from '@/components/toc'
 import { Separator } from '@/components/ui/separator'
 import { Typography } from '@/components/ui/typography'
 import { isCollectionId } from '@/lib/collections'
+import { companiesPageTocs } from '@/lib/companies-data'
 import { getDocument } from '@/lib/markdown'
 import { AllPageRoutes } from '@/lib/pageroutes'
 import { Settings } from '@/types/settings'
-import { DocumentHeading } from '@/components/article/heading'
 
 interface PageProps {
   params: Promise<{ collection: string; slug?: string[] }>
@@ -23,8 +24,12 @@ export default async function CollectionPage({ params }: PageProps) {
   const res = await getDocument(collection, pathName)
   if (!res) notFound()
 
-  const { frontmatter, content, tocs } = res
+  const { frontmatter, content } = res
   const isProfile = collection === 'resume'
+  const tocs =
+    collection === 'companies' && companiesPageTocs[pathName]
+      ? companiesPageTocs[pathName]
+      : res.tocs
 
   if (isProfile) return content
 

@@ -9,6 +9,7 @@ import { type Node, type Parent } from 'unist'
 import { visit } from 'unist-util-visit'
 
 import { COLLECTION_IDS, Collections, type CollectionId } from '@/lib/collections'
+import { companiesPageTocs, companiesSearchText } from '@/lib/companies-data'
 import { isRoute, type Paths } from '@/lib/paths'
 import { type SearchDocument } from '@/lib/search-types'
 
@@ -69,6 +70,9 @@ function removeCustomComponents() {
     'FileTree',
     'Folder',
     'File',
+    'Locale',
+    'CompaniesOverview',
+    'CompaniesTemplate',
     'ResumeAbout',
     'ResumeCV',
   ]
@@ -154,9 +158,13 @@ async function processMdxFile(collection: CollectionId, filePath: string): Promi
     .use(remarkStringify)
     .process(content)
 
-  const documentContent = String(processed.value)
-  const headings =
-    documentContent.match(/^##\s+(.+)$/gm)?.map((h) => h.replace(/^##\s+/, '').trim()) || []
+  const slug = createSlug(collectionDir, filePath)
+  const pageSlug = slug.replace(/^\//, '')
+  const companiesBody = collection === 'companies' ? companiesSearchText(pageSlug) : ''
+  const documentContent = companiesBody || String(processed.value)
+  const headings = companiesBody
+    ? (companiesPageTocs[pageSlug] ?? []).map((item) => item.text.zh)
+    : documentContent.match(/^##\s+(.+)$/gm)?.map((h) => h.replace(/^##\s+/, '').trim()) || []
 
   const extractedKeywords = new Set([
     ...(frontmatter.keywords || []),
@@ -165,7 +173,6 @@ async function processMdxFile(collection: CollectionId, filePath: string): Promi
     ...(documentContent.match(/`([^`]+)`/g) || []).map((m) => m.replace(/`/g, '').trim()),
   ])
 
-  const slug = createSlug(collectionDir, filePath)
   const matchedDoc = findDocumentBySlug(Collections[collection].routes, slug)
 
   return {
