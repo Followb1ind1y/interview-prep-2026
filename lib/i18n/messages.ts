@@ -51,6 +51,7 @@ export const messages = {
       edit: '编辑此页',
       menu: '目录',
       pageNav: '页面导航',
+      backToTop: '回到顶部',
     },
     common: {
       home: '首页',
@@ -111,6 +112,7 @@ export const messages = {
       edit: 'Edit this page',
       menu: 'Menu',
       pageNav: 'Page navigation',
+      backToTop: 'Scroll to top',
     },
     common: {
       home: 'Home',

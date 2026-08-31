@@ -1,0 +1,51 @@
+---
+description: Keep UI aligned with the Vercel Documents template and this site's zinc docs aesthetic. Use when changing layout, pages, components, styles, or adding UI.
+globs: app/**/*.{tsx,ts,css},components/**/*.{tsx,ts},styles/**/*.css,providers/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Documents UI Standard
+
+This app is based on [Documents: Simple Next.js Documentation](https://vercel.com/templates/next.js/documents-simple-next-js-documentation) (rubix-documents). Preserve that docs-site look. Do not invent a new visual language.
+
+Before changing UI, load the project `shadcn` skill (`.agents/skills/shadcn` / `.cursor/skills/shadcn`) and reuse existing primitives.
+
+## Layout shells (do not collapse)
+
+| Route | Shell |
+| --- | --- |
+| `/` | Centered sections under root Navbar/Footer — no sidebar/TOC |
+| `/docs/*`, `/companies/*` | Left Sidebar + article + right TOC (`xl+`) |
+| `/resume/*` | Wide centered editorial page — no sidebar/TOC |
+
+Root chrome: `Navbar` + `main.px-5.sm:px-8` + `Footer` in `app/layout.tsx`.
+
+## Visual tokens
+
+- Theme source: `styles/globals.css` (zinc / oklch semantic tokens). Default theme is **light**.
+- Colors: only semantic classes — `bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`, `bg-muted`, `bg-accent`. No `gray-*` / ad-hoc hex for chrome.
+- Type: Inter + Noto Sans SC. Prefer `font-semibold` + `tracking-tight` for titles; avoid `font-bold` unless matching an existing control.
+- Density: docs use `gap-10`, sticky `top-26`; home kickers use `text-xs tracking-[0.22em] text-muted-foreground uppercase`.
+- Surfaces: prefer borders/dividers over shadows. Cards (`rounded-xl border bg-card`) only where home heatmap/roadmap already use them — not in docs article body by default.
+- Controls: use `@/components/ui/*` and `buttonVariants`. Add via `npx shadcn@latest add …`, do not hand-roll duplicates.
+
+## Canonical files to match
+
+1. `styles/globals.css`
+2. `components/navigation/navbar.tsx`, `footer.tsx`, `logo.tsx`
+3. `components/ui/button.tsx`
+4. `app/[collection]/layout.tsx`, `app/[collection]/[[...slug]]/page.tsx`
+5. `components/article/*`, `components/sidebar/*`, `components/toc/*`
+6. Home-only: `components/home/*` — resume-only: `components/resume/*`
+
+## Anti-patterns
+
+- Purple/indigo gradients, glow, glassmorphism, cream+terracotta, broadsheet newspaper layouts
+- Replacing docs three-column shell with dashboards/card grids
+- Raw `<button>` / `<input>` when shadcn equivalents exist
+- Nested card stacks, pill clusters, stat strips on docs pages
+- Mixing resume editorial layout into docs, or docs sidebar into home/resume
+
+## When asked to "improve UI"
+
+Extend the current shell and tokens. Match spacing/typography of the nearest sibling page. Ask before changing global theme, fonts, or layout architecture.

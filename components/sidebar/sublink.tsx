@@ -42,7 +42,7 @@ export function SubLink(props: Paths & { isSheet: boolean; level: number }) {
       Comp
     )
   ) : (
-    <h2 className="font-bold text-primary sm:text-sm">{label}</h2>
+    <h2 className="font-semibold text-primary sm:text-sm">{label}</h2>
   )
 
   if (!items) {

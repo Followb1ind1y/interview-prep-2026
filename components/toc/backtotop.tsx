@@ -3,6 +3,8 @@
 import { type ReactElement, useEffect, useRef } from 'react'
 import { LuArrowUp } from 'react-icons/lu'
 
+import { useI18n } from '@/lib/i18n/provider'
+
 function ScrollToTop() {
   if (typeof window !== 'undefined') {
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -10,6 +12,7 @@ function ScrollToTop() {
 }
 
 export function BackToTop(): ReactElement {
+  const { m } = useI18n()
   const ref = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -28,15 +31,15 @@ export function BackToTop(): ReactElement {
 
   return (
     <button
-      aria-label="Scroll to top"
+      aria-label={m.docs.backToTop}
       className="mt-2 ml-2 flex cursor-pointer items-center self-start text-sm text-foreground opacity-0 transition"
       onClick={ScrollToTop}
       ref={ref}
-      title="Scroll to top"
+      title={m.docs.backToTop}
       type="button"
     >
       <LuArrowUp className="mr-1 inline-block h-4 w-4 align-middle" />
-      <span>Scroll to top</span>
+      <span>{m.docs.backToTop}</span>
     </button>
   )
 }

@@ -40,6 +40,15 @@ npm run dev
 
 Logo 是三阶上升台阶：表示面试准备按阶段推进。
 
+## Agent / UI 约定
+
+改 UI 时请遵循：
+
+1. **模版**：保持 [Documents](https://vercel.com/templates/next.js/documents-simple-next-js-documentation) 文档站排版（docs/companies 左栏+文章+右 TOC；首页无侧栏；resume 独立宽版）
+2. **Skill**：项目已安装 shadcn skill（`.agents/skills/shadcn`）；装组件用 `npx shadcn@latest add …`
+3. **规则**：`.cursor/rules/documents-ui.mdc`（改 `app/` / `components/` / `styles/` 时自动生效）
+
+提示词可写：`按 Documents 模版和 documents-ui 规则改，先对照现有布局与 shadcn skill，不要换视觉语言。`
 
 颜色深浅由「当天有多少条带 `date` 的更新」决定：
 

@@ -241,7 +241,8 @@ span.katex-html {
   @apply font-normal;
   @apply tracking-wider;
   @apply font-medium;
-  font-family: var(--font-code) !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace !important;
 }
 
 .CollapsibleContent {

@@ -28,7 +28,7 @@ export function PageMenu({ isSheet = false }) {
         return (
           <div key={`${item.href}-${index}`}>
             {item.heading && (
-              <div className="mb-4 text-sm font-bold">{localize(item.heading, locale)}</div>
+              <div className="mb-4 text-sm font-semibold">{localize(item.heading, locale)}</div>
             )}
             <SubLink
               {...{

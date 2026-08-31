@@ -75,7 +75,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       lang={locale === 'zh' ? 'zh-CN' : 'en'}
       suppressHydrationWarning
     >
-      <body className="font-regular antialiased">
+      <body className="antialiased">
         <Providers locale={locale}>
           <Navbar />
           <main className="h-auto px-5 sm:px-8">{children}</main>
