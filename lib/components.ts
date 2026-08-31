@@ -5,6 +5,7 @@ import { Route } from '@/components/markdown/link'
 import { Mermaid } from '@/components/markdown/mermaid'
 import { Note } from '@/components/markdown/note'
 import { Step, StepItem } from '@/components/markdown/step'
+import { ResumeAbout, ResumeCV } from '@/components/resume/pages'
 import { Pre } from '@/components/ui/pre'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -18,6 +19,8 @@ export const components = {
   Mermaid,
   Note,
   pre: Pre,
+  ResumeAbout,
+  ResumeCV,
   Step,
   StepItem,
   Tabs,

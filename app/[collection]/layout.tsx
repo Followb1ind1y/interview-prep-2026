@@ -14,6 +14,10 @@ export default async function CollectionLayout({
   const { collection } = await params
   if (!isCollectionId(collection)) notFound()
 
+  if (collection === 'resume') {
+    return <div className="mx-auto w-full max-w-5xl pt-16 pb-28 sm:pt-24">{children}</div>
+  }
+
   return (
     <div className="flex items-start gap-10 pt-10">
       <Sidebar />

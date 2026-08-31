@@ -12,20 +12,22 @@ interface TableProps {
 }
 
 export function TableOfContents({ tocs, pathName, frontmatter, collection }: TableProps) {
+  const showFeedback = Settings.feedback && collection !== 'resume'
+  const showToc = Settings.toc && collection !== 'resume'
+
+  if (!Settings.rightbar) return null
+  if (!showToc && !showFeedback && !Settings.totop) return null
+
   return (
-    <>
-      {Settings.rightbar && (
-        <aside
-          aria-label="Table of contents"
-          className="toc sticky top-26 hidden h-screen min-w-57.5 gap-3 xl:flex xl:flex-col"
-        >
-          {Settings.toc && <TableAnchor tocs={tocs.tocs} />}
-          {Settings.feedback && (
-            <Feedback collection={collection} slug={pathName} title={frontmatter.title} />
-          )}
-          {Settings.totop && <BackToTop />}
-        </aside>
+    <aside
+      aria-label="Table of contents"
+      className="toc sticky top-26 hidden h-screen min-w-57.5 gap-3 xl:flex xl:flex-col"
+    >
+      {showToc && <TableAnchor tocs={tocs.tocs} />}
+      {showFeedback && (
+        <Feedback collection={collection} slug={pathName} title={frontmatter.title} />
       )}
-    </>
+      {Settings.totop && <BackToTop />}
+    </aside>
   )
 }

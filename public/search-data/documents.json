@@ -364,21 +364,15 @@
     "slug": "/resume/about",
     "title": "个人介绍",
     "titleEn": "About",
-    "description": "给主页和面试官听的短介绍。改这里就行。",
-    "content": "把这段话改成你真正想让人记住的三件事：**你是谁、你做过什么、你现在找什么。**\n\n## 中文\n\n我是 Followb1ind1y，正在准备 2026 年的软件工程师职位。我把面试准备做成一套可追踪的笔记系统，而不是零散的文档。\n\n## English\n\nI'm Followb1ind1y, preparing for software engineer roles in 2026. This site is the system I use to track notes, applications, and review.\n\n## 现在在找\n\n* 方向：\n* 地点：\n* 时间窗口：2026 年底前\n",
+    "description": "沈泽人 · LLM Engineer @ Unilever Horizon3 AI Labs",
+    "content": "",
     "_searchMeta": {
-      "cleanContent": "把这段话改成你真正想让人记住的三件事 你是谁 你做过什么 你现在找什么 中文 我是 followb1ind1y 正在准备 2026 年的软件工程师职位 我把面试准备做成一套可追踪的笔记系统 而不是零散的文档 english i m followb1ind1y preparing for software engineer roles in 2026 this site is the system i use to track notes applications and review 现在在找 方向 地点 时间窗口 2026 年底前",
-      "headings": [
-        "中文",
-        "English",
-        "现在在找"
-      ],
+      "cleanContent": "",
+      "headings": [],
       "keywords": [
         "about",
-        "中文",
-        "English",
-        "现在在找",
-        "你是谁、你做过什么、你现在找什么。"
+        "zeren",
+        "llm"
       ]
     }
   },
@@ -387,44 +381,14 @@
     "slug": "/resume/cv",
     "title": "简历",
     "titleEn": "Resume",
-    "description": "简历正文。建议同时保留一份 PDF 放在 public/。",
-    "content": "## 教育\n\n* 学校 / 专业 / 时间\n\n## 经历\n\n### 公司或项目名\n\n* 用动词开头的一行结果，带数字\n* 技术栈：\n\n## 项目\n\n### 项目名\n\n* 你解决了什么问题\n* 你做了哪一层（不要只写「参与」）\n\n## 技能\n\n* Languages:\n* Frameworks:\n* Infra:\n",
+    "description": "经历、教育与技能。可下载 PDF。",
+    "content": "",
     "_searchMeta": {
-      "cleanContent": "教育 学校 专业 时间 经历 公司或项目名 用动词开头的一行结果 带数字 技术栈 项目 项目名 你解决了什么问题 你做了哪一层 不要只写 参与 技能 languages: frameworks: infra:",
-      "headings": [
-        "教育",
-        "经历",
-        "项目",
-        "技能"
-      ],
+      "cleanContent": "",
+      "headings": [],
       "keywords": [
         "resume",
-        "教育",
-        "经历",
-        "项目",
-        "技能"
-      ]
-    }
-  },
-  {
-    "collection": "resume",
-    "slug": "/resume/intro",
-    "title": "自我介绍稿",
-    "titleEn": "Self Introduction",
-    "description": "60 秒和 30 秒两个版本，开口前先读一遍。",
-    "content": "## 60 秒\n\n你好，我是 \\_\\_\\_。我最近在 \\_\\_\\_ 做 \\_\\_\\_，其中最能代表我的一段经历是 \\_\\_\\_（问题 → 你做了什么 → 结果）。我现在希望加入 \\_\\_\\_ 类型的团队，继续在 \\_\\_\\_ 方向上做事。\n\n## 30 秒\n\n我是 \\_\\_\\_，做过 \\_\\_\\_，擅长 \\_\\_\\_。这次想来聊聊 \\_\\_\\_ 这个角色，以及我怎么能在前 90 天帮上忙。\n\n## 英文 60s\n\nHi, I'm \\_\\_\\_. Recently at \\_\\_\\_ I worked on \\_\\_\\_. The most representative piece is \\_\\_\\_. I'm looking for \\_\\_\\_ roles where I can \\_\\_\\_.\n",
-    "_searchMeta": {
-      "cleanContent": "60 秒 你好 我是 我最近在 做 其中最能代表我的一段经历是 问题 你做了什么 结果 我现在希望加入 类型的团队 继续在 方向上做事 30 秒 我是 做过 擅长 这次想来聊聊 这个角色 以及我怎么能在前 90 天帮上忙 英文 60s hi i m recently at i worked on the most representative piece is i m looking for roles where i can",
-      "headings": [
-        "60 秒",
-        "30 秒",
-        "英文 60s"
-      ],
-      "keywords": [
-        "intro",
-        "60 秒",
-        "30 秒",
-        "英文 60s"
+        "cv"
       ]
     }
   }

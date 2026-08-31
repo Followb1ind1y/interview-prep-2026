@@ -1,11 +1,11 @@
 {
-  "name": { "zh": "Followb1ind1y", "en": "Followb1ind1y" },
+  "name": { "zh": "沈泽人", "en": "Zeren Shen" },
   "role": {
-    "zh": "软件工程师 · 2026 求职",
-    "en": "Software Engineer · 2026 Job Search"
+    "zh": "LLM Engineer @ Unilever Horizon3 AI Labs",
+    "en": "LLM Engineer @ Unilever Horizon3 AI Labs"
   },
   "bio": {
-    "zh": "这里是我的面试准备手册：一份只给自己用的知识库。每天把学过的算法、系统设计、行为面试和投递进展写成 Markdown，网站会自动跟上。目标很明确——在 2026 年底前，把准备做成可追踪、可复习的系统。",
-    "en": "This is my interview prep handbook: a private knowledge base. Each day I capture algorithms, system design, behavioral notes, and applications in Markdown, and the site stays in sync. The aim is simple — turn prep into a system I can track and review before the end of 2026."
+    "zh": "我在 Unilever Horizon3 AI Labs 做生产级 Generative AI 与多智能体系统，覆盖编排、检索、工具调用、评估与部署。这里是我的面试准备手册：用 Markdown 记录笔记、投递与复习进度。",
+    "en": "I build production-grade Generative AI and agentic systems at Unilever Horizon3 AI Labs — orchestration, retrieval, tool calling, evaluation, and deployment. This site is my interview prep handbook: notes, applications, and review progress in Markdown."
   }
 }

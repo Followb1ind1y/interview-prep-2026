@@ -69,6 +69,8 @@ function removeCustomComponents() {
     'FileTree',
     'Folder',
     'File',
+    'ResumeAbout',
+    'ResumeCV',
   ]
 
   return (tree: Node) => {

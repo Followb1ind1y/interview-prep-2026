@@ -24,6 +24,9 @@ export default async function CollectionPage({ params }: PageProps) {
   if (!res) notFound()
 
   const { frontmatter, content, tocs } = res
+  const isProfile = collection === 'resume'
+
+  if (isProfile) return content
 
   return (
     <div className="flex items-start gap-10">
