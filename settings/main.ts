@@ -4,20 +4,19 @@ export const siteicon = '/icon.svg'
 export const gtm = ''
 export const gtmconnected = false
 
-export const sitename = '北极星 Polaris'
+export const sitename = 'Followblindly'
 export const description =
-  '北极星是一份面向 2026 的个人面试准备手册：用 Markdown 记录笔记、投递与简历，站点会随内容一起更新。'
+  'Followblindly is a personal interview prep handbook for 2026: notes, applications, and resume stay in Markdown, and the site stays in sync.'
 export const keywords = [
   'interview',
   '面试',
-  'Polaris',
-  '北极星',
+  'Followblindly',
   '2026',
   'software engineer',
   'job search',
 ]
 export const urlimage = '/images/og-image.svg'
-export const imagealt = '北极星 Polaris — Interview Prep 2026'
+export const imagealt = 'Followblindly — Interview Prep 2026'
 export const twitterhandle = '@Followb1ind1y'
 
 export const companyname = 'Followb1ind1y'

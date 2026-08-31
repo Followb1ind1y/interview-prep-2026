@@ -3,9 +3,9 @@ import { type Locale } from '@/lib/i18n/types'
 export const messages = {
   zh: {
     brand: {
-      name: '北极星',
-      english: 'Polaris',
-      tagline: '照亮 2026 面试之路',
+      name: 'Followblindly',
+      english: 'Followblindly',
+      tagline: '2026 面试准备手册',
     },
     nav: {
       docs: '笔记',
@@ -63,9 +63,9 @@ export const messages = {
   },
   en: {
     brand: {
-      name: 'Polaris',
-      english: '北极星',
-      tagline: 'A north star for the 2026 interview path',
+      name: 'Followblindly',
+      english: 'Followblindly',
+      tagline: 'Interview prep handbook for 2026',
     },
     nav: {
       docs: 'Docs',

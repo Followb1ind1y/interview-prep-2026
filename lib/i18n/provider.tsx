@@ -5,7 +5,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 import { messages, type Messages } from '@/lib/i18n/messages'
 import { defaultLocale, isLocale, type Locale } from '@/lib/i18n/types'
 
-const STORAGE_KEY = 'polaris-locale'
+const STORAGE_KEY = 'followblindly-locale'
 
 interface I18nContextValue {
   locale: Locale

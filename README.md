@@ -1,4 +1,4 @@
-# 北极星 Polaris
+# Followblindly
 
 面向 2026 的个人面试准备站。基于 [Documents](https://vercel.com/templates/next.js/documents-simple-next-js-documentation) 模版改造：用 Markdown 记笔记，网站自己更新。
 
@@ -38,6 +38,12 @@ npm run dev
 | `/companies/*` | 投递记录 |
 | `/resume/*` | 简历与自我介绍 |
 
-## 品牌
+Logo 是三阶上升台阶：表示面试准备按阶段推进。
 
-**北极星 / Polaris**：用来给 2026 求职指路的那颗星。Logo 是一枚北十字星。
+
+颜色深浅由「当天有多少条带 `date` 的更新」决定：
+
+- 每个 `contents/docs|companies|resume/**/index.mdx` 的 frontmatter `date`
+- 加上 `contents/site/timeline.json` 里的条目
+
+同一天每多 1 条，计数 +1。映射为：0 → 空，1 → 浅，2 → 中，3–4 → 深，≥5 → 最深。
