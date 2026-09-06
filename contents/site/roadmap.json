@@ -2,41 +2,73 @@
   {
     "id": "positioning",
     "phase": { "zh": "01 定位与包装", "en": "01 Positioning" },
-    "time": { "zh": "现在", "en": "Now" },
+    "time": { "zh": "9 月 · Week 1", "en": "Sep · Week 1" },
     "status": "doing",
     "items": {
-      "zh": ["Target Job Profile 定稿", "Resume / LinkedIn / 30s–2min 开场", "Tier 1 项目卡片骨架"],
-      "en": ["Freeze the target job profile", "Resume / LinkedIn / 30s–2min intros", "Tier 1 project cards"]
+      "zh": [
+        "Target Profile：LLM / AI Engineer · Toronto / Remote · Mid-level",
+        "Resume / LinkedIn 与 30s–2min 开场对齐",
+        "Tier 1 三张项目卡骨架：Negotiation / Tariff / Voice"
+      ],
+      "en": [
+        "Target profile: LLM / AI Engineer · Toronto / Remote · Mid-level",
+        "Align Resume / LinkedIn with 30s–2min intros",
+        "Tier 1 cards: Negotiation / Tariff / Voice"
+      ]
     }
   },
   {
     "id": "technical",
-    "phase": { "zh": "02 技术与项目", "en": "02 Technical + Projects" },
-    "time": { "zh": "现在 — 10 月", "en": "Now — Oct" },
+    "phase": { "zh": "02 技术面试化", "en": "02 Technical" },
+    "time": { "zh": "9 月 — 10 月 · W2–W4", "en": "Sep — Oct · W2–W4" },
     "status": "todo",
     "items": {
-      "zh": ["LLM / RAG / Agent 口述", "LLM System Design 白板", "项目深挖 + 失败模式"],
-      "en": ["LLM / RAG / Agent walkthroughs", "LLM system design whiteboards", "Project deep dives and failure modes"]
+      "zh": [
+        "LLM：Transformer → Fine-tuning → Inference 口述",
+        "RAG / Agent 全图、失败模式、接到自己的项目",
+        "6 道 LLM System Design 白板"
+      ],
+      "en": [
+        "LLM walkthroughs: Transformer → Fine-tuning → Inference",
+        "RAG / Agent end-to-end plus failure modes, tied to your work",
+        "Six LLM system-design whiteboards"
+      ]
     }
   },
   {
-    "id": "coding-mock",
-    "phase": { "zh": "03 Coding 与 Mock", "en": "03 Coding + Mocks" },
-    "time": { "zh": "10 月 — 11 月", "en": "Oct — Nov" },
+    "id": "performance",
+    "phase": { "zh": "03 面试表现", "en": "03 Interview Performance" },
+    "time": { "zh": "10 月 · W5–W7", "en": "Oct · W5–W7" },
     "status": "todo",
     "items": {
-      "zh": ["20–30 道 Python 高频 + SQL", "STAR 与分层讲解", "Question → Answer → Feedback 闭环"],
-      "en": ["20–30 Python patterns + SQL", "STAR and layered explanations", "Question → Answer → Feedback loop"]
+      "zh": [
+        "Tier 1 深挖到可追问；抽出 10 个 STAR（含失败）",
+        "20–30 道 Python 高频 + SQL / AsyncIO 追问层",
+        "Mock：Question → Answer → Feedback → Improve"
+      ],
+      "en": [
+        "Tier 1 deep dives plus 10 STAR stories (including failure)",
+        "20–30 Python patterns, plus SQL / AsyncIO follow-ups",
+        "Mocks: Question → Answer → Feedback → Improve"
+      ]
     }
   },
   {
     "id": "applications",
     "phase": { "zh": "04 投递与面试", "en": "04 Apply + Interview" },
-    "time": { "zh": "Week 3 起", "en": "From week 3" },
+    "time": { "zh": "W3 起，W8 冲刺", "en": "From W3, sprint in W8" },
     "status": "todo",
     "items": {
-      "zh": ["高匹配投递", "面试后 20/20/30/30 配比", "缺口回填知识页"],
-      "en": ["High-match applications", "20/20/30/30 split after interviews land", "Feed gaps back into docs"]
+      "zh": [
+        "高匹配投递，不走海投",
+        "拿到面试后配比改为 20% 学习 / 20% Coding / 30% 项目 / 30% Mock",
+        "缺口回填专栏子页，不堆新 demo"
+      ],
+      "en": [
+        "High-match applications only",
+        "After interviews land: 20% study / 20% coding / 30% projects / 30% mocks",
+        "Feed gaps back into column pages — no new demos"
+      ]
     }
   }
 ]

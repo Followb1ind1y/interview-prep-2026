@@ -1,9 +1,17 @@
 [
   {
+    "date": "2026-09-06",
+    "title": { "zh": "定下 6 模块求职框架", "en": "Freeze the six-module prep frame" },
+    "description": {
+      "zh": "主投 LLM / AI Engineer。准备拆成定位、简历、项目、技术、编码、面试表现。Docs 改成专栏总览：知识点六列默认收起，项目深挖归面试表现。",
+      "en": "Primary target: LLM / AI Engineer. Prep splits into positioning, resume, projects, technical, coding, and interview performance. Docs are now collapsible columns; project deep dives sit under performance."
+    }
+  },
+  {
     "date": "2026-08-30",
     "title": { "zh": "初始化 Followblindly", "en": "Initialize Followblindly" },
     "description": {
-      "zh": "搭好个人面试站点：笔记、投递、简历三块内容，以及时间线、热力图与 2026 倒计时。",
+      "zh": "搭好个人面试站点：笔记、投递、简历三块，以及时间线、热力图与 2026 倒计时。",
       "en": "Stand up the personal prep site: docs, companies, resume, plus timeline, heatmap, and the 2026 countdown."
     }
   }
