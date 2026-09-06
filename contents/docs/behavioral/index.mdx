@@ -1,21 +1,54 @@
 ---
 title: 行为面试
 titleEn: Behavioral
-description: STAR 故事库。每条故事都能讲 2 分钟，也能压到 45 秒。
-descriptionEn: STAR stories that can run 2 minutes or compress to 45 seconds.
-date: 2026-08-30
-keywords: ["behavioral", "star"]
+description: 压力下能不能讲出来。STAR、分层讲解、Mock 闭环。
+descriptionEn: Performance under interview conditions — STAR, layered explanations, mocks.
+date: 2026-09-06
+keywords: ["behavioral", "star", "mock", "communication"]
 ---
 
-准备 8–10 个故事，覆盖：冲突、失败、领导力、模糊需求、技术判断、跨团队。
+懂和能在面试里讲出来是两件事。这里只放**可排练的答案**。项目架构细节回 [项目深挖](/docs/projects)；自我介绍排练稿在 [求职定位](/docs/positioning)。
+
+## 必练题
+
+- Tell me about yourself
+- Why are you leaving?
+- Why this company / this role?
+- Biggest achievement / failure?
+- Difficult technical decision?
+- Conflict with teammate?
+- Tight deadline?
+- Production incident?
+- A project that didn’t go well?
+
+## 技术表达
+
+同一件事准备两层，不要只用一层应付所有人：
+
+| 听众 | RAG 怎么讲 |
+| --- | --- |
+| 非技术 stakeholder | 先找相关材料，再让模型基于材料回答，并说明如何减少胡说 |
+| Senior ML engineer | chunk / embedding / hybrid / rerank / eval 与失败模式 |
+
+Agent、Eval、延迟优化同样准备「对外一分钟」和「对内五分钟」。
+
+## Mock
+
+目标闭环：**Question → Answer → Feedback → Improve → Repeat**
+
+不要停在：Question → 看答案 → 「哦我懂了」。
+
+每次 Mock 后：缺口写一行到 [学习日志](/docs/journal)，详细补丁写回对应知识页。
 
 ## 故事卡片
 
-### 示例：推动一次模糊需求落地
+准备 8–10 个故事，覆盖：冲突、失败、领导力、模糊需求、技术判断、跨团队。每条都能讲 2 分钟，也能压到 45 秒。
+
+### 模板
 
 - **S** 背景：谁、什么时候、为什么难
 - **T** 你的职责，不是「我们」
 - **A** 你做的 3 个具体动作
 - **R** 可量化结果 + 你学到什么
 
-把真实项目填进上面的结构。不要写得像年终总结。
+从 Tier 1 项目抽故事，不要另编一套与简历无关的经历。

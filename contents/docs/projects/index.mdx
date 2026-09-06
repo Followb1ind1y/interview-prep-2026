@@ -1,0 +1,72 @@
+---
+title: 项目深挖
+titleEn: Project Deep Dive
+description: 证明你做过。按 Tier 准备深度，不要每个项目同等用力。
+descriptionEn: Prove you built it. Depth follows tier — not every project gets the same prep.
+date: 2026-09-06
+keywords: ["projects", "deep dive", "tariff", "negotiation", "voice ai"]
+---
+
+简历上的 bullet 在 [CV](/resume/cv)。这里写面试官能追问的那一层。
+
+不要背项目介绍。准备的是 **Project Deep Dive**。
+
+## 投入分层
+
+**Tier 1**（5 min 架构 + 10 min 深挖，无稿）
+
+1. Negotiation Practice — 全栈实时 AI，可白板 30–45 分钟
+2. Tariff Agent — multi-agent flagship
+3. Voice AI — 延迟故事，1.2s e2e
+
+**Tier 2**（能讲清架构、贡献、一个权衡）
+
+4. PMI Logistics — NL → Analytics，必答「如何避免错 SQL」
+5. LLaMA Fine-tuning — QLoRA / DeepSpeed / vLLM，证明不只会调 API
+
+**Tier 3**（备问，不主动展开）
+
+6. Sustainability Agent
+7. Negotiation Expert
+
+不再花大量时间做新 demo。
+
+## 每张卡片必答
+
+| 维度 | 问题 |
+| --- | --- |
+| What | 你做了什么产品？ |
+| Why | 为什么要做？ |
+| Architecture | 数据怎么流？ |
+| Contribution | **你**具体做了哪几块？ |
+| Decisions | 为什么 Gemini / LangGraph / multi-agent，而不是 X？ |
+| Problems | 哪里坏过？ |
+| Trade-offs | 还考虑过什么方案？ |
+| Results | 延迟、准确、成本、规模 |
+| Reflection | 现在会怎么改？ |
+
+## 口述骨架（先填这三张）
+
+### Negotiation Practice
+
+生产级全栈：React + FastAPI + Gemini + WebSocket + MongoDB + JWT + streaming + voice/avatar + eval。对标 *Design a real-time AI negotiation platform.*
+
+### Tariff Agent
+
+```
+User → Supervisor → Tariff Expert / Impact Expert
+         → Research / Tavily / LangGraph
+         → BigQuery → Answer
+```
+
+必能答：为什么 multi-agent；ADK vs LangGraph；tool 怎么选、怎么可靠；Web search 与 BigQuery 如何组合；Eval 与 hallucination；最大 failure mode。
+
+### Voice AI
+
+```
+Audio → Chunking → Whisper → LLM → Streaming → TTS
+```
+
+量化锚点：**1.2s end-to-end**。准备：async、pipelining、batching、streaming、token / network / model latency。
+
+STAR 行为故事从这些项目抽，写在 [行为面试](/docs/behavioral)，这里不重复写冲突/失败的完整 STAR。

@@ -1,11 +1,13 @@
 ---
 title: 计算机基础
 titleEn: CS Fundamentals
-description: 操作系统、网络、数据库。只记会被追问的那一层。
-descriptionEn: OS, networking, databases — the layer interviewers actually probe.
-date: 2026-08-30
-keywords: ["os", "network", "database"]
+description: ML/SE 面试会追问的那一层：OS、网络、数据库、Python 工程。
+descriptionEn: The ML/SE layer interviewers probe — OS, networking, databases, Python engineering.
+date: 2026-09-06
+keywords: ["os", "network", "database", "python", "asyncio", "docker"]
 ---
+
+不系统重学。标准是：**面试官顺着工程细节往下问，你还能答。** SQL 题解写在 [SQL](/docs/algorithms/sql)。
 
 ## 操作系统
 
@@ -25,3 +27,12 @@ keywords: ["os", "network", "database"]
 - 索引为什么是 B+ 树
 - 事务隔离级别与幻读
 - 什么时候反范式
+
+## 工程追问
+
+结合 Voice AI / Negotiation Practice / FastAPI 服务来答，不要单独背名词。
+
+- Python：`dict` / `set` / `list` / heap / 生成器 / 装饰器
+- AsyncIO：concurrency vs parallelism、何时 multiprocessing、为什么 LLM 应用吃 I/O 并发
+- REST、鉴权、测试、Git
+- Docker、云上部署、基本的分布式与超时/重试

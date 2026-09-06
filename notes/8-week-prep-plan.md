@@ -1,19 +1,32 @@
 # LLM / AI Engineer — 8 周求职计划与方针
 
-> 状态：本地梳理稿（不上网站）。思路捋清后再手动同步到 Docs。  
+> 状态：本地周计划（细节、勾选）。站点主本是 Docs [准备手册](../contents/docs/overview/index.mdx)。  
 > 更新日期：2026-09-06
 
 ---
 
 ## 核心原则
 
-目标不是「重新学一遍 AI」，而是把已有 **3+ 年 AI/LLM 工程经验** 包装成能通过市场筛选、技术面试和 System Design 的候选人。
+目标不是「重新学一遍 AI」，而是把已有 **3+ 年 AI/LLM 工程经验** 转成 Interview Performance。
 
 每周约 **10–12 小时**（下班 + 周末）。
 
-核心优先级：
+不要把 70% 时间花在学习、只留 30% 给面试。默认：
 
-**Resume / LinkedIn → LLM fundamentals → Coding → LLM System Design → Project storytelling → Mock → 投递迭代**
+**30% 学习 + 30% 项目深挖 + 20% Coding + 20% Mock**
+
+拿到面试以后：**20% 学习 + 20% Coding + 30% Project/Design + 30% Mock**。
+
+### 每天只记 6 件事
+
+| # | 模块 | 核心问题 | 站点 |
+| --- | --- | --- | --- |
+| 1 | Positioning | 我应该找什么工作？ | Docs `positioning` |
+| 2 | Resume / Intro | 怎么让别人愿意见我？ | Resume + Docs 开场稿 |
+| 3 | Projects | 怎么证明我真的做过？ | Docs `projects` |
+| 4 | Technical | 我到底懂不懂？ | Docs `genai` + `system-design` |
+| 5 | Coding | 我能不能写代码？ | Docs `algorithms` + `sql` |
+| 6 | Interview | 我能不能在压力下表现出来？ | Docs `behavioral` |
 
 ### 最大优势 / 最大风险
 
@@ -432,43 +445,29 @@ Hash Map、Array、String、Stack/Queue、Binary Search、Sliding Window、Two P
 
 ---
 
-## 11. 知识库结构（以后再上网站）
+## 11. 知识库结构（已上站）
 
-先在本地按主题记笔记即可。以后同步到 Followblindly Docs 时，建议树：
+主本在网站，本地只留周计划和勾选。
 
 ```
 contents/docs/
-├── prep-plan/              ← 本计划上站时可放这里
-├── genai/
-│   ├── llm-fundamentals/
-│   ├── rag/
-│   ├── agents/
-│   ├── evaluation/
-│   ├── fine-tuning/
-│   ├── llm-system-design/
-│   └── production/
-├── algorithms/
-├── system-design/
-├── behavioral/             ← 项目 STAR
-├── cs-fundamentals/        ← 轻量
-└── journal/
+├── overview/               准备手册（6 模块 + 分区职责）
+├── positioning/            Target Job Profile + 开场稿
+├── projects/               Project Deep Dive
+├── genai/                  LLM / RAG / Agent
+├── system-design/          LLM SD 白板题
+├── algorithms/             Coding Interview（含 sql/）
+├── cs-fundamentals/        ML/SE 追问层
+├── frontend/               P2
+├── behavioral/             STAR + 分层讲解 + Mock
+└── journal/                一行索引
+
+contents/resume/            对外 About + CV
+contents/companies/         投递状态与轮次
+notes/                      本周计划；Inbox 不上站
 ```
 
-可选本地/Obsidian 对照结构：
-
-```
-Interview/
-├── 00-Job Search
-├── 01-LLM Fundamentals
-├── 02-RAG
-├── 03-Agent
-├── 04-System Design
-├── 05-Coding
-├── 06-Projects
-└── 07-Behavioral
-```
-
-原则：**不要变成知识收藏夹。** 每条必须能走到 “My answer”。
+原则：**不要变成知识收藏夹。** 每条必须能走到 “My answer”。同一事实只在一处写深。
 
 ---
 
@@ -552,4 +551,4 @@ Interview/
 ## 15. 一句话总结
 
 你现在最缺的不是项目，而是把现有项目**面试化**。  
-准备比例：**LLM + System Design 占一半**；Coding 够用即可；不要再堆新 demo。
+六个大模块已经够用，不要再往上加层。准备比例随阶段从「补知识」转到「Mock + 项目深挖」。

@@ -7,10 +7,26 @@ export const Documents: Paths[] = [
     href: '/overview',
   },
   {
+    title: { zh: '求职定位', en: 'Positioning' },
+    href: '/positioning',
+  },
+  {
     spacer: true,
   },
   {
-    heading: { zh: '知识库', en: 'Knowledge' },
+    heading: { zh: '面试准备', en: 'Interview Prep' },
+    title: { zh: '项目深挖', en: 'Projects' },
+    href: '/projects',
+  },
+  {
+    title: { zh: 'LLM / RAG / Agent', en: 'LLM / RAG / Agent' },
+    href: '/genai',
+  },
+  {
+    title: { zh: '系统设计', en: 'System Design' },
+    href: '/system-design',
+  },
+  {
     title: { zh: '算法', en: 'Algorithms' },
     href: '/algorithms',
     items: [
@@ -18,11 +34,12 @@ export const Documents: Paths[] = [
       { title: { zh: '链表', en: 'Linked Lists' }, href: '/linked-list' },
       { title: { zh: '树与图', en: 'Trees & Graphs' }, href: '/trees' },
       { title: { zh: '动态规划', en: 'Dynamic Programming' }, href: '/dp' },
+      { title: { zh: 'SQL', en: 'SQL' }, href: '/sql' },
     ],
   },
   {
-    title: { zh: '系统设计', en: 'System Design' },
-    href: '/system-design',
+    title: { zh: '计算机基础', en: 'CS Fundamentals' },
+    href: '/cs-fundamentals',
   },
   {
     title: { zh: '前端', en: 'Frontend' },
@@ -33,10 +50,10 @@ export const Documents: Paths[] = [
     ],
   },
   {
-    title: { zh: '计算机基础', en: 'CS Fundamentals' },
-    href: '/cs-fundamentals',
+    spacer: true,
   },
   {
+    heading: { zh: '面试表现', en: 'Performance' },
     title: { zh: '行为面试', en: 'Behavioral' },
     href: '/behavioral',
   },

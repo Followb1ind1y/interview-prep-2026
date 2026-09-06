@@ -1,0 +1,60 @@
+---
+title: LLM / RAG / Agent
+titleEn: LLM / RAG / Agent
+description: 技术知识主本。标准是能被追问，不是再上一遍课。
+descriptionEn: Technical knowledge home. Interview-depth, not another course.
+date: 2026-09-06
+keywords: ["llm", "rag", "agent", "inference", "evaluation"]
+---
+
+面试官随机点一个概念，你能 **1–2 分钟讲清**，并能接到自己的项目。
+
+每条笔记固定走完：
+
+```
+Concept → Why it matters → How it works → Trade-offs
+       → My project example → Interview questions → My answer
+```
+
+## LLM Fundamentals
+
+Transformer · Attention · Training · Fine-tuning · Inference
+
+- Self-attention / MHA / QKV / 位置编码 / Causal / Encoder vs Decoder
+- Pretraining → SFT → RLHF / DPO
+- LoRA / QLoRA / 量化 / DeepSpeed ZeRO / gradient checkpointing
+- KV cache、continuous batching、speculative decoding、vLLM / PagedAttention
+
+简历写了 Fine-tuning 和 vLLM，这两块必须经得起追问。
+
+## RAG
+
+Embedding · Retrieval · Reranking · Hybrid Search · Evaluation
+
+```
+Documents → Parsing → Chunking → Embedding → Vector DB
+         → Retriever → Reranker → Context → LLM → Answer
+```
+
+必会：BM25、dense、hybrid、RRF、metadata filter、query rewrite。项目锚点：**FAISS + BM25 + RRF**。
+
+## Agent
+
+Tool Calling · Planning · Memory · Multi-Agent · Reliability
+
+- Workflow = 预定义路径；Agent = 动态决策
+- Multi-agent 有用，是因为不同任务需要不同 tools / instructions / reasoning；代价是延迟、协调、更多失败模式
+- Failure modes：幻觉 tool call、错参、死循环、context pollution、部分失败
+- Reliability：schema、validation、retry、timeout、fallback、observability、DeepEval
+
+## System Design
+
+架构、规模、延迟、成本、可靠性、可观测。开口框架和题单在 [系统设计](/docs/system-design)。优先练：Production RAG、ChatGPT-like、Enterprise Agent、Voice AI、Eval Platform、Negotiation Practice。
+
+## ML / SE Fundamentals
+
+很多公司不会只问 LLM。不需要系统重学，但要经得起追问：
+
+Python · OOP · AsyncIO · REST · SQL / DB · Docker · Cloud · 并发 · 测试 · Git
+
+工程常识写在 [计算机基础](/docs/cs-fundamentals)。AsyncIO 结合 Voice AI / Negotiation Practice 讲，不要单独背定义。
