@@ -1,6 +1,151 @@
 [
   {
     "collection": "docs",
+    "slug": "/docs/agent",
+    "title": "Agent",
+    "titleEn": "Agent",
+    "description": "Tool calling 到 Multi-agent 可靠性。对标 Tariff Agent 与企业编排。",
+    "content": "这是主投 LLM Engineer 最该深挖的专栏。\n\n> Workflow = 预定义路径；Agent = 动态决策。Multi-agent 有用，是因为不同任务需要不同 tools / instructions / reasoning；代价是延迟、协调、更多失败模式。\n\n## 本专栏计划\n\n1. 讲清 Agent vs Workflow，用一个自己做过的反例\n2. Multi-agent：Tariff 的 Supervisor → Expert 为什么拆\n3. Failure modes 清单能背、能举例\n4. Reliability 接到 DeepEval 与线上回归\n",
+    "_searchMeta": {
+      "cleanContent": "这是主投 llm engineer 最该深挖的专栏 workflow 预定义路径 agent 动态决策 multi-agent 有用 是因为不同任务需要不同 tools instructions reasoning 代价是延迟 协调 更多失败模式 本专栏计划 讲清 agent vs workflow 用一个自己做过的反例 multi-agent tariff 的 supervisor expert 为什么拆 failure modes 清单能背 能举例 reliability 接到 deepeval 与线上回归",
+      "headings": [
+        "本专栏计划"
+      ],
+      "keywords": [
+        "agent",
+        "tool calling",
+        "multi-agent",
+        "langgraph",
+        "reliability",
+        "本专栏计划"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/agent/memory",
+    "title": "Memory",
+    "titleEn": "Memory",
+    "description": "会话记忆、长期记忆、context pollution。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "memory",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/agent/multi-agent",
+    "title": "Multi-Agent",
+    "titleEn": "Multi-Agent",
+    "description": "为什么拆、Supervisor、ADK vs LangGraph。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "multi-agent",
+        "langgraph",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/agent/planning",
+    "title": "Planning",
+    "titleEn": "Planning",
+    "description": "ReAct、planner、什么时候不要 plan。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "planning",
+        "react",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/agent/reliability",
+    "title": "Reliability",
+    "titleEn": "Reliability",
+    "description": "schema、timeout、fallback、Eval。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "reliability",
+        "guardrails",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/agent/tool-calling",
+    "title": "Tool Calling",
+    "titleEn": "Tool Calling",
+    "description": "选 tool、参数校验、失败重试。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "tool calling",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
     "slug": "/docs/algorithms/arrays",
     "title": "数组与哈希",
     "titleEn": "Arrays & Hashing",
@@ -52,17 +197,21 @@
     "slug": "/docs/algorithms",
     "title": "算法",
     "titleEn": "Algorithms",
-    "description": "面试算法的目录页。按题型记，而不是按题号记。",
-    "content": "按模式复习，比按题号刷更适合回看。每做完一类题，在对应页面补 **思路、模板、易错点、代表题**。\n\n## 记录模板\n\n每一类题建议固定四个小标题：\n\n1. **模式一句话**\n2. **代码骨架**\n3. **这周做过的题**\n4. **下次还要过的点**\n",
+    "description": "Coding Interview：Python 手感、高频模式。不是 300 道 Hard。",
+    "content": "目标是 **20–30 道高频 Medium**，能边写边讲。主线仍是 LLM 面试，这里只保持手感。\n\nSQL 在 [工程基础](/docs/engineering/sql)，不放在本专栏。\n\n按模式复习，比按题号刷更适合回看。每做完一类题，在对应页面补 **思路、模板、易错点、代表题**。\n\n## 记录模板\n\n每一类题建议固定四个小标题：\n\n1. **模式一句话**\n2. **代码骨架**\n3. **这周做过的题**\n4. **下次还要过的点**\n\n## 本专栏计划\n\nHash Map、Two Pointers、Sliding Window、Binary Search、Stack、Heap、BFS / DFS、Tree。Graph 基础即可。不刷 Hard。\n",
     "_searchMeta": {
-      "cleanContent": "按模式复习 比按题号刷更适合回看 每做完一类题 在对应页面补 思路 模板 易错点 代表题 记录模板 每一类题建议固定四个小标题 模式一句话 代码骨架 这周做过的题 下次还要过的点",
+      "cleanContent": "目标是 20 30 道高频 medium 能边写边讲 主线仍是 llm 面试 这里只保持手感 sql 在 工程基础 不放在本专栏 按模式复习 比按题号刷更适合回看 每做完一类题 在对应页面补 思路 模板 易错点 代表题 记录模板 每一类题建议固定四个小标题 模式一句话 代码骨架 这周做过的题 下次还要过的点 本专栏计划 hash map two pointers sliding window binary search stack heap bfs dfs tree graph 基础即可 不刷 hard",
       "headings": [
-        "记录模板"
+        "记录模板",
+        "本专栏计划"
       ],
       "keywords": [
         "algorithms",
         "leetcode",
+        "python",
         "记录模板",
+        "本专栏计划",
+        "20–30 道高频 Medium",
         "思路、模板、易错点、代表题",
         "模式一句话",
         "代码骨架",
@@ -116,20 +265,80 @@
   },
   {
     "collection": "docs",
+    "slug": "/docs/behavioral/communication",
+    "title": "技术表达",
+    "titleEn": "Communication",
+    "description": "同一件事准备两层：对业务，对 Senior ML。",
+    "content": "不要只用一层应付所有人。\n\n| 听众 | RAG 怎么讲 |\n| --- | --- |\n| 非技术 stakeholder | 先找相关材料，再让模型基于材料回答，并说明如何减少胡说 |\n| Senior ML engineer | chunk / embedding / hybrid / rerank / eval 与失败模式 |\n\n同样准备两层：Agent、Eval、延迟优化。\n\n## 练习\n\n* Explain RAG to a non-technical stakeholder.\n* Explain RAG to a senior ML engineer.\n* Explain multi-agent to a hiring manager.\n",
+    "_searchMeta": {
+      "cleanContent": "不要只用一层应付所有人 听众 rag 怎么讲--- ---非技术 stakeholder 先找相关材料 再让模型基于材料回答 并说明如何减少胡说senior ml engineer chunk embedding hybrid rerank eval 与失败模式 同样准备两层 agent eval 延迟优化 练习 explain rag to a non-technical stakeholder explain rag to a senior ml engineer explain multi-agent to a hiring manager",
+      "headings": [
+        "练习"
+      ],
+      "keywords": [
+        "communication",
+        "练习"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
     "slug": "/docs/behavioral",
     "title": "行为面试",
     "titleEn": "Behavioral",
-    "description": "STAR 故事库。每条故事都能讲 2 分钟，也能压到 45 秒。",
-    "content": "准备 8–10 个故事，覆盖：冲突、失败、领导力、模糊需求、技术判断、跨团队。\n\n## 故事卡片\n\n### 示例：推动一次模糊需求落地\n\n* **S** 背景：谁、什么时候、为什么难\n* **T** 你的职责，不是「我们」\n* **A** 你做的 3 个具体动作\n* **R** 可量化结果 + 你学到什么\n\n把真实项目填进上面的结构。不要写得像年终总结。\n",
+    "description": "压力下能不能讲出来。STAR、分层讲解、Mock 闭环。",
+    "content": "懂和能在面试里讲出来是两件事。项目架构在 [项目深挖](/docs/projects)；开场稿在 [求职定位](/docs/positioning)。\n\n## 必练题\n\n* Tell me about yourself\n* Why are you leaving?\n* Why this company / this role?\n* Biggest achievement / failure?\n* Difficult technical decision?\n* Conflict with teammate?\n* Tight deadline?\n* Production incident?\n* A project that didn’t go well?\n\n## 本专栏计划\n\n先从 Tier 1 项目抽出 10 个 STAR（必须含失败），再练同一概念的两层讲解，最后进入 Mock 闭环。\n",
     "_searchMeta": {
-      "cleanContent": "准备 8 10 个故事 覆盖 冲突 失败 领导力 模糊需求 技术判断 跨团队 故事卡片 示例 推动一次模糊需求落地 s 背景 谁 什么时候 为什么难 t 你的职责 不是 我们 a 你做的 3 个具体动作 r 可量化结果 你学到什么 把真实项目填进上面的结构 不要写得像年终总结",
+      "cleanContent": "懂和能在面试里讲出来是两件事 项目架构在 项目深挖 开场稿在 求职定位 必练题 tell me about yourself why are you leaving why this company this role biggest achievement failure difficult technical decision conflict with teammate tight deadline production incident a project that didn t go well 本专栏计划 先从 tier 1 项目抽出 10 个 star 必须含失败 再练同一概念的两层讲解 最后进入 mock 闭环",
       "headings": [
-        "故事卡片"
+        "必练题",
+        "本专栏计划"
       ],
       "keywords": [
         "behavioral",
         "star",
-        "故事卡片",
+        "mock",
+        "communication",
+        "必练题",
+        "本专栏计划"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/behavioral/mock",
+    "title": "Mock",
+    "titleEn": "Mock",
+    "description": "Question → Answer → Feedback → Improve → Repeat。",
+    "content": "不要停在：Question → 看答案 → 「哦我懂了」。\n\n覆盖：自我介绍 + 项目深挖、RAG/Agent 追问、LLM System Design、Coding、Behavioral（含 Failure）。\n\n每次 Mock 后：缺口写一行到 [学习日志](/docs/journal)，详细补丁写回对应知识页。\n\n## 记录\n\n| 日期 | 类型 | 暴露的缺口 | 回填到 |\n| --- | --- | --- | --- |\n|  |  |  |  |\n",
+    "_searchMeta": {
+      "cleanContent": "不要停在 question 看答案 哦我懂了 覆盖 自我介绍 项目深挖 rag agent 追问 llm system design coding behavioral 含 failure 每次 mock 后 缺口写一行到 学习日志 详细补丁写回对应知识页 记录 日期 类型 暴露的缺口 回填到--- --- --- ---",
+      "headings": [
+        "记录"
+      ],
+      "keywords": [
+        "mock",
+        "记录"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/behavioral/star",
+    "title": "STAR 故事",
+    "titleEn": "STAR",
+    "description": "8–10 个故事，覆盖冲突、失败、判断、跨团队。",
+    "content": "每条都能讲 2 分钟，也能压到 45 秒。从 Tier 1 项目抽，不要另编一套与简历无关的经历。\n\n面试官喜欢：*It didn’t work initially. Here’s how I diagnosed it.*\n\n## 模板\n\n* **S** 背景：谁、什么时候、为什么难\n* **T** 你的职责，不是「我们」\n* **A** 你做的 3 个具体动作\n* **R** 可量化结果 + 你学到什么\n\n## 故事清单\n\n| # | 主题 | 锚点项目 | 状态 |\n| --- | --- | --- | --- |\n| 1 | Latency optimization | Voice AI 1.2s | 待写 |\n| 2 | Architecture decision | Tariff：single → multi-agent | 待写 |\n| 3 | Production reliability | Negotiation streaming / WS | 待写 |\n| 4 | Evaluation | DeepEval | 待写 |\n| 5 | Technical challenge | RAG retrieval quality | 待写 |\n| 6 | Scaling | Fine-tuning multi-GPU | 待写 |\n| 7 | Model optimization | vLLM + PagedAttention | 待写 |\n| 8 | Cross-functional | Unilever 业务方 | 待写 |\n| 9 | Failure | 真实失败 + 诊断 | 待写 |\n| 10 | Most proud of | Negotiation 或 Enterprise Agent | 待写 |\n",
+    "_searchMeta": {
+      "cleanContent": "每条都能讲 2 分钟 也能压到 45 秒 从 tier 1 项目抽 不要另编一套与简历无关的经历 面试官喜欢 it didn t work initially here s how i diagnosed it 模板 s 背景 谁 什么时候 为什么难 t 你的职责 不是 我们 a 你做的 3 个具体动作 r 可量化结果 你学到什么 故事清单 主题 锚点项目 状态--- --- --- ---1 latency optimization voice ai 1 2s 待写2 architecture decision tariff single multi-agent 待写3 production reliability negotiation streaming ws 待写4 evaluation deepeval 待写5 technical challenge rag retrieval quality 待写6 scaling fine-tuning multi-gpu 待写7 model optimization vllm pagedattention 待写8 cross-functional unilever 业务方 待写9 failure 真实失败 诊断 待写10 most proud of negotiation 或 enterprise agent 待写",
+      "headings": [
+        "模板",
+        "故事清单"
+      ],
+      "keywords": [
+        "star",
+        "模板",
+        "故事清单",
         "S",
         "T",
         "A",
@@ -139,89 +348,201 @@
   },
   {
     "collection": "docs",
-    "slug": "/docs/cs-fundamentals",
-    "title": "计算机基础",
-    "titleEn": "CS Fundamentals",
-    "description": "操作系统、网络、数据库。只记会被追问的那一层。",
-    "content": "## 操作系统\n\n* 进程 vs 线程\n* 虚拟内存 / 缺页\n* 锁、死锁四个条件\n\n## 网络\n\n* TCP 三次握手 / 四次挥手，以及为什么\n* HTTP/1.1 vs HTTP/2 vs HTTP/3\n* HTTPS 证书链\n* 从输入 URL 到页面渲染\n\n## 数据库\n\n* 索引为什么是 B+ 树\n* 事务隔离级别与幻读\n* 什么时候反范式\n",
+    "slug": "/docs/engineering/cloud",
+    "title": "Docker / Cloud",
+    "titleEn": "Docker / Cloud",
+    "description": "镜像、GCP、怎么把 Agent 跑起来。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
     "_searchMeta": {
-      "cleanContent": "操作系统 进程 vs 线程 虚拟内存 缺页 锁 死锁四个条件 网络 tcp 三次握手 四次挥手 以及为什么 http 1 1 vs http 2 vs http 3 https 证书链 从输入 url 到页面渲染 数据库 索引为什么是 b 树 事务隔离级别与幻读 什么时候反范式",
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
       "headings": [
-        "操作系统",
-        "网络",
-        "数据库"
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
       ],
       "keywords": [
-        "os",
-        "network",
-        "database",
-        "操作系统",
-        "网络",
-        "数据库"
+        "docker",
+        "gcp",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
       ]
     }
   },
   {
     "collection": "docs",
-    "slug": "/docs/frontend",
-    "title": "前端",
-    "titleEn": "Frontend",
-    "description": "JavaScript 原理、React、浏览器与性能。",
-    "content": "也把项目里真正做过的性能优化、工程化决策写进来，面试官更吃「你自己踩过的坑」。\n",
+    "slug": "/docs/engineering/concurrency",
+    "title": "并发",
+    "titleEn": "Concurrency",
+    "description": "AsyncIO、GIL、何时 multiprocessing。接到 Voice AI。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
     "_searchMeta": {
-      "cleanContent": "也把项目里真正做过的性能优化 工程化决策写进来 面试官更吃 你自己踩过的坑",
-      "headings": [],
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
       "keywords": [
-        "frontend"
+        "asyncio",
+        "concurrency",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
       ]
     }
   },
   {
     "collection": "docs",
-    "slug": "/docs/frontend/javascript",
-    "title": "JavaScript",
-    "titleEn": "JavaScript",
-    "description": "闭包、事件循环、原型链、this、异步模型。",
-    "content": "## 必能讲清\n\n* 事件循环：macro / micro、async 到 Promise 的路径\n* 闭包：不是背定义，而是「谁还引用着这块内存」\n* 原型：`__proto__` vs `prototype`\n* `this` 四条绑定规则\n\n## 手写清单\n\n* `debounce` / `throttle`\n* `Promise.all`\n* 深拷贝（循环引用）\n* 发布订阅\n",
+    "slug": "/docs/engineering/distributed",
+    "title": "分布式",
+    "titleEn": "Distributed",
+    "description": "超时、重试、队列。面试够用即可。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
     "_searchMeta": {
-      "cleanContent": "必能讲清 事件循环 macro micro async 到 promise 的路径 闭包 不是背定义 而是 谁还引用着这块内存 原型 _proto_ vs prototype this 四条绑定规则 手写清单 debounce throttle promise all 深拷贝 循环引用 发布订阅",
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
       "headings": [
         "必能讲清",
-        "手写清单"
+        "权衡",
+        "项目锚点",
+        "我的答案"
       ],
       "keywords": [
-        "javascript",
+        "distributed",
         "必能讲清",
-        "手写清单",
-        "__proto__",
-        "prototype",
-        "this",
-        "debounce",
-        "throttle",
-        "Promise.all"
+        "权衡",
+        "项目锚点",
+        "我的答案"
       ]
     }
   },
   {
     "collection": "docs",
-    "slug": "/docs/frontend/react",
-    "title": "React",
-    "titleEn": "React",
-    "description": "渲染模型、Hooks、状态、性能与并发。",
-    "content": "## 必能讲清\n\n* 为什么 setState 是异步批处理\n* `useEffect` 的依赖与清理\n* 何时 `useMemo` / `useCallback` 真的有用\n* key 的作用，以及列表复用踩坑\n\n## 项目里要准备的故事\n\n挑一个真实组件：它慢在哪、你怎么量、改了什么、数字是多少。\n",
+    "slug": "/docs/engineering",
+    "title": "工程基础",
+    "titleEn": "Engineering",
+    "description": "ML/SE 会被追问的那一层。不系统重学，SQL 放在这里，不放进算法。",
+    "content": "你面的是 LLM Engineer，但很多公司仍会问工程。标准是：**顺着你的 FastAPI / BigQuery / Voice 管线往下问，你还能答。**\n\n不单独开 OS / 网络专栏。只在分布式或 REST 被追问时补一句。\n\n## 本专栏计划\n\n1. Python + 并发：结合 Voice AI / Negotiation 的 async 与 streaming\n2. SQL：JOIN / 窗口函数各写一道自己业务里的查询\n3. REST + Cloud：能讲清一次请求从 API 到 Gemini / BigQuery\n4. 分布式与测试：只准备会被追问的超时、重试、回归\n",
     "_searchMeta": {
-      "cleanContent": "必能讲清 为什么 setstate 是异步批处理 useeffect 的依赖与清理 何时 usememo usecallback 真的有用 key 的作用 以及列表复用踩坑 项目里要准备的故事 挑一个真实组件 它慢在哪 你怎么量 改了什么 数字是多少",
+      "cleanContent": "你面的是 llm engineer 但很多公司仍会问工程 标准是 顺着你的 fastapi bigquery voice 管线往下问 你还能答 不单独开 os 网络专栏 只在分布式或 rest 被追问时补一句 本专栏计划 python 并发 结合 voice ai negotiation 的 async 与 streaming sql join 窗口函数各写一道自己业务里的查询 rest cloud 能讲清一次请求从 api 到 gemini bigquery 分布式与测试 只准备会被追问的超时 重试 回归",
       "headings": [
-        "必能讲清",
-        "项目里要准备的故事"
+        "本专栏计划"
       ],
       "keywords": [
-        "react",
+        "python",
+        "asyncio",
+        "sql",
+        "docker",
+        "rest",
+        "distributed",
+        "本专栏计划",
+        "顺着你的 FastAPI / BigQuery / Voice 管线往下问，你还能答。"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/engineering/python",
+    "title": "Python",
+    "titleEn": "Python",
+    "description": "dict / set / 生成器 / OOP。能写也能讲。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
         "必能讲清",
-        "项目里要准备的故事",
-        "useEffect",
-        "useMemo",
-        "useCallback"
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "python",
+        "oop",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/engineering/rest",
+    "title": "REST API",
+    "titleEn": "REST API",
+    "description": "鉴权、幂等、streaming。接到 FastAPI。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "rest",
+        "fastapi",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/engineering/sql",
+    "title": "SQL",
+    "titleEn": "SQL",
+    "description": "AI/ML 面试常考。结合 BigQuery 与 PMI。",
+    "content": "语言仍是面试表现：能写、能讲为什么这样写。\n\n项目锚点：[PMI Logistics](/docs/projects/pmi) — *How do you prevent an LLM from generating incorrect SQL?*\n\n## 覆盖点\n\n* JOIN（含 LEFT vs INNER 的业务含义）\n* GROUP BY / aggregation\n* Window Functions\n* CTE\n* Ranking（`ROW_NUMBER` / `RANK` / `DENSE_RANK`）\n\n## 骨架\n\n把做过的一条分析查询贴在这里：业务问题、表、关键 JOIN、窗口函数、一个易错点。\n\n## 代表题\n\n| 题型 | 状态 |\n| --- | --- |\n| 多表 JOIN + 过滤 | 待练 |\n| GROUP BY + HAVING | 待练 |\n| 窗口函数排名 / 滚动聚合 | 待练 |\n| CTE 拆复杂查询 | 待练 |\n",
+    "_searchMeta": {
+      "cleanContent": "语言仍是面试表现 能写 能讲为什么这样写 项目锚点 pmi logistics how do you prevent an llm from generating incorrect sql 覆盖点 join 含 left vs inner 的业务含义 group by aggregation window functions cte ranking rownumber rank denserank 骨架 把做过的一条分析查询贴在这里 业务问题 表 关键 join 窗口函数 一个易错点 代表题 题型 状态--- ---多表 join 过滤 待练group by having 待练窗口函数排名 滚动聚合 待练cte 拆复杂查询 待练",
+      "headings": [
+        "覆盖点",
+        "骨架",
+        "代表题"
+      ],
+      "keywords": [
+        "sql",
+        "bigquery",
+        "window functions",
+        "覆盖点",
+        "骨架",
+        "代表题",
+        "ROW_NUMBER",
+        "RANK",
+        "DENSE_RANK"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/engineering/testing",
+    "title": "测试 / Git",
+    "titleEn": "Testing / Git",
+    "description": "单测、CI、回归。Eval 细节在 RAG / Agent。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "testing",
+        "git",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
       ]
     }
   },
@@ -231,15 +552,167 @@
     "title": "学习日志",
     "titleEn": "Journal",
     "description": "按日期往下追加。一行日期、今天做了什么、卡点、明天先做什么。",
-    "content": "建议每天花 5 分钟写完就停。详细推导放到对应知识页，这里只留索引。\n\n## 2026-08-30\n\n* 初始化 Followblindly 站点\n* 搭好笔记 / 投递 / 简历三块结构\n* 下一步：补自我介绍，开始数组题\n",
+    "content": "建议每天花 5 分钟写完就停。详细推导放到对应知识页，这里只留索引。\n\n## 2026-09-06\n\n* 准备手册改成 6 模块；Docs 侧边栏改成专栏总览，默认收起\n* 知识点六列：LLM / RAG / Agent / SD / 工程 / 算法；项目深挖归面试表现\n\n## 2026-08-30\n\n* 初始化 Followblindly 站点\n* 搭好笔记 / 投递 / 简历三块结构\n* 下一步：补自我介绍，开始数组题\n",
     "_searchMeta": {
-      "cleanContent": "建议每天花 5 分钟写完就停 详细推导放到对应知识页 这里只留索引 2026-08-30 初始化 followblindly 站点 搭好笔记 投递 简历三块结构 下一步 补自我介绍 开始数组题",
+      "cleanContent": "建议每天花 5 分钟写完就停 详细推导放到对应知识页 这里只留索引 2026-09-06 准备手册改成 6 模块 docs 侧边栏改成专栏总览 默认收起 知识点六列 llm rag agent sd 工程 算法 项目深挖归面试表现 2026-08-30 初始化 followblindly 站点 搭好笔记 投递 简历三块结构 下一步 补自我介绍 开始数组题",
       "headings": [
+        "2026-09-06",
         "2026-08-30"
       ],
       "keywords": [
         "journal",
+        "2026-09-06",
         "2026-08-30"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/llm/attention",
+    "title": "Attention",
+    "titleEn": "Attention",
+    "description": "QKV、Self-attention、MHA、复杂度。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "attention",
+        "qkv",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/llm/fine-tuning",
+    "title": "Fine-tuning",
+    "titleEn": "Fine-tuning",
+    "description": "LoRA / QLoRA / ZeRO。对标 LLaMA 项目。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "lora",
+        "qlora",
+        "peft",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/llm",
+    "title": "LLM Fundamentals",
+    "titleEn": "LLM Fundamentals",
+    "description": "Transformer 到 Inference。标准是 1–2 分钟讲清，并能接到自己的微调 / vLLM 经历。",
+    "content": "面试官随机点一个概念，你能讲清 **Why / How / Trade-off / 我的项目**。不重学全部数学。\n\n简历写了 Fine-tuning 和 vLLM，这两页必须先填满。\n\n每条笔记固定走完：\n\n```\nConcept → Why it matters → How it works → Trade-offs\n       → My project example → Interview questions → My answer\n```\n\n## 本专栏计划\n\n1. Attention + Transformer 口述（各 2 分钟）\n2. Training 链路讲清，不展开数学证明\n3. Fine-tuning 对照 LLaMA-3-8B + QLoRA + DeepSpeed\n4. Inference 对照 vLLM；能答 *Why does KV cache help?*\n",
+    "_searchMeta": {
+      "cleanContent": "面试官随机点一个概念 你能讲清 why how trade-off 我的项目 不重学全部数学 简历写了 fine-tuning 和 vllm 这两页必须先填满 每条笔记固定走完 本专栏计划 attention transformer 口述 各 2 分钟 training 链路讲清 不展开数学证明 fine-tuning 对照 llama-3-8b qlora deepspeed inference 对照 vllm 能答 why does kv cache help",
+      "headings": [
+        "本专栏计划"
+      ],
+      "keywords": [
+        "llm",
+        "transformer",
+        "attention",
+        "fine-tuning",
+        "inference",
+        "本专栏计划",
+        "Why / How / Trade-off / 我的项目",
+        "Concept → Why it matters → How it works → Trade-offs\n       → My project example → Interview questions → My answer"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/llm/inference",
+    "title": "Inference",
+    "titleEn": "Inference",
+    "description": "KV cache、batching、vLLM / PagedAttention。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "kv cache",
+        "vllm",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/llm/training",
+    "title": "Training",
+    "titleEn": "Training",
+    "description": "Pretrain、SFT、RLHF / DPO。每步在优化什么。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "sft",
+        "rlhf",
+        "dpo",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/llm/transformer",
+    "title": "Transformer",
+    "titleEn": "Transformer",
+    "description": "架构、Encoder vs Decoder、位置编码、因果掩码。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "transformer",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
       ]
     }
   },
@@ -248,40 +721,430 @@
     "slug": "/docs/overview",
     "title": "准备手册",
     "titleEn": "Playbook",
-    "description": "Followblindly 怎么用：用 Markdown 记录，网站自动更新。",
-    "content": "每天只需要做一件事：**打开对应目录，更新或新增一篇 `index.mdx`。** 刷新网站后，笔记、搜索和首页热力图都会跟上。\n\n## 三块内容\n\n## 文件放哪里\n\n```\ncontents/\n  docs/          面试知识点\n  companies/     投递记录\n  resume/        简历与介绍\n  site/\n    profile.json     首页自我介绍\n    timeline.json    首页时间线\n    roadmap.json     底部计划\n```\n\n每一篇文档都是一个文件夹 + `index.mdx`：\n\n```\ncontents/docs/algorithms/arrays/index.mdx\n```\n\n同时在 `settings/documents.ts`（或 companies / resume）里补上导航项，侧边栏才会出现新页面。\n\n## Frontmatter\n\n```md\n---\ntitle: 数组与哈希\ntitleEn: Arrays & Hashing\ndescription: 双指针、哈希表、前缀和。\ndate: 2026-08-30\nkeywords: [\"array\", \"hash\"]\n---\n```\n\n`date` 会点亮首页当月的小方块。同一天更新越多，颜色越深。\n\n## 首页三个开关\n\n| 文件 | 作用 |\n| --- | --- |\n| `contents/site/profile.json` | 主页名字、角色、简介 |\n| `contents/site/timeline.json` | 滚动时间线 |\n| `contents/site/roadmap.json` | Plan / Roadmap |\n\n## 下一步\n\n1. 改掉 `profile.json` 里的名字和自我介绍\n2. 从 [数组与哈希](/docs/algorithms/arrays) 开始记第一题\n3. 在 [投递总览](/companies/overview) 跟踪每家公司的进度\n",
+    "description": "6 个模块撑起整段跳槽。知识点在侧边栏收成专栏，项目深挖算面试表现。",
+    "content": "目标不是重新学一遍 AI，而是把已有 **3+ 年 LLM 工程经验** 转成 Interview Performance。\n\n后期默认：**30% 学习 + 30% 项目深挖 + 20% Coding + 20% Mock**。拿到面试以后再调成 **20 / 20 / 30 / 30**。\n\n## 六个模块\n\n| # | 模块 | 核心问题 | 写在哪 |\n| --- | --- | --- | --- |\n| 1 | 求职定位 | 我应该找什么工作？ | [求职定位](/docs/positioning) |\n| 2 | Resume / Intro | 怎么让别人愿意见我？ | [简历](/resume/cv) · [个人介绍](/resume/about) |\n| 3 | 项目深挖 | 怎么证明我真的做过？ | [项目深挖](/docs/projects)（面试表现） |\n| 4 | 技术知识 | 我到底懂不懂？ | [LLM](/docs/llm) · [RAG](/docs/rag) · [Agent](/docs/agent) · [系统设计](/docs/system-design) · [工程基础](/docs/engineering) |\n| 5 | Coding | 我能不能写代码？ | [算法](/docs/algorithms) |\n| 6 | 面试表现 | 我能不能在压力下讲出来？ | [项目深挖](/docs/projects) · [行为面试](/docs/behavioral) |\n\n## 侧边栏怎么用\n\n每一个知识点专栏都和算法一样：**先点总览看计划和卡片，再进子页写答案。** 子目录默认收起；只有当前正在看的专栏会展开。\n\n* **知识点**：LLM / RAG / Agent / 系统设计 / 工程基础 / 算法\n* **面试表现**：项目深挖 + 行为面试（STAR / 表达 / Mock）\n* SQL 在工程基础，不在算法。前端专栏已去掉。\n\n## 知识存在哪\n\n同一件事不要写三遍：Docs 写能脱稿讲的答案，Resume 写 recruiter 会扫的成品，Companies 只记这一家、这一轮。\n\n```\ncontents/docs/     专栏总览 + 子页答案\ncontents/resume/   About、CV、PDF\ncontents/companies/ 投递状态与轮次\nnotes/             周计划；Inbox 不上站\n```\n",
     "_searchMeta": {
-      "cleanContent": "每天只需要做一件事 打开对应目录 更新或新增一篇 index mdx 刷新网站后 笔记 搜索和首页热力图都会跟上 三块内容 文件放哪里 每一篇文档都是一个文件夹 index mdx 同时在 settings documents ts 或 companies resume 里补上导航项 侧边栏才会出现新页面 frontmatter date 会点亮首页当月的小方块 同一天更新越多 颜色越深 首页三个开关 文件 作用--- ---contents site profile json 主页名字 角色 简介contents site timeline json 滚动时间线contents site roadmap json plan roadmap 下一步 改掉 profile json 里的名字和自我介绍 从 数组与哈希 开始记第一题 在 投递总览 跟踪每家公司的进度",
+      "cleanContent": "目标不是重新学一遍 ai 而是把已有 3 年 llm 工程经验 转成 interview performance 后期默认 30 学习 30 项目深挖 20 coding 20 mock 拿到面试以后再调成 20 20 30 30 六个模块 模块 核心问题 写在哪--- --- --- ---1 求职定位 我应该找什么工作 求职定位2 resume intro 怎么让别人愿意见我 简历 个人介绍3 项目深挖 怎么证明我真的做过 项目深挖 面试表现 4 技术知识 我到底懂不懂 llm rag agent 系统设计 工程基础5 coding 我能不能写代码 算法6 面试表现 我能不能在压力下讲出来 项目深挖 行为面试 侧边栏怎么用 每一个知识点专栏都和算法一样 先点总览看计划和卡片 再进子页写答案 子目录默认收起 只有当前正在看的专栏会展开 知识点 llm rag agent 系统设计 工程基础 算法 面试表现 项目深挖 行为面试 star 表达 mock sql 在工程基础 不在算法 前端专栏已去掉 知识存在哪 同一件事不要写三遍 docs 写能脱稿讲的答案 resume 写 recruiter 会扫的成品 companies 只记这一家 这一轮",
       "headings": [
-        "三块内容",
-        "文件放哪里",
-        "Frontmatter",
-        "首页三个开关",
-        "下一步"
+        "六个模块",
+        "侧边栏怎么用",
+        "知识存在哪"
       ],
       "keywords": [
         "overview",
-        "workflow",
-        "markdown",
-        "三块内容",
-        "文件放哪里",
-        "Frontmatter",
-        "首页三个开关",
-        "下一步",
-        "打开对应目录，更新或新增一篇 `index.mdx`。",
-        "index.mdx",
-        "contents/\n  docs/          面试知识点\n  companies/     投递记录\n  resume/        简历与介绍\n  site/\n    profile.json     首页自我介绍\n    timeline.json    首页时间线\n    roadmap.json     底部计划",
-        "每一篇文档都是一个文件夹 +",
-        "：",
-        "contents/docs/algorithms/arrays/index.mdx",
-        "同时在",
-        "（或 companies / resume）里补上导航项，侧边栏才会出现新页面。\n\n## Frontmatter",
-        "md\n---\ntitle: 数组与哈希\ntitleEn: Arrays & Hashing\ndescription: 双指针、哈希表、前缀和。\ndate: 2026-08-30\nkeywords: [\"array\", \"hash\"]\n---",
-        "",
-        "会点亮首页当月的小方块。同一天更新越多，颜色越深。\n\n## 首页三个开关\n\n| 文件 | 作用 |\n| --- | --- |\n|",
-        "| 主页名字、角色、简介 |\n|",
-        "| 滚动时间线 |\n|",
-        "| Plan / Roadmap |\n\n## 下一步\n\n1. 改掉"
+        "playbook",
+        "llm engineer",
+        "interview prep",
+        "六个模块",
+        "侧边栏怎么用",
+        "知识存在哪",
+        "3+ 年 LLM 工程经验",
+        "30% 学习 + 30% 项目深挖 + 20% Coding + 20% Mock",
+        "20 / 20 / 30 / 30",
+        "先点总览看计划和卡片，再进子页写答案。",
+        "知识点",
+        "面试表现",
+        "contents/docs/     专栏总览 + 子页答案\ncontents/resume/   About、CV、PDF\ncontents/companies/ 投递状态与轮次\nnotes/             周计划；Inbox 不上站"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/positioning",
+    "title": "求职定位",
+    "titleEn": "Positioning",
+    "description": "Target Job Profile。先定投谁，再决定学什么、简历怎么写。",
+    "content": "这一块不花很多时间，但必须先定。它决定后面学什么、简历强调什么、项目讲多深。\n\n薪资数字、谈薪策略只放在本地或 [投递](/companies/overview)，不上这篇公开页。\n\n## Target Job Profile\n\n| 项 | 当前定稿 |\n| --- | --- |\n| Primary | LLM Engineer / AI Engineer / Applied AI Engineer |\n| Secondary | ML Engineer / Applied Scientist / Research Engineer（JD 匹配再投） |\n| 经验锚点 | 3–5 years |\n| Focus | Agentic AI, RAG, LLM applications, inference, evaluation |\n| Level | Intermediate / Mid-level |\n| Location | Toronto / Remote / Hybrid；US remote 视签证与 JD |\n| 公司类型 | Big Tech / AI startup / Enterprise AI / Consulting |\n| 不做 | 泛化 Data Scientist；传统 ML Engineer 包装 |\n\n一句话对外定位：\n\n> I build production-grade LLM systems end-to-end — from inference and retrieval to agent orchestration, evaluation, and deployment.\n\n## 职业叙事\n\n面试开场按这条线讲，不要跳成「我做过一些 ChatGPT 项目」。\n\n```\nML / Deep Learning\n       ↓\nLLM Fine-tuning\n       ↓\nRAG / Agents\n       ↓\nProduction LLM Systems\n       ↓\nEnterprise Agentic AI\n```\n\n## Self Introduction\n\n三个版本都要能脱稿。定稿对外叙述在 [个人介绍](/resume/about)；这里只练面试开口。\n\n### 30 秒\n\n> I'm an LLM Engineer in Toronto. I build production agentic systems — RAG, tool calling, evaluation, and deployment. Recently that's been multi-agent workflows on Gemini with enterprise data in BigQuery.\n\n### 60 秒\n\n> I currently work as an LLM Engineer at Unilever, where I build production-grade agentic AI systems for enterprise use cases. My work spans the full LLM application stack — agent orchestration, RAG, tool calling, enterprise data integration, evaluation, and deployment. For example, I've built multi-agent systems using Gemini, Google ADK and LangGraph, where agents combine web research with BigQuery analytics. Before that, I worked on RAG systems, real-time voice AI, and deep learning systems. I also have hands-on experience with LLM fine-tuning using QLoRA and DeepSpeed, and inference optimization with vLLM. My focus is the intersection of LLM systems and production AI engineering.\n\n### 2 分钟\n\n60 秒版之后接 **一个** flagship：Negotiation Practice（全栈实时）或 Tariff Agent（multi-agent + 企业数据）。讲 What → Why → 你做了什么 → 一个量化结果。停，等面试官追问。不要把五个项目一次倒完。\n\n背熟后，任意追问应接到 [项目深挖](/docs/projects) 的 Tier 1 子页。\n",
+    "_searchMeta": {
+      "cleanContent": "这一块不花很多时间 但必须先定 它决定后面学什么 简历强调什么 项目讲多深 薪资数字 谈薪策略只放在本地或 投递 不上这篇公开页 target job profile 项 当前定稿--- ---primary llm engineer ai engineer applied ai engineersecondary ml engineer applied scientist research engineer jd 匹配再投 经验锚点 3 5 yearsfocus agentic ai rag llm applications inference evaluationlevel intermediate mid-levellocation toronto remote hybrid us remote 视签证与 jd公司类型 big tech ai startup enterprise ai consulting不做 泛化 data scientist 传统 ml engineer 包装 一句话对外定位 i build production-grade llm systems end-to-end from inference and retrieval to agent orchestration evaluation and deployment 职业叙事 面试开场按这条线讲 不要跳成 我做过一些 chatgpt 项目 self introduction 三个版本都要能脱稿 定稿对外叙述在 个人介绍 这里只练面试开口 30 秒 i m an llm engineer in toronto i build production agentic systems rag tool calling evaluation and deployment recently that s been multi-agent workflows on gemini with enterprise data in bigquery 60 秒 i currently work as an llm engineer at unilever where i build production-grade agentic ai systems for enterprise use cases my work spans the full llm application stack agent orchestration rag tool calling enterprise data integration evaluation and deployment for example i ve built multi-agent systems using gemini google adk and langgraph where agents combine web research with bigquery analytics before that i worked on rag systems real-time voice ai and deep learning systems i also have hands-on experience with llm fine-tuning using qlora and deepspeed and inference optimization with vllm my focus is the intersection of llm systems and production ai engineering 2 分钟 60 秒版之后接 一个 flagship negotiation practice 全栈实时 或 tariff agent multi-agent 企业数据 讲 what why 你做了什么 一个量化结果 停 等面试官追问 不要把五个项目一次倒完 背熟后 任意追问应接到 项目深挖 的 tier 1 子页",
+      "headings": [
+        "Target Job Profile",
+        "职业叙事",
+        "Self Introduction"
+      ],
+      "keywords": [
+        "positioning",
+        "target role",
+        "llm engineer",
+        "intro",
+        "Target Job Profile",
+        "职业叙事",
+        "Self Introduction",
+        "一个",
+        "ML / Deep Learning\n       ↓\nLLM Fine-tuning\n       ↓\nRAG / Agents\n       ↓\nProduction LLM Systems\n       ↓\nEnterprise Agentic AI"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/projects/fine-tuning",
+    "title": "LLaMA Fine-tuning",
+    "titleEn": "LLaMA Fine-tuning",
+    "description": "Tier 2。QLoRA / DeepSpeed / vLLM，证明不只会调 API。",
+    "content": "```\nLLaMA-3-8B → QLoRA → 4-bit → DeepSpeed ZeRO-3\n          → Multi-GPU → vLLM → PagedAttention\n```\n\n区分于纯「LangChain developer」。细节可回链 [Fine-tuning](/docs/llm/fine-tuning) 与 [Inference](/docs/llm/inference)。\n\n## What / Why\n\n*\n\n## Architecture\n\n*\n\n## Contribution\n\n*\n\n## Decisions / Trade-offs\n\n*\n\n## Problems / Results / Reflection\n\n*\n",
+    "_searchMeta": {
+      "cleanContent": "区分于纯 langchain developer 细节可回链 fine-tuning 与 inference what why architecture contribution decisions trade-offs problems results reflection",
+      "headings": [
+        "What / Why",
+        "Architecture",
+        "Contribution",
+        "Decisions / Trade-offs",
+        "Problems / Results / Reflection"
+      ],
+      "keywords": [
+        "llama",
+        "qlora",
+        "deepspeed",
+        "vllm",
+        "What / Why",
+        "Architecture",
+        "Contribution",
+        "Decisions / Trade-offs",
+        "Problems / Results / Reflection",
+        "LLaMA-3-8B → QLoRA → 4-bit → DeepSpeed ZeRO-3\n          → Multi-GPU → vLLM → PagedAttention"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/projects",
+    "title": "项目深挖",
+    "titleEn": "Project Deep Dive",
+    "description": "面试表现的主武器。按 Tier 准备深度，不要每个项目同等用力。",
+    "content": "简历 bullet 在 [CV](/resume/cv)。这里写面试官能追问的那一层。不要背项目介绍，准备的是 **Project Deep Dive**。\n\nSTAR 冲突 / 失败故事写在 [行为面试](/docs/behavioral)，本专栏只写技术深挖。\n\n## 投入分层\n\n* **Tier 1**：5 min 架构 + 10 min 深挖，无稿\n* **Tier 2**：架构、贡献、一个权衡\n* **Tier 3**（备问，不单独开页）：Sustainability Agent、Negotiation Expert\n\n不再花大量时间做新 demo。\n\n## 每张卡片必答\n\n| 维度 | 问题 |\n| --- | --- |\n| What | 你做了什么产品？ |\n| Why | 为什么要做？ |\n| Architecture | 数据怎么流？ |\n| Contribution | **你**具体做了哪几块？ |\n| Decisions | 为什么 Gemini / LangGraph / multi-agent，而不是 X？ |\n| Problems | 哪里坏过？ |\n| Trade-offs | 还考虑过什么方案？ |\n| Results | 延迟、准确、成本、规模 |\n| Reflection | 现在会怎么改？ |\n\n## 本专栏计划\n\n先填满三张 Tier 1，再补 PMI 的 SQL 防护和 Fine-tuning 的 ZeRO / vLLM。\n",
+    "_searchMeta": {
+      "cleanContent": "简历 bullet 在 cv 这里写面试官能追问的那一层 不要背项目介绍 准备的是 project deep dive star 冲突 失败故事写在 行为面试 本专栏只写技术深挖 投入分层 tier 1 5 min 架构 10 min 深挖 无稿 tier 2 架构 贡献 一个权衡 tier 3 备问 不单独开页 sustainability agent negotiation expert 不再花大量时间做新 demo 每张卡片必答 维度 问题--- ---what 你做了什么产品 why 为什么要做 architecture 数据怎么流 contribution 你具体做了哪几块 decisions 为什么 gemini langgraph multi-agent 而不是 x problems 哪里坏过 trade-offs 还考虑过什么方案 results 延迟 准确 成本 规模reflection 现在会怎么改 本专栏计划 先填满三张 tier 1 再补 pmi 的 sql 防护和 fine-tuning 的 zero vllm",
+      "headings": [
+        "投入分层",
+        "每张卡片必答",
+        "本专栏计划"
+      ],
+      "keywords": [
+        "projects",
+        "deep dive",
+        "tariff",
+        "negotiation",
+        "voice ai",
+        "投入分层",
+        "每张卡片必答",
+        "本专栏计划",
+        "Project Deep Dive",
+        "Tier 1",
+        "Tier 2",
+        "Tier 3",
+        "你"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/projects/negotiation",
+    "title": "Negotiation Practice",
+    "titleEn": "Negotiation Practice",
+    "description": "Tier 1。生产级全栈实时 AI，可白板 30–45 分钟。",
+    "content": "生产级全栈：React + FastAPI + Gemini + WebSocket + MongoDB + JWT + streaming + voice/avatar + eval。\n\n对标：*Design a real-time AI negotiation platform.*\n\n## What / Why\n\n*\n\n## Architecture\n\n*\n\n## Contribution\n\n*\n\n## Decisions / Trade-offs\n\n*\n\n## Problems / Results / Reflection\n\n*\n",
+    "_searchMeta": {
+      "cleanContent": "生产级全栈 react fastapi gemini websocket mongodb jwt streaming voice avatar eval 对标 design a real-time ai negotiation platform what why architecture contribution decisions trade-offs problems results reflection",
+      "headings": [
+        "What / Why",
+        "Architecture",
+        "Contribution",
+        "Decisions / Trade-offs",
+        "Problems / Results / Reflection"
+      ],
+      "keywords": [
+        "negotiation",
+        "websocket",
+        "streaming",
+        "What / Why",
+        "Architecture",
+        "Contribution",
+        "Decisions / Trade-offs",
+        "Problems / Results / Reflection"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/projects/pmi",
+    "title": "PMI Logistics",
+    "titleEn": "PMI Logistics",
+    "description": "Tier 2。NL → Analytics。必答如何避免错 SQL。",
+    "content": "```\nQuestion → Intent/filters → Agent → Tools → BigQuery\n        → Pandas → Analysis → Excel / Chart\n```\n\n必能答：*How do you prevent an LLM from generating incorrect SQL?*\n\n## What / Why\n\n*\n\n## Architecture\n\n*\n\n## Contribution\n\n*\n\n## Decisions / Trade-offs\n\n*\n\n## Problems / Results / Reflection\n\n*\n",
+    "_searchMeta": {
+      "cleanContent": "必能答 how do you prevent an llm from generating incorrect sql what why architecture contribution decisions trade-offs problems results reflection",
+      "headings": [
+        "What / Why",
+        "Architecture",
+        "Contribution",
+        "Decisions / Trade-offs",
+        "Problems / Results / Reflection"
+      ],
+      "keywords": [
+        "pmi",
+        "sql",
+        "analytics",
+        "What / Why",
+        "Architecture",
+        "Contribution",
+        "Decisions / Trade-offs",
+        "Problems / Results / Reflection",
+        "Question → Intent/filters → Agent → Tools → BigQuery\n        → Pandas → Analysis → Excel / Chart"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/projects/tariff",
+    "title": "Tariff Agent",
+    "titleEn": "Tariff Agent",
+    "description": "Tier 1。Multi-agent flagship。",
+    "content": "```\nUser → Supervisor → Tariff Expert / Impact Expert\n         → Research / Tavily / LangGraph\n         → BigQuery → Answer\n```\n\n必能答：为什么 multi-agent；ADK vs LangGraph；tool 怎么选、怎么可靠；Web search 与 BigQuery 如何组合；Eval 与 hallucination；最大 failure mode。\n\n## What / Why\n\n*\n\n## Architecture\n\n*\n\n## Contribution\n\n*\n\n## Decisions / Trade-offs\n\n*\n\n## Problems / Results / Reflection\n\n*\n",
+    "_searchMeta": {
+      "cleanContent": "必能答 为什么 multi-agent adk vs langgraph tool 怎么选 怎么可靠 web search 与 bigquery 如何组合 eval 与 hallucination 最大 failure mode what why architecture contribution decisions trade-offs problems results reflection",
+      "headings": [
+        "What / Why",
+        "Architecture",
+        "Contribution",
+        "Decisions / Trade-offs",
+        "Problems / Results / Reflection"
+      ],
+      "keywords": [
+        "tariff",
+        "multi-agent",
+        "bigquery",
+        "What / Why",
+        "Architecture",
+        "Contribution",
+        "Decisions / Trade-offs",
+        "Problems / Results / Reflection",
+        "User → Supervisor → Tariff Expert / Impact Expert\n         → Research / Tavily / LangGraph\n         → BigQuery → Answer"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/projects/voice",
+    "title": "Voice AI",
+    "titleEn": "Voice AI",
+    "description": "Tier 1。1.2s 端到端延迟故事。",
+    "content": "```\nAudio → Chunking → Whisper → LLM → Streaming → TTS\n```\n\n量化锚点：**1.2s end-to-end**。准备：async、pipelining、batching、streaming、token / network / model latency。\n\n## What / Why\n\n*\n\n## Architecture\n\n*\n\n## Contribution\n\n*\n\n## Decisions / Trade-offs\n\n*\n\n## Problems / Results / Reflection\n\n*\n",
+    "_searchMeta": {
+      "cleanContent": "量化锚点 1 2s end-to-end 准备 async pipelining batching streaming token network model latency what why architecture contribution decisions trade-offs problems results reflection",
+      "headings": [
+        "What / Why",
+        "Architecture",
+        "Contribution",
+        "Decisions / Trade-offs",
+        "Problems / Results / Reflection"
+      ],
+      "keywords": [
+        "voice",
+        "whisper",
+        "latency",
+        "What / Why",
+        "Architecture",
+        "Contribution",
+        "Decisions / Trade-offs",
+        "Problems / Results / Reflection",
+        "1.2s end-to-end",
+        "Audio → Chunking → Whisper → LLM → Streaming → TTS"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/rag/embedding",
+    "title": "Embedding",
+    "titleEn": "Embedding",
+    "description": "模型选择、维度、更新频率。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "embedding",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/rag/evaluation",
+    "title": "Evaluation",
+    "titleEn": "Evaluation",
+    "description": "检索指标 + 生成指标。接到 DeepEval。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "evaluation",
+        "deepeval",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/rag/hybrid-search",
+    "title": "Hybrid Search",
+    "titleEn": "Hybrid Search",
+    "description": "FAISS + BM25 + RRF。你做过的那条。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "hybrid",
+        "rrf",
+        "faiss",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/rag",
+    "title": "RAG",
+    "titleEn": "RAG",
+    "description": "Embedding 到 Evaluation。项目锚点是 FAISS + BM25 + RRF。",
+    "content": "能画全图，每个环节知道 trade-off，并能接到 Sustainability / Negotiation Expert / 企业检索。\n\n```\nDocuments → Parsing → Chunking → Embedding → Vector DB\n         → Retriever → Reranker → Context → LLM → Answer\n```\n\n## 本专栏计划\n\n1. 默画全图，chunk size 能讲 4 个权衡\n2. Hybrid + RRF 用自己的项目讲，不要只背名词\n3. Evaluation 接到 DeepEval：correctness / completeness / relevance\n4. 失败模式：空检索、过期文档、context 塞太满\n",
+    "_searchMeta": {
+      "cleanContent": "能画全图 每个环节知道 trade-off 并能接到 sustainability negotiation expert 企业检索 本专栏计划 默画全图 chunk size 能讲 4 个权衡 hybrid rrf 用自己的项目讲 不要只背名词 evaluation 接到 deepeval correctness completeness relevance 失败模式 空检索 过期文档 context 塞太满",
+      "headings": [
+        "本专栏计划"
+      ],
+      "keywords": [
+        "rag",
+        "embedding",
+        "retrieval",
+        "rerank",
+        "hybrid search",
+        "本专栏计划",
+        "Documents → Parsing → Chunking → Embedding → Vector DB\n         → Retriever → Reranker → Context → LLM → Answer"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/rag/reranking",
+    "title": "Reranking",
+    "titleEn": "Reranking",
+    "description": "何时 rerank、延迟与收益。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "rerank",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/rag/retrieval",
+    "title": "Retrieval",
+    "titleEn": "Retrieval",
+    "description": "BM25、dense、过滤、query rewrite。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "retrieval",
+        "bm25",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/system-design/architecture",
+    "title": "Architecture",
+    "titleEn": "Architecture",
+    "description": "服务怎么拆、同步 vs 流式、状态放哪。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "architecture",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/system-design/cost",
+    "title": "Cost",
+    "titleEn": "Cost",
+    "description": "token、缓存、模型路由。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "cost",
+        "tokens",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
       ]
     }
   },
@@ -290,18 +1153,119 @@
     "slug": "/docs/system-design",
     "title": "系统设计",
     "titleEn": "System Design",
-    "description": "估算、拆服务、数据模型、瓶颈与权衡。",
-    "content": "## 开口框架\n\n## 想覆盖的题\n\n* URL Shortener\n* News Feed\n* Chat\n* Rate Limiter\n* Drive / 文件存储\n\n每做完一题，在本页下面加一节：需求、容量、架构图、权衡。\n",
+    "description": "按六个维度准备 LLM 系统。白板题写在对应维度里，不另开收藏夹。",
+    "content": "概念在 LLM / RAG / Agent。这里练的是 **开口框架 + 六个维度**。每做完一道白板题，把权衡写进对应维度页，不要在总览堆全文。\n\n## 开口框架\n\n<CardGrid>\n  <Card title=\"Architecture\" description=\"服务怎么拆、同步 vs 流式、谁持有状态。\" href=\"/docs/system-design/architecture\" />\n\n  <Card title=\"Scalability\" description=\"QPS、会话、检索索引、模型副本。\" href=\"/docs/system-design/scalability\" />\n\n  <Card title=\"Latency\" description=\"TTFT、流式、Voice 1.2s。\" href=\"/docs/system-design/latency\" />\n\n  <Card title=\"Cost\" description=\"token、缓存、路由便宜模型。\" href=\"/docs/system-design/cost\" />\n\n  <Card title=\"Reliability\" description=\"超时、重试、降级、幻觉。\" href=\"/docs/system-design/reliability\" />\n\n  <Card title=\"Observability\" description=\"trace、token、eval 回归。\" href=\"/docs/system-design/observability\" />\n</CardGrid>\n\n## 本专栏计划（先练这 6 题）\n\n| 题 | 优先写进 |\n| --- | --- |\n| Production RAG | Architecture + Evaluation 意识 |\n| ChatGPT-like app | Architecture + Cost |\n| Enterprise business Q\\&A Agent | Reliability |\n| Real-time Voice AI | Latency |\n| LLM Evaluation Platform | Observability |\n| Negotiation Practice（30–45 min） | Architecture + Latency |\n\n传统 Shortener / Feed 只在 JD 明显偏通用后端时再补。\n",
     "_searchMeta": {
-      "cleanContent": "开口框架 想覆盖的题 url shortener news feed chat rate limiter drive 文件存储 每做完一题 在本页下面加一节 需求 容量 架构图 权衡",
+      "cleanContent": "概念在 llm rag agent 这里练的是 开口框架 六个维度 每做完一道白板题 把权衡写进对应维度页 不要在总览堆全文 开口框架 cardgrid card title architecture description 服务怎么拆 同步 vs 流式 谁持有状态 href docs system-design architecture card title scalability description qps 会话 检索索引 模型副本 href docs system-design scalability card title latency description ttft 流式 voice 1 2s href docs system-design latency card title cost description token 缓存 路由便宜模型 href docs system-design cost card title reliability description 超时 重试 降级 幻觉 href docs system-design reliability card title observability description trace token eval 回归 href docs system-design observability cardgrid 本专栏计划 先练这 6 题 题 优先写进--- ---production rag architecture evaluation 意识chatgpt-like app architecture costenterprise business q a agent reliabilityreal-time voice ai latencyllm evaluation platform observabilitynegotiation practice 30 45 min architecture latency 传统 shortener feed 只在 jd 明显偏通用后端时再补",
       "headings": [
         "开口框架",
-        "想覆盖的题"
+        "本专栏计划（先练这 6 题）"
       ],
       "keywords": [
         "system design",
+        "architecture",
+        "latency",
+        "cost",
+        "observability",
         "开口框架",
-        "想覆盖的题"
+        "本专栏计划（先练这 6 题）",
+        "开口框架 + 六个维度"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/system-design/latency",
+    "title": "Latency",
+    "titleEn": "Latency",
+    "description": "TTFT、流式、Voice 1.2s。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "latency",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/system-design/observability",
+    "title": "Observability",
+    "titleEn": "Observability",
+    "description": "trace、token、eval 回归。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "observability",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/system-design/reliability",
+    "title": "Reliability",
+    "titleEn": "Reliability",
+    "description": "超时、重试、降级、幻觉。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "reliability",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ]
+    }
+  },
+  {
+    "collection": "docs",
+    "slug": "/docs/system-design/scalability",
+    "title": "Scalability",
+    "titleEn": "Scalability",
+    "description": "QPS、会话、索引、模型副本。",
+    "content": "标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。\n\n## 必能讲清\n\n*\n\n## 权衡\n\n*\n\n## 项目锚点\n\n*\n\n## 我的答案\n",
+    "_searchMeta": {
+      "cleanContent": "标准 关掉资料后 1 2 分钟讲清 并能接到自己的项目 必能讲清 权衡 项目锚点 我的答案",
+      "headings": [
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
+      ],
+      "keywords": [
+        "scalability",
+        "必能讲清",
+        "权衡",
+        "项目锚点",
+        "我的答案"
       ]
     }
   },

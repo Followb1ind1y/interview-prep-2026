@@ -1,0 +1,30 @@
+---
+title: RAG
+titleEn: RAG
+description: Embedding 到 Evaluation。项目锚点是 FAISS + BM25 + RRF。
+descriptionEn: Embedding through evaluation. Anchor on FAISS + BM25 + RRF.
+date: 2026-09-06
+keywords: ["rag", "embedding", "retrieval", "rerank", "hybrid search"]
+---
+
+能画全图，每个环节知道 trade-off，并能接到 Sustainability / Negotiation Expert / 企业检索。
+
+```
+Documents → Parsing → Chunking → Embedding → Vector DB
+         → Retriever → Reranker → Context → LLM → Answer
+```
+
+<CardGrid>
+  <Card title="Embedding" description="模型选择、维度、更新与多语言。" href="/docs/rag/embedding" />
+  <Card title="Retrieval" description="BM25、dense、过滤、query rewrite。" href="/docs/rag/retrieval" />
+  <Card title="Reranking" description="何时 rerank、延迟与收益。" href="/docs/rag/reranking" />
+  <Card title="Hybrid Search" description="FAISS + BM25 + RRF。你做过的那条。" href="/docs/rag/hybrid-search" />
+  <Card title="Evaluation" description="检索指标 + 生成指标，offline / online。" href="/docs/rag/evaluation" />
+</CardGrid>
+
+## 本专栏计划
+
+1. 默画全图，chunk size 能讲 4 个权衡
+2. Hybrid + RRF 用自己的项目讲，不要只背名词
+3. Evaluation 接到 DeepEval：correctness / completeness / relevance
+4. 失败模式：空检索、过期文档、context 塞太满

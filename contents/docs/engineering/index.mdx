@@ -1,0 +1,29 @@
+---
+title: 工程基础
+titleEn: Engineering
+description: ML/SE 会被追问的那一层。不系统重学，SQL 放在这里，不放进算法。
+descriptionEn: The ML/SE layer interviewers probe. SQL lives here, not under algorithms.
+date: 2026-09-06
+keywords: ["python", "asyncio", "sql", "docker", "rest", "distributed"]
+---
+
+你面的是 LLM Engineer，但很多公司仍会问工程。标准是：**顺着你的 FastAPI / BigQuery / Voice 管线往下问，你还能答。**
+
+不单独开 OS / 网络专栏。只在分布式或 REST 被追问时补一句。
+
+<CardGrid>
+  <Card title="Python" description="dict / 生成器 / OOP。能写也能讲。" href="/docs/engineering/python" />
+  <Card title="并发" description="AsyncIO、GIL、何时 multiprocessing。" href="/docs/engineering/concurrency" />
+  <Card title="REST API" description="鉴权、幂等、streaming 接口。" href="/docs/engineering/rest" />
+  <Card title="SQL" description="JOIN / 窗口 / CTE。对标 BigQuery 与 PMI。" href="/docs/engineering/sql" />
+  <Card title="Docker / Cloud" description="镜像、GCP、怎么把 Agent 跑起来。" href="/docs/engineering/cloud" />
+  <Card title="分布式" description="超时、重试、队列、一致性到面试够用。" href="/docs/engineering/distributed" />
+  <Card title="测试 / Git" description="DeepEval 之外的单测、CI、代码协作。" href="/docs/engineering/testing" />
+</CardGrid>
+
+## 本专栏计划
+
+1. Python + 并发：结合 Voice AI / Negotiation 的 async 与 streaming
+2. SQL：JOIN / 窗口函数各写一道自己业务里的查询
+3. REST + Cloud：能讲清一次请求从 API 到 Gemini / BigQuery
+4. 分布式与测试：只准备会被追问的超时、重试、回归

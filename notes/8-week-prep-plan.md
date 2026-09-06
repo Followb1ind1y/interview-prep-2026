@@ -451,15 +451,16 @@ Hash Map、Array、String、Stack/Queue、Binary Search、Sliding Window、Two P
 
 ```
 contents/docs/
-├── overview/               准备手册（6 模块 + 分区职责）
+├── overview/               准备手册
 ├── positioning/            Target Job Profile + 开场稿
-├── projects/               Project Deep Dive
-├── genai/                  LLM / RAG / Agent
-├── system-design/          LLM SD 白板题
-├── algorithms/             Coding Interview（含 sql/）
-├── cs-fundamentals/        ML/SE 追问层
-├── frontend/               P2
-├── behavioral/             STAR + 分层讲解 + Mock
+├── llm/                    Transformer → Inference
+├── rag/                    Embedding → Evaluation
+├── agent/                  Tool calling → Reliability
+├── system-design/          六个维度
+├── engineering/            Python / 并发 / REST / SQL / Cloud
+├── algorithms/             Coding Interview（无 SQL）
+├── projects/               面试表现 · 项目深挖
+├── behavioral/             STAR / 表达 / Mock
 └── journal/                一行索引
 
 contents/resume/            对外 About + CV

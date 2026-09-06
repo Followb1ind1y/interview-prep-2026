@@ -1,13 +1,13 @@
 ---
 title: 系统设计
 titleEn: System Design
-description: LLM 系统设计：架构、规模、延迟、成本、可靠性、可观测。
-descriptionEn: LLM system design — architecture, scale, latency, cost, reliability, observability.
+description: 按六个维度准备 LLM 系统。白板题写在对应维度里，不另开收藏夹。
+descriptionEn: Six dimensions for LLM systems. Whiteboard problems live under the matching dimension.
 date: 2026-09-06
-keywords: ["system design", "rag", "voice ai", "evaluation"]
+keywords: ["system design", "architecture", "latency", "cost", "observability"]
 ---
 
-概念笔记在 [LLM / RAG / Agent](/docs/genai)。这里只留**白板题**：每题一节，需求、容量/成本、架构、权衡、评测。
+概念在 LLM / RAG / Agent。这里练的是 **开口框架 + 六个维度**。每做完一道白板题，把权衡写进对应维度页，不要在总览堆全文。
 
 ## 开口框架
 
@@ -26,13 +26,24 @@ keywords: ["system design", "rag", "voice ai", "evaluation"]
   </StepItem>
 </Step>
 
-## 想覆盖的题
+<CardGrid>
+  <Card title="Architecture" description="服务怎么拆、同步 vs 流式、谁持有状态。" href="/docs/system-design/architecture" />
+  <Card title="Scalability" description="QPS、会话、检索索引、模型副本。" href="/docs/system-design/scalability" />
+  <Card title="Latency" description="TTFT、流式、Voice 1.2s。" href="/docs/system-design/latency" />
+  <Card title="Cost" description="token、缓存、路由便宜模型。" href="/docs/system-design/cost" />
+  <Card title="Reliability" description="超时、重试、降级、幻觉。" href="/docs/system-design/reliability" />
+  <Card title="Observability" description="trace、token、eval 回归。" href="/docs/system-design/observability" />
+</CardGrid>
 
-1. Production RAG
-2. ChatGPT-like app
-3. Enterprise business Q&A Agent
-4. Real-time Voice AI
-5. LLM Evaluation Platform
-6. Negotiation Practice（个人 flagship，练到 30–45 分钟）
+## 本专栏计划（先练这 6 题）
 
-传统题（Shortener / Feed / Chat）只在 JD 明显偏通用后端时再补。
+| 题 | 优先写进 |
+| --- | --- |
+| Production RAG | Architecture + Evaluation 意识 |
+| ChatGPT-like app | Architecture + Cost |
+| Enterprise business Q&A Agent | Reliability |
+| Real-time Voice AI | Latency |
+| LLM Evaluation Platform | Observability |
+| Negotiation Practice（30–45 min） | Architecture + Latency |
+
+传统 Shortener / Feed 只在 JD 明显偏通用后端时再补。

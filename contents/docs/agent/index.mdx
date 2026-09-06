@@ -1,0 +1,27 @@
+---
+title: Agent
+titleEn: Agent
+description: Tool calling 到 Multi-agent 可靠性。对标 Tariff Agent 与企业编排。
+descriptionEn: Tool calling through multi-agent reliability. Anchor on Tariff Agent.
+date: 2026-09-06
+keywords: ["agent", "tool calling", "multi-agent", "langgraph", "reliability"]
+---
+
+这是主投 LLM Engineer 最该深挖的专栏。
+
+> Workflow = 预定义路径；Agent = 动态决策。Multi-agent 有用，是因为不同任务需要不同 tools / instructions / reasoning；代价是延迟、协调、更多失败模式。
+
+<CardGrid>
+  <Card title="Tool Calling" description="怎么选 tool、怎么保证参数合法。" href="/docs/agent/tool-calling" />
+  <Card title="Planning" description="ReAct、planner、什么时候不要 plan。" href="/docs/agent/planning" />
+  <Card title="Memory" description="会话、长期记忆、context pollution。" href="/docs/agent/memory" />
+  <Card title="Multi-Agent" description="为什么拆、ADK vs LangGraph、Supervisor。" href="/docs/agent/multi-agent" />
+  <Card title="Reliability" description="schema、retry、timeout、fallback、Eval。" href="/docs/agent/reliability" />
+</CardGrid>
+
+## 本专栏计划
+
+1. 讲清 Agent vs Workflow，用一个自己做过的反例
+2. Multi-agent：Tariff 的 Supervisor → Expert 为什么拆
+3. Failure modes 清单能背、能举例
+4. Reliability 接到 DeepEval 与线上回归

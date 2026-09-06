@@ -1,19 +1,15 @@
 ---
 title: 准备手册
 titleEn: Playbook
-description: 6 个模块撑起整段跳槽：定位、简历、项目、技术、编码、面试表现。知识只在一处写深。
-descriptionEn: Six modules for the job search. Write each piece of knowledge in one place.
+description: 6 个模块撑起整段跳槽。知识点在侧边栏收成专栏，项目深挖算面试表现。
+descriptionEn: Six modules. Knowledge lives in collapsible columns. Project deep dives sit under interview performance.
 date: 2026-09-06
 keywords: ["overview", "playbook", "llm engineer", "interview prep"]
 ---
 
 目标不是重新学一遍 AI，而是把已有 **3+ 年 LLM 工程经验** 转成 Interview Performance。
 
-不要把 70% 时间花在「学习知识」、只留 30% 给面试。后期默认：
-
-**30% 学习 + 30% 项目深挖 + 20% Coding + 20% Mock**
-
-拿到面试以后再调成：**20% 学习 + 20% Coding + 30% Project/Design + 30% Mock**。
+后期默认：**30% 学习 + 30% 项目深挖 + 20% Coding + 20% Mock**。拿到面试以后再调成 **20 / 20 / 30 / 30**。
 
 <Note title="每天只记 6 件事">
 定位：找什么工作。简历：怎么让别人愿意见我。项目：怎么证明做过。技术：到底懂不懂。编码：能不能写。面试：压力下能不能讲出来。
@@ -25,85 +21,39 @@ keywords: ["overview", "playbook", "llm engineer", "interview prep"]
 | --- | --- | --- | --- |
 | 1 | 求职定位 | 我应该找什么工作？ | [求职定位](/docs/positioning) |
 | 2 | Resume / Intro | 怎么让别人愿意见我？ | [简历](/resume/cv) · [个人介绍](/resume/about) |
-| 3 | 项目深挖 | 怎么证明我真的做过？ | [项目深挖](/docs/projects) |
-| 4 | 技术知识 | 我到底懂不懂？ | [LLM / RAG / Agent](/docs/genai) · [系统设计](/docs/system-design) · [计算机基础](/docs/cs-fundamentals) |
-| 5 | Coding Interview | 我能不能写代码？ | [算法](/docs/algorithms) · [SQL](/docs/algorithms/sql) |
-| 6 | 面试表现 | 我能不能在压力下讲出来？ | [行为面试](/docs/behavioral) |
+| 3 | 项目深挖 | 怎么证明我真的做过？ | [项目深挖](/docs/projects)（面试表现） |
+| 4 | 技术知识 | 我到底懂不懂？ | [LLM](/docs/llm) · [RAG](/docs/rag) · [Agent](/docs/agent) · [系统设计](/docs/system-design) · [工程基础](/docs/engineering) |
+| 5 | Coding | 我能不能写代码？ | [算法](/docs/algorithms) |
+| 6 | 面试表现 | 我能不能在压力下讲出来？ | [项目深挖](/docs/projects) · [行为面试](/docs/behavioral) |
 
 <CardGrid>
-  <Card title="求职定位" description="Target Job Profile：角色、级别、地域、公司类型。" href="/docs/positioning" />
-  <Card title="项目深挖" description="What / Why / Architecture / Trade-offs / Results。按 Tier 投入。" href="/docs/projects" />
-  <Card title="技术知识" description="LLM、RAG、Agent、System Design、ML/SE 能被追问的那一层。" href="/docs/genai" />
-  <Card title="编码面试" description="Python 手感、高频算法、SQL。不是 300 道 Hard。" href="/docs/algorithms" />
+  <Card title="LLM Fundamentals" description="Transformer → Inference。Fine-tuning / vLLM 必须能追问。" href="/docs/llm" />
+  <Card title="RAG" description="Embedding → Evaluation。锚点 FAISS + BM25 + RRF。" href="/docs/rag" />
+  <Card title="Agent" description="Tool calling → Multi-agent 可靠性。" href="/docs/agent" />
+  <Card title="系统设计" description="架构 / 规模 / 延迟 / 成本 / 可靠 / 可观测。" href="/docs/system-design" />
+  <Card title="工程基础" description="Python、并发、REST、SQL、Cloud。经得起追问即可。" href="/docs/engineering" />
+  <Card title="算法" description="20–30 道高频 Medium。SQL 不在这里。" href="/docs/algorithms" />
 </CardGrid>
+
+## 侧边栏怎么用
+
+每一个知识点专栏都和算法一样：**先点总览看计划和卡片，再进子页写答案。** 子目录默认收起；只有当前正在看的专栏会展开。
+
+- **知识点**：LLM / RAG / Agent / 系统设计 / 工程基础 / 算法
+- **面试表现**：项目深挖 + 行为面试（STAR / 表达 / Mock）
+- SQL 在工程基础，不在算法。前端专栏已去掉。
 
 ## 知识存在哪
 
-站点三块内容职责不同。同一件事不要写三遍：对外成品、可复用答案、单次流程各放一处。
+同一件事不要写三遍：Docs 写能脱稿讲的答案，Resume 写 recruiter 会扫的成品，Companies 只记这一家、这一轮。
 
 ```
-contents/
-  docs/          可复用的面试答案（概念、项目深挖、STAR、题型）
-  resume/        对外成品（About、CV、PDF）
-  companies/     单次流程（这家公司、这个 JD、这一轮问了什么）
-  site/          首页展示（简介、时间线、Roadmap）
-notes/           未上站草稿；Inbox 会话不上 git、不上网站
+contents/docs/     专栏总览 + 子页答案
+contents/resume/   About、CV、PDF
+contents/companies/ 投递状态与轮次
+notes/             周计划；Inbox 不上站
 ```
-
-| 内容 | Docs | Resume | Companies |
-| --- | --- | --- | --- |
-| Target Job Profile | **主本** | 只反映定稿后的 headline | 不写总定位 |
-| 30s / 60s / 2min 开场 | 排练稿在 [定位](/docs/positioning) | About 是对外叙述 | 不写 |
-| 简历 bullet | 不写长文 | **主本**（`lib/resume-data.ts` + PDF） | 可针对 JD 改一版备注 |
-| LinkedIn | 不镜像全文 | 与 CV 叙事对齐即可 | 不写 |
-| 项目架构 / 权衡 / 失败 | **主本** | 1–2 条结果导向 bullet | 只记「这家追问了哪一段」 |
-| RAG / Agent / Inference | **主本** | 技能关键词 | 不写通用定义 |
-| LeetCode / SQL 模板 | **主本** | 不写 | 只记「这轮考了哪题」 |
-| STAR / 行为题 | **主本** | 不写完整故事 | 只记该公司特有的 Why us |
-| 投递状态、轮次、薪资谈判 | 不上站细账 | 不写 | **主本** |
-| Mock 复盘 | Journal 一行索引 → 回填知识页 | 不写 | 若针对某公司，记在该公司页 |
 
 <Note title="一条知识一个主本">
-Docs 写到能脱稿讲。Resume 只保留 recruiter 会扫的那一层。Companies 只保留「这一家、这一轮」才有意义的信息。Mock 暴露的缺口，回填到对应知识页，不要堆在日志里。
+子页写到 My answer。总览页只留计划和卡片。Mock 缺口回填子页，不要堆在日志里。
 </Note>
-
-## 大图
-
-```
-                 JOB SEARCH
-                     │
-        ┌────────────┴────────────┐
-        │                         │
-   POSITIONING                APPLICATION
-        │                         │
-   Target Roles              Resume / LinkedIn
-   Target Companies          Self Introduction
-   Salary / Location         Companies 投递板
-        │
-        ▼
-              INTERVIEW PREPARATION
-                     │
-     ┌───────────────┼────────────────┐
-     │               │                │
-  PROJECTS        TECHNICAL          CODING
-     │               │                 │
-  深挖卡片      LLM / RAG / Agent    Python
-  架构权衡      System Design        Algorithms
-  失败与结果    ML/SE Fundamentals   SQL
-                     │
-                     ▼
-              INTERVIEW SKILLS
-           Behavioral · 分层讲解 · Mock
-```
-
-前端笔记仍保留，但本轮不是主线。不要用它挤占 LLM System Design 和项目深挖的时间。
-
-## 怎么往站点里写
-
-每天只做一件事：**打开对应目录，更新或新增一篇 `index.mdx`。** 刷新后笔记、搜索和首页热力图会跟上。
-
-新页面还要在 `settings/documents.ts`（或 companies / resume）里加导航项。
-
-`date` 会点亮首页当月的小方块。同一天更新越多，颜色越深。
-
-首页三个开关：`contents/site/profile.json`、`timeline.json`、`roadmap.json`。

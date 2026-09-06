@@ -13,16 +13,23 @@ import { localize } from '@/lib/i18n/types'
 import { isRoute, type Paths } from '@/lib/paths'
 import { cn } from '@/lib/utils'
 
+function sectionState(path: string, href?: string) {
+  if (!href) return { inSection: false, onChild: false }
+  const onChild = path.startsWith(`${href}/`)
+  return { inSection: path === href || onChild, onChild }
+}
+
 export function SubLink(props: Paths & { isSheet: boolean; level: number }) {
   const path = usePathname()
   const { locale } = useI18n()
-  const [isOpen, setIsOpen] = useState(true)
+  const itemHref = isRoute(props) ? props.href : undefined
+  const { inSection, onChild } = sectionState(path, itemHref)
+  const [isOpen, setIsOpen] = useState(onChild)
 
   useEffect(() => {
-    if (isRoute(props) && props.href && path !== props.href && path.includes(props.href)) {
-      Promise.resolve().then(() => setIsOpen(true))
-    }
-  }, [path, props])
+    if (onChild) setIsOpen(true)
+    else if (!inSection) setIsOpen(false)
+  }, [inSection, onChild])
 
   if (!isRoute(props)) return
 
