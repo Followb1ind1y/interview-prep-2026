@@ -1,0 +1,14 @@
+---
+description: Do not offer to capture or summarize chats. Only run Capture/Publish when the user explicitly asks.
+alwaysApply: true
+---
+
+# Session notes — no nudge
+
+Do not ask 「要不要总结这次对话」or offer to capture/summarize when a chat winds down.
+
+Do not list or mention unpublished files in `notes/inbox/` in a new conversation.
+
+If the user did not explicitly ask to capture, the conversation is not worth keeping. Ignore it.
+
+Only when they clearly say Capture / 总结这次对话 / 归档到 Docs / 发布笔记, follow the matching skill (`capture-session` or `publish-note`).

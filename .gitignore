@@ -34,3 +34,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# session inbox (capture notes; never publish)
+notes/inbox/*.md
+!notes/inbox/README.md
