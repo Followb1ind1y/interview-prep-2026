@@ -17,11 +17,14 @@ function daysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate()
 }
 
-function levelFor(count: number) {
+/** Shade relative to the busiest day in the visible month so "darker = more" is readable. */
+function levelFor(count: number, monthMax: number) {
   if (count <= 0) return 0
-  if (count === 1) return 1
-  if (count === 2) return 2
-  if (count <= 4) return 3
+  if (monthMax <= 1) return 4
+  const ratio = count / monthMax
+  if (ratio <= 0.25) return 1
+  if (ratio <= 0.5) return 2
+  if (ratio <= 0.75) return 3
   return 4
 }
 
@@ -49,6 +52,11 @@ export function HomeHeatmap({ activity }: { activity: ActivityDay[] }) {
     }
     return result
   }, [cursor, countMap])
+
+  const monthMax = useMemo(
+    () => cells.reduce((max, cell) => Math.max(max, cell.count), 0),
+    [cells]
+  )
 
   const label = new Date(cursor.year, cursor.month, 1).toLocaleDateString(
     locale === 'zh' ? 'zh-CN' : 'en-US',
@@ -109,10 +117,18 @@ export function HomeHeatmap({ activity }: { activity: ActivityDay[] }) {
             <div
               className={cn(
                 'aspect-square rounded-[4px] border',
-                cell.date ? `heat-${levelFor(cell.count)}` : 'border-transparent bg-transparent'
+                cell.date
+                  ? `heat-${levelFor(cell.count, monthMax)}`
+                  : 'border-transparent bg-transparent'
               )}
               key={cell.date ?? `empty-${i}`}
-              title={cell.date ? `${cell.date} · ${cell.count}` : undefined}
+              title={
+                cell.date
+                  ? locale === 'zh'
+                    ? `${cell.date} · ${cell.count} 条更新`
+                    : `${cell.date} · ${cell.count} updates`
+                  : undefined
+              }
             />
           ))}
         </div>
