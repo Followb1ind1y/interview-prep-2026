@@ -1,0 +1,54 @@
+---
+title: Context Window
+titleEn: Context Window
+description: limit、input / output tokens、attention cost、long context degradation、lost-in-the-middle。
+descriptionEn: Limits, input vs output tokens, attention cost, degradation, lost-in-the-middle.
+date: 2026-09-07
+keywords: ["context window", "lost-in-the-middle", "long context"]
+---
+
+长上下文不是免费的，也不是质量单调变好。
+
+## 需要掌握
+
+- context limit
+- input tokens / output tokens
+- attention cost
+- long context degradation
+- lost-in-the-middle
+
+## 机制
+
+```
+input tokens + reserved output ≤ context limit
+attention ~ O(n²)  （或稀疏变体，仍然随 n 变贵）
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+模型单次能处理的最大 token 数，输入和输出通常共享或分别计。
+
+### Level 2 — Mechanism
+
+n 变大，attention 和 KV 都变贵。中间位置的证据更容易被忽略（lost-in-the-middle）。
+
+### Level 3 — Engineering
+
+有 1M window 也不该把整个语料塞进去。检索、压缩、缓存仍然必要。
+
+## 面试问题
+
+1. Input tokens 和 output tokens 如何影响 window 和账单？
+2. 为什么 long context 会 degradation？
+3. Lost-in-the-middle 对 RAG 拼接顺序意味着什么？
+4. 有超长 window 还要不要 RAG？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

@@ -1,0 +1,62 @@
+---
+title: Model Selection
+titleEn: Model Selection
+description: GPT / Claude / Gemini 怎么选：质量、延迟、成本、工具、多模态。
+descriptionEn: Choosing GPT / Claude / Gemini on quality, latency, cost, tools, multimodal.
+date: 2026-09-07
+keywords: ["model selection", "gpt", "claude", "gemini"]
+---
+
+能做 trade-off，而不是背一个「最强模型」。
+
+## 需要掌握
+
+从下面几维比较：
+
+- quality
+- latency
+- cost
+- context
+- tool calling
+- structured output
+- multimodal
+- reliability
+
+## 机制
+
+```
+Task requirements
+        ↓
+quality × latency × cost × tools × context
+        ↓
+Primary model + fallback
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+按任务选模型，而不是按品牌。
+
+### Level 2 — Mechanism
+
+同一任务可在便宜模型和强模型之间测。工具、结构化、长上下文、多模态支持是硬约束。
+
+### Level 3 — Engineering
+
+你的项目里为什么是 Gemini：企业生态、BigQuery、延迟还是质量？要能说出备选 Claude / GPT 会在哪一维更好。
+
+## 面试问题
+
+1. GPT / Claude / Gemini 怎么选？
+2. 什么任务可以降级到小模型？
+3. Tool calling 质量差，是换模型还是改 schema？
+4. 多模态和纯文本管道如何拆模型？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

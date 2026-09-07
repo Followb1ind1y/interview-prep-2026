@@ -1,0 +1,62 @@
+---
+title: Agent Harness
+titleEn: Agent Harness
+description: Model 是 brain，Harness 是 operating environment。
+descriptionEn: The model is the brain; the harness is the operating environment.
+date: 2026-09-07
+keywords: ["agent harness", "harness engineering"]
+---
+
+OpenAI 2026 对 Codex 的总结直接使用 Harness Engineering：从「人写代码」转向设计 agent 工作环境、specification 和 feedback loops。
+
+## 需要掌握
+
+Harness 里通常有：Tools、Memory、Context、Sandbox、State、Compaction、Files。
+
+## 机制
+
+```
+                Agent
+                  │
+        ┌─────────┴─────────┐
+        │                   │
+     Model               Harness
+                            │
+            ┌───────────────┼──────────────┐
+            ↓               ↓              ↓
+         Tools           Memory         Context
+            ↓               ↓              ↓
+         Sandbox         State         Compaction
+            ↓
+          Files
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+Harness 是 agent 的运行环境：它能碰什么、怎么得到反馈、上下文如何维护。
+
+### Level 2 — Mechanism
+
+模型只出 token。Harness 负责执行工具、管权限、截断/压缩 context、跑测试、存 state。
+
+### Level 3 — Engineering
+
+面试可能问 How would you build a coding-agent harness? 答案不是再包一个 LLM 调用，而是规格、工具面、sandbox、验证环。
+
+## 面试问题
+
+1. What is an agent harness?
+2. Model vs harness?
+3. What components belong in a harness?
+4. How would you build a coding-agent harness?
+5. Harness 和 MCP 是什么关系？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

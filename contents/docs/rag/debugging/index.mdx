@@ -1,0 +1,69 @@
+---
+title: RAG Failure Diagnosis
+titleEn: RAG Failure Diagnosis
+description: 答案错了先查检索、排序、context，还是生成。这是 production thinking。
+descriptionEn: Wrong answer? Check retrieval, ranking, context, then generation.
+date: 2026-09-07
+keywords: ["rag debugging", "failure diagnosis"]
+---
+
+这是非常重要的一页。面试官问 RAG answer is wrong 时，要能自然走完这张图。
+
+## 需要掌握
+
+按层排查，不要一上来换模型。
+
+## 机制
+
+```
+Question
+ ↓
+Was the correct document retrieved?
+ ↓
+NO → Retrieval problem
+YES
+ ↓
+Was correct chunk ranked highly?
+ ↓
+NO → Ranking problem
+YES
+ ↓
+Was context constructed correctly?
+ ↓
+NO → Context problem
+YES
+ ↓
+Did LLM use the context?
+ ↓
+NO → Generation problem
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+把「答错了」拆成检索 / 排序 / 上下文 / 生成四类故障。
+
+### Level 2 — Mechanism
+
+看 retrieved ids、rank、拼进 prompt 的片段、以及模型是否引用了它们。指标：Recall@K vs faithfulness。
+
+### Level 3 — Engineering
+
+Your RAG has 90% retrieval recall but only 70% answer accuracy. Diagnose it：检索是够的，问题在 ranking、context 拼装或生成不守证据。
+
+## 面试问题
+
+1. RAG answer is wrong. What do you investigate?
+2. Correct document retrieved but answer wrong. Why?
+3. How do you handle no-answer queries?
+4. How would you reduce RAG latency?
+5. How do you evaluate RAG?
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

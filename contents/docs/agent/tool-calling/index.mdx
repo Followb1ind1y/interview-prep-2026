@@ -1,24 +1,59 @@
 ---
 title: Tool Calling
 titleEn: Tool Calling
-description: 选 tool、参数校验、失败重试。
-descriptionEn: Tool selection, argument validation, retries.
-date: 2026-09-06
-keywords: ["tool calling"]
+description: function calling、schema、选择、参数校验、执行、retry、timeout、幂等。
+descriptionEn: Function calling, schema, selection, validation, execution, retry, timeout, idempotency.
+date: 2026-09-07
+keywords: ["tool calling", "function calling", "idempotency"]
 ---
 
-标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。
+这是 agent 能「做事」的接口。接到 Tariff / Gemini tools。
 
-## 必能讲清
+## 需要掌握
 
--
+- function calling
+- tool schema
+- tool selection
+- tool arguments
+- validation
+- execution
+- tool result
+- retry / timeout
+- idempotency
 
-## 权衡
+## 机制
+
+```
+LLM → choose tool + args → validate
+    → execute → tool result → LLM
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+模型输出结构化的工具名和参数，由运行时执行，再把结果喂回模型。
+
+### Level 2 — Mechanism
+
+Schema 限制可调用面。校验挡住幻觉参数。超时和重试要考虑幂等，避免重复下单 / 重复写。
+
+### Level 3 — Engineering
+
+工具失败不是「再问一次模型」就完。要分类：参数错、下游 5xx、权限、超时。过多 tool 会降低选择准确率，转到 Context Construction。
+
+## 面试问题
+
+1. How does tool calling work?
+2. MCP 和 function calling 有什么区别？（细节见 MCP 页）
+3. 如何防止 hallucinated tool arguments？
+4. 工具是否必须幂等？不幂等怎么做？
+5. What if a tool fails?
+
+## 我的答案
 
 -
 
 ## 项目锚点
 
 -
-
-## 我的答案

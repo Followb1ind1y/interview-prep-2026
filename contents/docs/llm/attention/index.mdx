@@ -1,24 +1,65 @@
 ---
 title: Attention
 titleEn: Attention
-description: QKV、Self-attention、MHA、复杂度。
-descriptionEn: QKV, self-attention, MHA, complexity.
-date: 2026-09-06
-keywords: ["attention", "qkv"]
+description: QKV、causal、MHA / MQA / GQA、O(n²)。长上下文为什么贵。
+descriptionEn: QKV, causal attention, MHA / MQA / GQA, O(n²), long-context cost.
+date: 2026-09-07
+keywords: ["attention", "qkv", "mha", "mqa", "gqa"]
 ---
 
-标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。
+必须非常熟。能画 QKV，能讲复杂度，能连到 KV cache。
 
-## 必能讲清
+## 需要掌握
 
--
+- Q / K / V
+- self-attention
+- causal attention
+- multi-head attention
+- multi-query attention
+- grouped-query attention
+- attention complexity
+- why O(n²)
 
-## 权衡
+## 机制
+
+```
+Q = X Wq
+K = X Wk
+V = X Wv
+scores = Q Kᵀ / √d     →  O(n²)
+weights = softmax(scores + causal mask)
+output = weights V
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+Attention 让每个 token 按相关性聚合其他 token 的信息。
+
+### Level 2 — Mechanism
+
+Q 问、K 被匹配、V 被加权取出。Causal mask 禁止看未来。多头并行不同子空间。
+
+### Level 3 — Engineering
+
+序列长 n 时，QKᵀ 是 n×n。长上下文变贵，是因为计算和 KV cache 都随 n 涨。MQA / GQA 减少 K/V 头数，换吞吐和显存。
+
+## 面试问题
+
+1. Explain self-attention.
+2. What are Q / K / V?
+3. Why is attention O(n²)?
+4. What is the difference between MHA, MQA and GQA?
+5. Why does long context become expensive?
+6. Why does long context increase inference cost?
+7. How does KV cache help?
+8. How much memory does KV cache consume?
+
+## 我的答案
 
 -
 
 ## 项目锚点
 
 -
-
-## 我的答案

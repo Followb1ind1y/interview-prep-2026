@@ -1,49 +1,61 @@
 ---
-title: 系统设计
-titleEn: System Design
-description: 按六个维度准备 LLM 系统。白板题写在对应维度里，不另开收藏夹。
-descriptionEn: Six dimensions for LLM systems. Whiteboard problems live under the matching dimension.
-date: 2026-09-06
-keywords: ["system design", "architecture", "latency", "cost", "observability"]
+title: AI System Design
+titleEn: AI System Design
+description: 按题目练，不按维度收藏。每道题走同一套 14 个 dimensions。
+descriptionEn: Practice problems, not dimension folders. Every problem uses the same 14 dimensions.
+date: 2026-09-07
+keywords: ["system design", "rag chatbot", "coding agent", "enterprise ai platform"]
 ---
 
-概念在 LLM / RAG / Agent。这里练的是 **开口框架 + 六个维度**。每做完一道白板题，把权衡写进对应维度页，不要在总览堆全文。
+Latency / Cost / Reliability / Observability 的知识点在 [Production AI](/docs/production)。这里只练开口和权衡。
 
-## 开口框架
+每道题都按：
 
-<Step>
-  <StepItem title="澄清">
-    用户量、读写比、延迟、一致性、是否要登录 / 搜索 / 实时 / 流式。
-  </StepItem>
-  <StepItem title="估算">
-    QPS、存储、带宽，以及 **token / 成本**。先给数量级，再画图。
-  </StepItem>
-  <StepItem title="草图">
-    Client → API Gateway → Orchestration / Retriever / Model → Storage / Cache / Queue。
-  </StepItem>
-  <StepItem title="深挖">
-    选 1–2 个难点：延迟、幻觉、工具失败、评测、成本。
-  </StepItem>
-</Step>
+1. Requirements
+2. Constraints
+3. Architecture
+4. Data Flow
+5. Model
+6. Retrieval
+7. Agent
+8. Evaluation
+9. Scaling
+10. Latency
+11. Cost
+12. Reliability
+13. Security
+14. Observability
+
+概念不够就回到 01–07。这一阶段目标是 **每天一道题**，不再堆新词条。
 
 <CardGrid>
-  <Card title="Architecture" description="服务怎么拆、同步 vs 流式、谁持有状态。" href="/docs/system-design/architecture" />
-  <Card title="Scalability" description="QPS、会话、检索索引、模型副本。" href="/docs/system-design/scalability" />
-  <Card title="Latency" description="TTFT、流式、Voice 1.2s。" href="/docs/system-design/latency" />
-  <Card title="Cost" description="token、缓存、路由便宜模型。" href="/docs/system-design/cost" />
-  <Card title="Reliability" description="超时、重试、降级、幻觉。" href="/docs/system-design/reliability" />
-  <Card title="Observability" description="trace、token、eval 回归。" href="/docs/system-design/observability" />
+  <Card title="L1 · RAG Chatbot" description="最基本的 RAG 白板。" href="/docs/system-design/rag-chatbot" />
+  <Card title="L1 · Knowledge Assistant" description="企业知识助手。" href="/docs/system-design/knowledge-assistant" />
+  <Card title="L1 · Document Q&A" description="文档问答。" href="/docs/system-design/document-qa" />
+  <Card title="L2 · Customer Support" description="客服 AI：工单、工具、升级人工。" href="/docs/system-design/customer-support" />
+  <Card title="L2 · AI Search" description="搜索，而不只是 chatbot。" href="/docs/system-design/ai-search" />
+  <Card title="L2 · Meeting Summarization" description="长音频 / 纪要。" href="/docs/system-design/meeting-summarization" />
+  <Card title="L2 · Document Extraction" description="结构化抽取 pipeline。" href="/docs/system-design/document-extraction" />
+  <Card title="L3 · AI Agent" description="通用 agent。" href="/docs/system-design/ai-agent" />
+  <Card title="L3 · Coding Agent" description="接到 Harness / Sandbox。" href="/docs/system-design/coding-agent" />
+  <Card title="L3 · Multi-Agent" description="何时拆、怎么协调。" href="/docs/system-design/multi-agent" />
+  <Card title="L3 · Long-running Agent" description="状态、compaction、恢复。" href="/docs/system-design/long-running-agent" />
+  <Card title="L4 · ChatGPT-like" description="会话、记忆、工具、多模型。" href="/docs/system-design/chatgpt" />
+  <Card title="L4 · Agent Platform" description="企业 Agent 平台。" href="/docs/system-design/agent-platform" />
+  <Card title="L4 · Inference Platform" description="serving、KV、batching。" href="/docs/system-design/inference-platform" />
+  <Card title="L4 · Large-scale RAG" description="大规模检索平台。" href="/docs/system-design/rag-platform" />
 </CardGrid>
 
-## 本专栏计划（先练这 6 题）
+## 本专栏计划（每天一题）
 
-| 题 | 优先写进 |
+| Day | 题 |
 | --- | --- |
-| Production RAG | Architecture + Evaluation 意识 |
-| ChatGPT-like app | Architecture + Cost |
-| Enterprise business Q&A Agent | Reliability |
-| Real-time Voice AI | Latency |
-| LLM Evaluation Platform | Observability |
-| Negotiation Practice（30–45 min） | Architecture + Latency |
+| 1 | Design RAG chatbot |
+| 2 | Design enterprise knowledge assistant |
+| 3 | Design AI customer support |
+| 4 | Design AI search |
+| 5 | Design an AI agent |
+| 6 | Design coding agent |
+| 7 | Design large-scale AI platform |
 
 传统 Shortener / Feed 只在 JD 明显偏通用后端时再补。

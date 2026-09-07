@@ -1,0 +1,54 @@
+---
+title: Document Ingestion
+titleEn: Document Ingestion
+description: PDF / HTML / Markdown / tables / images / OCR / metadata / versioning。
+descriptionEn: PDFs, HTML, Markdown, tables, images, OCR, metadata, versioning.
+date: 2026-09-07
+keywords: ["ingestion", "ocr", "pdf", "metadata"]
+---
+
+企业文档不干净。解析错了，后面全错。
+
+## 需要掌握
+
+- PDF / HTML / Markdown
+- tables
+- images
+- OCR
+- metadata
+- document versioning
+
+## 机制
+
+```
+Raw files → parse → clean → attach metadata → version → chunk
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+把各格式文档变成可切块、可追溯的文本 + 元数据。
+
+### Level 2 — Mechanism
+
+解析器按类型处理；表和扫描件要 OCR / 结构保留。Metadata（source、时间、权限、版本）留给过滤和引用。
+
+### Level 3 — Engineering
+
+版本更新必须能失效旧 chunk。权限字段要进 metadata filter，不能只靠 prompt「不要看机密」。
+
+## 面试问题
+
+1. PDF 表格和扫描件你怎么 ingest？
+2. 文档更新后索引如何保持一致？
+3. Metadata 至少要有哪些字段？
+4. Ingestion 失败如何被观测到？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

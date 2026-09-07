@@ -1,0 +1,26 @@
+---
+title: Evaluation
+titleEn: Evaluation
+description: Eval 已经不是 RAG 专属。从 golden set 到线上回归，才是 AI Engineer 思维。
+descriptionEn: Eval is no longer RAG-only. Golden sets through online regression.
+date: 2026-09-07
+keywords: ["evaluation", "llm-as-judge", "recall@k", "faithfulness", "trajectory eval"]
+---
+
+从 RAG 专栏拆出来，因为 2026 年 AI Engineer JD 里 evaluation 已经非常高频。Agent、生成、production 都要评。
+
+<CardGrid>
+  <Card title="Fundamentals" description="Input → System → Output → Expected → Metric。" href="/docs/evaluation/fundamentals" />
+  <Card title="Offline Eval" description="golden dataset、benchmark、regression、A/B。" href="/docs/evaluation/offline" />
+  <Card title="LLM Evaluation" description="exact match、semantic、LLM-as-judge、pairwise、rubric。" href="/docs/evaluation/llm-eval" />
+  <Card title="RAG Evaluation" description="Retrieval 指标 + Generation 指标分开。" href="/docs/evaluation/rag-eval" />
+  <Card title="Agent Evaluation" description="task success、tool accuracy、trajectory、cost。" href="/docs/evaluation/agent-eval" />
+  <Card title="Production Eval" description="Offline → Staging → Prod → Trace → 新 eval。" href="/docs/evaluation/production-eval" />
+</CardGrid>
+
+## 本专栏计划
+
+1. 先能画 Fundamentals 闭环
+2. RAG eval 接到 DeepEval：correctness / completeness / relevance
+3. Agent eval 补上，这是当前缺口
+4. Production eval：失败 trace 必须能变成新的回归集

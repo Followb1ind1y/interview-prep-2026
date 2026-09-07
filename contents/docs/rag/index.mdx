@@ -1,30 +1,37 @@
 ---
-title: RAG
-titleEn: RAG
-description: Embedding 到 Evaluation。项目锚点是 FAISS + BM25 + RRF。
-descriptionEn: Embedding through evaluation. Anchor on FAISS + BM25 + RRF.
-date: 2026-09-06
-keywords: ["rag", "embedding", "retrieval", "rerank", "hybrid search"]
+title: RAG / Retrieval
+titleEn: RAG / Retrieval
+description: 完整 pipeline + 失败诊断。评测指标写在 Evaluation 专栏。
+descriptionEn: Full pipeline plus failure diagnosis. Metrics live in the Evaluation column.
+date: 2026-09-07
+keywords: ["rag", "chunking", "embedding", "hybrid search", "rerank", "graph rag"]
 ---
 
-能画全图，每个环节知道 trade-off，并能接到 Sustainability / Negotiation Expert / 企业检索。
+不要只停在 Embedding / Retrieval / Reranking / Hybrid Search。最终要能在白板上 5 分钟设计 Enterprise RAG，并且回答：*RAG answer is wrong. What do you investigate?*
 
 ```
 Documents → Parsing → Chunking → Embedding → Vector DB
-         → Retriever → Reranker → Context → LLM → Answer
+         → Query → Retrieval → Reranking → Context → LLM → Answer
 ```
 
+评测（Recall@K、Faithfulness）在 [Evaluation / RAG Eval](/docs/evaluation/rag-eval)，本专栏只保留系统和诊断。
+
 <CardGrid>
-  <Card title="Embedding" description="模型选择、维度、更新与多语言。" href="/docs/rag/embedding" />
-  <Card title="Retrieval" description="BM25、dense、过滤、query rewrite。" href="/docs/rag/retrieval" />
-  <Card title="Reranking" description="何时 rerank、延迟与收益。" href="/docs/rag/reranking" />
-  <Card title="Hybrid Search" description="FAISS + BM25 + RRF。你做过的那条。" href="/docs/rag/hybrid-search" />
-  <Card title="Evaluation" description="检索指标 + 生成指标，offline / online。" href="/docs/rag/evaluation" />
+  <Card title="Architecture" description="先画完整 pipeline，再往下拆。" href="/docs/rag/architecture" />
+  <Card title="Document Ingestion" description="PDF / HTML / tables / OCR / metadata / versioning。" href="/docs/rag/ingestion" />
+  <Card title="Chunking" description="典型深挖点。太小 / 太大 / overlap。" href="/docs/rag/chunking" />
+  <Card title="Embedding" description="dense、相似度、维度、query vs document。" href="/docs/rag/embedding" />
+  <Card title="Vector Search" description="ANN、HNSW、IVF、PQ、metadata filter。" href="/docs/rag/vector-search" />
+  <Card title="Sparse Retrieval" description="BM25、倒排索引；和语义检索为什么互补。" href="/docs/rag/sparse-retrieval" />
+  <Card title="Hybrid Search" description="BM25 + Vector → Fusion。RRF。" href="/docs/rag/hybrid-search" />
+  <Card title="Reranking" description="为什么 retrieval 和 rerank 要分两阶段。" href="/docs/rag/reranking" />
+  <Card title="Advanced RAG" description="rewrite、HyDE、parent-child、GraphRAG、agentic RAG。" href="/docs/rag/advanced" />
+  <Card title="Failure Diagnosis" description="检索错了、排错了、context 错了、还是生成没用 context。" href="/docs/rag/debugging" />
 </CardGrid>
 
 ## 本专栏计划
 
-1. 默画全图，chunk size 能讲 4 个权衡
-2. Hybrid + RRF 用自己的项目讲，不要只背名词
-3. Evaluation 接到 DeepEval：correctness / completeness / relevance
-4. 失败模式：空检索、过期文档、context 塞太满
+1. 默画 Architecture；Ingestion 能讲企业文档的脏处
+2. Chunking 能答 4 个权衡；Embedding 接到自己的模型选择
+3. Hybrid + RRF 用 FAISS + BM25 项目讲，不要只背名词
+4. Advanced 第二阶段再挖；先会 Failure Diagnosis

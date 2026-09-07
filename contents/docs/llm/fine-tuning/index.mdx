@@ -1,24 +1,56 @@
 ---
 title: Fine-tuning
 titleEn: Fine-tuning
-description: LoRA / QLoRA / ZeRO。对标 LLaMA 项目。
-descriptionEn: LoRA / QLoRA / ZeRO. Tie to the LLaMA project.
-date: 2026-09-06
-keywords: ["lora", "qlora", "peft"]
+description: Full / LoRA / QLoRA / PEFT。高频题：RAG vs Fine-tuning vs Prompt Engineering。
+descriptionEn: "Full / LoRA / QLoRA / PEFT. High-frequency: RAG vs fine-tuning vs prompting."
+date: 2026-09-07
+keywords: ["lora", "qlora", "peft", "adapters"]
 ---
 
-标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。
+必须能在三种改模型行为的方法之间做选择，并接到 LLaMA 项目。
 
-## 必能讲清
+## 需要掌握
 
--
+- Full fine-tuning
+- LoRA
+- QLoRA
+- PEFT
+- adapters
 
-## 权衡
+## 机制
+
+```
+Prompt Engineering  →  不改权重，改输入
+RAG                 →  不改权重，改上下文
+Fine-tuning         →  改权重（或低秩适配器）
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+Fine-tuning 用领域数据继续训练，改变模型权重（或插入的 adapter）。
+
+### Level 2 — Mechanism
+
+LoRA 在冻结基座上训低秩矩阵。QLoRA 把基座量化后再 LoRA，降显存。PEFT 是这类方法的总称。
+
+### Level 3 — Engineering
+
+知识会变、要引用 → RAG。格式 / 语气 / 工具习惯稳定 → 小规模 SFT / LoRA。只是换说法 → prompt。三者常组合，不是单选题。
+
+## 面试问题
+
+1. RAG vs Fine-tuning vs Prompt Engineering?
+2. 什么时候必须 full fine-tune，而不是 LoRA？
+3. QLoRA 省了什么、牺牲了什么？
+4. 如何避免 catastrophic forgetting？
+5. 你的 LLaMA-3-8B + QLoRA 项目里，为什么不直接 RAG？
+
+## 我的答案
 
 -
 
 ## 项目锚点
 
 -
-
-## 我的答案

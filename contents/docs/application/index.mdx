@@ -1,0 +1,24 @@
+---
+title: LLM Application
+titleEn: LLM Application
+description: 拿到 GPT / Gemini API 之后，怎么把它变成可靠的软件。
+descriptionEn: After you have a GPT / Gemini API, how do you turn it into reliable software?
+date: 2026-09-07
+keywords: ["prompt engineering", "structured output", "model routing", "json schema"]
+---
+
+很多面试题其实不问 Transformer，而问这一层。Function calling 的执行细节在 [Agent / Tool Calling](/docs/agent/tool-calling)；streaming / timeout / retry 在 [Production AI](/docs/production)。
+
+<CardGrid>
+  <Card title="Prompt Engineering" description="zero-shot、few-shot、XML / JSON、instruction hierarchy。" href="/docs/application/prompt-engineering" />
+  <Card title="Structured Output" description="JSON Schema → Validation → Application。" href="/docs/application/structured-output" />
+  <Card title="Model Selection" description="GPT / Claude / Gemini：quality、latency、cost、tools。" href="/docs/application/model-selection" />
+  <Card title="Model Routing" description="cheap / strong / specialized；fallback 与 cascade。" href="/docs/application/model-routing" />
+</CardGrid>
+
+## 本专栏计划
+
+1. Prompt：能讲清 structured prompting，不只是「写得好」
+2. Structured output：malformed JSON 怎么 retry，接到 Pydantic
+3. 选模型：用自己项目里的 Gemini 选择做 trade-off
+4. Routing：什么 query 不该打最贵的模型

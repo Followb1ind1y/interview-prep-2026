@@ -1,24 +1,64 @@
 ---
 title: Inference
 titleEn: Inference
-description: KV cache、batching、vLLM / PagedAttention。
-descriptionEn: KV cache, batching, vLLM / PagedAttention.
-date: 2026-09-06
-keywords: ["kv cache", "vllm"]
+description: Prefill / Decode、TTFT / TPOT、KV cache、batching、quantization、speculative decoding。
+descriptionEn: Prefill / decode, TTFT / TPOT, KV cache, batching, quantization, speculative decoding.
+date: 2026-09-07
+keywords: ["inference", "kv cache", "prefill", "decode", "quantization", "flashattention", "vllm"]
 ---
 
-标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。
+2026 年 LLM Engineer 面试已经用 KV cache、quantization、batching、tokens/sec 区分深度。
 
-## 必能讲清
+## 需要掌握
 
--
+- prefill / decode
+- TTFT / TPOT
+- throughput / latency
+- KV cache
+- batching / continuous batching
+- quantization
+- speculative decoding
+- FlashAttention
 
-## 权衡
+## 机制
+
+```
+Prefill
+Prompt → parallel computation → KV Cache
+
+Decode
+Token → KV Cache → Next Token → KV Cache update → Next Token
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+推理分两段：prefill 吃完整 prompt，decode 一个一个吐 token。
+
+### Level 2 — Mechanism
+
+KV cache 避免 decode 时重算历史 K/V。Batching 把多个请求拼在一起提高 GPU 利用率；continuous batching 让请求随时进出。Quantization 降精度换显存和吞吐。
+
+### Level 3 — Engineering
+
+TTFT 主要看 prefill；用户打字感主要看 TPOT。KV cache 随 batch × layers × seq × dim 涨，长会话会先爆显存。vLLM / PagedAttention 解决碎片化。FlashAttention 是算子层的 IO 优化，不是另一种模型。
+
+## 面试问题
+
+1. Prefill 和 decode 有什么不同？
+2. What is KV cache? How does it work?
+3. When does KV cache become a bottleneck and how would you solve it?
+4. TTFT 和 TPOT 分别被什么影响？
+5. 为什么需要 continuous batching？
+6. 4-bit quantization 对质量 / 延迟 / 显存的 trade-off？
+7. Speculative decoding 什么时候有效？
+8. FlashAttention 解决的是计算还是内存带宽？
+
+## 我的答案
 
 -
 
 ## 项目锚点
 
 -
-
-## 我的答案

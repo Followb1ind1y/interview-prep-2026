@@ -1,0 +1,26 @@
+---
+title: Production AI
+titleEn: Production AI
+description: System Design 和 Agent Reliability 之间缺失的一层：API、延迟、成本、扩容、可观测、可靠。
+descriptionEn: The missing layer between system design and agent reliability.
+date: 2026-09-07
+keywords: ["production", "ttft", "cost", "observability", "circuit breaker", "rate limit"]
+---
+
+这些不是系统设计题的收藏夹，而是每一道设计题都要贯穿的工程能力。白板题本身写在 [AI System Design](/docs/system-design)。
+
+<CardGrid>
+  <Card title="API Engineering" description="streaming、timeout、retries、rate limit、async、连接池。" href="/docs/production/api-engineering" />
+  <Card title="Latency" description="TTFT + generation = 用户感知延迟。拆每一段耗时。" href="/docs/production/latency" />
+  <Card title="Cost" description="input / output / embedding / rerank / tool / infra。会估算。" href="/docs/production/cost" />
+  <Card title="Scaling" description="水平扩展、队列、缓存、batching、限流。" href="/docs/production/scaling" />
+  <Card title="Observability" description="一条 request 的 trace：LLM、检索、tool、token、版本。" href="/docs/production/observability" />
+  <Card title="Reliability" description="fallback、circuit breaker、graceful degradation、人工升级。" href="/docs/production/reliability" />
+</CardGrid>
+
+## 本专栏计划
+
+1. API：对照 FastAPI + Gemini streaming
+2. Latency：对照 Voice 1.2s，能拆 TTFT / retrieval / tool
+3. Cost：会算 100k users/day 的月费数量级
+4. Observability + Reliability：prompt 版本、token、失败都能追

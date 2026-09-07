@@ -1,0 +1,68 @@
+---
+title: Claude Code / Codex
+titleEn: Claude Code / Codex
+description: 理解背后的 architecture，不必成为产品专家。
+descriptionEn: Understand the architecture. You do not need to be a product expert.
+date: 2026-09-07
+keywords: ["claude code", "codex", "coding agent workflow"]
+---
+
+它们本质上是在 LLM + Tools + Context + State + Environment + Feedback + Safety 上构建的 agent system。
+
+## 需要掌握
+
+理解这条工作流即可。
+
+## 机制
+
+```
+User Goal
+   ↓
+Agent
+   ↓
+Context
+   ↓
+Plan
+   ↓
+Tools
+ ├── read file
+ ├── edit file
+ ├── terminal
+ ├── git
+ └── tests
+   ↓
+Observation
+   ↓
+Agent
+   ↓
+Verification
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+Claude Code / Codex 是带仓库工具和验证环的 coding agent 产品。
+
+### Level 2 — Mechanism
+
+读文件、改文件、跑命令、看测试，再决定下一步。Harness 限制 blast radius。
+
+### Level 3 — Engineering
+
+面试问 How does Codex / Claude Code work conceptually? 用上面这张图答，不要背发布会名词。
+
+## 面试问题
+
+1. How does Codex work conceptually?
+2. How does Claude Code work conceptually?
+3. 为什么需要 git / tests 作为一等工具？
+4. 和「聊天窗口里贴代码」差在哪？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

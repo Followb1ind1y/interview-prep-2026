@@ -1,24 +1,57 @@
 ---
 title: Training
 titleEn: Training
-description: Pretrain、SFT、RLHF / DPO。每步在优化什么。
-descriptionEn: Pretrain, SFT, RLHF / DPO — what each stage optimizes.
-date: 2026-09-06
-keywords: ["sft", "rlhf", "dpo"]
+description: Pretraining、next-token prediction、cross entropy、scaling laws。不做到论文级。
+descriptionEn: Pretraining, next-token prediction, cross entropy, scaling laws.
+date: 2026-09-07
+keywords: ["pretraining", "next-token", "scaling laws", "cross entropy"]
 ---
 
-标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。
+知道预训练在优化什么就够。SFT / RLHF 在 Post-training。
 
-## 必能讲清
+## 需要掌握
 
--
+- pretraining
+- next-token prediction
+- cross entropy
+- gradient descent
+- backpropagation
+- scaling laws
+- data / model / compute scaling
 
-## 权衡
+## 机制
+
+```
+prefix tokens → predict next token
+             → cross entropy loss
+             → backprop → update weights
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+预训练是大规模 next-token prediction，让模型学会语言和世界知识的统计结构。
+
+### Level 2 — Mechanism
+
+每个位置预测下一个 token，loss 是交叉熵。数据、模型、算力按 scaling laws 一起涨。
+
+### Level 3 — Engineering
+
+面试不要展开优化器论文。能说清：预训练给的是通用先验；任务能力和听话来自 post-training。
+
+## 面试问题
+
+1. Pretraining 到底在优化什么目标？
+2. 为什么用 cross entropy 而不是直接「生成整句」？
+3. Scaling laws 对选模型和估效果有什么用？
+4. 预训练知识过时了，该 fine-tune 还是上 RAG？
+
+## 我的答案
 
 -
 
 ## 项目锚点
 
 -
-
-## 我的答案

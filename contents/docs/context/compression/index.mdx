@@ -1,0 +1,61 @@
+---
+title: Context Compression
+titleEn: Context Compression
+description: summarization、history pruning、observation / tool result 压缩、rolling summary。
+descriptionEn: Summarization, pruning, observation/tool compression, rolling summaries.
+date: 2026-09-07
+keywords: ["context compression", "rolling summary"]
+---
+
+从 100k 压到 20k 时，要能说出保了什么。Compaction 细节见 AI-Native。
+
+## 需要掌握
+
+- summarization
+- message compression
+- history pruning
+- observation compression
+- tool result compression
+- semantic compression
+- rolling summary
+
+## 机制
+
+```
+100k tokens
+     ↓
+Conversation summary
+     ↓
+Relevant facts
+     ↓
+20k tokens
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+在丢失最少关键信息的前提下减少 token。
+
+### Level 2 — Mechanism
+
+可删旧轮次、摘要历史、截断工具输出、只留结构化事实。Rolling summary 随对话更新。
+
+### Level 3 — Engineering
+
+摘要本身会丢决策和错误。对 coding / long-running agent，用 [Compaction](/docs/ai-native/compaction) 的保留清单，而不是「把聊天总结一下」。
+
+## 面试问题
+
+1. 压缩时什么信息绝对不能丢？
+2. Tool result 如何压缩才不影响下一步？
+3. Rolling summary 的失败模式是什么？
+4. 压缩和检索是替代还是组合？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

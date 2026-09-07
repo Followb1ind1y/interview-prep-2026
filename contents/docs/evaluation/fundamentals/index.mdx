@@ -1,0 +1,57 @@
+---
+title: Evaluation Fundamentals
+titleEn: Evaluation Fundamentals
+description: Input → System → Output → Expected / Reference → Metric。
+descriptionEn: Input → system → output → expected / reference → metric.
+date: 2026-09-07
+keywords: ["evaluation", "metric", "golden dataset"]
+---
+
+先有闭环，再谈 LLM-as-judge。
+
+## 需要掌握
+
+理解评测的最小单元。
+
+## 机制
+
+```
+Input
+ ↓
+System
+ ↓
+Output
+ ↓
+Expected / Reference
+ ↓
+Metric
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+用固定输入和可比较的分数，判断系统是否变好。
+
+### Level 2 — Mechanism
+
+没有 expected，就只能看偏好或人工。Metric 必须和产品目标一致：检索看 recall，客服看解决率。
+
+### Level 3 — Engineering
+
+没有这一环，所有 RAG / Agent 改动都是感觉。Eval-driven：先有集，再改系统。
+
+## 面试问题
+
+1. 没有 reference 的开放生成怎么评？
+2. 指标和业务 KPI 如何对齐？
+3. 评测集泄漏（train on test）如何防？
+4. 什么是 eval-driven development？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

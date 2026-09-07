@@ -1,0 +1,57 @@
+---
+title: Cost
+titleEn: Cost
+description: Input / output / embedding / rerank / tool / infra。会估算数量级。
+descriptionEn: Tokens, embeddings, rerank, tools, infra. Back-of-the-envelope math.
+date: 2026-09-07
+keywords: ["cost", "tokens", "unit economics"]
+---
+
+必须能估算：100k users/day，平均 5k input + 1k output，一个月多少钱？
+
+## 需要掌握
+
+成本项：
+
+- Input tokens
+- Output tokens（通常更贵）
+- Embedding
+- Reranking
+- Tool / API
+- Infrastructure
+
+## 机制
+
+```
+monthly ≈ days × users × reqs × (in_tokens × p_in + out_tokens × p_out)
+        + embed + rerank + tools + gpu/hosting
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+LLM 产品的变动成本主要按 token 和调用次数。
+
+### Level 2 — Mechanism
+
+输出 token 贵、agent 多步会放大。Prompt cache / routing / 更小模型是杠杆。
+
+### Level 3 — Engineering
+
+先算数量级再优化。缓存命中率和 routing 准确率直接进账单。面试要能当场估算。
+
+## 面试问题
+
+1. 100k users/day，5k input + 1k output，月费怎么估？
+2. 为什么 output token 往往更值得压缩？
+3. Agent 多 3 步对成本意味着什么？
+4. 如何把成本打进 observability？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

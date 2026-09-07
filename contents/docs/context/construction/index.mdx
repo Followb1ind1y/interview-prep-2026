@@ -1,0 +1,59 @@
+---
+title: Context Construction
+titleEn: Context Construction
+description: 核心问题：什么应该进入 context？不要把所有东西塞进去。
+descriptionEn: What should enter context? Do not stuff everything.
+date: 2026-09-07
+keywords: ["context construction", "context selection"]
+---
+
+选择比堆叠更重要。
+
+## 需要掌握
+
+只放当前任务需要的记忆、文档、工具和状态。
+
+## 机制
+
+```
+User
+ ↓
+Relevant memory
+ ↓
+Relevant documents
+ ↓
+Relevant tools
+ ↓
+Current task state
+ ↓
+LLM
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+按当前步的目标组装最小充分上下文。
+
+### Level 2 — Mechanism
+
+用检索、规则、权限、工具相关性做选择。顺序也有意义：指令、证据、问题。
+
+### Level 3 — Engineering
+
+工具定义过多会干扰选 tool。历史过长会淹没当前问题。这是 Agent 可靠性和成本的同一杠杆。
+
+## 面试问题
+
+1. 什么应该进入 context？
+2. 工具很多时如何避免全部塞进 prompt？
+3. 检索到 20 段，如何选 5 段、如何排序？
+4. Construction 失败和 retrieval 失败如何区分？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

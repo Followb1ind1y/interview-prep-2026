@@ -1,0 +1,59 @@
+---
+title: Agent Security
+titleEn: Agent Security
+description: prompt injection、tool injection、exfiltration、excessive agency、sandbox。
+descriptionEn: Prompt injection, tool injection, exfiltration, excessive agency, sandboxing.
+date: 2026-09-07
+keywords: ["prompt injection", "excessive agency", "sandboxing", "data exfiltration"]
+---
+
+Anthropic 把「agent 能做什么」和 blast radius 当作核心工程问题。
+
+## 需要掌握
+
+- prompt injection / indirect prompt injection
+- tool injection
+- data exfiltration
+- privilege escalation
+- excessive agency
+- sandboxing
+- permission boundaries
+
+## 机制
+
+```
+untrusted content (web, docs, emails)
+        ↓
+model follows injected instructions?
+        ↓
+tools / files / network  →  blast radius
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+Agent 把不可信内容和可执行工具连在一起，攻击面大于普通 chatbot。
+
+### Level 2 — Mechanism
+
+间接注入藏在检索文档或网页里。模型一旦遵从，就会滥用工具。隔离靠权限、sandbox、人工确认。
+
+### Level 3 — Engineering
+
+最小权限、确认高风险动作、隔离文件系统和网络、不要把密钥放进 prompt。接到 [Sandbox](/docs/ai-native/sandbox) 与 [Context Isolation](/docs/context/isolation)。
+
+## 面试问题
+
+1. How do you defend against prompt injection?
+2. Indirect prompt injection 和直接注入差在哪？
+3. Excessive agency 如何从产品层限制？
+4. 哪些 tool 必须 human confirm？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

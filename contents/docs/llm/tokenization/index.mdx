@@ -1,0 +1,55 @@
+---
+title: Tokenization
+titleEn: Tokenization
+description: BPE / WordPiece / SentencePiece。token 数决定 window、latency、cost。
+descriptionEn: BPE / WordPiece / SentencePiece. Token count drives window, latency, and cost.
+date: 2026-09-07
+keywords: ["tokenization", "bpe", "sentencepiece"]
+---
+
+面试官能从 token 问到 context window、延迟和账单。
+
+## 需要掌握
+
+- BPE、WordPiece、SentencePiece
+- token vs word
+- token 数如何影响 context window、latency、cost
+- multilingual tokenization
+- prompt 中 token 数估算
+
+## 机制
+
+```
+text → tokenizer → token ids → embedding
+```
+
+同一段话，中文和代码通常比英文吃更多 token。
+
+## 三级回答
+
+### Level 1 — Definition
+
+Tokenizer 把文本切成模型认识的离散单元。计费和 context 都按 token，不按 word。
+
+### Level 2 — Mechanism
+
+BPE / WordPiece 用子词平衡词表大小和 OOV。SentencePiece 直接在 raw text 上训，适合多语言。
+
+### Level 3 — Engineering
+
+Prompt 越长，prefill 越慢、KV cache 越大、费用越高。中文 / 代码场景要单独估 token，不能按英文词数换算。
+
+## 面试问题
+
+1. Why does token count matter more than word count?
+2. Why can Chinese / code consume tokens differently from English?
+3. 如何估算一条 prompt 大概多少 token？
+4. Token 数变大时，latency 和 cost 分别怎么变？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

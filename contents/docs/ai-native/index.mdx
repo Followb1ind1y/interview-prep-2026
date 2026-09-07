@@ -1,0 +1,32 @@
+---
+title: AI-Native Engineering
+titleEn: AI-Native Engineering
+description: MCP、Harness、Claude Code / Codex。这是 AI-native software engineering，不是传统 LLM app。
+descriptionEn: MCP, harness, Claude Code / Codex — AI-native software engineering.
+date: 2026-09-07
+keywords: ["mcp", "harness", "claude code", "codex", "context compaction", "sandbox"]
+---
+
+放在最后学。先有 LLM + Tools + Context + State + Feedback loop，再看 Claude Code / Codex，会发现它们并不神秘：
+
+```
+LLM + Tools + Context + State
+  + Execution Environment + Feedback Loop + Safety
+```
+
+<CardGrid>
+  <Card title="MCP" description="Host / Client / Server；Tools、Resources、Prompts。和 function calling 的区别。" href="/docs/ai-native/mcp" />
+  <Card title="Agent Harness" description="Model 是 brain，Harness 是 operating environment。" href="/docs/ai-native/harness" />
+  <Card title="Claude Code / Codex" description="理解 architecture，不必成为产品专家。" href="/docs/ai-native/coding-workflow" />
+  <Card title="Agentic Coding" description="Agent 怎么知道自己写对了：feedback loop。" href="/docs/ai-native/agentic-coding" />
+  <Card title="Context Compaction" description="overflow 时保什么，而不是「把聊天总结一下」。" href="/docs/ai-native/compaction" />
+  <Card title="Agent State" description="Conversation ≠ State。长任务 / 后台 agent。" href="/docs/ai-native/agent-state" />
+  <Card title="Sandbox" description="filesystem / process / network / credentials 隔离。" href="/docs/ai-native/sandbox" />
+</CardGrid>
+
+## 本专栏计划
+
+1. MCP：能画 Host → Client → Server，能答和 function calling 的区别
+2. Harness：能列出 tools / memory / context / sandbox / compaction
+3. Coding workflow + Agentic coding：Write → Test → Observe → Fix
+4. Compaction + State + Sandbox：长任务怎么可靠、怎么控制 blast radius

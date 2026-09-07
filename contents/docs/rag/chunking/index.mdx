@@ -1,0 +1,56 @@
+---
+title: Chunking
+titleEn: Chunking
+description: 很典型的面试深挖点。太小、太大、overlap、parent-child。
+descriptionEn: Classic deep-dive. Too small, too large, overlap, parent-child.
+date: 2026-09-07
+keywords: ["chunking", "overlap", "parent-child"]
+---
+
+能讲清怎么选 chunk size，而不是背一个 512。
+
+## 需要掌握
+
+- fixed-size chunking
+- recursive chunking
+- semantic chunking
+- sentence / paragraph chunking
+- parent-child chunking
+- overlap
+
+## 机制
+
+```
+太小 → 丢失上下文，检索碎
+太大 → 噪声多，进 window 贵，定位差
+overlap → 边界处的句子两边都有
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+把文档切成检索和生成都能用的片段。
+
+### Level 2 — Mechanism
+
+Recursive 按标题 / 段落 / 句子降级切。Semantic 按嵌入相似度找边界。Parent-child 用小块检索、大块生成。
+
+### Level 3 — Engineering
+
+chunk size 看 embedding 模型、典型问题粒度、context 预算。用检索评测（Recall@K）调，而不是拍脑袋。
+
+## 面试问题
+
+1. How do you choose chunk size?
+2. 为什么 chunk 太小不好？太大不好？
+3. Overlap 解决什么、浪费什么？
+4. Parent-child chunking 什么时候值得做？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

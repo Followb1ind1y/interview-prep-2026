@@ -1,24 +1,59 @@
 ---
 title: Memory
 titleEn: Memory
-description: 会话记忆、长期记忆、context pollution。
-descriptionEn: Session vs long-term memory, context pollution.
-date: 2026-09-06
-keywords: ["memory"]
+description: 不只 short / long-term。五种 memory 各自解决什么问题。
+descriptionEn: Not just short/long-term. Five memory types and the problems they solve.
+date: 2026-09-07
+keywords: ["memory", "episodic", "semantic memory", "procedural"]
 ---
 
-标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。
+Memory 到底解决什么问题：跨轮一致性、个性化、技能复用，而不是「存聊天记录」。
 
-## 必能讲清
+## 需要掌握
 
--
+- Conversation Memory
+- Working Memory
+- Episodic Memory
+- Semantic Memory
+- Procedural Memory
+- External Memory
 
-## 权衡
+## 机制
+
+```
+Conversation  当前对话
+Working       当前任务草稿
+Episodic      发生过的事件
+Semantic      稳定事实 / 偏好
+Procedural    怎么做（技能、playbook）
+External      文件、DB、检索
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+Memory 是跨步骤、跨会话仍要可用的状态，不等于把历史全塞进 prompt。
+
+### Level 2 — Mechanism
+
+工作记忆放当前 plan；情景记忆可检索；语义记忆是用户/企业事实；程序性记忆是工具用法。外部记忆是 RAG / 文件。
+
+### Level 3 — Engineering
+
+乱写记忆会造成 context pollution 和错误个性化。写入要过滤，读取要检索，而不是 append-only 日志。
+
+## 面试问题
+
+1. How do you manage agent memory?
+2. Memory 到底解决什么问题？
+3. Conversation history 为什么不够？
+4. 记忆写错了如何修正？
+
+## 我的答案
 
 -
 
 ## 项目锚点
 
 -
-
-## 我的答案

@@ -1,24 +1,56 @@
 ---
 title: Planning
 titleEn: Planning
-description: ReAct、planner、什么时候不要 plan。
-descriptionEn: ReAct, planners, when not to plan.
-date: 2026-09-06
-keywords: ["planning", "react"]
+description: 任务分解、plan-and-execute、dynamic planning、replanning、reflection、verification。
+descriptionEn: Decomposition, plan-and-execute, replanning, reflection, verification.
+date: 2026-09-07
+keywords: ["planning", "replanning", "reflection", "verification"]
 ---
 
-标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。
+Plan 不是越长越好。执行失败要能 replan。
 
-## 必能讲清
+## 需要掌握
 
--
+- task decomposition
+- plan-and-execute
+- dynamic planning
+- replanning
+- reflection
+- verification
 
-## 权衡
+## 机制
+
+```
+Goal → Plan → Execute step
+            → Observe
+            → Replan / Reflect / Verify
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+把目标拆成可执行步骤，并在反馈后修改计划。
+
+### Level 2 — Mechanism
+
+Plan-and-execute 先计划再跑。Dynamic planning 每步重想。Reflection / verification 检查对错。
+
+### Level 3 — Engineering
+
+过度规划浪费 token。缺 verification 的 coding agent 会自信地交错误代码。接到 Agentic Coding 的 feedback loop。
+
+## 面试问题
+
+1. 什么时候需要显式 plan，什么时候直接 ReAct？
+2. Replanning 的触发条件是什么？
+3. Reflection 如何避免变成空洞自我表扬？
+4. Verification 应该由模型做还是由测试 / 规则做？
+
+## 我的答案
 
 -
 
 ## 项目锚点
 
 -
-
-## 我的答案

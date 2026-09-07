@@ -1,0 +1,27 @@
+---
+title: Context Engineering
+titleEn: Context Engineering
+description: 重点不是写一个好 prompt，而是决定模型在某一时刻究竟应该看到哪些 context。
+descriptionEn: Not just a good prompt — decide what the model should see at this moment.
+date: 2026-09-07
+keywords: ["context engineering", "prompt caching", "lost-in-the-middle", "compression"]
+---
+
+这是当前分类里最明显缺失、也最该补的一块。Anthropic 把 Context Engineering 当成 Agent 开发的核心范式。
+
+<CardGrid>
+  <Card title="Model Context" description="System、history、tools、retrieved docs、memory 合在一起才是 context。" href="/docs/context/model-context" />
+  <Card title="Context Window" description="limit、attention cost、long context degradation、lost-in-the-middle。" href="/docs/context/window" />
+  <Card title="Construction" description="什么该进 context，而不是把所有东西塞进去。" href="/docs/context/construction" />
+  <Card title="Compression" description="summarization、pruning、observation / tool result 压缩。" href="/docs/context/compression" />
+  <Card title="Caching" description="Prompt cache ≠ KV cache ≠ semantic cache。" href="/docs/context/caching" />
+  <Card title="Isolation" description="Agent B 不该默认看到全部 conversation。安全和边界。" href="/docs/context/isolation" />
+</CardGrid>
+
+## 本专栏计划
+
+1. 先能数出 Model Context 的组成
+2. Window：lost-in-the-middle 能举例子
+3. Construction + Compression：100k → 20k 保什么
+4. Caching 三张缓存图能分开讲
+5. Isolation 接到 MCP host 负责 context 边界

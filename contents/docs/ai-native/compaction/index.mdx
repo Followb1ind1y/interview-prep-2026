@@ -1,0 +1,68 @@
+---
+title: Context Compaction
+titleEn: Context Compaction
+description: 接近 context limit 时压缩。真正要答：What information should be preserved?
+descriptionEn: "Compact near the limit. The real question: what must be preserved?"
+date: 2026-09-07
+keywords: ["context compaction", "context anxiety", "context reset"]
+---
+
+不是「把之前聊天总结一下」。Anthropic 讨论过 context reset 和接近 limit 时的 context anxiety。
+
+## 需要掌握
+
+应保留例如：
+
+- current goal
+- completed tasks
+- important decisions
+- files changed
+- errors
+- unresolved issues
+- tool state
+- user preferences
+
+## 机制
+
+```
+Long trajectory
+       ↓
+Context grows
+       ↓
+Near context limit
+       ↓
+Summarize / compact
+       ↓
+New context
+       ↓
+Continue
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+轨迹变长后，主动压缩 context 以便继续工作。
+
+### Level 2 — Mechanism
+
+摘要 + 结构化状态替换原始 observation。必要时 reset 再注入关键状态。
+
+### Level 3 — Engineering
+
+丢掉错误和未决问题会导致重复失败。Coding agent 必须保留改过的文件和测试红灯。
+
+## 面试问题
+
+1. How do you handle context overflow?
+2. What should context compaction preserve?
+3. Context reset 和 rolling summary 怎么选？
+4. 什么是 context anxiety，工程上如何缓解？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

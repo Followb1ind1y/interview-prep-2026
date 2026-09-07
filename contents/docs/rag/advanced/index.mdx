@@ -1,0 +1,58 @@
+---
+title: Advanced RAG
+titleEn: Advanced RAG
+description: Query rewrite、HyDE、parent-child、GraphRAG、agentic RAG。第二阶段。
+descriptionEn: Query rewrite, HyDE, parent-child, GraphRAG, agentic RAG. Second pass.
+date: 2026-09-07
+keywords: ["hyde", "query rewriting", "graphrag", "agentic rag", "contextual retrieval"]
+---
+
+先会基础 pipeline 和 debug，再上这些。不要作为第一周主线。
+
+## 需要掌握
+
+- query rewriting / expansion / multi-query
+- HyDE
+- parent-document retrieval
+- contextual retrieval
+- metadata filtering
+- recursive / multi-hop retrieval
+- GraphRAG
+- agentic RAG
+
+## 机制
+
+```
+User query → rewrite / expand / HyDE
+          → retrieve (maybe multi-hop / graph)
+          → construct context
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+在基础 RAG 上增加 query 侧或图结构侧的推理，处理改写、多跳、关系。
+
+### Level 2 — Mechanism
+
+HyDE 先生成假设答案再嵌入检索。Multi-hop 把中间答案变成下一跳 query。GraphRAG 用实体关系补向量检索的局部性。Agentic RAG 让模型决定是否再搜。
+
+### Level 3 — Engineering
+
+每多一跳就多延迟和费用。先证明基础召回不够，再加组件。用 eval 证明 rewrite 有用。
+
+## 面试问题
+
+1. Query rewriting 解决什么失败模式？
+2. HyDE 什么时候会伤害检索？
+3. GraphRAG 比 hybrid 多解决了什么？
+4. Agentic RAG 和普通 RAG 的成本差在哪？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

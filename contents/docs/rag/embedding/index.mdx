@@ -1,24 +1,56 @@
 ---
 title: Embedding
 titleEn: Embedding
-description: 模型选择、维度、更新频率。
-descriptionEn: Model choice, dimensions, refresh.
-date: 2026-09-06
-keywords: ["embedding"]
+description: dense embedding、相似度、维度、normalization、query vs document。
+descriptionEn: Dense embeddings, similarity, dimensions, normalization, query vs document.
+date: 2026-09-07
+keywords: ["embedding", "cosine", "dense embedding"]
 ---
 
-标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。
+能选模型，能解释相似度，能接到多语言 / 领域。
 
-## 必能讲清
+## 需要掌握
 
--
+- dense embedding
+- cosine similarity / dot product / Euclidean
+- embedding dimension
+- normalization
+- query / document embedding
+- embedding model selection
+- domain-specific / multilingual embedding
 
-## 权衡
+## 机制
+
+```
+text → embedding model → vector
+query vec · doc vec  →  ranking score
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+把文本变成稠密向量，语义近的点在空间里近。
+
+### Level 2 — Mechanism
+
+余弦 = 方向；点积受模长影响，常先归一化。Query 和 document 有时用非对称模型。
+
+### Level 3 — Engineering
+
+换 embedding 要重建索引。维度越大不一定越好，但一定更贵。领域词表差要用领域模型或 hybrid。
+
+## 面试问题
+
+1. Cosine 和 dot product 什么时候不等价？
+2. 如何选择 embedding 模型？
+3. Query embedding 和 document embedding 为什么可能不是同一个？
+4. 多语言语料用一个模型还是分模型？
+
+## 我的答案
 
 -
 
 ## 项目锚点
 
 -
-
-## 我的答案

@@ -1,0 +1,55 @@
+---
+title: ReAct
+titleEn: ReAct
+description: Thought → Action → Observation。不要停留在这个名词。
+descriptionEn: Thought → Action → Observation. Do not stop at the buzzword.
+date: 2026-09-07
+keywords: ["react", "thought", "observation"]
+---
+
+面试官真正想知道的是：为什么需要 agent loop，而不是背 ReAct 四个字母。
+
+## 需要掌握
+
+理解格式，但要能批评它。
+
+## 机制
+
+```
+Thought
+ ↓
+Action
+ ↓
+Observation
+ ↓
+Thought
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+ReAct 把推理痕迹和行动交错，用观察更新下一步。
+
+### Level 2 — Mechanism
+
+Thought 帮助分解；Action 调工具；Observation 是环境反馈。这是 loop 的一种提示格式。
+
+### Level 3 — Engineering
+
+纯 ReAct 难控步数和费用。生产里常用结构化 tool calling + 显式状态机 / graph，而不是自由 Thought 文本。
+
+## 面试问题
+
+1. ReAct 解决了一次性 CoT 的什么问题？
+2. 为什么不要停留在 ReAct？
+3. Thought 文本在生产里要不要暴露给用户？
+4. 和 LangGraph 状态机是什么关系？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

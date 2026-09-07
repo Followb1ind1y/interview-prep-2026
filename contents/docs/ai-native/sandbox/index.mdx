@@ -1,0 +1,58 @@
+---
+title: Sandbox
+titleEn: Sandbox
+description: filesystem / process / network / resource / credentials 隔离。控制 blast radius。
+descriptionEn: Isolate filesystem, process, network, resources, and credentials.
+date: 2026-09-07
+keywords: ["sandbox", "permissions", "blast radius"]
+---
+
+为什么 coding agent 需要 sandbox。OpenAI Agents SDK 把 native sandbox execution 与 harness 分开作为架构能力。
+
+## 需要掌握
+
+- filesystem isolation
+- process isolation
+- network permissions
+- resource limits
+- credentials
+- sandbox
+
+## 机制
+
+```
+agent tools
+    ↓
+sandbox (fs / proc / net / cpu)
+    ↓
+host secrets stay outside
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+在受限环境执行不可信的模型生成动作，限制爆炸半径。
+
+### Level 2 — Mechanism
+
+独立文件系统、无或受限网络、CPU/内存上限、凭证不进容器。权限按工具授予。
+
+### Level 3 — Engineering
+
+没有 sandbox 的 terminal tool 就是 RCE。生产 coding agent 必须默认隔离，再按需打开网络。
+
+## 面试问题
+
+1. How do you sandbox an agent?
+2. 哪些权限默认关闭？
+3. Sandbox 和 harness 为什么要分离？
+4. 凭证如何注入而不进 prompt？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

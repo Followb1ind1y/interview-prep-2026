@@ -1,34 +1,30 @@
 ---
 title: LLM Fundamentals
 titleEn: LLM Fundamentals
-description: Transformer 到 Inference。标准是 1–2 分钟讲清，并能接到自己的微调 / vLLM 经历。
-descriptionEn: Transformer through inference. One to two minutes, tied to your fine-tuning and vLLM work.
-date: 2026-09-06
-keywords: ["llm", "transformer", "attention", "fine-tuning", "inference"]
+description: 目标不是成为 ML Researcher。面试官问「为什么」时，能从模型机制讲到 production behavior。
+descriptionEn: Not ML research. When they ask why, go from model mechanics to production behavior.
+date: 2026-09-07
+keywords: ["llm", "tokenization", "transformer", "attention", "sft", "dpo", "kv cache", "inference"]
 ---
 
-面试官随机点一个概念，你能讲清 **Why / How / Trade-off / 我的项目**。不重学全部数学。
+第一轮不要从 Transformer 论文开始。按 Token → Transformer → Attention → Training → SFT/DPO → Fine-tuning → Inference 做成面试级知识卡。
 
-简历写了 Fine-tuning 和 vLLM，这两页必须先填满。
-
-每条笔记固定走完：
-
-```
-Concept → Why it matters → How it works → Trade-offs
-       → My project example → Interview questions → My answer
-```
+每个 topic 必须做到：**能解释 + 能画图 + 能回答 why + 能联系 production**。不要追求论文数量。
 
 <CardGrid>
-  <Card title="Transformer" description="Encoder / Decoder、位置编码、因果掩码。" href="/docs/llm/transformer" />
-  <Card title="Attention" description="QKV、Self-attention、MHA。能画、能讲复杂度。" href="/docs/llm/attention" />
-  <Card title="Training" description="Pretrain → SFT → RLHF / DPO。知道每步在优化什么。" href="/docs/llm/training" />
-  <Card title="Fine-tuning" description="LoRA / QLoRA / ZeRO。对标 LLaMA 项目。" href="/docs/llm/fine-tuning" />
-  <Card title="Inference" description="KV cache、batching、vLLM / PagedAttention。" href="/docs/llm/inference" />
+  <Card title="Tokenization" description="BPE / WordPiece；token 如何决定 window、latency、cost。" href="/docs/llm/tokenization" />
+  <Card title="Transformer" description="Decoder-only 数据流：Token → Embedding → Block → Logits。" href="/docs/llm/transformer" />
+  <Card title="Attention" description="QKV、causal、MHA / MQA / GQA、为什么 O(n²)。" href="/docs/llm/attention" />
+  <Card title="Training" description="Pretraining、next-token、scaling laws。不做到论文级。" href="/docs/llm/training" />
+  <Card title="Post-training" description="SFT → Preference → RLHF / DPO → Instruction following。" href="/docs/llm/post-training" />
+  <Card title="Fine-tuning" description="Full / LoRA / QLoRA / PEFT。必答 RAG vs FT vs Prompt。" href="/docs/llm/fine-tuning" />
+  <Card title="Inference" description="Prefill / Decode、KV cache、batching、quantization。" href="/docs/llm/inference" />
 </CardGrid>
 
 ## 本专栏计划
 
-1. Attention + Transformer 口述（各 2 分钟）
-2. Training 链路讲清，不展开数学证明
-3. Fine-tuning 对照 LLaMA-3-8B + QLoRA + DeepSpeed
-4. Inference 对照 vLLM；能答 *Why does KV cache help?*
+1. Tokenization：token 数为什么比 word 数重要；中文 / code 为什么更贵
+2. Transformer + Attention：能画 block，能讲 MHA / MQA / GQA
+3. Training 点到为止；Post-training 必须熟
+4. Fine-tuning 对照 LLaMA + QLoRA；先答 RAG vs FT
+5. Inference 比想象中更深：TTFT、KV cache、continuous batching、tokens/sec

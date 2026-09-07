@@ -1,0 +1,64 @@
+---
+title: Post-training
+titleEn: Post-training
+description: SFT → Preference Optimization → RLHF / DPO → Instruction Following。
+descriptionEn: SFT → preference optimization → RLHF / DPO → instruction following.
+date: 2026-09-07
+keywords: ["sft", "rlhf", "dpo", "alignment", "instruction tuning"]
+---
+
+这一段非常重要。要能画出从预训练到听话的整条链。
+
+## 需要掌握
+
+- SFT
+- RLHF
+- DPO
+- preference data
+- reward model
+- alignment
+- instruction tuning
+- catastrophic forgetting
+
+## 机制
+
+```
+Pretraining
+     ↓
+SFT
+     ↓
+Preference Optimization
+     ↓
+RLHF / DPO
+     ↓
+Instruction Following
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+Post-training 把「会续写」变成「会按指令做、偏好人类认可的回答」。
+
+### Level 2 — Mechanism
+
+SFT 教格式和任务。RLHF 用 reward model + RL；DPO 直接在偏好对上优化，省掉显式 RM 采样。
+
+### Level 3 — Engineering
+
+数据质量和偏好覆盖决定行为。Fine-tune 过猛会 catastrophic forgetting。生产里多数能力用 RAG / prompt，而不是再训一遍基座。
+
+## 面试问题
+
+1. SFT、RLHF、DPO 各自解决什么问题？
+2. Preference data 从哪来？坏数据会怎样？
+3. 为什么很多团队用 DPO 而不是完整 RLHF？
+4. Instruction tuning 之后模型为什么可能「不会」原来的能力？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

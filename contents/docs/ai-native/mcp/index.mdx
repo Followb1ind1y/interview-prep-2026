@@ -1,0 +1,64 @@
+---
+title: MCP
+titleEn: MCP
+description: Host / Client / Server；Tools、Resources、Prompts。JSON-RPC。和 function calling 的区别。
+descriptionEn: Host / Client / Server; tools, resources, prompts; JSON-RPC vs function calling.
+date: 2026-09-07
+keywords: ["mcp", "model context protocol", "json-rpc", "tools", "resources", "prompts"]
+---
+
+不要只记 MCP = Model Context Protocol。2026-07-28 spec 进一步标准化了 primitives、stateless、authorization、extensions。
+
+## 需要掌握
+
+- Host / Client / Server
+- Tools / Resources / Prompts
+- JSON-RPC
+- stdio / Streamable HTTP
+- authorization
+- capability negotiation
+- tool discovery
+- security boundary
+
+## 机制
+
+```
+Host
+ ↓
+MCP Client
+ ↓
+MCP Server
+ ├── Tools
+ ├── Resources
+ └── Prompts
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+MCP 是模型与外部能力之间的协议：工具、资源和提示模板，而不是某家模型的私有 function calling。
+
+### Level 2 — Mechanism
+
+Host 管会话和 context 边界。Client 连 server。Server 暴露 primitives。传输可以是 stdio 或 Streamable HTTP，消息是 JSON-RPC。双方协商 capability。
+
+### Level 3 — Engineering
+
+Function calling 是模型 API 的参数形状；MCP 是工具生态和安全边界的协议。Server 不应默认看到完整 conversation。Tool discovery 让 harness 在运行时找能力。
+
+## 面试问题
+
+1. MCP 和 function calling 有什么区别？
+2. Tools、Resources、Prompts 各解决什么？
+3. Host 为什么必须负责 isolation？
+4. stdio 和 Streamable HTTP 怎么选？
+5. 授权和 capability negotiation 失败时会发生什么？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

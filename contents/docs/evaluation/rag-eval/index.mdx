@@ -1,0 +1,62 @@
+---
+title: RAG Evaluation
+titleEn: RAG Evaluation
+description: Retrieval 和 Generation 分开评。不要只用一个「答案好不好」。
+descriptionEn: Score retrieval and generation separately.
+date: 2026-09-07
+keywords: ["recall@k", "ndcg", "faithfulness", "groundedness", "deepeval"]
+---
+
+接到 DeepEval：correctness / completeness / relevance。
+
+## 需要掌握
+
+Retrieval
+
+- Recall@K
+- Precision@K
+- MRR
+- NDCG
+
+Generation
+
+- Faithfulness
+- Groundedness
+- Answer relevance
+- Context relevance
+
+## 机制
+
+```
+retriever metrics     金标文档在不在 Top-K
+generator metrics     有没有编造、有没有回答问题
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+RAG 要同时评「找对了没有」和「写对了没有」。
+
+### Level 2 — Mechanism
+
+Recall 低先修检索。Recall 高但 faithfulness 低，是生成不守证据或 context 拼坏了。
+
+### Level 3 — Engineering
+
+90% recall、70% answer accuracy：按 [Failure Diagnosis](/docs/rag/debugging) 往下拆，不要只调生成温度。
+
+## 面试问题
+
+1. How do you evaluate RAG?
+2. Recall@K 和 NDCG 各回答什么问题？
+3. Faithfulness 和 answer relevance 冲突时听谁？
+4. 没有金标文档时如何评检索？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

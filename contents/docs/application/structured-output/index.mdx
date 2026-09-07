@@ -1,0 +1,60 @@
+---
+title: Structured Output
+titleEn: Structured Output
+description: JSON Schema → Validation → Application。malformed output 怎么处理。
+descriptionEn: JSON Schema → validation → application. Handling malformed output.
+date: 2026-09-07
+keywords: ["structured output", "json schema", "pydantic", "json mode"]
+---
+
+应用层不能假设模型永远吐合法 JSON。
+
+## 需要掌握
+
+- JSON mode
+- structured outputs
+- schema validation
+- Pydantic
+- retries
+- malformed output
+
+## 机制
+
+```
+LLM
+ ↓
+JSON Schema
+ ↓
+Validation
+ ↓
+Application
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+迫使模型输出可解析、可校验的结构，而不是自由文本。
+
+### Level 2 — Mechanism
+
+JSON mode / constrained decoding 降低语法错误。应用侧仍要用 schema（Pydantic）校验字段类型和必填项。失败则 retry 或降级。
+
+### Level 3 — Engineering
+
+Schema 越严，下游越稳，但复杂嵌套会增加失败率。校验失败不要死循环 retry。Tool calling 的参数校验是同一模式。
+
+## 面试问题
+
+1. JSON mode 和真正的 schema-constrained decoding 有什么差别？
+2. Validation 失败时你的重试策略是什么？
+3. 为什么还需要 Pydantic，而不是相信模型？
+4. Structured output 和 function calling 是什么关系？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

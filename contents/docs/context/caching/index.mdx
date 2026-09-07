@@ -1,0 +1,54 @@
+---
+title: Context Caching
+titleEn: Context Caching
+description: Prompt cache ≠ KV cache ≠ semantic cache。非常容易被追问。
+descriptionEn: Prompt cache ≠ KV cache ≠ semantic cache.
+date: 2026-09-07
+keywords: ["prompt caching", "kv cache", "semantic caching"]
+---
+
+三张缓存图必须能分开讲。
+
+## 需要掌握
+
+- prompt caching
+- KV cache
+- application-level caching
+- semantic caching
+
+## 机制
+
+```
+Prompt cache     前缀 token 在 API / 推理侧复用
+KV cache         同一次生成里复用已算的 K/V
+Semantic cache   相似问题直接返回答案，可能跳过 LLM
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+缓存减少重复计算或重复计费，层不同、失效条件不同。
+
+### Level 2 — Mechanism
+
+KV 是单次 decode 的状态。Prompt cache 是跨请求的公共前缀。Semantic cache 按嵌入近似命中。
+
+### Level 3 — Engineering
+
+前缀不稳定就别指望 prompt cache。用户数据不能进共享 semantic cache。KV 爆显存在 Inference 页。
+
+## 面试问题
+
+1. Prompt cache、KV cache、semantic cache 有什么区别？
+2. 什么样的 system prompt 适合 prompt caching？
+3. Semantic cache 的错误命中如何防？
+4. 应用层缓存该缓存答案、检索结果还是 embedding？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

@@ -1,0 +1,56 @@
+---
+title: Scaling
+titleEn: Scaling
+description: 水平扩展、负载均衡、异步、队列、缓存、batching、限流。
+descriptionEn: Horizontal scaling, load balancing, queues, cache, batching, rate limits.
+date: 2026-09-07
+keywords: ["scaling", "queue", "batching", "load balancing"]
+---
+
+QPS 上来之后，同步链会先断在模型和检索。
+
+## 需要掌握
+
+- horizontal scaling
+- load balancing
+- async processing
+- queues
+- caching
+- batching
+- rate limiting
+
+## 机制
+
+```
+sync path     用户等待的问答
+async path    索引、摘要、评测、长任务
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+用副本、队列和批处理吃更高流量，同时保护下游。
+
+### Level 2 — Mechanism
+
+检索和 API 层水平扩展。LLM 靠并发配额 + batching。长任务进队列。
+
+### Level 3 — Engineering
+
+限流要区分用户级和租户级。Batching 提高吞吐但可能伤延迟。和 Inference 的 continuous batching 对齐。
+
+## 面试问题
+
+1. 哪些 RAG 组件可以水平扩展，哪些不行？
+2. 什么必须异步？
+3. 限流 429 时对用户怎么降级？
+4. 会话状态放哪，才能扩多副本？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

@@ -1,0 +1,55 @@
+---
+title: Model Routing
+titleEn: Model Routing
+description: 简单走便宜模型，难的走强模型。fallback、cascade、A/B。
+descriptionEn: Easy queries to cheap models, hard ones to strong models. Fallback, cascade, A/B.
+date: 2026-09-07
+keywords: ["model routing", "cascade", "fallback", "a/b testing"]
+---
+
+Routing 是成本和质量的杠杆，也是 Production 的入口。
+
+## 需要掌握
+
+- routing
+- fallback
+- model cascade
+- A/B testing
+
+## 机制
+
+```
+Easy query        → cheap model
+Hard query        → strong model
+Coding            → specialized model
+Summarization     → cheap model
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+按请求特征把流量分到不同模型。
+
+### Level 2 — Mechanism
+
+可用规则（长度、任务类型）或小分类器 / 小模型先判断难度。Cascade：先便宜模型，置信度低再升级。
+
+### Level 3 — Engineering
+
+误路由会把简单问题打贵、把难题打崩。必须有 fallback 和 A/B。和 Agent 的 tool 选择不同：这里选的是「哪个脑」，不是「哪个工具」。
+
+## 面试问题
+
+1. 你用什么信号判断 query 难不难？
+2. Cascade 比直接打大模型省在哪、慢在哪？
+3. Fallback 触发条件是什么？
+4. 如何用 A/B 验证 routing 没有伤质量？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

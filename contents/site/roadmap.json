@@ -6,12 +6,12 @@
     "status": "doing",
     "items": {
       "zh": [
-        "Target Profile：LLM / AI Engineer · Toronto / Remote · Mid-level",
+        "Target Profile：Production LLM / AI Engineer · Toronto / Remote · Mid-level",
         "Resume / LinkedIn 与 30s–2min 开场对齐",
         "Tier 1 三张项目卡骨架：Negotiation / Tariff / Voice"
       ],
       "en": [
-        "Target profile: LLM / AI Engineer · Toronto / Remote · Mid-level",
+        "Target profile: Production LLM / AI Engineer · Toronto / Remote · Mid-level",
         "Align Resume / LinkedIn with 30s–2min intros",
         "Tier 1 cards: Negotiation / Tariff / Voice"
       ]
@@ -24,14 +24,14 @@
     "status": "todo",
     "items": {
       "zh": [
-        "LLM：Transformer → Fine-tuning → Inference 口述",
-        "RAG / Agent 全图、失败模式、接到自己的项目",
-        "6 道 LLM System Design 白板"
+        "Phase 1–2：LLM Fundamentals → RAG（含 Failure Diagnosis）",
+        "Phase 3–5：Context Engineering → Agents → Evaluation",
+        "Phase 6–8：Production → 每天一道 System Design → MCP / Harness"
       ],
       "en": [
-        "LLM walkthroughs: Transformer → Fine-tuning → Inference",
-        "RAG / Agent end-to-end plus failure modes, tied to your work",
-        "Six LLM system-design whiteboards"
+        "Phase 1–2: LLM Fundamentals → RAG (including failure diagnosis)",
+        "Phase 3–5: Context Engineering → Agents → Evaluation",
+        "Phase 6–8: Production → one system design a day → MCP / Harness"
       ]
     }
   },

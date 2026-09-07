@@ -1,24 +1,64 @@
 ---
-title: Reliability
-titleEn: Reliability
-description: schema、timeout、fallback、Eval。
-descriptionEn: Schema, timeout, fallback, eval.
-date: 2026-09-06
-keywords: ["reliability", "guardrails"]
+title: Agent Reliability
+titleEn: Agent Reliability
+description: max iterations、timeout、retry、circuit breaker、HITL、budget。很大的模块。
+descriptionEn: Max iterations, timeouts, retries, circuit breakers, HITL, budgets.
+date: 2026-09-07
+keywords: ["agent reliability", "circuit breaker", "human-in-the-loop", "timeout"]
 ---
 
-标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。
+可靠性不是加分项。没有这些，agent 不能上生产。
 
-## 必能讲清
+## 需要掌握
 
--
+- max iterations
+- timeout
+- retry / exponential backoff
+- circuit breaker
+- tool failure
+- hallucinated tool arguments
+- infinite loops / stuck agents
+- fallback
+- human-in-the-loop
+- budget limits
 
-## 权衡
+## 机制
+
+```
+budget / max steps / timeout
+        ↓
+retry with backoff
+        ↓
+circuit breaker / fallback model
+        ↓
+human escalation
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+保证 agent 在失败、幻觉、卡住时仍然停得下来、降级得了、转得走人工。
+
+### Level 2 — Mechanism
+
+步数和预算是硬限制。工具层 retry 与模型层 fallback 分开。熔断避免下游被打爆。
+
+### Level 3 — Engineering
+
+Your agent loops 20 steps and costs $0.50：查是否缺终止条件、工具是否总失败、prompt 是否鼓励「再试一次」、有没有重复同参调用。
+
+## 面试问题
+
+1. How do you prevent infinite loops?
+2. What if a tool fails?
+3. Budget limits 按 token、美元还是步数？
+4. 哪些失败必须 HITL，哪些可以自动 fallback？
+
+## 我的答案
 
 -
 
 ## 项目锚点
 
 -
-
-## 我的答案

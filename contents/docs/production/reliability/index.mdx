@@ -1,0 +1,60 @@
+---
+title: Reliability
+titleEn: Reliability
+description: fallback model、retry、timeout、circuit breaker、graceful degradation、人工升级。
+descriptionEn: Fallbacks, retries, timeouts, circuit breakers, degradation, human escalation.
+date: 2026-09-07
+keywords: ["reliability", "fallback", "graceful degradation", "circuit breaker"]
+---
+
+Agent 可靠性是子集。这里覆盖整个 AI 服务。
+
+## 需要掌握
+
+- fallback model
+- retry / timeout
+- circuit breaker
+- graceful degradation
+- rate limit
+- cache
+- queue
+- human escalation
+
+## 机制
+
+```
+primary model 失败
+    → retry / backoff
+    → fallback model
+    → cached / retrieve-only / keyword
+    → human
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+依赖失败时系统仍提供可接受的行为。
+
+### Level 2 — Mechanism
+
+熔断避免雪崩。降级可以是小模型、只检索不生成、只返回链接。
+
+### Level 3 — Engineering
+
+降级要产品化，不能只抛 500。幻觉是可靠性问题，不只有可用性。
+
+## 面试问题
+
+1. LLM 提供商全挂时你的产品还剩什么？
+2. 熔断阈值如何定？
+3. 缓存当降级和当加速有什么差别？
+4. 哪些错误绝不 retry？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

@@ -1,0 +1,53 @@
+---
+title: Sparse Retrieval
+titleEn: Sparse Retrieval
+description: BM25、倒排索引、keyword search。和语义检索为什么互补。
+descriptionEn: BM25, inverted index, keyword search, and why it complements dense retrieval.
+date: 2026-09-07
+keywords: ["bm25", "inverted index", "sparse retrieval"]
+---
+
+专有名词、错误码、ID 往往是 keyword 赢。
+
+## 需要掌握
+
+- BM25
+- inverted index
+- keyword search
+
+## 机制
+
+```
+term → posting list → BM25 score
+语义近但用词不同 → dense 赢
+用词精确但语义模型稀释 → BM25 赢
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+基于词项统计的检索。BM25 是最常见的稀疏打分。
+
+### Level 2 — Mechanism
+
+倒排索引列出含某词的文档。BM25 惩罚过长文档、过常见词。
+
+### Level 3 — Engineering
+
+和 dense 互补：一个抓同义，一个抓精确匹配。这是 hybrid 的理由，不是「BM25 过时了」。
+
+## 面试问题
+
+1. BM25 在惩罚什么、奖励什么？
+2. semantic search 和 keyword search 为什么互补？
+3. 什么 query 不该只走向量？
+4. 倒排索引更新和向量索引更新如何对齐？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

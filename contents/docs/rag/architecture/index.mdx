@@ -1,0 +1,69 @@
+---
+title: RAG Architecture
+titleEn: RAG Architecture
+description: 先真正理解完整 pipeline，再往下拆每个环节。
+descriptionEn: Understand the full pipeline before specializing in any stage.
+date: 2026-09-07
+keywords: ["rag architecture", "pipeline"]
+---
+
+5 分钟白板必须能画出这条链，并指出每一步会失败在哪。
+
+## 需要掌握
+
+完整链路，不要只写 Embedding / Retrieval / Rerank。
+
+## 机制
+
+```
+Documents
+ ↓
+Parsing
+ ↓
+Chunking
+ ↓
+Embedding
+ ↓
+Vector DB
+ ↓
+Query
+ ↓
+Retrieval
+ ↓
+Reranking
+ ↓
+Context Construction
+ ↓
+LLM
+ ↓
+Answer
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+RAG 用检索到的证据当上下文，而不是只靠参数记忆。
+
+### Level 2 — Mechanism
+
+离线建索引，在线问句 → 检索 →（可选）rerank → 拼 context → 生成。
+
+### Level 3 — Engineering
+
+生产 RAG 还有 ingestion 质量、权限过滤、版本、评测和延迟预算。错答先走 [Failure Diagnosis](/docs/rag/debugging)，不要先换模型。
+
+## 面试问题
+
+1. Design a production RAG system.
+2. 哪一步最影响正确率？哪一步最影响延迟？
+3. 为什么 context construction 要单独成为一步？
+4. RAG vs fine-tuning？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

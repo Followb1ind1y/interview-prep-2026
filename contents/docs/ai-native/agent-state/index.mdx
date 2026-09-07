@@ -1,0 +1,50 @@
+---
+title: Agent State
+titleEn: Agent State
+description: Conversation ≠ State。长任务 / 后台 / coding agent 尤其重要。
+descriptionEn: Conversation is not state. Critical for long-running and coding agents.
+date: 2026-09-07
+keywords: ["agent state", "long-running agents", "checkpoint"]
+---
+
+状态可以包括 Task、Plan、Progress、Files、Tool results、Memory、Errors、Environment。
+
+## 需要掌握
+
+显式状态才能暂停、恢复、多 worker。
+
+## 机制
+
+```
+Conversation  =  token 历史（易爆、难恢复）
+State         =  任务进度的结构化事实
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+Agent state 是可序列化的工作进度，不是聊天记录本身。
+
+### Level 2 — Mechanism
+
+把 plan、文件集合、失败信息写入 store / 磁盘。恢复时重建 working set，而不是回放全部 token。
+
+### Level 3 — Engineering
+
+后台 agent 必须 checkpoint。没有 state 就无法做 long-running reliability。
+
+## 面试问题
+
+1. 为什么 Conversation ≠ State？
+2. 要持久化哪些字段？
+3. 如何做 backward-compatible 的 state schema？
+4. How do you make a long-running agent reliable?
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

@@ -1,0 +1,62 @@
+---
+title: Prompt Engineering
+titleEn: Prompt Engineering
+description: zero-shot、few-shot、角色、结构化、XML / JSON、instruction hierarchy。
+descriptionEn: Zero-shot, few-shot, roles, structured prompts, XML / JSON, instruction hierarchy.
+date: 2026-09-07
+keywords: ["prompt engineering", "few-shot", "instruction hierarchy"]
+---
+
+Prompt 是 context 的一部分，但先把这一层讲清楚，再进入 Context Engineering。
+
+## 需要掌握
+
+- zero-shot / few-shot
+- role prompting
+- structured prompting
+- XML / JSON
+- output constraints
+- instruction hierarchy
+- examples
+- prompt templates
+
+## 机制
+
+```
+System / developer instructions
+        ↓
+User task
+        ↓
+Examples / schema
+        ↓
+Output contract
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+用自然语言规定任务、约束和输出形状。
+
+### Level 2 — Mechanism
+
+Instruction hierarchy 决定 system 和 user 冲突时听谁。Few-shot 用例子锁格式。XML / JSON 标签让模型更容易定位指令和数据。
+
+### Level 3 — Engineering
+
+生产里 prompt 要版本化、模板化，并和 structured output 一起用。长 prompt 的成本与丢失中间信息，转到 Context Engineering。
+
+## 面试问题
+
+1. Zero-shot 和 few-shot 什么时候选哪个？
+2. 为什么要用 XML / JSON 包住指令和资料？
+3. System prompt 和 user prompt 冲突时怎么办？
+4. Prompt 模板如何做版本管理和 A/B？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

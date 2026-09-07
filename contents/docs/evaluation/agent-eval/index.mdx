@@ -1,0 +1,56 @@
+---
+title: Agent Evaluation
+titleEn: Agent Evaluation
+description: task success、tool 对不对、步数、延迟、成本、trajectory。这是尤其要补的。
+descriptionEn: Task success, tool accuracy, steps, latency, cost, trajectories.
+date: 2026-09-07
+keywords: ["agent eval", "trajectory evaluation", "tool selection accuracy"]
+---
+
+只评最终答案会放过乱跑的 agent。
+
+## 需要掌握
+
+- Task success
+- Tool selection accuracy
+- Tool argument accuracy
+- Number of steps
+- Latency / Cost
+- Failure rate
+- trajectory evaluation
+
+## 机制
+
+```
+final answer eval     任务成没成
+trajectory eval       每一步 tool / 状态是否合理
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+Agent 评的是过程和结果：做成了没有，以及是不是用对工具、用了多少步。
+
+### Level 2 — Mechanism
+
+Trajectory 对照金标路径或约束（禁止某 tool、必须验证）。成功但 20 步仍然不及格。
+
+### Level 3 — Engineering
+
+线上用成功率、费用、失败类型监控。离线用固定任务集。工具参数错了要和选错工具分开记。
+
+## 面试问题
+
+1. How do you evaluate an agent?
+2. 为什么需要 trajectory evaluation？
+3. 步数少但是碰巧对了，算不算好？
+4. 如何评 multi-agent 的协调质量？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

@@ -1,0 +1,66 @@
+---
+title: Latency
+titleEn: Latency
+description: TTFT + generation latency = 用户感知延迟。还要拆检索、工具、网络。
+descriptionEn: TTFT + generation = perceived latency. Also retrieval, tools, network.
+date: 2026-09-07
+keywords: ["latency", "ttft", "tpot", "cold start"]
+---
+
+对照 Voice 1.2s。必须能拆，不能只说「模型有点慢」。
+
+## 需要掌握
+
+用户感知：
+
+TTFT + Generation latency = User perceived latency
+
+还要拆：
+
+- model latency
+- retrieval / reranker latency
+- tool latency
+- network latency
+- serialization
+- cold start
+
+## 机制
+
+```
+request
+ → gateway
+ → retriever
+ → rerank
+ → LLM prefill (TTFT)
+ → LLM decode (TPOT × tokens)
+ → tools (maybe loop)
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+延迟是分段之和。流式只改善感知，不减少总计算。
+
+### Level 2 — Mechanism
+
+TTFT 看 prefill 和排队。生成看输出长度。Agent 再乘上循环次数。
+
+### Level 3 — Engineering
+
+优化前先 trace。常见杠杆：缓存、更小模型、少 rerank、并行工具、限制输出 token、避免冷启动。
+
+## 面试问题
+
+1. 如何把用户感知延迟拆开？
+2. RAG 里哪一段通常最好砍？
+3. Streaming 解决不了什么延迟？
+4. Voice 1.2s 你砍过哪些段？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

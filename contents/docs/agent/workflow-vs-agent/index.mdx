@@ -1,0 +1,57 @@
+---
+title: Workflow vs Agent
+titleEn: Workflow vs Agent
+description: 非常重要的判断题。流程确定就用 workflow。不要为了 Agent 而 Agent。
+descriptionEn: If the path is deterministic, use a workflow. Do not agent-wash.
+date: 2026-09-07
+keywords: ["workflow vs agent", "deterministic"]
+---
+
+固定流程通常更便宜、更可预测。2026 面试资料特别强调这一点。
+
+## 需要掌握
+
+能画两种控制流，能举一个自己做过的「不该上 agent」的例子。
+
+## 机制
+
+```
+Workflow
+A → B → C → D
+
+Agent
+A → LLM decides → B
+                  ↓
+                  C
+                  ↓
+                  A again
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+Workflow 预定义路径。Agent 由模型在运行时选择下一步。
+
+### Level 2 — Mechanism
+
+确定性步骤（抽字段 → 校验 → 写库）用 workflow。分支依赖未知环境和工具结果时，才需要 agent。
+
+### Level 3 — Engineering
+
+Agent 的代价是延迟、成本、不可复现。能 workflow 解决的不要包一层「智能」。
+
+## 面试问题
+
+1. Agent vs workflow?
+2. 什么时候不要使用 Agent？
+3. 如何在同一产品里混用二者？
+4. 你的项目里哪一段其实是 workflow？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

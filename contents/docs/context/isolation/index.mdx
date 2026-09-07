@@ -1,0 +1,55 @@
+---
+title: Context Isolation
+titleEn: Context Isolation
+description: Agent B 是否应该看到全部 conversation？这是 Context + Security。
+descriptionEn: Should Agent B see the full conversation? Context plus security.
+date: 2026-09-07
+keywords: ["context isolation", "mcp", "security boundary"]
+---
+
+MCP 2026 architecture 强调 server 不应默认看到完整 conversation，host 负责边界。
+
+## 需要掌握
+
+多 agent / 多 tool 时，默认最小可见集。
+
+## 机制
+
+```
+Agent A
+  ↓
+Tool
+  ↓
+Agent B
+```
+
+B 需要的是任务相关的输入，不是 A 的全部历史。
+
+## 三级回答
+
+### Level 1 — Definition
+
+每个模型调用、每个工具只看到完成该步所需的 context。
+
+### Level 2 — Mechanism
+
+Host 做隔离；tool / MCP server 拿参数和授权资源，而不是整段聊天。
+
+### Level 3 — Engineering
+
+不隔离就会 prompt injection 扩散、数据外泄、权限打穿。接到 [Agent Security](/docs/agent/security) 和 [MCP](/docs/ai-native/mcp)。
+
+## 面试问题
+
+1. Agent B 是否应该看到全部 conversation？为什么？
+2. Host 和 tool server 的 context 边界怎么划？
+3. 隔离会不会让 agent 变笨？如何补偿？
+4. 这和普通微服务的权限模型有何相似？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

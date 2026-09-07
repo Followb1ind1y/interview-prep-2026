@@ -1,24 +1,53 @@
 ---
 title: Reranking
 titleEn: Reranking
-description: 何时 rerank、延迟与收益。
-descriptionEn: When to rerank, latency vs gain.
-date: 2026-09-06
-keywords: ["rerank"]
+description: Top 50 → Cross Encoder / Reranker → Top 5。为什么分两阶段。
+descriptionEn: Top 50 → cross encoder / reranker → Top 5. Why two stages.
+date: 2026-09-07
+keywords: ["reranking", "cross encoder"]
 ---
 
-标准：关掉资料后 1–2 分钟讲清，并能接到自己的项目。
+能讲清召回和精排的计算预算。
 
-## 必能讲清
+## 需要掌握
 
--
+Retrieval 便宜、粗；rerank 贵、准。
 
-## 权衡
+## 机制
+
+```
+Top 50 retrieved
+        ↓
+Cross Encoder / Reranker
+        ↓
+Top 5
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+用更强（通常是 cross-encoder）模型重排少量候选。
+
+### Level 2 — Mechanism
+
+Bi-encoder 把 query / doc 分开编码才能预计算。Cross-encoder 联合编码，质量高但无法对全库跑。
+
+### Level 3 — Engineering
+
+Rerank 深度和候选集大小直接打延迟。没有 rerank 时，把更好的 hybrid 和 metadata 做好。有 rerank 就要进 trace。
+
+## 面试问题
+
+1. Why reranking?
+2. Retrieval 和 reranking 为什么分两阶段？
+3. Top 50 改成 Top 200 会怎样？
+4. 什么时候 rerank 不值得？
+
+## 我的答案
 
 -
 
 ## 项目锚点
 
 -
-
-## 我的答案

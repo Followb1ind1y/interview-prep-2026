@@ -1,0 +1,58 @@
+---
+title: LLM API Engineering
+titleEn: LLM API Engineering
+description: streaming、timeout、retries、rate limit、exponential backoff、concurrency、连接池、async。
+descriptionEn: Streaming, timeouts, retries, rate limits, backoff, concurrency, pooling, async.
+date: 2026-09-07
+keywords: ["streaming", "retries", "rate limit", "asyncio"]
+---
+
+对照 FastAPI + Gemini。这是把模型当依赖服务来用。
+
+## 需要掌握
+
+- streaming
+- timeout
+- retries
+- rate limit
+- exponential backoff
+- concurrency
+- connection pooling
+- async
+
+## 机制
+
+```
+client → API gateway → async worker
+       → LLM API (stream)
+       → backpressure / retry / timeout
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+LLM 是高延迟、限流、部分失败的 HTTP/RPC 依赖。
+
+### Level 2 — Mechanism
+
+流式降低 TTFT 体感。超时要分连接 / 首 token / 总时长。限流和 backoff 保护你和供应商。
+
+### Level 3 — Engineering
+
+对非幂等工具不要盲目 retry。连接池和 async 决定能否撑 QPS。接到 Voice 的 streaming。
+
+## 面试问题
+
+1. Streaming 对超时设计有什么影响？
+2. 429 和 5xx 的重试策略有何不同？
+3. 为什么 LLM 调用必须设硬超时？
+4. 并发打满时先排队、丢弃还是降级模型？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

@@ -1,0 +1,55 @@
+---
+title: LLM Evaluation
+titleEn: LLM Evaluation
+description: exact match、BLEU / ROUGE（知道即可）、semantic、LLM-as-judge、pairwise、rubric。
+descriptionEn: Exact match, BLEU/ROUGE at a glance, semantic, LLM-as-judge, pairwise, rubrics.
+date: 2026-09-07
+keywords: ["llm-as-judge", "pairwise evaluation", "rubric"]
+---
+
+生成任务很少能只靠 exact match。
+
+## 需要掌握
+
+- exact match
+- BLEU / ROUGE（知道即可）
+- semantic similarity
+- LLM-as-a-judge
+- pairwise evaluation
+- rubric-based evaluation
+
+## 机制
+
+```
+reference-based     exact / overlap / embedding similarity
+reference-free      judge model + rubric / pairwise
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+对自由文本输出打分。有的对照参考答案，有的用更强模型当法官。
+
+### Level 2 — Mechanism
+
+LLM-as-judge 用 rubric 降主观噪声。Pairwise 比绝对分更稳。BLEU / ROUGE 对对话类任务很弱，知道局限即可。
+
+### Level 3 — Engineering
+
+Judge 会偏爱某风格、会被位置影响。要抽检人工对齐，固定 judge 模型版本。
+
+## 面试问题
+
+1. 什么时候绝对不能用 LLM-as-judge？
+2. Pairwise 比 1–5 分好在哪？
+3. Rubric 至少要有哪几条？
+4. 如何校准 judge 和人类标注的一致性？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

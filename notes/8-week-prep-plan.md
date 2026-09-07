@@ -24,7 +24,7 @@
 | 1 | Positioning | 我应该找什么工作？ | Docs `positioning` |
 | 2 | Resume / Intro | 怎么让别人愿意见我？ | Resume + Docs 开场稿 |
 | 3 | Projects | 怎么证明我真的做过？ | Docs `projects` |
-| 4 | Technical | 我到底懂不懂？ | Docs `genai` + `system-design` |
+| 4 | Technical | 我到底懂不懂？ | Docs 九个专栏（LLM → AI-Native） |
 | 5 | Coding | 我能不能写代码？ | Docs `algorithms` + `sql` |
 | 6 | Interview | 我能不能在压力下表现出来？ | Docs `behavioral` |
 

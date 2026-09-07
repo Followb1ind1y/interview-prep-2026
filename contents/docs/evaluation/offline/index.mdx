@@ -1,0 +1,53 @@
+---
+title: Offline Evaluation
+titleEn: Offline Evaluation
+description: golden dataset、benchmark、regression testing、A/B test。
+descriptionEn: Golden datasets, benchmarks, regression, A/B tests.
+date: 2026-09-07
+keywords: ["offline eval", "golden dataset", "regression testing", "a/b test"]
+---
+
+上线前必须能在固定集上回归。A/B 是线上，但设计从离线开始。
+
+## 需要掌握
+
+- golden dataset
+- benchmark
+- regression testing
+- A/B test
+
+## 机制
+
+```
+golden set → run system → scores → pass/fail gate
+online A/B → 真实用户 → 延迟确认
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+离线用冻结的标注集反复跑；线上用分流看真实指标。
+
+### Level 2 — Mechanism
+
+Golden set 要覆盖失败模式，不只 happy path。Regression 绑 CI。A/B 验证离线分高的改动真的对用户好。
+
+### Level 3 — Engineering
+
+集太小会过拟合评测。生产失败要回流进 golden set，见 Production Eval。
+
+## 面试问题
+
+1. Golden dataset 怎么建、谁来标？
+2. 公开 benchmark 和私有集如何搭配？
+3. 什么改动必须挡住发布？
+4. 离线分数涨、线上变差，说明什么？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

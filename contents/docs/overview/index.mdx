@@ -1,13 +1,15 @@
 ---
 title: 准备手册
 titleEn: Playbook
-description: 6 个模块撑起整段跳槽。知识点在侧边栏收成专栏，项目深挖算面试表现。
-descriptionEn: Six modules. Knowledge lives in collapsible columns. Project deep dives sit under interview performance.
-date: 2026-09-06
-keywords: ["overview", "playbook", "llm engineer", "interview prep"]
+description: Production LLM / AI Engineer。知识点按 9 大模块准备，每页只回答 What / How / Why / Trade-off。
+descriptionEn: Production LLM / AI Engineer. Nine knowledge modules. Each page answers What / How / Why / Trade-off.
+date: 2026-09-07
+keywords: ["overview", "playbook", "llm engineer", "interview prep", "context engineering", "harness"]
 ---
 
 目标不是重新学一遍 AI，而是把已有 **3+ 年 LLM 工程经验** 转成 Interview Performance。
+
+定位是 **Production LLM / AI Engineer**：能讲清模型机制，能建 RAG / Agent，能做 evaluation、optimization、deployment，并能解释真实 production trade-offs。不要按纯 LLM Research Engineer 准备，也不要把 40% 时间花在 Transformer 数学上。
 
 后期默认：**30% 学习 + 30% 项目深挖 + 20% Coding + 20% Mock**。拿到面试以后再调成 **20 / 20 / 30 / 30**。
 
@@ -22,26 +24,145 @@ keywords: ["overview", "playbook", "llm engineer", "interview prep"]
 | 1 | 求职定位 | 我应该找什么工作？ | [求职定位](/docs/positioning) |
 | 2 | Resume / Intro | 怎么让别人愿意见我？ | [简历](/resume/cv) · [个人介绍](/resume/about) |
 | 3 | 项目深挖 | 怎么证明我真的做过？ | [项目深挖](/docs/projects)（面试表现） |
-| 4 | 技术知识 | 我到底懂不懂？ | [LLM](/docs/llm) · [RAG](/docs/rag) · [Agent](/docs/agent) · [系统设计](/docs/system-design) · [工程基础](/docs/engineering) |
+| 4 | 技术知识 | 我到底懂不懂？ | 下面 9 个专栏 · [工程基础](/docs/engineering) |
 | 5 | Coding | 我能不能写代码？ | [算法](/docs/algorithms) |
 | 6 | 面试表现 | 我能不能在压力下讲出来？ | [项目深挖](/docs/projects) · [行为面试](/docs/behavioral) |
 
+## 知识体系：9 大模块
+
+面试已经从「会不会调 LLM API」转向：
+
+```
+LLM fundamentals → Retrieval → Context Engineering → Agents
+        → Evals → Production → AI-native Engineering / Harness
+```
+
+不要再按 `Transformer → Attention → RAG → Agent → System Design` 一条线无限展开。每一页只准备能开口的答案。
+
+| Area | 重要性 |
+| --- | --- |
+| LLM Fundamentals | ⭐⭐⭐⭐ |
+| RAG / Retrieval | ⭐⭐⭐⭐⭐ |
+| Context Engineering | ⭐⭐⭐⭐⭐ |
+| Agents | ⭐⭐⭐⭐⭐ |
+| Evaluation | ⭐⭐⭐⭐⭐ |
+| AI System Design | ⭐⭐⭐⭐⭐ |
+| Production / Performance | ⭐⭐⭐⭐⭐ |
+| AI Coding / Harness / MCP | ⭐⭐⭐⭐ |
+| Fine-tuning | ⭐⭐⭐ |
+| Deep Model Training | ⭐⭐ |
+| Classical ML | ⭐⭐ |
+| LeetCode / Coding | ⭐⭐⭐⭐ |
+
 <CardGrid>
-  <Card title="LLM Fundamentals" description="Transformer → Inference。Fine-tuning / vLLM 必须能追问。" href="/docs/llm" />
-  <Card title="RAG" description="Embedding → Evaluation。锚点 FAISS + BM25 + RRF。" href="/docs/rag" />
-  <Card title="Agent" description="Tool calling → Multi-agent 可靠性。" href="/docs/agent" />
-  <Card title="系统设计" description="架构 / 规模 / 延迟 / 成本 / 可靠 / 可观测。" href="/docs/system-design" />
-  <Card title="工程基础" description="Python、并发、REST、SQL、Cloud。经得起追问即可。" href="/docs/engineering" />
-  <Card title="算法" description="20–30 道高频 Medium。SQL 不在这里。" href="/docs/algorithms" />
+  <Card title="LLM Fundamentals" description="Token → Inference。能从机制讲到 production behavior。" href="/docs/llm" />
+  <Card title="LLM Application" description="Prompt、结构化输出、选模型、routing。把 API 变成可靠软件。" href="/docs/application" />
+  <Card title="RAG / Retrieval" description="Ingestion → Debug。能画全图，能诊断错误答案。" href="/docs/rag" />
+  <Card title="Context Engineering" description="模型这一刻该看到什么。压缩、缓存、隔离。" href="/docs/context" />
+  <Card title="Agent Engineering" description="Agent loop、workflow vs agent、可靠性与安全。" href="/docs/agent" />
+  <Card title="Evaluation" description="Golden set、LLM-as-judge、RAG / Agent / Production eval。" href="/docs/evaluation" />
+  <Card title="Production AI" description="Latency、cost、scaling、observability、reliability。" href="/docs/production" />
+  <Card title="AI System Design" description="按题练，不按维度收藏。每天一道白板。" href="/docs/system-design" />
+  <Card title="AI-Native Engineering" description="MCP、Harness、Claude Code / Codex、Sandbox。" href="/docs/ai-native" />
 </CardGrid>
+
+工程追问（Python / SQL / Cloud）在 [工程基础](/docs/engineering)。手感题在 [算法](/docs/algorithms)。不要把它们和上面 9 个模块混成一条学习线。
+
+## 学习顺序
+
+不要从 MCP / Harness / Claude Code 开始。先知道它们为什么必须存在。
+
+```
+FOUNDATION
+    ↓
+01 LLM Fundamentals
+    ↓
+02 LLM Application
+    ↓
+03 RAG
+    ↓
+04 Context Engineering     06 Evaluation（可并行）
+    ↓
+05 Agents
+    ↓
+07 Production AI
+    ↓
+08 System Design
+    ↓
+09 MCP / Harness / Coding Agents
+```
+
+第一轮从 Phase 1 开始，按：
+
+Token → Transformer → Attention → Training → SFT/DPO → Fine-tuning → Inference → KV Cache → Batching → Quantization
+
+一项一项做成面试级知识卡。完成后再进 RAG。不要今天 MCP、明天 GraphRAG、后天 Claude Code。
+
+## Phase Roadmap
+
+这是知识准备的执行顺序，不是再开一套目录。
+
+| Phase | 时间 | 做什么 |
+| --- | --- | --- |
+| 0 Interview Foundation | 1–2 天 | 先画整张地图，不深入 |
+| 1 LLM Fundamentals | 5–7 天 | Token → Quantization。能解释 + 能画图 + 能答 why + 能联系 production |
+| 2 RAG | 5–7 天 | Architecture → Debugging。白板 5 分钟画出 Enterprise RAG |
+| 3 Context Engineering | 3–4 天 | Window → Isolation。重点补课 |
+| 4 Agents | 5–7 天 | Tool calling → Security |
+| 5 Evaluation | 3–4 天 | Golden set → Regression |
+| 6 Production | 4–5 天 | Latency / Cost / Observability / Reliability |
+| 7 System Design | 5–7 天 | 每天一道题，不再堆知识点 |
+| 8 MCP / Harness | 3–4 天 | 这时再学 Claude Code / Codex，会发现它们只是 agent system |
+
+Phase 0 结束时，应能默画：
+
+```
+User
+ ↓
+Application
+ ↓
+LLM
+ ├── RAG
+ ├── Tools
+ ├── Memory
+ └── Agents
+ ↓
+Evaluation
+ ↓
+Production
+```
+
+## 怎么准备：面试问题，不是词条
+
+侧边栏是地图。真正要写进子页的是问题。
+
+例如 Attention：Explain self-attention. Why O(n²)? MHA vs MQA vs GQA? Long context 为什么贵？KV cache 省了什么、占多少内存？
+
+例如 RAG：怎么选 chunk size？为什么 hybrid？检索差了怎么 debug？文档对了答案错了为什么？RAG vs fine-tuning？
+
+例如 Agent：Agent vs workflow？工具失败怎么办？何时不要 multi-agent？怎么防 prompt injection？
+
+例如 Harness：Model vs harness？Context overflow 保什么？怎么 sandbox？Agent 怎么知道自己写对了？
+
+每页固定三级：
+
+| Level | 问法 | 例子 |
+| --- | --- | --- |
+| 1 Definition | What is X? | What is KV cache? |
+| 2 Mechanism | How does it work? | How does retrieval work? |
+| 3 Engineering | When does it break, and what is the trade-off? | Recall 90% 但答案准确率 70%，怎么诊断？ |
+
+每个知识点最终只回答四件事：**What → How → Why → Engineering Trade-off**。项目例子写进 [项目深挖](/docs/projects)，不要在知识页堆完整项目介绍。
 
 ## 侧边栏怎么用
 
-每一个知识点专栏都和算法一样：**先点总览看计划和卡片，再进子页写答案。** 子目录默认收起；只有当前正在看的专栏会展开。
+每一个知识点专栏都一样：**先点总览看计划和卡片，再进子页写答案。** 子目录默认收起；只有当前正在看的专栏会展开。
 
-- **知识点**：LLM / RAG / Agent / 系统设计 / 工程基础 / 算法
-- **面试表现**：项目深挖 + 行为面试（STAR / 表达 / Mock）
-- SQL 在工程基础，不在算法。前端专栏已去掉。
+- **知识点**：九个专栏，再加工程基础 / 算法
+- **面试表现**：项目深挖 + 行为面试
+- Context Engineering 和 AI-Native Engineering 是这次补上的两块，不要跳过，也不要提前从 09 开始
+
+系统设计页按题目练，不按 Architecture / Latency / Cost 收藏。这些维度贯穿每一道题，知识本身写在 [Production AI](/docs/production)。
 
 ## 知识存在哪
 
@@ -55,5 +176,5 @@ notes/             周计划；Inbox 不上站
 ```
 
 <Note title="一条知识一个主本">
-子页写到 My answer。总览页只留计划和卡片。Mock 缺口回填子页，不要堆在日志里。
+子页写到「我的答案」。总览页只留计划和卡片。Mock 缺口回填子页，不要堆在日志里。
 </Note>

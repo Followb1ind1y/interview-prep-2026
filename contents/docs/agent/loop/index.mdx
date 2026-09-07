@@ -1,0 +1,59 @@
+---
+title: Agent Loop
+titleEn: Agent Loop
+description: Observe → Reason → Act。必须理解为什么需要 loop。
+descriptionEn: Observe → Reason → Act. Why the loop exists.
+date: 2026-09-07
+keywords: ["agent loop", "observe", "reason", "act"]
+---
+
+Agent 的定义从 loop 开始，而不是从框架名开始。
+
+## 需要掌握
+
+必须能画出并解释这个循环。
+
+## 机制
+
+```
+Observe
+ ↓
+Reason
+ ↓
+Act
+ ↓
+Observe
+ ↓
+Reason
+ ↓
+Act
+```
+
+## 三级回答
+
+### Level 1 — Definition
+
+Agent 是在环境中循环：看状态、决定、行动、再看结果。
+
+### Level 2 — Mechanism
+
+没有 loop 就只是一次 LLM 调用。工具结果、检索、代码输出都必须回到模型，才能纠正和继续。
+
+### Level 3 — Engineering
+
+Loop 带来无限循环、费用和延迟。必须有 max iterations、timeout、budget。Your agent occasionally loops for 20 steps and costs $0.50 per request. How do you debug and fix it?
+
+## 面试问题
+
+1. What is an agent?
+2. Explain the agent loop.
+3. 为什么需要 agent loop，而不是一次生成完？
+4. 如何发现 loop 在空转？
+
+## 我的答案
+
+-
+
+## 项目锚点
+
+-

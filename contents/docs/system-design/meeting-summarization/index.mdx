@@ -1,0 +1,111 @@
+---
+title: L2 · Meeting Summarization
+titleEn: L2 · Meeting Summarization
+description: 长音频 / 纪要：ASR、说话人、长上下文、异步。
+descriptionEn: "Meetings: ASR, speakers, long context, async jobs."
+date: 2026-09-07
+keywords: ["meeting summarization", "asr"]
+---
+
+Design meeting summarization system.
+
+<Note title="开口框架">
+每道题都走同一套 14 个 dimensions，不要一上来画微服务。知识点不够就回到 01–07 / 09。
+</Note>
+
+## 本题要练什么
+
+必须异步。长 transcript 要 chunk + map-reduce 或长窗口 + 压缩。行动项要结构化输出。
+
+## 白板草图
+
+```
+audio → ASR + diarization → transcript store
+      → chunk summarize → reduce → actions/JSON
+```
+
+## 容易被追问
+
+1. 2 小时会议如何避免丢 action item？
+2. ASR 错误如何进 eval？
+3. 为什么这题通常不是 agent？
+4. 隐私和保留策略？
+
+## Dimensions
+
+```
+1. Requirements
+2. Constraints
+3. Architecture
+4. Data Flow
+5. Model
+6. Retrieval
+7. Agent
+8. Evaluation
+9. Scaling
+10. Latency
+11. Cost
+12. Reliability
+13. Security
+14. Observability
+```
+
+## Requirements
+
+-
+
+## Constraints
+
+-
+
+## Architecture
+
+-
+
+## Data Flow
+
+-
+
+## Model
+
+-
+
+## Retrieval
+
+-
+
+## Agent
+
+-
+
+## Evaluation
+
+-
+
+## Scaling
+
+-
+
+## Latency
+
+-
+
+## Cost
+
+-
+
+## Reliability
+
+-
+
+## Security
+
+-
+
+## Observability
+
+-
+
+## 我的答案
+
+-
