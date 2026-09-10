@@ -52,6 +52,7 @@ export const messages = {
       menu: '目录',
       pageNav: '页面导航',
       backToTop: '回到顶部',
+      updated: '更新于',
     },
     common: {
       home: '首页',
@@ -113,6 +114,7 @@ export const messages = {
       menu: 'Menu',
       pageNav: 'Page navigation',
       backToTop: 'Scroll to top',
+      updated: 'Updated',
     },
     common: {
       home: 'Home',

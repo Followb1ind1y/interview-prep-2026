@@ -37,14 +37,16 @@ export default async function CollectionPage({ params }: PageProps) {
     <div className="flex items-start gap-10">
       <section className="flex-3">
         <ArticleBreadcrumb collection={collection} paths={slug} />
-        <div className="space-y-4">
+        <div>
           <DocumentHeading
+            date={frontmatter.date}
             description={frontmatter.description}
             descriptionEn={frontmatter.descriptionEn}
+            keywords={frontmatter.keywords}
             title={frontmatter.title}
             titleEn={frontmatter.titleEn}
           />
-          <Separator />
+          <Separator className="mt-6" />
         </div>
         <Typography>
           <section>{content}</section>
