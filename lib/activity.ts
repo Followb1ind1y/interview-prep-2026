@@ -2,8 +2,8 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import grayMatter from 'gray-matter'
 
-import { COLLECTION_IDS } from '@/lib/collections'
 import timeline from '@/contents/site/timeline.json'
+import { COLLECTION_IDS } from '@/lib/collections'
 
 export interface ActivityDay {
   count: number
@@ -39,12 +39,29 @@ function toDay(value: string | Date | undefined): string | null {
   return date.toISOString().slice(0, 10)
 }
 
+/**
+ * Commits per day, pre-generated at build time by scripts/content.ts (git history
+ * isn't available from the deployed serverless function at request time). Missing
+ * on a fresh checkout before the first build, so a missing file is not an error.
+ */
+async function getDevActivityDays(): Promise<ActivityDay[]> {
+  try {
+    const raw = await fs.readFile(
+      path.join(process.cwd(), 'public', 'search-data', 'dev-activity.json'),
+      'utf-8'
+    )
+    return JSON.parse(raw) as ActivityDay[]
+  } catch {
+    return []
+  }
+}
+
 export async function getActivityDays(): Promise<ActivityDay[]> {
   const counts = new Map<string, number>()
 
-  const bump = (day: string | null) => {
+  const bump = (day: string | null, amount = 1) => {
     if (!day) return
-    counts.set(day, (counts.get(day) ?? 0) + 1)
+    counts.set(day, (counts.get(day) ?? 0) + amount)
   }
 
   for (const id of COLLECTION_IDS) {
@@ -60,6 +77,10 @@ export async function getActivityDays(): Promise<ActivityDay[]> {
 
   for (const item of timeline) {
     bump(toDay(item.date))
+  }
+
+  for (const day of await getDevActivityDays()) {
+    bump(toDay(day.date), day.count)
   }
 
   return [...counts.entries()]
