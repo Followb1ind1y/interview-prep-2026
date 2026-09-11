@@ -13,14 +13,23 @@ export interface CapturedSelection {
   title: string
 }
 
-/** 只在文章正文里生效，代码块除外 */
-const SCOPE = '[data-translate-scope]'
-const BLOCK = 'p,li,td,th,dd,dt,h1,h2,h3,h4,h5,h6,blockquote,figcaption'
+/**
+ * 全站默认生效，只排除代码块和显式opt-out的区域。
+ * 按钮等纯功能性控件本身就带 `select-none`（见 components/ui/button.tsx），
+ * 浏览器原生就选不中，不需要在这里额外处理。
+ */
+const EXCLUDE = 'pre, [data-no-translate]'
+/** 段落级容器：优先用它取上下文，比整个页面更聚焦 */
+const BLOCK = 'p,li,td,th,dd,dt,h1,h2,h3,h4,h5,h6,blockquote,figcaption,caption'
+/** 导航栏 / 页脚里常见的裸 <a>，不一定包在 BLOCK 里 */
+const INLINE = 'a,button,label,summary'
+/** 找不到更小容器时的兜底范围 */
+const REGION = 'nav,header,footer,aside,section,article,main'
 /** 气泡和面板自身，点它们不算「点到别处」 */
 const OWN_UI = '[data-translate-ui]'
 
 function pageTitle(): string {
-  const heading = document.querySelector(`${SCOPE} h1`)?.textContent?.trim()
+  const heading = document.querySelector('h1')?.textContent?.trim()
   if (heading) return heading
   return document.title.split(' - ')[0]?.trim() ?? ''
 }
@@ -37,12 +46,14 @@ function capture(): { selection: CapturedSelection; range: Range } | null {
   const element = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement
   if (!element) return null
 
-  const scope = element.closest(SCOPE)
-  // 代码块里选中的是标识符，翻译没有意义
-  if (!scope || element.closest('pre') || element.closest('[data-no-translate]')) return null
+  // 代码块里选中的是标识符，翻译没有意义；也尊重显式的 opt-out 标记
+  if (element.closest(EXCLUDE)) return null
 
-  const block = element.closest(BLOCK)
-  const context = (block ?? scope).textContent?.replace(/\s+/g, ' ').trim() ?? ''
+  // 上下文容器：段落 → 裸链接/按钮文字 → 页面区块 → 兜底整页
+  // 兜底再大也不怕，userPrompt 里的 trimContext 会以选中文字为中心截到 400 字符
+  const container =
+    element.closest(BLOCK) ?? element.closest(INLINE) ?? element.closest(REGION) ?? document.body
+  const context = container.textContent?.replace(/\s+/g, ' ').trim() ?? ''
 
   return { selection: { text, context, title: pageTitle() }, range: range.cloneRange() }
 }
