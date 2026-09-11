@@ -8,6 +8,7 @@ import rehypeCodeTitles from 'rehype-code-titles'
 import rehypeKatex from 'rehype-katex'
 import rehypePrism from 'rehype-prism-plus'
 import rehypeSlug from 'rehype-slug'
+import remarkCjkFriendly from 'remark-cjk-friendly/parseOnly'
 import remarkGfm from 'remark-gfm'
 import { type Node } from 'unist'
 import { visit } from 'unist-util-visit'
@@ -47,7 +48,7 @@ async function parseMdx<Frontmatter>(rawMdx: string) {
           rehypeAutolinkHeadings,
           postCopy,
         ],
-        remarkPlugins: [remarkGfm],
+        remarkPlugins: [remarkGfm, remarkCjkFriendly],
       },
     },
     components,

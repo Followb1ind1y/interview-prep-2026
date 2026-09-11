@@ -3,53 +3,858 @@ title: Tokenization
 titleEn: Tokenization
 description: BPE / WordPiece / SentencePiece。token 数决定 window、latency、cost。
 descriptionEn: BPE / WordPiece / SentencePiece. Token count drives window, latency, and cost.
-date: 2026-09-07
-keywords: ["tokenization", "bpe", "sentencepiece"]
+date: 2026-09-11
+keywords: ["tokenization", "bpe", "wordpiece", "sentencepiece", "vocabulary", "oov", "context window"]
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
-面试官能从 token 问到 context window、延迟和账单。
+<Locale lang="zh">
+
+模型其实读不懂字符串。它只认一串整数。Tokenization 就是把「人写的文本」翻译成「模型能吃的整数序列」的那一步。
+
+这一步看着不起眼，但它决定了：一段话占多少 context、一次请求多少钱、中文和代码为什么表现不一样、以及为什么模型数不清单词里有几个字母。
 
 ## 需要掌握
 
-- BPE、WordPiece、SentencePiece
-- token vs word
-- token 数如何影响 context window、latency、cost
-- multilingual tokenization
-- prompt 中 token 数估算
+- token / vocabulary / token id / embedding 四者的关系
+- word-level、subword-level、character-level 三种切法的取舍
+- BPE 的手推过程（能在白板上推一遍）
+- WordPiece 和 BPE 到底差在哪一个公式上
+- SentencePiece 解决了什么前两者解决不了的问题
+- 词表大小的 trade-off
+- OOV（未登录词）怎么处理
+- token 数 → context window / latency / cost 的传导链
 
-## 机制
+</Locale>
+
+<Locale lang="en">
+
+A model can't read strings. It only sees a sequence of integers. Tokenization is the step that translates "text a human wrote" into "integers a model can consume."
+
+It looks like plumbing, but it decides how much context a passage costs, how much a request costs, why Chinese and code behave differently, and why models can't count letters in a word.
+
+## Must know
+
+- how token / vocabulary / token id / embedding relate to each other
+- the trade-offs between word-level, subword-level, and character-level splitting
+- how BPE builds a vocabulary (be able to work it out on a whiteboard)
+- the one formula that separates WordPiece from BPE
+- what SentencePiece solves that the other two can't
+- the vocabulary size trade-off
+- how out-of-vocabulary words are handled
+- the chain from token count to context window, latency, and cost
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 基本概念
+
+### 什么是 Tokenization？为什么它对 LLM 至关重要？
+
+Tokenization（分词）是把一段文本拆成更小单元（token）的过程，这些单元可以是**词、子词或字符**。拆完之后，每个 token 再按词表映射成一个整数 id，模型真正接收的是这串整数。
+
+Example：
 
 ```
-text → tokenizer → token ids → embedding
+"Hello, world!"
+   ↓ 切分
+["Hello", ",", " world", "!"]
+   ↓ 查词表映射成 id
+[9906, 11, 1917, 0]
+   ↓ 查 embedding 表
+[[0.21, -0.03, ...], [0.08, 0.44, ...], ...]
 ```
 
-同一段话，中文和代码通常比英文吃更多 token。
+它之所以至关重要，是因为**模型世界里所有的「长度」都是按 token 数算的**，不是按字数：
 
-## 三级回答
+- context window 的 128K 指的是 128K 个 token
+- 账单按 token 计费
+- 位置编码按 token 位置编
+- KV cache 的显存占用随 token 数增长
 
-### Level 1 — Definition
+也就是说，tokenization 是「一段文本」和「一笔钱 / 一段延迟」之间的换算单位。
 
-Tokenizer 把文本切成模型认识的离散单元。计费和 context 都按 token，不按 word。
+<Note title="Tokenizer 和 Vocabulary 的区别">
 
-### Level 2 — Mechanism
+**Vocabulary（词表）**是一张静态的表，存着所有可能的 token 以及它们对应的 id。**Tokenizer（分词器）**是执行切分规则的工具。词表是「字典」，tokenizer 是「查字典的那个人」。
 
-BPE / WordPiece 用子词平衡词表大小和 OOV。SentencePiece 直接在 raw text 上训，适合多语言。
+</Note>
 
-### Level 3 — Engineering
+### Token、Token ID、Embedding 到底是什么关系？
 
-Prompt 越长，prefill 越慢、KV cache 越大、费用越高。中文 / 代码场景要单独估 token，不能按英文词数换算。
+这三个经常被混在一起，但它们是流水线上的三个不同阶段：
+
+| 阶段 | 产物 | 有没有语义 |
+| --- | --- | --- |
+| Tokenization | `" world"` 这样的**字符串片段** | 无 |
+| 映射词表 | `1917` 这样的**整数 id** | 无，纯粹是查表的行号 |
+| Embedding | `[0.21, -0.03, ...]` 这样的**向量** | 有，语义从这里开始 |
+
+关键点：**token id 是没有语义的**。id 1917 和 id 1918 在数值上相邻，但它们代表的词可能毫无关系。语义完全由 embedding 层学出来——embedding 表就是一个 `[vocab_size, hidden_dim]` 的大矩阵，token id 就是查这个矩阵的行号。
+
+<Note title="为什么这个区分在面试里重要">
+
+被问「tokenization 怎么捕捉语义」的时候，正确答案是「它不捕捉」。Tokenization 只负责切分和编号，语义是下游 embedding + attention 的事。答错这个会显得基础不牢。
+
+</Note>
+
+### 为什么按 token 计费，而不是按字数或字符数？
+
+因为 token 才是模型真实的计算单位。模型的每一次前向传播，计算量直接由序列的 token 数决定——不管这个 token 对应的是一个 5 个字母的英文词，还是一个汉字。
+
+一个直觉：`"strawberry"` 这个词可能被切成 `["str", "aw", "berry"]` 3 个 token，而 `"the"` 是 1 个 token。它们的字符数差了 3 倍多，但模型处理前者的成本只有后者的 3 倍——按字符算会算错，按词算也会算错，只有按 token 算是准的。
+
+<Note title="顺便解释了一个经典问题">
+
+「为什么 LLM 数不清 strawberry 里有几个 r？」——因为模型根本没看到过 `s-t-r-a-w-b-e-r-r-y` 这 10 个字符，它看到的是 `["str", "aw", "berry"]` 这 3 个整数。字母级别的信息在 tokenization 这一步就已经丢了。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Fundamentals
+
+### What is tokenization, and why does it matter so much for LLMs?
+
+Tokenization splits text into smaller units called tokens — **words, subwords, or characters**. Each token is then mapped through a vocabulary to an integer id, and that sequence of integers is what the model actually receives.
+
+Example:
+
+```
+"Hello, world!"
+   ↓ split
+["Hello", ",", " world", "!"]
+   ↓ map to ids via the vocabulary
+[9906, 11, 1917, 0]
+   ↓ look up the embedding table
+[[0.21, -0.03, ...], [0.08, 0.44, ...], ...]
+```
+
+It matters because **every notion of "length" in an LLM is measured in tokens**, not characters:
+
+- a 128K context window means 128K tokens
+- billing is per token
+- positional encoding indexes token positions
+- KV cache memory grows with token count
+
+Tokenization is the exchange rate between a piece of text and a dollar amount.
+
+<Note title="Tokenizer vs. vocabulary">
+
+The **vocabulary** is a static table mapping every possible token to an id. The **tokenizer** is the tool that applies the splitting rules. The vocabulary is the dictionary; the tokenizer is the person looking things up in it.
+
+</Note>
+
+### How do token, token id, and embedding relate?
+
+These get conflated constantly, but they're three distinct stages of a pipeline:
+
+| Stage | Output | Carries meaning? |
+| --- | --- | --- |
+| Tokenization | a **string fragment** like `" world"` | no |
+| Vocabulary lookup | an **integer id** like `1917` | no — it's just a row number |
+| Embedding | a **vector** like `[0.21, -0.03, ...]` | yes — meaning starts here |
+
+The key point: **token ids carry no semantics**. Ids 1917 and 1918 are numerically adjacent but may represent totally unrelated words. Meaning is learned entirely by the embedding layer — a `[vocab_size, hidden_dim]` matrix that the token id indexes into.
+
+<Note title="Why this distinction matters in interviews">
+
+If you're asked "how does tokenization capture meaning," the correct answer is that it doesn't. Tokenization only splits and numbers; meaning is the job of embedding plus attention downstream. Getting this wrong signals shaky fundamentals.
+
+</Note>
+
+### Why bill per token instead of per word or per character?
+
+Because the token is the model's real unit of compute. Each forward pass costs in proportion to the number of tokens in the sequence — regardless of whether a token is a five-letter English word or a single Chinese character.
+
+An intuition: `"strawberry"` might split into `["str", "aw", "berry"]` — three tokens — while `"the"` is one. Their character counts differ by more than 3x, but the model's cost ratio is exactly 3x. Counting characters gets it wrong, counting words gets it wrong; only counting tokens is accurate.
+
+<Note title="This also explains a classic failure">
+
+"Why can't an LLM count the r's in strawberry?" Because the model never saw the ten characters `s-t-r-a-w-b-e-r-r-y`. It saw three integers standing for `["str", "aw", "berry"]`. Letter-level information was destroyed at the tokenization step.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 分词方法
+
+### 有哪几种切法？各自的取舍是什么？
+
+三大类，本质是在**词表大小**和**序列长度**之间做权衡：
+
+| 方法 | 例子 | 词表大小 | 序列长度 | 主要问题 |
+| --- | --- | --- | --- | --- |
+| Word-level | `"natural language processing"` → `["natural", "language", "processing"]` | 极大（几十万） | 短 | OOV 严重：没见过的词只能变 `[UNK]`，信息全丢 |
+| **Subword-level** | `"tokenization"` → `["token", "ization"]` | 适中（30k–200k） | 适中 | 主流方案，几乎没有致命缺点 |
+| Character-level | `"cat"` → `["c", "a", "t"]` | 极小（几百） | 极长 | 序列太长，attention 的 O(n²) 直接爆炸 |
+
+Subword 之所以成为主流，是因为它同时拿到了两边的好处：**高频词保持完整（`"the"` 就是一个 token），罕见词被拆成有意义的碎片（`"unhappiness"` → `["un", "happiness"]`）**，既不会 OOV，序列也不会太长。
+
+### BPE 是怎么工作的？手推一遍
+
+BPE（Byte Pair Encoding）的核心思想一句话：**反复把出现最频繁的相邻 pair 合并成一个新 token，直到词表达到目标大小。**
+
+假设训练语料里只有 4 个词，出现次数如下：
+
+```
+low     × 5
+lower   × 2
+newest  × 6
+widest  × 3
+```
+
+**第 0 步：全部拆成字符**（`</w>` 表示词尾）
+
+```
+l o w </w>          × 5
+l o w e r </w>      × 2
+n e w e s t </w>    × 6
+w i d e s t </w>    × 3
+```
+
+**第 1 步：统计所有相邻 pair 的频率**
+
+```
+(e, s) = 6 + 3 = 9   ← 最高
+(s, t) = 6 + 3 = 9
+(t, </w>) = 6 + 3 = 9
+(w, e) = 2 + 6 = 8
+(l, o) = 5 + 2 = 7
+(o, w) = 5 + 2 = 7
+...
+```
+
+**第 2 步：合并最高频的 pair**，`(e, s)` → `es`
+
+```
+n e w es t </w>     × 6
+w i d es t </w>     × 3
+```
+
+**第 3 步：重复。** 现在 `(es, t) = 9` 最高，合并成 `est`：
+
+```
+n e w est </w>      × 6
+w i d est </w>      × 3
+```
+
+继续下去：
+
+| 轮次 | 合并的 pair | 新 token | 语料变成 |
+| --- | --- | --- | --- |
+| 1 | (e, s) | `es` | `n e w es t` / `w i d es t` |
+| 2 | (es, t) | `est` | `n e w est` / `w i d est` |
+| 3 | (est, `</w>`) | `est</w>` | `n e w est</w>` / `w i d est</w>` |
+| 4 | (l, o) | `lo` | `lo w` / `lo w e r` |
+| 5 | (lo, w) | `low` | `low` / `low e r` |
+
+跑到设定的词表大小就停。最终词表里会有 `low`、`est</w>`、`er</w>` 这些**学出来的**子词单元。
+
+**推理时不再统计频率**，只是把训练时学到的 merge 规则按同样的顺序重放一遍。所以 tokenizer 是完全确定性的：同样的文本，同样的 tokenizer，永远切出同样的结果。
+
+<Note title="BPE 为什么能处理没见过的词">
+
+遇到训练时没出现过的 `"lowest"`，BPE 不会吐 `[UNK]`，而是用已有的 merge 规则拼出 `["low", "est</w>"]`。信息基本没丢——这就是 subword 对比 word-level 的核心优势。
+
+</Note>
+
+### WordPiece 和 BPE 差在哪？
+
+流程几乎一模一样，**只差「选哪个 pair 来合并」这一个判据**：
+
+```
+BPE:        选 freq(u, v) 最大的 pair
+WordPiece:  选 freq(u, v) / (freq(u) × freq(v)) 最大的 pair
+```
+
+分母的作用是**惩罚那些「本来就各自很常见」的组合**。
+
+举个例子：假设 `e` 和 `s` 各自都极其高频（分别出现 10000 次），它们相邻出现 9 次。BPE 看到 9 次会觉得「还行」；WordPiece 算出 `9 / (10000 × 10000)`，分数极低，判断为「它们只是碰巧挨在一起，不是一个有意义的单元」。
+
+反过来，如果 `happi` 和 `ness` 各自只出现 10 次，但 9 次都是连在一起的，WordPiece 给的分数会非常高——因为这说明它们**强绑定**，合并成 `happiness` 是有语义道理的。
+
+一句话概括：**BPE 看绝对频率，WordPiece 看相关性。**
+
+<Note title="WordPiece 的 ## 前缀">
+
+BERT 系的 tokenizer 会看到 `##er`、`##ing` 这种带 `##` 的 token。`##` 表示「这个 token 只能作为词的后缀出现，不能独立成词」。例如 `"playing"` → `["play", "##ing"]`。
+
+</Note>
+
+### SentencePiece 解决了什么问题？
+
+前面两种方法都有一个隐含前提：**先按空格把句子切成词，再在词内部做子词切分**。这个前提对英语成立，对中文、日文、韩文完全不成立——它们压根没有空格。
+
+SentencePiece 的做法是：**直接在原始文本上训练，把空格也当成一个普通字符**（记作 `▁`，U+2581）。
+
+Example：
+
+```
+"Hello世界"  →  ["▁He", "llo", "▁世", "界"]
+```
+
+注意 `▁He` 里的 `▁` 就是那个空格。这带来两个好处：
+
+1. **不需要预分词**，中英文混排、日文、代码、社交媒体文本都能统一处理
+2. **完全可逆**：把所有 token 拼起来、把 `▁` 换回空格，就能一字不差地还原原文。BPE / WordPiece 因为丢了空格信息，还原时需要额外规则
+
+SentencePiece 底层可以用 BPE，也可以用 Unigram Language Model。T5、LLaMA 用的都是它。
+
+### 词表大小怎么选？
+
+这是一个直接的 trade-off，没有标准答案：
+
+| | 词表小（如 32k） | 词表大（如 200k） |
+| --- | --- | --- |
+| Embedding 层参数 | 少，省显存 | 多（`vocab_size × hidden_dim`，可能上亿参数） |
+| 输出层 softmax | 快 | 慢（要在整个词表上算概率） |
+| 同一段话的 token 数 | 多，吃 context | 少，context 装得下更多内容 |
+| 罕见词 / 多语言 | 被切得很碎 | 覆盖好 |
+
+一些真实数字，方便有个量感：
+
+```
+BERT-base      30,522
+LLaMA 1 / 2    32,000
+GPT-2          50,257
+cl100k_base    100,277   (GPT-4 / GPT-3.5-turbo)
+LLaMA 3        128,256
+o200k_base     200,019   (GPT-4o)
+```
+
+可以看到一个明显趋势：**词表在变大**。因为大词表能把同样的文本压成更少的 token，在长上下文时代这个收益越来越划算，而多出来的 embedding 参数相对于模型总参数量已经不算什么了。
+
+### 未登录词（OOV）怎么处理？
+
+用 subword 之后，OOV 基本上已经不是问题了，但完整答案是三层：
+
+1. **子词切分**（主流）：把没见过的词拆成已知子词，如 `"tokenization"` → `["token", "ization"]`，信息基本保留
+2. **Byte-level 兜底**：GPT 系用的是 byte-level BPE，最小单元是**字节**而不是字符。因为任何文本都能表示成字节，所以**理论上不存在 OOV**——emoji、乱码、二进制串都能编码
+3. **`[UNK]` 特殊标记**（老方案）：直接丢弃，信息完全损失，现代 tokenizer 基本不用了
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Tokenization methods
+
+### What are the main approaches, and what do they trade off?
+
+Three families, all trading **vocabulary size** against **sequence length**:
+
+| Method | Example | Vocab size | Sequence length | Main problem |
+| --- | --- | --- | --- | --- |
+| Word-level | `"natural language processing"` → `["natural", "language", "processing"]` | huge (100k+) | short | severe OOV: unseen words become `[UNK]` and lose all information |
+| **Subword-level** | `"tokenization"` → `["token", "ization"]` | moderate (30k–200k) | moderate | the standard choice, no fatal flaw |
+| Character-level | `"cat"` → `["c", "a", "t"]` | tiny (hundreds) | very long | sequences blow up attention's O(n²) cost |
+
+Subword won because it takes the good half of both: **frequent words stay whole (`"the"` is one token) while rare words break into meaningful pieces (`"unhappiness"` → `["un", "happiness"]`)**. No OOV, no sequence explosion.
+
+### How does BPE work? Work it out by hand
+
+The whole idea in one sentence: **repeatedly merge the most frequent adjacent pair into a new token, until the vocabulary reaches its target size.**
+
+Say the training corpus contains only four words, with these counts:
+
+```
+low     × 5
+lower   × 2
+newest  × 6
+widest  × 3
+```
+
+**Step 0: split everything into characters** (`</w>` marks end of word)
+
+```
+l o w </w>          × 5
+l o w e r </w>      × 2
+n e w e s t </w>    × 6
+w i d e s t </w>    × 3
+```
+
+**Step 1: count every adjacent pair**
+
+```
+(e, s) = 6 + 3 = 9   ← highest
+(s, t) = 6 + 3 = 9
+(t, </w>) = 6 + 3 = 9
+(w, e) = 2 + 6 = 8
+(l, o) = 5 + 2 = 7
+(o, w) = 5 + 2 = 7
+...
+```
+
+**Step 2: merge the most frequent pair**, `(e, s)` → `es`
+
+```
+n e w es t </w>     × 6
+w i d es t </w>     × 3
+```
+
+**Step 3: repeat.** Now `(es, t) = 9` is highest, so merge it into `est`:
+
+```
+n e w est </w>      × 6
+w i d est </w>      × 3
+```
+
+Continuing:
+
+| Round | Merged pair | New token | Corpus becomes |
+| --- | --- | --- | --- |
+| 1 | (e, s) | `es` | `n e w es t` / `w i d es t` |
+| 2 | (es, t) | `est` | `n e w est` / `w i d est` |
+| 3 | (est, `</w>`) | `est</w>` | `n e w est</w>` / `w i d est</w>` |
+| 4 | (l, o) | `lo` | `lo w` / `lo w e r` |
+| 5 | (lo, w) | `low` | `low` / `low e r` |
+
+Stop when the vocabulary hits its target size. The final vocabulary contains **learned** subword units like `low`, `est</w>`, and `er</w>`.
+
+**At inference time nothing is counted.** The merge rules learned during training are simply replayed in the same order. So a tokenizer is fully deterministic: same text, same tokenizer, always the same split.
+
+<Note title="Why BPE handles unseen words">
+
+Given `"lowest"`, which never appeared in training, BPE doesn't emit `[UNK]` — it assembles `["low", "est</w>"]` from existing merge rules. Almost no information is lost. That's the core advantage of subword over word-level.
+
+</Note>
+
+### How does WordPiece differ from BPE?
+
+The procedure is nearly identical. **Only the criterion for choosing which pair to merge differs:**
+
+```
+BPE:        pick the pair with the highest freq(u, v)
+WordPiece:  pick the pair with the highest freq(u, v) / (freq(u) × freq(v))
+```
+
+The denominator **penalizes combinations whose parts are already common on their own**.
+
+Concretely: suppose `e` and `s` are each extremely frequent (10,000 occurrences apiece) and appear adjacently 9 times. BPE sees 9 and considers it decent. WordPiece computes `9 / (10000 × 10000)` — a tiny score — and concludes they merely happen to sit next to each other rather than forming a meaningful unit.
+
+Conversely, if `happi` and `ness` each occur only 10 times but 9 of those are together, WordPiece scores that very highly, because the parts are **strongly bound** and merging them into `happiness` is semantically justified.
+
+In one line: **BPE looks at raw frequency, WordPiece looks at correlation.**
+
+<Note title="WordPiece's ## prefix">
+
+BERT-family tokenizers produce tokens like `##er` and `##ing`. The `##` means "this token can only appear as a suffix, never standalone." For example `"playing"` → `["play", "##ing"]`.
+
+</Note>
+
+### What problem does SentencePiece solve?
+
+Both methods above assume something: **first split the sentence into words by whitespace, then split subwords inside each word.** That assumption holds for English and fails completely for Chinese, Japanese, and Korean, which have no spaces at all.
+
+SentencePiece's answer: **train directly on raw text and treat the space as just another character** (written `▁`, U+2581).
+
+Example:
+
+```
+"Hello世界"  →  ["▁He", "llo", "▁世", "界"]
+```
+
+The `▁` in `▁He` is that space. Two benefits follow:
+
+1. **No pre-tokenization needed** — mixed Chinese/English, Japanese, code, and messy social-media text all go through the same path
+2. **Fully reversible** — concatenate the tokens, swap `▁` back to a space, and you recover the original text exactly. BPE and WordPiece discard whitespace information and need extra rules to detokenize
+
+Underneath, SentencePiece can run either BPE or a Unigram language model. T5 and LLaMA both use it.
+
+### How do you choose a vocabulary size?
+
+A direct trade-off with no universal answer:
+
+| | Small vocab (e.g. 32k) | Large vocab (e.g. 200k) |
+| --- | --- | --- |
+| Embedding parameters | fewer, saves memory | many (`vocab_size × hidden_dim`, potentially hundreds of millions) |
+| Output softmax | fast | slow — probabilities over the whole vocabulary |
+| Tokens per passage | more, eats context | fewer, fits more into context |
+| Rare words / multilingual | shredded into pieces | well covered |
+
+Some real numbers for calibration:
+
+```
+BERT-base      30,522
+LLaMA 1 / 2    32,000
+GPT-2          50,257
+cl100k_base    100,277   (GPT-4 / GPT-3.5-turbo)
+LLaMA 3        128,256
+o200k_base     200,019   (GPT-4o)
+```
+
+The trend is clear: **vocabularies are growing.** A larger vocabulary compresses the same text into fewer tokens, which pays off more and more in the long-context era, while the extra embedding parameters are now negligible next to total model size.
+
+### How are out-of-vocabulary words handled?
+
+With subword tokenization, OOV is largely a solved problem, but the full answer has three layers:
+
+1. **Subword splitting** (the standard): unseen words decompose into known subwords, e.g. `"tokenization"` → `["token", "ization"]`, preserving most information
+2. **Byte-level fallback**: GPT-family models use byte-level BPE, where the smallest unit is a **byte**, not a character. Since any text can be represented as bytes, **OOV is impossible in principle** — emoji, mojibake, and binary strings all encode
+3. **An `[UNK]` token** (legacy): drop it entirely and lose the information. Modern tokenizers rarely need this
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 工程影响
+
+### token 数是怎么一路影响到延迟和账单的？
+
+这条链是这一页最该记住的东西：
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Engineering impact
+
+### How does token count propagate into latency and cost?
+
+This chain is the single most important thing on this page:
+
+</Locale>
+
+<Mermaid chart={`
+flowchart TD
+  A[token count n] --> B[Prefill]
+  A --> C[KV Cache]
+  A --> D[Context Window]
+  B --> E[TTFT]
+  C --> F[GPU memory]
+  F --> G[concurrent requests per GPU]
+  G --> H[cost per request]
+  E --> I[perceived latency]
+`} />
+
+<Locale lang="zh">
+
+拆开说：
+
+- **Prefill 阶段**：模型要一次性处理完整个 prompt。这部分可以并行，但 attention 里的 `Q·Kᵀ` 是 n×n 的矩阵，所以计算量随 n 平方增长。prompt 越长，首 token 出来得越慢（TTFT 越高）
+- **KV Cache**：每个 token 都要缓存它的 K 和 V 向量，显存占用随 n **线性**增长。显存被吃满，单卡能同时跑的请求数就下降，摊到每个请求的成本就上升
+- **Context Window**：装不下就必须截断或压缩，这时候才需要 [Context Engineering](/docs/context) 那一整套东西
+
+### 为什么 output token 比 input token 贵好几倍？
+
+因为两者的计算方式根本不同：
+
+```
+Input token  → Prefill  → 一次性并行处理完 → 单位成本低
+Output token → Decode   → 一次只能生成 1 个 → 无法并行 → 单位成本高
+```
+
+生成 100 个 output token，意味着要跑 100 次前向传播，每次都要重新读一遍全部模型权重。而 100 个 input token 只需要 1 次前向传播就全处理完了。
+
+**工程结论：想省钱和降延迟，先砍 output 长度，再砍 input 长度。** 一个「请简短回答」的指令，省下来的钱通常比压缩 prompt 更多。
+
+<Note title="这也解释了 prompt caching 为什么有用" type="success">
+
+既然 prefill 的成本来自「重新处理一遍 prompt」，那把不变的前缀（system prompt、few-shot 例子）缓存下来，就能直接跳过这部分计算。这就是 [Caching](/docs/context/caching) 的原理。
+
+</Note>
+
+### 为什么同一段文本在不同模型上 token 数不同？
+
+因为**每个模型有自己的 tokenizer 和词表**，而且 tokenizer 是和模型权重一起训练 / 发布的，不能混用。
+
+这意味着一个很实际的工程陷阱：
+
+> 你在 GPT-4 上测出某个 prompt 是 1200 token，换到另一个模型上，它可能是 950 或 1400 token。**拿旧的 token 数 × 新的单价，算出来的成本是错的。**
+
+做跨模型成本对比时，必须用**各自的 tokenizer 重新数一遍**。
+
+### 中文 / 代码场景怎么估算 token？
+
+不要背固定比例，**要实测**。但可以记几个粗略的量感（现代大词表 tokenizer）：
+
+```
+英文     ≈ 1 token / 0.75 词    （约 4 个字符 1 个 token）
+中文     ≈ 1 token / 1–1.5 字
+代码     缩进、符号很吃 token，通常比同长度英文散文贵
+```
+
+实测方法：
+
+</Locale>
+
+<Locale lang="en">
+
+Breaking it down:
+
+- **Prefill**: the model processes the entire prompt at once. This part parallelizes, but attention's `Q·Kᵀ` is an n×n matrix, so compute grows quadratically with n. The longer the prompt, the later the first token arrives (higher TTFT)
+- **KV cache**: every token's K and V vectors must be cached, so memory grows **linearly** with n. Once memory fills up, fewer requests fit on a GPU concurrently, and the amortized cost per request rises
+- **Context window**: when it no longer fits you must truncate or compress — that's where the whole [Context Engineering](/docs/context) toolkit comes in
+
+### Why does an output token cost several times more than an input token?
+
+Because they're computed in fundamentally different ways:
+
+```
+Input token  → Prefill  → processed in parallel, all at once → low unit cost
+Output token → Decode   → one at a time, no parallelism      → high unit cost
+```
+
+Generating 100 output tokens means 100 forward passes, each re-reading the full model weights. Processing 100 input tokens takes a single forward pass.
+
+**Engineering takeaway: to cut cost and latency, shorten the output first, the input second.** A "be concise" instruction usually saves more money than compressing the prompt.
+
+<Note title="This also explains why prompt caching works" type="success">
+
+If prefill cost comes from re-processing the prompt, then caching an unchanging prefix — system prompt, few-shot examples — lets you skip that compute entirely. That's the mechanism behind [Caching](/docs/context/caching).
+
+</Note>
+
+### Why does the same text produce different token counts across models?
+
+Because **each model ships its own tokenizer and vocabulary**, trained and released alongside the weights. They're not interchangeable.
+
+That creates a very practical trap:
+
+> You measure a prompt at 1,200 tokens on GPT-4. On another model it might be 950 or 1,400. **Multiplying the old token count by the new per-token price gives you the wrong number.**
+
+For cross-model cost comparisons, always re-count with **each model's own tokenizer**.
+
+### How do you estimate tokens for Chinese or code?
+
+Don't memorize a ratio — **measure it**. But a rough sense of scale helps (modern large-vocabulary tokenizers):
+
+```
+English   ≈ 1 token per 0.75 words   (roughly 4 characters per token)
+Chinese   ≈ 1 token per 1–1.5 characters
+Code      indentation and punctuation are token-hungry, usually pricier
+          than English prose of the same length
+```
+
+How to measure:
+
+</Locale>
+
+```python
+# OpenAI
+import tiktoken
+enc = tiktoken.encoding_for_model("gpt-4o")
+print(len(enc.encode("your text")))
+
+# open models on HuggingFace
+from transformers import AutoTokenizer
+tok = AutoTokenizer.from_pretrained("meta-llama/Llama-3-8B")
+print(len(tok.encode("your text")))
+```
+
+<Locale lang="zh">
+
+<Note title="RAG 场景的直接后果">
+
+chunk size 要按 **token** 定，不能按字数定。同样「500」，按字数切中文和切英文，实际 token 数可能差两倍，导致 context 预算算错。详见 [Chunking](/docs/rag/chunking)。
+
+</Note>
+
+## 陷阱
+
+<Note title="Token ≠ word，也 ≠ 汉字" type="warning">
+
+一个 token 可能是完整的词、子词、单个字符、标点，甚至**前导空格**——`" the"`（带空格）和 `"the"`（不带）在多数 tokenizer 里是两个不同的 token。说「一个汉字一个 token」会被立刻追问。
+
+</Note>
+
+<Note title="别说「中文一定更贵」" type="danger">
+
+这是过时结论。GPT-2 / GPT-3 时代的小词表对中文确实很差，一个汉字可能吃 2–3 个 token；现代大词表（cl100k、o200k、LLaMA 3）对中文改善很大。正确说法是：**token 效率取决于该语言在 tokenizer 训练语料中的占比**，要实测，不要背结论。
+
+</Note>
+
+<Note title="latency 不是线性跟着总 token 数走" type="warning">
+
+Input 走 prefill 可并行，output 走 decode 不可并行。延迟主要由 **output 长度**决定，不是总 token 数。说「prompt 越长越慢」只对了一半。
+
+</Note>
+
+<Note title="Tokenization 不产生任何语义" type="warning">
+
+它产出的是**整数 id**，纯粹是查表行号。语义在 embedding 层才出现。被问「tokenization 如何理解语义」时，正确答案是「它不理解」。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+<Note title="Direct consequence for RAG">
+
+Chunk size must be defined in **tokens**, not characters. The same "500" applied to Chinese versus English can differ by 2x in actual tokens, throwing off your context budget. See [Chunking](/docs/rag/chunking).
+
+</Note>
+
+## Traps
+
+<Note title="A token is not a word, and not a character either" type="warning">
+
+A token can be a whole word, a subword, a single character, punctuation, or even a **leading space** — `" the"` and `"the"` are two different tokens in most tokenizers. Saying "one Chinese character equals one token" invites an immediate follow-up.
+
+</Note>
+
+<Note title="Don't claim Chinese is always more expensive" type="danger">
+
+That's an outdated conclusion. The small vocabularies of the GPT-2 / GPT-3 era handled Chinese badly, sometimes 2–3 tokens per character. Modern large vocabularies (cl100k, o200k, LLaMA 3) improved this substantially. The accurate framing: **token efficiency depends on how well that language is represented in the tokenizer's training corpus.** Measure, don't recite.
+
+</Note>
+
+<Note title="Latency doesn't scale linearly with total tokens" type="warning">
+
+Input goes through prefill and parallelizes; output goes through decode and doesn't. Latency is driven mainly by **output length**, not total token count. "Longer prompts are slower" is only half true.
+
+</Note>
+
+<Note title="Tokenization produces no semantics" type="warning">
+
+Its output is an **integer id** — purely a lookup row number. Meaning appears at the embedding layer. Asked "how does tokenization understand meaning," the right answer is that it doesn't.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 连接
+
+</Locale>
+
+<Locale lang="en">
+
+## Connections
+
+</Locale>
+
+```
+Tokenization
+   ↓
+Vocabulary ──→ Embedding ──→ Context Window
+   ↓                              ↓
+per-token billing           Prefill / KV Cache
+   ↓                              ↓
+Cost ←──────────────────────  Latency
+```
+
+<Locale lang="zh">
+
+- 下游机制：[Transformer](/docs/llm/transformer) · [Attention](/docs/llm/attention)（为什么 O(n²)） · [Inference](/docs/llm/inference)（KV cache 为什么随 n 涨）
+- 工程落点：[Cost](/docs/production/cost) · [Latency](/docs/production/latency) · [Caching](/docs/context/caching)
+- RAG 里的直接后果：[Chunking](/docs/rag/chunking) 的 chunk size 按 token 定，不按字数
 
 ## 面试问题
 
-1. Why does token count matter more than word count?
-2. Why can Chinese / code consume tokens differently from English?
-3. 如何估算一条 prompt 大概多少 token？
-4. Token 数变大时，latency 和 cost 分别怎么变？
+先自己口头答一遍，再回上面对照。
+
+</Locale>
+
+<Locale lang="en">
+
+- Downstream mechanics: [Transformer](/docs/llm/transformer) · [Attention](/docs/llm/attention) (why O(n²)) · [Inference](/docs/llm/inference) (why KV cache grows with n)
+- Where it lands in engineering: [Cost](/docs/production/cost) · [Latency](/docs/production/latency) · [Caching](/docs/context/caching)
+- Direct consequence in RAG: [Chunking](/docs/rag/chunking) sizes chunks by token, not by character
+
+## Interview questions
+
+Answer out loud first, then check against the sections above.
+
+</Locale>
+
+**L1 — Definition**
+
+1. What is a token? What does a tokenizer actually do?
+2. What's the difference between a token, a token ID, and an embedding?
+3. Why do LLMs bill by token instead of by word or character?
+
+**L2 — Mechanism**
+
+4. Why subword tokenization instead of word-level or character-level?
+5. Walk me through how BPE builds its vocabulary.
+6. How does WordPiece differ from BPE?
+7. What problem does SentencePiece solve that BPE doesn't?
+8. What's the trade-off of a larger vocabulary?
+9. How do modern tokenizers handle out-of-vocabulary words?
+
+**L3 — Engineering**
+
+10. Why does an output token cost more than an input token?
+11. Why can the same prompt produce different token counts on two different models?
+12. Your LLM bill doubled this month with flat request volume. Could tokenization be involved, and how would you check?
+13. You're sizing a context budget for a RAG system over mixed English / Chinese / code documents. How do you plan it?
+14. Why can't an LLM reliably count the letters in a word?
+
+---
+
+<Locale lang="zh">
+
+## 我的问题
+
+读的时候冒出来的问题随手加一行，别当场去查。下次 `/study` 会统一处理：把答案并进正文，再把这行打勾。
+
+</Locale>
+
+<Locale lang="en">
+
+## My questions
+
+Jot down questions as they come up while reading — don't stop to look them up. The next `/study` run folds the answers into the body above and checks the line off.
+
+</Locale>
+
+- [ ] （示例）byte-level BPE 的「字节」是 UTF-8 字节吗？那一个汉字岂不是要 3 个 token？
+
+---
+
+<Locale lang="zh">
 
 ## 我的答案
 
--
+自己写，别让 agent 代写。写完念一遍，超过 40 秒就砍。
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+Write it yourself — don't let the agent draft it. Read it aloud; if it runs past 40 seconds, cut.
+
+</Locale>
+
+### 30s
+
+>
+
+<Locale lang="zh">
 
 ## 项目锚点
 
--
+哪个项目上你真的因为 token 数踩过坑 / 省过钱？一句话 + 一个数字。参考 [项目深挖](/docs/projects)。
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+Which project actually cost you — or saved you — money because of token count? One sentence plus one number. See [Projects](/docs/projects).
+
+</Locale>
+
+>
