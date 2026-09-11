@@ -11,6 +11,7 @@
     "generate-content-json": "tsx scripts/content.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "gray-matter": "^4.0.3",
@@ -34,7 +35,8 @@
     "tailwind-merge": "^3.6.0",
     "tailwindcss-animate": "^1.0.7",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.1.0"
+    "unist-util-visit": "^5.1.0",
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.10",

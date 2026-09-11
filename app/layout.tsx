@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 
 import { Footer } from '@/components/navigation/footer'
 import { Navbar } from '@/components/navigation/navbar'
+import { SelectionTranslator } from '@/components/translate/selection-translator'
 import { isLocale } from '@/lib/i18n/types'
 import { Providers } from '@/providers'
 import { Settings } from '@/types/settings'
@@ -80,6 +81,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <Navbar />
           <main className="h-auto px-5 sm:px-8">{children}</main>
           <Footer />
+          <SelectionTranslator />
         </Providers>
       </body>
     </html>

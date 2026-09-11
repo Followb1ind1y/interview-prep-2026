@@ -17,6 +17,38 @@ npm run dev
 
 打开 http://localhost:3000。
 
+## 划词翻译
+
+笔记正文用英文写（面试要用英文说），读不懂的地方现场查。
+
+1. `cp .env.example .env.local`，填上 `ANTHROPIC_API_KEY`
+2. 重启 `npm run dev`
+3. 在正文里选中一个词或一句话 → 旁边出现「翻译」气泡 → 点它或直接按 `T`
+
+方向自动判断：选中英文给中文理解，选中中文给面试里能说出口的英文。翻译会带上所在段落和页面标题做上下文，所以同一个词在不同专栏会给不同解释。代码块内不触发。
+
+返回刻意只有三样东西：**释义 / 词性 / 易错提示**。
+
+- 默认模型 `claude-haiku-4-5`。实测单次 **1.1–3.1 秒（中位约 2 秒）**，平均 498 input + 74 output token，约 **$0.00087/次**——$5 约够 5700 次。改 `TRANSLATE_MODEL` 可换 `claude-sonnet-5` / `claude-opus-5`，更慢更贵
+- 输入里只有约 10% 是你选中的内容，其余是每次都要重发的翻译规则和 JSON schema。Haiku 4.5 的 prompt cache 门槛是 4096 token，这个前缀（约 450）够不着，缓存不生效——所以省钱只能靠精简 prompt 和下面两层本地缓存
+- 查过的结果同时存在浏览器和服务端内存里，重复查同一处不再打接口
+
+早期版本还会返回其他义项、术语对照和面试例句，实测下来单次 $0.0026、中位 7 秒，而多出来的内容多半是把释义换个说法重复一遍。砍掉后成本降到 1/3、延迟降到 1/3.5，输出质量反而更稳。要加回来就改 `lib/translate/types.ts` 的 schema 和 `prompt.ts` 的字段说明——注意两者必须同时改。
+- 接口在 `app/api/translate/route.ts`，只接受同源请求并限流 40 次/分钟
+- 没配 key 时功能静默不可用，站点其余部分照常
+
+### 线上（Vercel）
+
+Vercel 上不用改代码，只要把同一个环境变量配进去：
+
+1. Vercel Dashboard → 项目 → Settings → Environment Variables
+2. 加 `ANTHROPIC_API_KEY`，Production / Preview / Development 三个环境都勾上 → Save
+3. 重新部署一次（改环境变量不会自动生效于已有部署，push 代码会顺带触发）
+
+注意这个功能需要 Node 服务端。Vercel 没问题；如果哪天改成静态导出到 GitHub Pages，`/api/translate` 就不存在了，划词会一直报错。
+
+站点是公开的，所以线上这个接口花的是你的钱。已经做了两道防护：接口只接受同源请求（`Origin` 头必须存在且匹配，curl 直接打会 403），以及每 IP 40 次/分钟限流。但 Vercel 是 serverless，限流计数存在实例内存里，多实例时会被摊薄。**去 Anthropic Console → Settings → Limits 设一个月度花费上限**，那是唯一确定的兜底。
+
 ## 日常怎么更新
 
 1. 在 `contents/docs|companies|resume/` 下改或新增 `index.mdx`
