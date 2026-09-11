@@ -20,7 +20,7 @@ export function Sidebar() {
   return (
     <aside
       aria-label="Page navigation"
-      className="sticky top-26 hidden h-screen min-w-57.5 flex-1 flex-col md:flex"
+      className="sticky top-26 hidden h-screen w-60 shrink-0 flex-col md:flex"
     >
       <ScrollArea className="h-full" type="scroll">
         <PageMenu />

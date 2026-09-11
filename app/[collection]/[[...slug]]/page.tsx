@@ -35,7 +35,7 @@ export default async function CollectionPage({ params }: PageProps) {
 
   return (
     <div className="flex items-start gap-10">
-      <section className="flex-3">
+      <section className="min-w-0 flex-1">
         <ArticleBreadcrumb collection={collection} paths={slug} />
         <div>
           <DocumentHeading

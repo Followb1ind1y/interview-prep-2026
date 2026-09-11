@@ -53,7 +53,7 @@ export function TableAnchor({ tocs }: TableAnchorProps) {
             return (
               <Link
                 aria-label={label}
-                className={clsx({
+                className={clsx('wrap-break-word', {
                   'pl-0': level === 2,
                   'pl-3': level === 3,
                   'pl-6': level === 4,

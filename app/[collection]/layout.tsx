@@ -21,7 +21,7 @@ export default async function CollectionLayout({
   return (
     <div className="flex items-start gap-10 pt-10">
       <Sidebar />
-      <div className="flex-1 md:flex-6">{children}</div>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   )
 }
