@@ -32,7 +32,7 @@ export function BackToTop(): ReactElement {
   return (
     <button
       aria-label={m.docs.backToTop}
-      className="mt-2 ml-2 flex cursor-pointer items-center self-start text-sm text-foreground opacity-0 transition"
+      className="mt-2 ml-3 flex cursor-pointer items-center self-start text-sm text-foreground opacity-0 transition"
       onClick={ScrollToTop}
       ref={ref}
       title={m.docs.backToTop}

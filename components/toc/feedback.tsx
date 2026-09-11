@@ -20,7 +20,7 @@ export function Feedback({ slug, title, collection }: FeedbackProps) {
   const editUrl = `${GitHubLink.href}/edit/main/${dir}/${slug}/index.mdx`
 
   return (
-    <div className="flex flex-col gap-3 pl-2">
+    <div className="flex flex-col gap-3 pl-3">
       <h3 className="text-sm font-semibold">{m.docs.content}</h3>
       <div className="flex flex-col gap-2">
         <Link

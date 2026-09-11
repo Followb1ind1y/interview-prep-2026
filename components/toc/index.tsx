@@ -21,11 +21,13 @@ export function TableOfContents({ tocs, pathName, frontmatter, collection }: Tab
   return (
     <aside
       aria-label="Table of contents"
-      className="toc sticky top-26 hidden h-screen w-60 shrink-0 gap-3 xl:flex xl:flex-col"
+      className="toc sticky top-26 hidden h-[calc(100vh-6.5rem)] w-60 shrink-0 gap-4 pb-6 xl:flex xl:flex-col"
     >
       {showToc && <TableAnchor tocs={tocs.tocs} />}
       {showFeedback && (
-        <Feedback collection={collection} slug={pathName} title={frontmatter.title} />
+        <div className="not-first:border-t not-first:pt-4">
+          <Feedback collection={collection} slug={pathName} title={frontmatter.title} />
+        </div>
       )}
       {Settings.totop && <BackToTop />}
     </aside>

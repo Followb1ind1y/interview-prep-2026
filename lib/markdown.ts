@@ -15,6 +15,7 @@ import { visit } from 'unist-util-visit'
 
 import { type CollectionId } from '@/lib/collections'
 import { components } from '@/lib/components'
+import { isLocale, type Locale } from '@/lib/i18n/types'
 import { GitHubLink } from '@/settings/navigation'
 import { Settings } from '@/types/settings'
 
@@ -94,13 +95,14 @@ export const getDocument = cache(async (collection: CollectionId, slug: string) 
   }
 })
 
-const headingsRegex = /^(#{2,4})\s(.+)$/gm
+const headingRegex = /^(#{2,4})\s(.+)$/
+const localeOpenRegex = /^<Locale\s+lang=["']([a-z]+)["']\s*>/
+const fenceRegex = /^(```|~~~)/
 
-export async function getTable(
-  collection: CollectionId,
-  slug: string
-): Promise<{ href: string; level: number; text: string }[]> {
-  const extractedHeadings: { href: string; level: number; text: string }[] = []
+type TableEntry = { href: string; lang?: Locale; level: number; text: string }
+
+export async function getTable(collection: CollectionId, slug: string): Promise<TableEntry[]> {
+  const extractedHeadings: TableEntry[] = []
   let raw = ''
 
   if (Settings.gitload) {
@@ -124,16 +126,38 @@ export async function getTable(
     }
   }
 
-  headingsRegex.lastIndex = 0
-  let match = headingsRegex.exec(raw)
+  // Tag headings inside <Locale lang="…"> blocks so the TOC only lists the active language.
+  let lang: Locale | undefined
+  let inFence = false
 
-  while (match !== null) {
-    extractedHeadings.push({
-      level: match[1].length,
-      text: match[2].trim(),
-      href: `#${innerSlug(match[2].trim())}`,
-    })
-    match = headingsRegex.exec(raw)
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim()
+    if (fenceRegex.test(trimmed)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+
+    const open = localeOpenRegex.exec(trimmed)
+    if (open) {
+      lang = isLocale(open[1]) ? open[1] : undefined
+      continue
+    }
+    if (trimmed.startsWith('</Locale>')) {
+      lang = undefined
+      continue
+    }
+
+    const heading = headingRegex.exec(line)
+    if (heading) {
+      const text = heading[2].trim()
+      extractedHeadings.push({
+        level: heading[1].length,
+        text,
+        href: `#${innerSlug(text)}`,
+        ...(lang && { lang }),
+      })
+    }
   }
 
   return extractedHeadings
