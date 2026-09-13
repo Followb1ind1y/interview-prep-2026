@@ -7,9 +7,29 @@ date: 2026-09-07
 keywords: ["embedding", "cosine", "dense embedding"]
 ---
 
-能选模型，能解释相似度，能接到多语言 / 领域。
+<Locale lang="zh">
+
+要能选模型，能解释相似度，能联系到多语言和垂直领域。
 
 ## 需要掌握
+
+- dense embedding（稠密向量）
+- cosine similarity / dot product / Euclidean（余弦相似度 / 点积 / 欧氏距离）
+- embedding dimension（向量维度）
+- normalization（归一化）
+- query / document embedding（查询向量 / 文档向量）
+- embedding 模型选型
+- 垂直领域 / 多语言 embedding
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Be able to choose a model, explain similarity, and connect it to multilingual and domain-specific data.
+
+## Must know
 
 - dense embedding
 - cosine similarity / dot product / Euclidean
@@ -19,38 +39,81 @@ keywords: ["embedding", "cosine", "dense embedding"]
 - embedding model selection
 - domain-specific / multilingual embedding
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 text → embedding model → vector
 query vec · doc vec  →  ranking score
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-把文本变成稠密向量，语义近的点在空间里近。
+把文本变成稠密向量，语义相近的文本在向量空间里也靠得近。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-余弦 = 方向；点积受模长影响，常先归一化。Query 和 document 有时用非对称模型。
+余弦相似度只看方向；点积会受向量长度影响，所以常先做归一化。Query 和文档有时会用非对称的模型分别编码。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-换 embedding 要重建索引。维度越大不一定越好，但一定更贵。领域词表差要用领域模型或 hybrid。
+换 embedding 模型就要重建索引。维度越高不一定越好，但一定更贵。领域术语多、通用模型效果差时，用领域模型或 hybrid 检索。
 
 ## 面试问题
 
-1. Cosine 和 dot product 什么时候不等价？
-2. 如何选择 embedding 模型？
-3. Query embedding 和 document embedding 为什么可能不是同一个？
-4. 多语言语料用一个模型还是分模型？
+1. 余弦相似度和点积什么时候不等价？（When are cosine similarity and dot product not equivalent?）
+2. 怎么选择 embedding 模型？（How do you choose an embedding model?）
+3. 为什么 query embedding 和 document embedding 可能不是同一个模型？（Why might query and document embeddings come from different models?）
+4. 多语言语料用一个模型，还是按语言分模型？（For a multilingual corpus, do you use one model or one per language?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Turning text into dense vectors so that semantically similar text ends up close together in vector space.
+
+### Level 2 — Mechanism
+
+Cosine similarity only looks at direction; dot product is affected by vector length, so vectors are usually normalized first. Queries and documents are sometimes encoded by asymmetric models.
+
+### Level 3 — Engineering
+
+Switching embedding models means rebuilding the index. More dimensions isn't necessarily better, but it's always more expensive. When the domain vocabulary trips up a general model, use a domain model or hybrid search.
+
+## Interview questions
+
+1. When are cosine similarity and dot product not equivalent?
+2. How do you choose an embedding model?
+3. Why might query and document embeddings come from different models?
+4. For a multilingual corpus, do you use one model or one per language?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

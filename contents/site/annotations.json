@@ -411,6 +411,430 @@
       },
       "createdAt": 1789331167884,
       "updatedAt": 1789331167884
+    },
+    {
+      "id": "b3e4b9da-f1ab-4064-a9f6-557e3e251e97",
+      "kind": "highlight",
+      "quote": {
+        "exact": "sequence length",
+        "prefix": "trading vocabulary size against ",
+        "suffix": ":MethodExampleVocab sizeSequence"
+      },
+      "createdAt": 1789333072274,
+      "updatedAt": 1789333072274
+    },
+    {
+      "id": "ce431190-047c-4f59-919b-2da16bc006a8",
+      "kind": "highlight",
+      "quote": {
+        "exact": "vocabulary size",
+        "prefix": "off?Three families, all trading ",
+        "suffix": " against sequence length:MethodE"
+      },
+      "createdAt": 1789333076653,
+      "updatedAt": 1789333076653
+    },
+    {
+      "id": "5a3b489a-0091-4baa-b256-11a210f4597c",
+      "kind": "note",
+      "quote": {
+        "exact": "severe OOV",
+        "prefix": ", \"processing\"]huge (100k+)short",
+        "suffix": ": unseen words become [UNK] and "
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "严重的词表外问题（OOV 指 Out-Of-Vocabulary）",
+        "pos": "phr.",
+        "note": "OOV 问题的程度描述，这里 severe 表示该问题的严重性足以对模型性能产生重大负面影响"
+      },
+      "createdAt": 1789333102651,
+      "updatedAt": 1789333102651
+    },
+    {
+      "id": "61e86cf3-15d3-4621-bda5-1f860ffd3458",
+      "kind": "highlight",
+      "quote": {
+        "exact": "Subword-level",
+        "prefix": "e [UNK] and lose all information",
+        "suffix": "\"tokenization\" → [\"token\", \"izat"
+      },
+      "createdAt": 1789333109827,
+      "updatedAt": 1789333109827
+    },
+    {
+      "id": "1ce3f815-227f-4f45-99ac-2271e934b55a",
+      "kind": "note",
+      "quote": {
+        "exact": "fatal flaw",
+        "prefix": "moderatethe standard choice, no ",
+        "suffix": "Character-level\"cat\" → [\"c\", \"a\""
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "致命缺陷，指无法接受的严重问题",
+        "pos": "phr.",
+        "note": "flaw 单独指瑕疵，fatal flaw 是习语表达不可接受的根本性问题"
+      },
+      "createdAt": 1789333126328,
+      "updatedAt": 1789333126328
+    },
+    {
+      "id": "5129d2e5-4c43-413c-ae58-d2ce48418afc",
+      "kind": "highlight",
+      "quote": {
+        "exact": "frequent words stay whole",
+        "prefix": "it takes the good half of both: ",
+        "suffix": " (\"the\" is one token) while rare"
+      },
+      "createdAt": 1789333193150,
+      "updatedAt": 1789333193150
+    },
+    {
+      "id": "3bd17767-d78d-437c-bba6-af2793771e4e",
+      "kind": "highlight",
+      "quote": {
+        "exact": "rare words break into meaningful pieces",
+        "prefix": "hole (\"the\" is one token) while ",
+        "suffix": " (\"unhappiness\" → [\"un\", \"happin"
+      },
+      "createdAt": 1789333205622,
+      "updatedAt": 1789333205622
+    },
+    {
+      "id": "ebcdec90-eba8-43d3-a9bb-5aa77d12be72",
+      "kind": "highlight",
+      "quote": {
+        "exact": "BPE",
+        "prefix": " no sequence explosion.How does ",
+        "suffix": " work? Work it out by handThe wh"
+      },
+      "createdAt": 1789333228166,
+      "updatedAt": 1789333228166
+    },
+    {
+      "id": "558d3c4f-9a92-4353-aa58-72ee043e6731",
+      "kind": "note",
+      "quote": {
+        "exact": "BPE",
+        "prefix": " no sequence explosion.How does ",
+        "suffix": " work? Work it out by handThe wh"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "字节对编码（Byte Pair Encoding），一种文本分词算法",
+        "pos": "n.",
+        "note": ""
+      },
+      "createdAt": 1789333238600,
+      "updatedAt": 1789333238600
+    },
+    {
+      "id": "fb4a88c1-61dd-48b5-bc83-be4f0ab53981",
+      "kind": "highlight",
+      "quote": {
+        "exact": "repeatedly merge the most frequent adjacent pair into a new token, until the vocabulary reaches its target size",
+        "prefix": "The whole idea in one sentence: ",
+        "suffix": ".Say the training corpus contain"
+      },
+      "createdAt": 1789333264752,
+      "updatedAt": 1789333264752
+    },
+    {
+      "id": "85847177-4901-4c9b-84ee-bb2ff8cbd416",
+      "kind": "highlight",
+      "quote": {
+        "exact": "</w> marks end of word",
+        "prefix": "lit everything into characters (",
+        "suffix": ")l o w </w>          × 5\nl o w e"
+      },
+      "createdAt": 1789333281684,
+      "updatedAt": 1789333281684
+    },
+    {
+      "id": "ce6053ff-84b1-41da-bbab-5e4e1089a072",
+      "kind": "highlight",
+      "quote": {
+        "exact": "Stop when the vocabulary hits its target size",
+        "prefix": "lo w e r5(lo, w)lowlow / low e r",
+        "suffix": ". The final vocabulary contains "
+      },
+      "createdAt": 1789333328714,
+      "updatedAt": 1789333328714
+    },
+    {
+      "id": "f78c89cc-8b45-4017-8e43-7ba3a594db40",
+      "kind": "highlight",
+      "quote": {
+        "exact": "a tokenizer is fully deterministic",
+        "prefix": " replayed in the same order. So ",
+        "suffix": ": same text, same tokenizer, alw"
+      },
+      "createdAt": 1789333415793,
+      "updatedAt": 1789333415793
+    },
+    {
+      "id": "83aca27a-595c-4c66-ae81-4638e6bf7a93",
+      "kind": "note",
+      "quote": {
+        "exact": "same text, same tokenizer, always the same split",
+        "prefix": "kenizer is fully deterministic: ",
+        "suffix": ".Why BPE handles unseen words:Gi"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "在相同的文本和分词器下，分割结果始终相同",
+        "pos": "phr.",
+        "note": "强调tokenizer的确定性特性，same作为连接词重复使用增强语气"
+      },
+      "createdAt": 1789333434852,
+      "updatedAt": 1789333434852
+    },
+    {
+      "id": "78e1600a-883b-4ec7-bdb6-56d1d428ed32",
+      "kind": "note",
+      "quote": {
+        "exact": "emit",
+        "prefix": "peared in training, BPE doesn't ",
+        "suffix": " [UNK] — it assembles [\"low\", \"e"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "发出、输出（这里指分词器产生/生成某些token）",
+        "pos": "v.",
+        "note": "emit和output在NLP语境中基本同义，都表示模型或算法的输出结果"
+      },
+      "createdAt": 1789333452344,
+      "updatedAt": 1789333452344
+    },
+    {
+      "id": "cc706641-f6f9-4068-9bf5-804ab3fbe0ef",
+      "kind": "note",
+      "quote": {
+        "exact": "assembles",
+        "prefix": "ng, BPE doesn't emit [UNK] — it ",
+        "suffix": " [\"low\", \"est</w>\"] from existin"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "组合、拼装（指通过已有的合并规则将多个子词单元拼接成完整的词）",
+        "pos": "v.",
+        "note": "在BPE的语境中，assembled词不是指物理组装，而是算法过程中通过查表应用已保存的merge rules来组合token的动作"
+      },
+      "createdAt": 1789333481706,
+      "updatedAt": 1789333481706
+    },
+    {
+      "id": "8c0a66a6-56e5-4027-891a-bc7bd41429de",
+      "kind": "highlight",
+      "quote": {
+        "exact": "it assembles [\"low\", \"est</w>\"] from existing merge rules",
+        "prefix": "ining, BPE doesn't emit [UNK] — ",
+        "suffix": ". Almost no information is lost."
+      },
+      "createdAt": 1789333493475,
+      "updatedAt": 1789333493475
+    },
+    {
+      "id": "e0361750-d58e-498c-b802-b32c42eb6cfa",
+      "kind": "note",
+      "quote": {
+        "exact": "procedure",
+        "prefix": "s WordPiece differ from BPE?The ",
+        "suffix": " is nearly identical. Only the c"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "这里指的是（分词的）处理步骤或流程",
+        "pos": "n.",
+        "note": "在技术文档中通常指某个算法或工作流的具体操作步骤"
+      },
+      "createdAt": 1789333531221,
+      "updatedAt": 1789333531221
+    },
+    {
+      "id": "ccbdcfd8-e11a-4025-a5b0-df61577d849f",
+      "kind": "note",
+      "quote": {
+        "exact": "identical",
+        "prefix": "rom BPE?The procedure is nearly ",
+        "suffix": ". Only the criterion for choosin"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "完全相同的，一模一样的",
+        "pos": "adj.",
+        "note": ""
+      },
+      "createdAt": 1789333694834,
+      "updatedAt": 1789333694834
+    },
+    {
+      "id": "6b9a442f-1cad-4b7f-b490-8f9112893fe2",
+      "kind": "note",
+      "quote": {
+        "exact": "criterion",
+        "prefix": "e is nearly identical. Only the ",
+        "suffix": " for choosing which pair to merg"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "标准、判断方法、选择依据（在这里指选择哪一对token合并的评判标准）",
+        "pos": "n.",
+        "note": ""
+      },
+      "createdAt": 1789333707258,
+      "updatedAt": 1789333707258
+    },
+    {
+      "id": "b7583e75-4e03-49c5-aebe-0e2dfb81ed58",
+      "kind": "highlight",
+      "quote": {
+        "exact": "freq(u, v) / (freq(u) × freq(v))",
+        "prefix": " pick the pair with the highest ",
+        "suffix": "\nThe denominator penalizes combi"
+      },
+      "createdAt": 1789333724337,
+      "updatedAt": 1789333724337
+    },
+    {
+      "id": "f453d40b-3a7b-4ab9-bf26-605f214e7a5c",
+      "kind": "note",
+      "quote": {
+        "exact": "The denominator penalizes combinations whose parts are already common on their own.",
+        "prefix": "req(u, v) / (freq(u) × freq(v))\n",
+        "suffix": "Concretely: suppose e and s are "
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "分母部分对那些组成元素本身已经很常见的组合进行惩罚（降低其合并优先级）。",
+        "pos": "",
+        "note": "penalize作惩罚性处理讲，在这里指降低某物的优先级或分数，而非字面的惩罚。"
+      },
+      "createdAt": 1789333751722,
+      "updatedAt": 1789333751722
+    },
+    {
+      "id": "e8a9f856-62f2-4cee-9d47-3cafcc6dc176",
+      "kind": "note",
+      "quote": {
+        "exact": "Concretely",
+        "prefix": "are already common on their own.",
+        "suffix": ": suppose e and s are each extre"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "具体来说",
+        "pos": "adv.",
+        "note": ""
+      },
+      "createdAt": 1789333756884,
+      "updatedAt": 1789333756884
+    },
+    {
+      "id": "b92a5ed1-64eb-4a80-8d3e-6e6339495939",
+      "kind": "note",
+      "quote": {
+        "exact": "decent",
+        "prefix": "es. BPE sees 9 and considers it ",
+        "suffix": ". WordPiece computes 9 / (10000 "
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "不错的，令人满意的程度。在这里指BPE算法认为这个频率值足够好，值得合并两个token。",
+        "pos": "adj.",
+        "note": "在技术文档中常用来表达某个指标或结果在可接受范围内，不一定指很优秀，而是够用的程度。"
+      },
+      "createdAt": 1789333786071,
+      "updatedAt": 1789333786071
+    },
+    {
+      "id": "bc4d327a-bb9b-419e-a43f-61ebc6edcda8",
+      "kind": "note",
+      "quote": {
+        "exact": "merely",
+        "prefix": "tiny score — and concludes they ",
+        "suffix": " happen to sit next to each othe"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "仅仅、只是：在这句话中表示e和s只是碰巧相邻出现，而不是有意义的组合",
+        "pos": "adv.",
+        "note": "强调偶然性而非本质性，注意区别merely与simply的细微差异——merely侧重否定意义性，simply侧重简单程度"
+      },
+      "createdAt": 1789333812161,
+      "updatedAt": 1789333812161
+    },
+    {
+      "id": "7be13e90-55db-4e2c-894d-da02d29bb70f",
+      "kind": "highlight",
+      "quote": {
+        "exact": "merely happen to sit next to each other rather than forming a meaningful unit",
+        "prefix": "tiny score — and concludes they ",
+        "suffix": ".Conversely, if happi and ness e"
+      },
+      "createdAt": 1789333822402,
+      "updatedAt": 1789333822402
+    },
+    {
+      "id": "ba28819d-d12a-4856-8869-02314f13dc7d",
+      "kind": "note",
+      "quote": {
+        "exact": "prefix",
+        "prefix": "s at correlation.WordPiece's ## ",
+        "suffix": ":BERT-family tokenizers produce "
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "用来标记子词（subword）的前缀符号，表示这个词是接在前一个词之后的",
+        "pos": "n.",
+        "note": "WordPiece算法中##标记接续词素，不同于BPE用空格标记词边界"
+      },
+      "createdAt": 1789333863638,
+      "updatedAt": 1789333863638
+    },
+    {
+      "id": "bbe61a6a-277a-41a4-ab16-4dc98dfdd634",
+      "kind": "note",
+      "quote": {
+        "exact": "suffix",
+        "prefix": "this token can only appear as a ",
+        "suffix": ", never standalone.\" For example"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "后缀，在这里指词的末尾部分，作为分词单元出现",
+        "pos": "n.",
+        "note": "##ing 表示这是一个词缀单元，只能作为后续片段而不能独立存在"
+      },
+      "createdAt": 1789333889031,
+      "updatedAt": 1789333889031
+    },
+    {
+      "id": "fedec794-d22b-4528-983a-5c86e8470761",
+      "kind": "highlight",
+      "quote": {
+        "exact": "never standalone",
+        "prefix": "en can only appear as a suffix, ",
+        "suffix": ".\" For example \"playing\" → [\"pla"
+      },
+      "createdAt": 1789333901733,
+      "updatedAt": 1789333901733
     }
   ],
   "/docs/overview": [

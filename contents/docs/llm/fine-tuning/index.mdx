@@ -7,15 +7,17 @@ date: 2026-09-07
 keywords: ["lora", "qlora", "peft", "adapters"]
 ---
 
-必须能在三种改模型行为的方法之间做选择，并接到 LLaMA 项目。
+<Locale lang="zh">
+
+必须能在三种改变模型行为的方法之间做选择，并接到 LLaMA 项目上。
 
 ## 需要掌握
 
-- Full fine-tuning
+- Full fine-tuning（全量微调）
 - LoRA
 - QLoRA
-- PEFT
-- adapters
+- PEFT（参数高效微调）
+- adapters（适配器）
 
 ## 机制
 
@@ -27,30 +29,88 @@ Fine-tuning         →  改权重（或低秩适配器）
 
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
 Fine-tuning 用领域数据继续训练，改变模型权重（或插入的 adapter）。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-LoRA 在冻结基座上训低秩矩阵。QLoRA 把基座量化后再 LoRA，降显存。PEFT 是这类方法的总称。
+LoRA 冻结基座模型，只训练低秩矩阵。QLoRA 先把基座量化，再做 LoRA，进一步降低显存。PEFT 是这类方法的总称。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-知识会变、要引用 → RAG。格式 / 语气 / 工具习惯稳定 → 小规模 SFT / LoRA。只是换说法 → prompt。三者常组合，不是单选题。
+知识会变、需要引用来源 → RAG。格式 / 语气 / 工具使用习惯要稳定 → 小规模 SFT / LoRA。只是换个说法 → prompt。三者经常组合使用，不是单选题。
 
 ## 面试问题
 
-1. RAG vs Fine-tuning vs Prompt Engineering?
-2. 什么时候必须 full fine-tune，而不是 LoRA？
-3. QLoRA 省了什么、牺牲了什么？
-4. 如何避免 catastrophic forgetting？
-5. 你的 LLaMA-3-8B + QLoRA 项目里，为什么不直接 RAG？
+1. RAG、微调和 Prompt Engineering 怎么选？（RAG vs Fine-tuning vs Prompt Engineering?）
+2. 什么时候必须全量微调，而不是 LoRA？（When do you need full fine-tuning instead of LoRA?）
+3. QLoRA 省了什么、牺牲了什么？（What does QLoRA save, and what does it give up?）
+4. 怎么避免灾难性遗忘？（How do you avoid catastrophic forgetting?）
+5. 你的 LLaMA-3-8B + QLoRA 项目里，为什么不直接用 RAG？（In your LLaMA-3-8B + QLoRA project, why not just use RAG?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+You need to be able to choose between the three ways of changing model behavior, and tie the choice back to the LLaMA project.
+
+## Must know
+
+- full fine-tuning
+- LoRA
+- QLoRA
+- PEFT
+- adapters
+
+## Mechanism
+
+```
+Prompt Engineering  →  weights unchanged, change the input
+RAG                 →  weights unchanged, change the context
+Fine-tuning         →  change the weights (or a low-rank adapter)
+```
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Fine-tuning keeps training on domain data, which changes the model's weights (or an inserted adapter).
+
+### Level 2 — Mechanism
+
+LoRA freezes the base model and trains small low-rank matrices. QLoRA quantizes the base model first and then applies LoRA, cutting memory further. PEFT is the umbrella term for this family of methods.
+
+### Level 3 — Engineering
+
+Knowledge that changes or needs citations → RAG. Format, tone, or tool-use habits that need to be consistent → small-scale SFT / LoRA. Just phrasing things differently → prompting. They're usually combined; it's not a multiple-choice question.
+
+## Interview questions
+
+1. RAG vs Fine-tuning vs Prompt Engineering?
+2. When do you need full fine-tuning instead of LoRA?
+3. What does QLoRA save, and what does it give up?
+4. How do you avoid catastrophic forgetting?
+5. In your LLaMA-3-8B + QLoRA project, why not just use RAG?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

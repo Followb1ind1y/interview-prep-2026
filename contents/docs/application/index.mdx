@@ -7,18 +7,42 @@ date: 2026-09-07
 keywords: ["prompt engineering", "structured output", "model routing", "json schema"]
 ---
 
-很多面试题其实不问 Transformer，而问这一层。Function calling 的执行细节在 [Agent / Tool Calling](/docs/agent/tool-calling)；streaming / timeout / retry 在 [Production AI](/docs/production)。
+<Locale lang="zh">
+
+很多面试题其实不问 Transformer，而是问这一层。Function calling 的执行细节在 [Agent / Tool Calling](/docs/agent/tool-calling)；流式输出、超时、重试在 [Production AI](/docs/production)。
 
 <CardGrid>
-  <Card title="Prompt Engineering" description="zero-shot、few-shot、XML / JSON、instruction hierarchy。" href="/docs/application/prompt-engineering" />
-  <Card title="Structured Output" description="JSON Schema → Validation → Application。" href="/docs/application/structured-output" />
-  <Card title="Model Selection" description="GPT / Claude / Gemini：quality、latency、cost、tools。" href="/docs/application/model-selection" />
-  <Card title="Model Routing" description="cheap / strong / specialized；fallback 与 cascade。" href="/docs/application/model-routing" />
+  <Card title="Prompt Engineering" description="zero-shot、few-shot、XML / JSON 格式、指令优先级。" href="/docs/application/prompt-engineering" />
+  <Card title="Structured Output" description="JSON Schema → 校验 → 应用层。" href="/docs/application/structured-output" />
+  <Card title="Model Selection" description="GPT / Claude / Gemini：质量、延迟、成本、工具支持。" href="/docs/application/model-selection" />
+  <Card title="Model Routing" description="便宜 / 强 / 专用模型；降级与级联。" href="/docs/application/model-routing" />
 </CardGrid>
 
 ## 本专栏计划
 
-1. Prompt：能讲清 structured prompting，不只是「写得好」
-2. Structured output：malformed JSON 怎么 retry，接到 Pydantic
-3. 选模型：用自己项目里的 Gemini 选择做 trade-off
-4. Routing：什么 query 不该打最贵的模型
+1. Prompt：能讲清结构化 prompt，而不只是「写得好」
+2. 结构化输出：JSON 格式错误时怎么重试，接到 Pydantic
+3. 选模型：用自己项目里选 Gemini 的经历讲取舍
+4. 路由：哪些查询不该打到最贵的模型
+
+</Locale>
+
+<Locale lang="en">
+
+A lot of interview questions don't ask about Transformers at all — they ask about this layer. Function-calling execution details live in [Agent / Tool Calling](/docs/agent/tool-calling); streaming, timeouts, and retries live in [Production AI](/docs/production).
+
+<CardGrid>
+  <Card title="Prompt Engineering" description="Zero-shot, few-shot, XML / JSON structure, instruction hierarchy." href="/docs/application/prompt-engineering" />
+  <Card title="Structured Output" description="JSON Schema → validation → application." href="/docs/application/structured-output" />
+  <Card title="Model Selection" description="GPT / Claude / Gemini: quality, latency, cost, tool support." href="/docs/application/model-selection" />
+  <Card title="Model Routing" description="Cheap / strong / specialized models; fallback and cascade." href="/docs/application/model-routing" />
+</CardGrid>
+
+## Plan for this column
+
+1. Prompting: explain structured prompting, not just "write good prompts"
+2. Structured output: how to retry malformed JSON, tied to Pydantic
+3. Model selection: use the Gemini choice from my own projects to talk trade-offs
+4. Routing: which queries shouldn't hit the most expensive model
+
+</Locale>

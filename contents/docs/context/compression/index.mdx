@@ -7,9 +7,29 @@ date: 2026-09-07
 keywords: ["context compression", "rolling summary"]
 ---
 
-从 100k 压到 20k 时，要能说出保了什么。Compaction 细节见 AI-Native。
+<Locale lang="zh">
+
+从 100k 压到 20k 时，要能说出保留了什么。Compaction 的细节见 AI-Native 专栏。
 
 ## 需要掌握
+
+- summarization（摘要）
+- message compression（消息压缩）
+- history pruning（历史裁剪）
+- observation compression（观察结果压缩）
+- tool result compression（工具结果压缩）
+- semantic compression（语义压缩）
+- rolling summary（滚动摘要）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+When you compress 100k tokens down to 20k, you need to be able to say what you kept. Compaction details are in the AI-Native column.
+
+## Must know
 
 - summarization
 - message compression
@@ -19,7 +39,9 @@ keywords: ["context compression", "rolling summary"]
 - semantic compression
 - rolling summary
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 100k tokens
@@ -31,31 +53,72 @@ Relevant facts
 20k tokens
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-在丢失最少关键信息的前提下减少 token。
+在尽量少丢关键信息的前提下减少 token。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-可删旧轮次、摘要历史、截断工具输出、只留结构化事实。Rolling summary 随对话更新。
+可以删掉旧的对话轮次、给历史做摘要、截断工具输出、只保留结构化的事实。滚动摘要会随着对话不断更新。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-摘要本身会丢决策和错误。对 coding / long-running agent，用 [Compaction](/docs/ai-native/compaction) 的保留清单，而不是「把聊天总结一下」。
+摘要本身会丢掉决策和错误信息。对于 coding agent 和长时间运行的 agent，要用 [Compaction](/docs/ai-native/compaction) 里的保留清单，而不是「把聊天记录总结一下」。
 
 ## 面试问题
 
-1. 压缩时什么信息绝对不能丢？
-2. Tool result 如何压缩才不影响下一步？
-3. Rolling summary 的失败模式是什么？
-4. 压缩和检索是替代还是组合？
+1. 压缩时，哪些信息绝对不能丢？（What must never be lost during compression?）
+2. 工具返回结果怎么压缩，才不影响下一步？（How do you compress tool results without breaking the next step?）
+3. 滚动摘要有哪些失败模式？（What are the failure modes of a rolling summary?）
+4. 压缩和检索是互相替代，还是组合使用？（Are compression and retrieval alternatives, or do you combine them?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Cutting tokens while losing as little critical information as possible.
+
+### Level 2 — Mechanism
+
+Drop old turns, summarize history, truncate tool output, keep only structured facts. A rolling summary gets updated as the conversation continues.
+
+### Level 3 — Engineering
+
+Summaries themselves drop decisions and errors. For coding agents and long-running agents, use the keep-list from [Compaction](/docs/ai-native/compaction) instead of "summarize the chat."
+
+## Interview questions
+
+1. What must never be lost during compression?
+2. How do you compress tool results without breaking the next step?
+3. What are the failure modes of a rolling summary?
+4. Are compression and retrieval alternatives, or do you combine them?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

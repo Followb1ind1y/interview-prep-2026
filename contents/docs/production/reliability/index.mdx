@@ -7,9 +7,61 @@ date: 2026-09-07
 keywords: ["reliability", "fallback", "graceful degradation", "circuit breaker"]
 ---
 
-Agent 可靠性是子集。这里覆盖整个 AI 服务。
+<Locale lang="zh">
+
+Agent 的可靠性只是其中一部分。这里覆盖的是整个 AI 服务。
 
 ## 需要掌握
+
+- fallback model（备用模型）
+- retry / timeout（重试 / 超时）
+- circuit breaker（熔断）
+- graceful degradation（优雅降级）
+- rate limit（限流）
+- cache（缓存）
+- queue（队列）
+- human escalation（升级到人工）
+
+## 机制
+
+```
+主模型调用失败
+    → 重试 / 退避
+    → 备用模型
+    → 返回缓存 / 只做检索 / 关键词搜索
+    → 转人工
+```
+
+## 三级回答
+
+### Level 1 — 定义
+
+依赖服务失败时，系统仍然能给出可以接受的行为。
+
+### Level 2 — 机制
+
+熔断避免故障雪崩。降级方式可以是换小模型、只检索不生成、只返回链接。
+
+### Level 3 — 工程
+
+降级要做成产品体验的一部分，不能只抛一个 500。幻觉也是可靠性问题，而不只是可用性问题。
+
+## 面试问题
+
+1. LLM 供应商全挂了，你的产品还剩下什么功能？（If every LLM provider goes down, what does your product still do?）
+2. 熔断阈值怎么定？（How do you set circuit-breaker thresholds?）
+3. 把缓存当降级手段和当加速手段，有什么区别？（What's the difference between using a cache for degradation versus for speed?）
+4. 哪些错误绝对不能重试？（Which errors should never be retried?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+Agent reliability is only one part of this. This page covers the whole AI service.
+
+## Must know
 
 - fallback model
 - retry / timeout
@@ -20,41 +72,53 @@ Agent 可靠性是子集。这里覆盖整个 AI 服务。
 - queue
 - human escalation
 
-## 机制
+## Mechanism
 
 ```
-primary model 失败
+primary model fails
     → retry / backoff
     → fallback model
     → cached / retrieve-only / keyword
     → human
 ```
 
-## 三级回答
+## Three-level answers
 
 ### Level 1 — Definition
 
-依赖失败时系统仍提供可接受的行为。
+When a dependency fails, the system still behaves in an acceptable way.
 
 ### Level 2 — Mechanism
 
-熔断避免雪崩。降级可以是小模型、只检索不生成、只返回链接。
+Circuit breakers prevent cascading failures. Degradation can mean a smaller model, retrieval without generation, or just returning links.
 
 ### Level 3 — Engineering
 
-降级要产品化，不能只抛 500。幻觉是可靠性问题，不只有可用性。
+Degradation has to be designed into the product, not surfaced as a bare 500. Hallucination is a reliability problem too, not just availability.
 
-## 面试问题
+## Interview questions
 
-1. LLM 提供商全挂时你的产品还剩什么？
-2. 熔断阈值如何定？
-3. 缓存当降级和当加速有什么差别？
-4. 哪些错误绝不 retry？
+1. If every LLM provider goes down, what does your product still do?
+2. How do you set circuit-breaker thresholds?
+3. What's the difference between using a cache for degradation versus for speed?
+4. Which errors should never be retried?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

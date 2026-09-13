@@ -7,9 +7,28 @@ date: 2026-09-07
 keywords: ["sandbox", "permissions", "blast radius"]
 ---
 
-为什么 coding agent 需要 sandbox。OpenAI Agents SDK 把 native sandbox execution 与 harness 分开作为架构能力。
+<Locale lang="zh">
+
+为什么 coding agent 需要沙箱。OpenAI Agents SDK 把原生沙箱执行和 harness 分开，作为两种独立的架构能力。
 
 ## 需要掌握
+
+- filesystem isolation（文件系统隔离）
+- process isolation（进程隔离）
+- network permissions（网络权限）
+- resource limits（资源上限）
+- credentials（凭证）
+- sandbox（沙箱）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Why coding agents need a sandbox. The OpenAI Agents SDK treats native sandboxed execution and the harness as two separate architectural capabilities.
+
+## Must know
 
 - filesystem isolation
 - process isolation
@@ -18,7 +37,9 @@ keywords: ["sandbox", "permissions", "blast radius"]
 - credentials
 - sandbox
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 agent tools
@@ -28,31 +49,72 @@ sandbox (fs / proc / net / cpu)
 host secrets stay outside
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-在受限环境执行不可信的模型生成动作，限制爆炸半径。
+在受限的环境里执行模型生成的、不可信的动作，限制出错时的影响范围。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-独立文件系统、无或受限网络、CPU/内存上限、凭证不进容器。权限按工具授予。
+独立的文件系统、不给或只给受限的网络、CPU / 内存上限、凭证不放进容器。权限按工具逐个授予。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-没有 sandbox 的 terminal tool 就是 RCE。生产 coding agent 必须默认隔离，再按需打开网络。
+没有沙箱的终端工具，就等于远程代码执行漏洞。生产环境的 coding agent 必须默认隔离，再按需开放网络。
 
 ## 面试问题
 
-1. How do you sandbox an agent?
-2. 哪些权限默认关闭？
-3. Sandbox 和 harness 为什么要分离？
-4. 凭证如何注入而不进 prompt？
+1. 怎么给 agent 做沙箱？（How do you sandbox an agent?）
+2. 哪些权限应该默认关闭？（Which permissions should be off by default?）
+3. 为什么要把沙箱和 harness 分开？（Why separate the sandbox from the harness?）
+4. 凭证怎么注入，才不会进到 prompt 里？（How do you inject credentials without putting them in the prompt?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Running untrusted, model-generated actions inside a restricted environment to limit the blast radius.
+
+### Level 2 — Mechanism
+
+A separate filesystem, no network or restricted network, CPU and memory limits, and credentials kept out of the container. Permissions are granted per tool.
+
+### Level 3 — Engineering
+
+A terminal tool without a sandbox is remote code execution. Production coding agents must be isolated by default, with network access opened only as needed.
+
+## Interview questions
+
+1. How do you sandbox an agent?
+2. Which permissions should be off by default?
+3. Why separate the sandbox from the harness?
+4. How do you inject credentials without putting them in the prompt?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

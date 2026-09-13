@@ -7,17 +7,37 @@ date: 2026-09-07
 keywords: ["llm serving", "vllm", "kv cache"]
 ---
 
-Design LLM inference platform.
+<Locale lang="zh">
+
+设计一个 LLM 推理平台。（Design an LLM inference platform.）
 
 <Note title="开口框架">
-每道题都走同一套 14 个 dimensions，不要一上来画微服务。知识点不够就回到 01–07 / 09。
+每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
 </Note>
 
 ## 本题要练什么
 
-接到 Inference 页：prefill/decode、continuous batching、PagedAttention、量化、配额。
+接到 Inference 页：prefill / decode、continuous batching、PagedAttention、量化、配额。
 
 ## 白板草图
+
+</Locale>
+
+<Locale lang="en">
+
+Design an LLM inference platform.
+
+<Note title="Opening framework">
+Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+</Note>
+
+## What this problem trains
+
+Tie it to the Inference page: prefill / decode, continuous batching, PagedAttention, quantization, quotas.
+
+## Whiteboard sketch
+
+</Locale>
 
 ```
 API → scheduler / router
@@ -26,12 +46,44 @@ API → scheduler / router
     → metrics (TTFT, tokens/sec)
 ```
 
+<Locale lang="zh">
+
 ## 容易被追问
 
-1. KV cache 何时成为瓶颈？
-2. 如何隔离租户的延迟？
-3. 批处理如何在吞吐和 TTFT 之间折中？
-4. 多模型如何共享 GPU？
+1. KV cache 什么时候会成为瓶颈？（When does the KV cache become a bottleneck?）
+2. 怎么隔离不同租户之间的延迟影响？（How do you isolate latency between tenants?）
+3. 批处理怎么在吞吐和首 token 延迟之间折中？（How does batching trade off throughput against TTFT?）
+4. 多个模型怎么共享 GPU？（How do multiple models share GPUs?）
+
+## 14 个维度
+
+```
+1. 需求（Requirements）
+2. 约束（Constraints）
+3. 架构（Architecture）
+4. 数据流（Data Flow）
+5. 模型（Model）
+6. 检索（Retrieval）
+7. 智能体（Agent）
+8. 评测（Evaluation）
+9. 扩展（Scaling）
+10. 延迟（Latency）
+11. 成本（Cost）
+12. 可靠性（Reliability）
+13. 安全（Security）
+14. 可观测性（Observability）
+```
+
+</Locale>
+
+<Locale lang="en">
+
+## Likely follow-ups
+
+1. When does the KV cache become a bottleneck?
+2. How do you isolate latency between tenants?
+3. How does batching trade off throughput against TTFT?
+4. How do multiple models share GPUs?
 
 ## Dimensions
 
@@ -52,62 +104,214 @@ API → scheduler / router
 14. Observability
 ```
 
+</Locale>
+
+<Locale lang="zh">
+
+## 需求
+
+</Locale>
+
+<Locale lang="en">
+
 ## Requirements
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 约束
+
+</Locale>
+
+<Locale lang="en">
 
 ## Constraints
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 架构
+
+</Locale>
+
+<Locale lang="en">
 
 ## Architecture
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 数据流
+
+</Locale>
+
+<Locale lang="en">
 
 ## Data Flow
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 模型
+
+</Locale>
+
+<Locale lang="en">
 
 ## Model
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 检索
+
+</Locale>
+
+<Locale lang="en">
 
 ## Retrieval
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 智能体
+
+</Locale>
+
+<Locale lang="en">
 
 ## Agent
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 评测
+
+</Locale>
+
+<Locale lang="en">
 
 ## Evaluation
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 扩展
+
+</Locale>
+
+<Locale lang="en">
 
 ## Scaling
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 延迟
+
+</Locale>
+
+<Locale lang="en">
 
 ## Latency
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 成本
+
+</Locale>
+
+<Locale lang="en">
 
 ## Cost
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 可靠性
+
+</Locale>
+
+<Locale lang="en">
 
 ## Reliability
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 安全
+
+</Locale>
+
+<Locale lang="en">
 
 ## Security
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 可观测性
+
+</Locale>
+
+<Locale lang="en">
 
 ## Observability
 
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
 
 -

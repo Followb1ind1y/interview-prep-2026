@@ -7,13 +7,29 @@ date: 2026-09-07
 keywords: ["reranking", "cross encoder"]
 ---
 
-能讲清召回和精排的计算预算。
+<Locale lang="zh">
+
+要能讲清召回阶段和精排阶段各自的计算预算。
 
 ## 需要掌握
 
-Retrieval 便宜、粗；rerank 贵、准。
+检索便宜、粗糙；重排贵、精准。
 
 ## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Be able to explain the compute budget of the recall stage versus the precision stage.
+
+## Must know
+
+Retrieval is cheap and coarse; reranking is expensive and precise.
+
+## Mechanism
+
+</Locale>
 
 ```
 Top 50 retrieved
@@ -23,31 +39,72 @@ Cross Encoder / Reranker
 Top 5
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-用更强（通常是 cross-encoder）模型重排少量候选。
+用更强的模型（通常是 cross-encoder）对少量候选重新排序。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-Bi-encoder 把 query / doc 分开编码才能预计算。Cross-encoder 联合编码，质量高但无法对全库跑。
+Bi-encoder 把 query 和文档分开编码，所以文档向量可以预先算好。Cross-encoder 把两者放在一起编码，质量高，但没法对全库跑。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-Rerank 深度和候选集大小直接打延迟。没有 rerank 时，把更好的 hybrid 和 metadata 做好。有 rerank 就要进 trace。
+重排的深度和候选集大小直接决定延迟。没有 rerank 时，就把 hybrid 和元数据过滤做好。上了 rerank，就要把它纳入链路追踪（trace）。
 
 ## 面试问题
 
-1. Why reranking?
-2. Retrieval 和 reranking 为什么分两阶段？
-3. Top 50 改成 Top 200 会怎样？
-4. 什么时候 rerank 不值得？
+1. 为什么需要重排？（Why reranking?）
+2. 检索和重排为什么要分成两个阶段？（Why are retrieval and reranking split into two stages?）
+3. 把 Top 50 改成 Top 200 会怎样？（What happens if you go from Top 50 to Top 200?）
+4. 什么时候不值得做重排？（When is reranking not worth it?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Re-sorting a small set of candidates with a stronger model, usually a cross-encoder.
+
+### Level 2 — Mechanism
+
+A bi-encoder encodes the query and documents separately, which is what lets document vectors be precomputed. A cross-encoder encodes them together — higher quality, but impossible to run across the whole corpus.
+
+### Level 3 — Engineering
+
+Rerank depth and candidate-set size directly drive latency. Without a reranker, invest in better hybrid search and metadata. With one, make sure it shows up in your traces.
+
+## Interview questions
+
+1. Why reranking?
+2. Why are retrieval and reranking split into two stages?
+3. What happens if you go from Top 50 to Top 200?
+4. When is reranking not worth it?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

@@ -7,13 +7,29 @@ date: 2026-09-07
 keywords: ["react", "thought", "observation"]
 ---
 
-面试官真正想知道的是：为什么需要 agent loop，而不是背 ReAct 四个字母。
+<Locale lang="zh">
+
+面试官真正想知道的是：为什么需要 agent loop，而不是听你背出 ReAct 这几个字母。
 
 ## 需要掌握
 
-理解格式，但要能批评它。
+理解这个格式，但也要能指出它的问题。
 
 ## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+What the interviewer really wants to know is why you need an agent loop — not whether you can spell out ReAct.
+
+## Must know
+
+Understand the format, and be able to critique it.
+
+## Mechanism
+
+</Locale>
 
 ```
 Thought
@@ -25,31 +41,72 @@ Observation
 Thought
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-ReAct 把推理痕迹和行动交错，用观察更新下一步。
+ReAct 把推理过程和行动交替进行，用观察到的结果来更新下一步。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-Thought 帮助分解；Action 调工具；Observation 是环境反馈。这是 loop 的一种提示格式。
+Thought 帮助分解问题；Action 调用工具；Observation 是环境给的反馈。它是 loop 的一种提示格式。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-纯 ReAct 难控步数和费用。生产里常用结构化 tool calling + 显式状态机 / graph，而不是自由 Thought 文本。
+纯 ReAct 很难控制步数和费用。生产环境里更常用结构化的 tool calling + 显式的状态机 / 图，而不是自由文本形式的 Thought。
 
 ## 面试问题
 
-1. ReAct 解决了一次性 CoT 的什么问题？
-2. 为什么不要停留在 ReAct？
-3. Thought 文本在生产里要不要暴露给用户？
-4. 和 LangGraph 状态机是什么关系？
+1. ReAct 解决了一次性 CoT 的什么问题？（What problem with single-pass chain-of-thought does ReAct solve?）
+2. 为什么不能停留在 ReAct？（Why shouldn't you stop at ReAct?）
+3. 生产环境里，Thought 文本要不要展示给用户？（In production, should the Thought text be shown to users?）
+4. 它和 LangGraph 的状态机是什么关系？（How does it relate to a LangGraph state machine?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+ReAct interleaves reasoning traces with actions and uses what it observes to update the next step.
+
+### Level 2 — Mechanism
+
+Thought helps break the problem down; Action calls a tool; Observation is feedback from the environment. It's one prompt format for the loop.
+
+### Level 3 — Engineering
+
+Plain ReAct makes step count and cost hard to control. In production you usually see structured tool calling plus an explicit state machine or graph instead of free-text Thoughts.
+
+## Interview questions
+
+1. What problem with single-pass chain-of-thought does ReAct solve?
+2. Why shouldn't you stop at ReAct?
+3. In production, should the Thought text be shown to users?
+4. How does it relate to a LangGraph state machine?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

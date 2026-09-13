@@ -7,47 +7,104 @@ date: 2026-09-07
 keywords: ["bm25", "inverted index", "sparse retrieval"]
 ---
 
-专有名词、错误码、ID 往往是 keyword 赢。
+<Locale lang="zh">
+
+专有名词、错误码、ID 这类查询，往往是关键词检索赢。
 
 ## 需要掌握
+
+- BM25
+- inverted index（倒排索引）
+- keyword search（关键词检索）
+
+## 机制
+
+```
+词项 → 倒排列表（posting list）→ BM25 打分
+语义相近但用词不同 → dense 检索赢
+用词精确、但被语义模型稀释 → BM25 赢
+```
+
+## 三级回答
+
+### Level 1 — 定义
+
+基于词项统计的检索方式。BM25 是最常见的稀疏打分方法。
+
+### Level 2 — 机制
+
+倒排索引记录每个词出现在哪些文档里。BM25 会惩罚过长的文档和过于常见的词。
+
+### Level 3 — 工程
+
+它和 dense 检索互补：一个擅长抓同义表达，一个擅长抓精确匹配。这正是要做 hybrid 的理由，而不是「BM25 过时了」。
+
+## 面试问题
+
+1. BM25 在惩罚什么、奖励什么？（What does BM25 penalize, and what does it reward?）
+2. 语义检索和关键词检索为什么互补？（Why do semantic search and keyword search complement each other?）
+3. 哪些查询不该只走向量检索？（Which queries shouldn't rely on vector search alone?）
+4. 倒排索引和向量索引的更新怎么保持同步？（How do you keep inverted-index updates in sync with vector-index updates?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+For proper nouns, error codes, and IDs, keyword search usually wins.
+
+## Must know
 
 - BM25
 - inverted index
 - keyword search
 
-## 机制
+## Mechanism
 
 ```
 term → posting list → BM25 score
-语义近但用词不同 → dense 赢
-用词精确但语义模型稀释 → BM25 赢
+same meaning, different wording        → dense retrieval wins
+exact wording that embeddings blur out → BM25 wins
 ```
 
-## 三级回答
+## Three-level answers
 
 ### Level 1 — Definition
 
-基于词项统计的检索。BM25 是最常见的稀疏打分。
+Retrieval based on term statistics. BM25 is the most common sparse scoring function.
 
 ### Level 2 — Mechanism
 
-倒排索引列出含某词的文档。BM25 惩罚过长文档、过常见词。
+An inverted index lists the documents each term appears in. BM25 penalizes very long documents and very common terms.
 
 ### Level 3 — Engineering
 
-和 dense 互补：一个抓同义，一个抓精确匹配。这是 hybrid 的理由，不是「BM25 过时了」。
+It complements dense retrieval: one catches paraphrases, the other catches exact matches. That's the case for hybrid search — not "BM25 is outdated."
 
-## 面试问题
+## Interview questions
 
-1. BM25 在惩罚什么、奖励什么？
-2. semantic search 和 keyword search 为什么互补？
-3. 什么 query 不该只走向量？
-4. 倒排索引更新和向量索引更新如何对齐？
+1. What does BM25 penalize, and what does it reward?
+2. Why do semantic search and keyword search complement each other?
+3. Which queries shouldn't rely on vector search alone?
+4. How do you keep inverted-index updates in sync with vector-index updates?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

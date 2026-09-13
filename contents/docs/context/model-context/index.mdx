@@ -7,13 +7,29 @@ date: 2026-09-07
 keywords: ["model context", "system prompt", "tool results"]
 ---
 
+<Locale lang="zh">
+
 先能数出 context 由什么组成，再谈压缩和隔离。
 
 ## 需要掌握
 
-这些共同构成 Model Context：
+下面这些共同构成 Model Context：
 
 ## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+List what the context is made of before talking about compression or isolation.
+
+## Must know
+
+All of these together make up the model context:
+
+## Mechanism
+
+</Locale>
 
 ```
 System Prompt
@@ -28,31 +44,72 @@ System Prompt
    Model Context
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-模型一次前向能看到的全部 token，不只有用户那句话。
+模型一次前向计算能看到的全部 token，不只是用户说的那句话。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-每一类信息都占 window，都可能噪声或泄密。Tool 定义和结果常常比用户消息更长。
+每一类信息都占用窗口，都可能带来噪声或泄露数据。工具定义和工具结果常常比用户消息还长。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-Context Engineering 的工作是决定这一步放什么、以什么顺序、用什么预算。这比「写一个更好的 prompt」更大。
+Context Engineering 的工作，是决定这一步放什么、按什么顺序放、给多少预算。这比「写一个更好的 prompt」范围大得多。
 
 ## 面试问题
 
-1. 一次 LLM 调用的 context 包含哪些部分？
-2. 哪一类最容易把 window 打满？
-3. 为什么 tool result 也算 context engineering？
-4. Prompt 和 context 是什么关系？
+1. 一次 LLM 调用的 context 包含哪些部分？（What goes into the context of a single LLM call?）
+2. 哪一类信息最容易把窗口占满？（Which part is most likely to fill up the window?）
+3. 为什么工具返回结果也属于 context engineering？（Why do tool results count as context engineering?）
+4. Prompt 和 context 是什么关系？（How do prompt and context relate?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Every token the model can see in one forward pass — not just the user's message.
+
+### Level 2 — Mechanism
+
+Every kind of information takes up window space, and every kind can add noise or leak data. Tool definitions and tool results are often longer than the user message itself.
+
+### Level 3 — Engineering
+
+The job of context engineering is deciding what goes in at this step, in what order, and with what budget. That's a much bigger job than "write a better prompt."
+
+## Interview questions
+
+1. What goes into the context of a single LLM call?
+2. Which part is most likely to fill up the window?
+3. Why do tool results count as context engineering?
+4. How do prompt and context relate?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

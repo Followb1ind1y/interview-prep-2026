@@ -7,16 +7,35 @@ date: 2026-09-07
 keywords: ["multi-agent", "supervisor", "router", "langgraph"]
 ---
 
-接到 Tariff 的 Supervisor → Expert。能讲拆的理由，也能讲不拆的理由。
+<Locale lang="zh">
+
+接到 Tariff 项目里的 Supervisor → Expert。既能讲拆分的理由，也能讲不拆的理由。
 
 ## 需要掌握
+
+- supervisor（主管 agent）
+- router（路由 agent）
+- specialist agents（专家 agent）
+- 并行 / 串行 / 层级式 agent
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Tie it to Supervisor → Expert in the Tariff project. Be able to argue both for splitting and for not splitting.
+
+## Must know
 
 - supervisor
 - router
 - specialist agents
 - parallel / sequential / hierarchical agents
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 Router / Supervisor
@@ -24,33 +43,76 @@ Router / Supervisor
    specialist A / B / C
 ```
 
-更差的常见原因：latency、cost、context fragmentation、coordination failure、error propagation。
+<Locale lang="zh">
+
+效果反而更差的常见原因：延迟、成本、上下文碎片化、协调失败、错误传播。
 
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-多个有不同工具 / 指令的 agent 协作完成任务。
+多个拥有不同工具 / 指令的 agent 协作完成一个任务。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-Router 做分发；Supervisor 做编排和汇总；specialist 深挖单域。可并行或层级。
+Router 负责分发；Supervisor 负责编排和汇总；specialist 在单一领域深挖。可以并行，也可以分层。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-拆分增加交接丢失和延迟。只有工具集、指令或权限真正不同时才拆。单 agent + 好 tools 往往更稳。
+拆分会增加交接时的信息丢失和延迟。只有工具集、指令或权限真的不同时才拆。单个 agent + 好用的工具，往往更稳定。
 
 ## 面试问题
 
-1. When should you use multi-agent?
-2. Multi-agent 为什么有时候反而更差？
-3. Supervisor 和 router 有什么差别？
-4. 错误如何在 agent 之间传播？如何切断？
+1. 什么时候应该用 multi-agent？（When should you use multi-agent?）
+2. Multi-agent 为什么有时候反而更差？（Why is multi-agent sometimes worse?）
+3. Supervisor 和 router 有什么区别？（What's the difference between a supervisor and a router?）
+4. 错误怎么在 agent 之间传播？怎么切断？（How do errors propagate between agents, and how do you stop them?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+Common reasons it ends up worse: latency, cost, context fragmentation, coordination failures, error propagation.
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Several agents, each with its own tools and instructions, working together on one task.
+
+### Level 2 — Mechanism
+
+A router dispatches; a supervisor orchestrates and aggregates; specialists go deep in a single domain. They can run in parallel or in a hierarchy.
+
+### Level 3 — Engineering
+
+Splitting adds handoff loss and latency. Only split when the tool sets, instructions, or permissions genuinely differ. A single agent with good tools is often more stable.
+
+## Interview questions
+
+1. When should you use multi-agent?
+2. Why is multi-agent sometimes worse?
+3. What's the difference between a supervisor and a router?
+4. How do errors propagate between agents, and how do you stop them?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

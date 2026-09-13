@@ -7,9 +7,57 @@ date: 2026-09-07
 keywords: ["chunking", "overlap", "parent-child"]
 ---
 
-能讲清怎么选 chunk size，而不是背一个 512。
+<Locale lang="zh">
+
+要能讲清怎么选 chunk size，而不是背一个 512。
 
 ## 需要掌握
+
+- fixed-size chunking（固定长度切块）
+- recursive chunking（递归切块）
+- semantic chunking（语义切块）
+- sentence / paragraph chunking（按句 / 按段切块）
+- parent-child chunking（父子块）
+- overlap（重叠）
+
+## 机制
+
+```
+太小 → 丢失上下文，检索结果零碎
+太大 → 噪声多，放进窗口贵，定位差
+overlap → 边界处的句子在两边都保留
+```
+
+## 三级回答
+
+### Level 1 — 定义
+
+把文档切成检索和生成都能用的片段。
+
+### Level 2 — 机制
+
+Recursive 按标题 → 段落 → 句子逐级往下切。Semantic 按 embedding 相似度找边界。Parent-child 用小块做检索、用大块做生成。
+
+### Level 3 — 工程
+
+Chunk size 取决于 embedding 模型、典型问题的粒度和 context 预算。要用检索评测（Recall@K）来调，而不是拍脑袋定。
+
+## 面试问题
+
+1. 怎么选 chunk size？（How do you choose chunk size?）
+2. 为什么 chunk 太小不好？太大又为什么不好？（Why is a chunk that's too small bad, and why is one that's too large bad?）
+3. Overlap 解决了什么、浪费了什么？（What does overlap fix, and what does it waste?）
+4. Parent-child chunking 什么时候值得做？（When is parent-child chunking worth it?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+Be able to explain how you choose a chunk size, instead of reciting "512."
+
+## Must know
 
 - fixed-size chunking
 - recursive chunking
@@ -18,39 +66,51 @@ keywords: ["chunking", "overlap", "parent-child"]
 - parent-child chunking
 - overlap
 
-## 机制
+## Mechanism
 
 ```
-太小 → 丢失上下文，检索碎
-太大 → 噪声多，进 window 贵，定位差
-overlap → 边界处的句子两边都有
+too small → context lost, retrieval returns fragments
+too large → more noise, costly in the window, poor precision
+overlap   → sentences at a boundary live in both chunks
 ```
 
-## 三级回答
+## Three-level answers
 
 ### Level 1 — Definition
 
-把文档切成检索和生成都能用的片段。
+Splitting documents into pieces that work for both retrieval and generation.
 
 ### Level 2 — Mechanism
 
-Recursive 按标题 / 段落 / 句子降级切。Semantic 按嵌入相似度找边界。Parent-child 用小块检索、大块生成。
+Recursive chunking falls back from headings to paragraphs to sentences. Semantic chunking finds boundaries by embedding similarity. Parent-child retrieves with small chunks and generates with the larger parent.
 
 ### Level 3 — Engineering
 
-chunk size 看 embedding 模型、典型问题粒度、context 预算。用检索评测（Recall@K）调，而不是拍脑袋。
+Chunk size depends on the embedding model, how granular the typical question is, and the context budget. Tune it with retrieval evals (Recall@K), not gut feel.
 
-## 面试问题
+## Interview questions
 
 1. How do you choose chunk size?
-2. 为什么 chunk 太小不好？太大不好？
-3. Overlap 解决什么、浪费什么？
-4. Parent-child chunking 什么时候值得做？
+2. Why is a chunk that's too small bad, and why is one that's too large bad?
+3. What does overlap fix, and what does it waste?
+4. When is parent-child chunking worth it?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

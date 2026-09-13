@@ -7,20 +7,46 @@ date: 2026-09-07
 keywords: ["evaluation", "llm-as-judge", "recall@k", "faithfulness", "trajectory eval"]
 ---
 
-从 RAG 专栏拆出来，因为 2026 年 AI Engineer JD 里 evaluation 已经非常高频。Agent、生成、production 都要评。
+<Locale lang="zh">
+
+从 RAG 专栏里拆出来，因为 2026 年的 AI Engineer 岗位描述里，评测已经是非常高频的要求。Agent、生成质量、线上系统都要评。
 
 <CardGrid>
-  <Card title="Fundamentals" description="Input → System → Output → Expected → Metric。" href="/docs/evaluation/fundamentals" />
-  <Card title="Offline Eval" description="golden dataset、benchmark、regression、A/B。" href="/docs/evaluation/offline" />
-  <Card title="LLM Evaluation" description="exact match、semantic、LLM-as-judge、pairwise、rubric。" href="/docs/evaluation/llm-eval" />
-  <Card title="RAG Evaluation" description="Retrieval 指标 + Generation 指标分开。" href="/docs/evaluation/rag-eval" />
-  <Card title="Agent Evaluation" description="task success、tool accuracy、trajectory、cost。" href="/docs/evaluation/agent-eval" />
-  <Card title="Production Eval" description="Offline → Staging → Prod → Trace → 新 eval。" href="/docs/evaluation/production-eval" />
+  <Card title="Fundamentals" description="输入 → 系统 → 输出 → 参考答案 → 指标。" href="/docs/evaluation/fundamentals" />
+  <Card title="Offline Eval" description="golden dataset、benchmark、回归测试、A/B 测试。" href="/docs/evaluation/offline" />
+  <Card title="LLM Evaluation" description="精确匹配、语义相似、LLM-as-judge、两两对比、评分细则。" href="/docs/evaluation/llm-eval" />
+  <Card title="RAG Evaluation" description="检索指标和生成指标分开评。" href="/docs/evaluation/rag-eval" />
+  <Card title="Agent Evaluation" description="任务成功率、工具准确率、执行轨迹、成本。" href="/docs/evaluation/agent-eval" />
+  <Card title="Production Eval" description="离线 → 预发 → 生产 → Trace → 新的评测。" href="/docs/evaluation/production-eval" />
 </CardGrid>
 
 ## 本专栏计划
 
-1. 先能画 Fundamentals 闭环
-2. RAG eval 接到 DeepEval：correctness / completeness / relevance
-3. Agent eval 补上，这是当前缺口
-4. Production eval：失败 trace 必须能变成新的回归集
+1. 先能画出评测基础的闭环
+2. RAG 评测接到 DeepEval：正确性 / 完整性 / 相关性
+3. 补上 Agent 评测，这是当前的缺口
+4. 线上评测：失败的 trace 必须能变成新的回归集
+
+</Locale>
+
+<Locale lang="en">
+
+This was split out of the RAG column because evaluation shows up constantly in 2026 AI Engineer job descriptions. Agents, generation quality, and production systems all need to be evaluated.
+
+<CardGrid>
+  <Card title="Fundamentals" description="Input → system → output → expected → metric." href="/docs/evaluation/fundamentals" />
+  <Card title="Offline Eval" description="Golden datasets, benchmarks, regression, A/B tests." href="/docs/evaluation/offline" />
+  <Card title="LLM Evaluation" description="Exact match, semantic similarity, LLM-as-judge, pairwise, rubrics." href="/docs/evaluation/llm-eval" />
+  <Card title="RAG Evaluation" description="Score retrieval and generation separately." href="/docs/evaluation/rag-eval" />
+  <Card title="Agent Evaluation" description="Task success, tool accuracy, trajectories, cost." href="/docs/evaluation/agent-eval" />
+  <Card title="Production Eval" description="Offline → staging → prod → traces → new evals." href="/docs/evaluation/production-eval" />
+</CardGrid>
+
+## Plan for this column
+
+1. Draw the fundamentals loop first
+2. Tie RAG eval to DeepEval: correctness / completeness / relevance
+3. Fill in agent evaluation — that's the current gap
+4. Production eval: failed traces have to turn into new regression sets
+
+</Locale>

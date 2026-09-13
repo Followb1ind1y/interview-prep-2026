@@ -7,9 +7,31 @@ date: 2026-09-07
 keywords: ["agentic coding", "feedback loop", "verification"]
 ---
 
-规划、探索仓库、编辑、终端、测试、调试、git、验证、迭代。
+<Locale lang="zh">
+
+规划、探索仓库、编辑代码、终端执行、测试、调试、git、验证、迭代。
 
 ## 需要掌握
+
+- planning（规划）
+- repository exploration（探索代码仓库）
+- code editing（编辑代码）
+- terminal execution（终端执行）
+- testing（测试）
+- debugging（调试）
+- git
+- verification（验证）
+- iteration（迭代）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Planning, exploring the repo, editing, running the terminal, testing, debugging, git, verifying, iterating.
+
+## Must know
 
 - planning
 - repository exploration
@@ -21,7 +43,9 @@ keywords: ["agentic coding", "feedback loop", "verification"]
 - verification
 - iteration
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 Write
@@ -39,31 +63,72 @@ Test
 Verify
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-把写代码当成带环境反馈的循环，而不是一次生成。
+把写代码看成一个有环境反馈的循环，而不是一次性生成。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-测试、类型检查、linter、复现脚本是观察。没有观察，模型只能「觉得对」。
+测试、类型检查、linter、复现脚本都是「观察」。没有观察，模型只能「觉得自己写对了」。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-评测看任务成功和步数，不看第一稿是否漂亮。Sandbox 里跑测试。
+评测看的是任务有没有完成、用了几步，而不是第一版代码漂不漂亮。测试要在沙箱里跑。
 
 ## 面试问题
 
-1. Agent 如何知道自己写对了？
-2. 没有测试的仓库如何验证？
-3. 如何避免 agent 改无关文件？
-4. How do you verify agent-generated code?
+1. Agent 怎么知道自己写对了？（How does an agent know its code is correct?）
+2. 没有测试的仓库怎么验证？（How do you verify changes in a repo with no tests?）
+3. 怎么避免 agent 改动无关的文件？（How do you keep an agent from touching unrelated files?）
+4. 怎么验证 agent 生成的代码？（How do you verify agent-generated code?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Treating coding as a loop with feedback from the environment, not a single generation.
+
+### Level 2 — Mechanism
+
+Tests, type checks, linters, and repro scripts are all observations. Without them, the model can only "feel" that the code is right.
+
+### Level 3 — Engineering
+
+Evaluation looks at whether the task got done and how many steps it took — not whether the first draft looks nice. Run the tests inside the sandbox.
+
+## Interview questions
+
+1. How does an agent know its code is correct?
+2. How do you verify changes in a repo with no tests?
+3. How do you keep an agent from touching unrelated files?
+4. How do you verify agent-generated code?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

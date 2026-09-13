@@ -7,31 +7,71 @@ date: 2026-09-07
 keywords: ["rag", "chunking", "embedding", "hybrid search", "rerank", "graph rag"]
 ---
 
-不要只停在 Embedding / Retrieval / Reranking / Hybrid Search。最终要能在白板上 5 分钟设计 Enterprise RAG，并且回答：*RAG answer is wrong. What do you investigate?*
+<Locale lang="zh">
+
+不要只停在 Embedding / Retrieval / Reranking / Hybrid Search。最终要能在白板上 5 分钟设计企业级 RAG，并且回答：*RAG 答错了，你查什么？*（*RAG answer is wrong. What do you investigate?*）
+
+</Locale>
+
+<Locale lang="en">
+
+Don't stop at Embedding / Retrieval / Reranking / Hybrid Search. The end goal is to whiteboard an enterprise RAG system in 5 minutes and answer: *RAG answer is wrong. What do you investigate?*
+
+</Locale>
 
 ```
 Documents → Parsing → Chunking → Embedding → Vector DB
          → Query → Retrieval → Reranking → Context → LLM → Answer
 ```
 
-评测（Recall@K、Faithfulness）在 [Evaluation / RAG Eval](/docs/evaluation/rag-eval)，本专栏只保留系统和诊断。
+<Locale lang="zh">
+
+评测（Recall@K、Faithfulness）在 [Evaluation / RAG Eval](/docs/evaluation/rag-eval)，本专栏只讲系统和诊断。
 
 <CardGrid>
   <Card title="Architecture" description="先画完整 pipeline，再往下拆。" href="/docs/rag/architecture" />
-  <Card title="Document Ingestion" description="PDF / HTML / tables / OCR / metadata / versioning。" href="/docs/rag/ingestion" />
-  <Card title="Chunking" description="典型深挖点。太小 / 太大 / overlap。" href="/docs/rag/chunking" />
-  <Card title="Embedding" description="dense、相似度、维度、query vs document。" href="/docs/rag/embedding" />
-  <Card title="Vector Search" description="ANN、HNSW、IVF、PQ、metadata filter。" href="/docs/rag/vector-search" />
-  <Card title="Sparse Retrieval" description="BM25、倒排索引；和语义检索为什么互补。" href="/docs/rag/sparse-retrieval" />
-  <Card title="Hybrid Search" description="BM25 + Vector → Fusion。RRF。" href="/docs/rag/hybrid-search" />
-  <Card title="Reranking" description="为什么 retrieval 和 rerank 要分两阶段。" href="/docs/rag/reranking" />
-  <Card title="Advanced RAG" description="rewrite、HyDE、parent-child、GraphRAG、agentic RAG。" href="/docs/rag/advanced" />
-  <Card title="Failure Diagnosis" description="检索错了、排错了、context 错了、还是生成没用 context。" href="/docs/rag/debugging" />
+  <Card title="Document Ingestion" description="PDF / HTML / 表格 / OCR / 元数据 / 版本管理。" href="/docs/rag/ingestion" />
+  <Card title="Chunking" description="典型的深挖点。太小 / 太大 / 重叠。" href="/docs/rag/chunking" />
+  <Card title="Embedding" description="稠密向量、相似度、维度、query 和文档的区别。" href="/docs/rag/embedding" />
+  <Card title="Vector Search" description="ANN、HNSW、IVF、PQ、元数据过滤。" href="/docs/rag/vector-search" />
+  <Card title="Sparse Retrieval" description="BM25、倒排索引；为什么和语义检索互补。" href="/docs/rag/sparse-retrieval" />
+  <Card title="Hybrid Search" description="BM25 + 向量 → 融合。RRF。" href="/docs/rag/hybrid-search" />
+  <Card title="Reranking" description="为什么检索和重排要分两个阶段。" href="/docs/rag/reranking" />
+  <Card title="Advanced RAG" description="查询改写、HyDE、parent-child、GraphRAG、agentic RAG。" href="/docs/rag/advanced" />
+  <Card title="Failure Diagnosis" description="是检索错了、排序错了、context 拼错了，还是生成没用上 context。" href="/docs/rag/debugging" />
 </CardGrid>
 
 ## 本专栏计划
 
-1. 默画 Architecture；Ingestion 能讲企业文档的脏处
-2. Chunking 能答 4 个权衡；Embedding 接到自己的模型选择
-3. Hybrid + RRF 用 FAISS + BM25 项目讲，不要只背名词
-4. Advanced 第二阶段再挖；先会 Failure Diagnosis
+1. 能默画 Architecture；Ingestion 能讲清企业文档脏在哪
+2. Chunking 能答出 4 个取舍；Embedding 接到自己的模型选择
+3. Hybrid + RRF 用 FAISS + BM25 的项目来讲，不要只背名词
+4. Advanced 放到第二阶段再挖；先学会 Failure Diagnosis
+
+</Locale>
+
+<Locale lang="en">
+
+Evaluation (Recall@K, faithfulness) lives in [Evaluation / RAG Eval](/docs/evaluation/rag-eval). This column only covers the system and diagnosis.
+
+<CardGrid>
+  <Card title="Architecture" description="Draw the full pipeline first, then break it down." href="/docs/rag/architecture" />
+  <Card title="Document Ingestion" description="PDF / HTML / tables / OCR / metadata / versioning." href="/docs/rag/ingestion" />
+  <Card title="Chunking" description="A classic deep-dive. Too small / too large / overlap." href="/docs/rag/chunking" />
+  <Card title="Embedding" description="Dense vectors, similarity, dimensions, query vs document." href="/docs/rag/embedding" />
+  <Card title="Vector Search" description="ANN, HNSW, IVF, PQ, metadata filtering." href="/docs/rag/vector-search" />
+  <Card title="Sparse Retrieval" description="BM25, inverted indexes; why they complement semantic search." href="/docs/rag/sparse-retrieval" />
+  <Card title="Hybrid Search" description="BM25 + vector → fusion. RRF." href="/docs/rag/hybrid-search" />
+  <Card title="Reranking" description="Why retrieval and reranking are two separate stages." href="/docs/rag/reranking" />
+  <Card title="Advanced RAG" description="Query rewriting, HyDE, parent-child, GraphRAG, agentic RAG." href="/docs/rag/advanced" />
+  <Card title="Failure Diagnosis" description="Bad retrieval, bad ranking, bad context — or generation that ignored the context." href="/docs/rag/debugging" />
+</CardGrid>
+
+## Plan for this column
+
+1. Draw the architecture from memory; explain what makes enterprise documents messy during ingestion
+2. Answer the four chunking trade-offs; tie embedding back to my own model choice
+3. Explain Hybrid + RRF through the FAISS + BM25 project, not as vocabulary
+4. Save Advanced RAG for phase two; learn failure diagnosis first
+
+</Locale>

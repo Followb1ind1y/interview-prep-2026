@@ -7,44 +7,98 @@ date: 2026-09-07
 keywords: ["agent state", "long-running agents", "checkpoint"]
 ---
 
-状态可以包括 Task、Plan、Progress、Files、Tool results、Memory、Errors、Environment。
+<Locale lang="zh">
+
+状态可以包括：任务、计划、进度、文件、工具结果、记忆、错误、运行环境。
 
 ## 需要掌握
 
-显式状态才能暂停、恢复、多 worker。
+只有显式的状态，才能暂停、恢复，以及让多个 worker 协作。
 
 ## 机制
 
 ```
-Conversation  =  token 历史（易爆、难恢复）
-State         =  任务进度的结构化事实
+对话  =  token 历史（容易撑爆，也难以恢复）
+状态  =  关于任务进度的结构化事实
 ```
 
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-Agent state 是可序列化的工作进度，不是聊天记录本身。
+Agent 状态是可以序列化的工作进度，而不是聊天记录本身。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-把 plan、文件集合、失败信息写入 store / 磁盘。恢复时重建 working set，而不是回放全部 token。
+把计划、涉及的文件、失败信息写进存储或磁盘。恢复时重建当前的工作集，而不是回放全部 token。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-后台 agent 必须 checkpoint。没有 state 就无法做 long-running reliability。
+后台 agent 必须做 checkpoint。没有状态，就谈不上长时间运行的可靠性。
 
 ## 面试问题
 
-1. 为什么 Conversation ≠ State？
-2. 要持久化哪些字段？
-3. 如何做 backward-compatible 的 state schema？
-4. How do you make a long-running agent reliable?
+1. 为什么对话 ≠ 状态？（Why isn't conversation the same as state?）
+2. 需要持久化哪些字段？（Which fields need to be persisted?）
+3. 状态的 schema 怎么做到向后兼容？（How do you keep the state schema backward-compatible?）
+4. 怎么让长时间运行的 agent 可靠？（How do you make a long-running agent reliable?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+State can include: task, plan, progress, files, tool results, memory, errors, environment.
+
+## Must know
+
+Only explicit state lets you pause, resume, and run multiple workers.
+
+## Mechanism
+
+```
+Conversation  =  token history (blows up easily, hard to recover)
+State         =  structured facts about task progress
+```
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Agent state is serializable work progress — not the chat transcript itself.
+
+### Level 2 — Mechanism
+
+Write the plan, the set of files, and failure information to a store or to disk. On resume, rebuild the working set instead of replaying every token.
+
+### Level 3 — Engineering
+
+Background agents must checkpoint. Without state, there's no such thing as long-running reliability.
+
+## Interview questions
+
+1. Why isn't conversation the same as state?
+2. Which fields need to be persisted?
+3. How do you keep the state schema backward-compatible?
+4. How do you make a long-running agent reliable?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

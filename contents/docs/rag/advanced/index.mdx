@@ -7,9 +7,30 @@ date: 2026-09-07
 keywords: ["hyde", "query rewriting", "graphrag", "agentic rag", "contextual retrieval"]
 ---
 
-先会基础 pipeline 和 debug，再上这些。不要作为第一周主线。
+<Locale lang="zh">
+
+先学会基础 pipeline 和排错，再上这些。不要作为第一周的主线。
 
 ## 需要掌握
+
+- query rewriting / expansion / multi-query（查询改写 / 扩展 / 多查询）
+- HyDE（假设文档嵌入）
+- parent-document retrieval（父文档检索）
+- contextual retrieval（上下文增强检索）
+- metadata filtering（元数据过滤）
+- recursive / multi-hop retrieval（递归 / 多跳检索）
+- GraphRAG
+- agentic RAG
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Learn the basic pipeline and debugging first, then add these. Don't make this week one's main track.
+
+## Must know
 
 - query rewriting / expansion / multi-query
 - HyDE
@@ -20,7 +41,9 @@ keywords: ["hyde", "query rewriting", "graphrag", "agentic rag", "contextual ret
 - GraphRAG
 - agentic RAG
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 User query → rewrite / expand / HyDE
@@ -28,31 +51,72 @@ User query → rewrite / expand / HyDE
           → construct context
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-在基础 RAG 上增加 query 侧或图结构侧的推理，处理改写、多跳、关系。
+在基础 RAG 之上，在 query 侧或图结构侧加入推理，用来处理改写、多跳和实体关系。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-HyDE 先生成假设答案再嵌入检索。Multi-hop 把中间答案变成下一跳 query。GraphRAG 用实体关系补向量检索的局部性。Agentic RAG 让模型决定是否再搜。
+HyDE 先生成一个假设答案，再拿它去做 embedding 检索。多跳检索把中间答案变成下一跳的查询。GraphRAG 用实体关系弥补向量检索只看局部的问题。Agentic RAG 让模型自己决定要不要再搜一次。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-每多一跳就多延迟和费用。先证明基础召回不够，再加组件。用 eval 证明 rewrite 有用。
+每多一跳，就多一份延迟和费用。先证明基础召回确实不够，再加组件。用评测证明查询改写真的有用。
 
 ## 面试问题
 
-1. Query rewriting 解决什么失败模式？
-2. HyDE 什么时候会伤害检索？
-3. GraphRAG 比 hybrid 多解决了什么？
-4. Agentic RAG 和普通 RAG 的成本差在哪？
+1. 查询改写解决的是哪种失败模式？（What failure mode does query rewriting fix?）
+2. HyDE 什么时候反而会伤害检索？（When does HyDE actually hurt retrieval?）
+3. GraphRAG 比 hybrid 多解决了什么？（What does GraphRAG solve that hybrid search doesn't?）
+4. Agentic RAG 和普通 RAG 的成本差在哪？（Where does the cost of agentic RAG differ from standard RAG?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Adding reasoning on the query side or through graph structure on top of basic RAG, to handle rewriting, multi-hop questions, and entity relationships.
+
+### Level 2 — Mechanism
+
+HyDE generates a hypothetical answer first and embeds that for retrieval. Multi-hop retrieval turns an intermediate answer into the next query. GraphRAG uses entity relationships to cover the local-only view of vector search. Agentic RAG lets the model decide whether to search again.
+
+### Level 3 — Engineering
+
+Every extra hop adds latency and cost. Prove that basic recall really falls short before adding components, and use evals to prove the rewrite step actually helps.
+
+## Interview questions
+
+1. What failure mode does query rewriting fix?
+2. When does HyDE actually hurt retrieval?
+3. What does GraphRAG solve that hybrid search doesn't?
+4. Where does the cost of agentic RAG differ from standard RAG?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

@@ -7,21 +7,23 @@ date: 2026-09-06
 keywords: ["sql", "bigquery", "window functions"]
 ---
 
-语言仍是面试表现：能写、能讲为什么这样写。
+<Locale lang="zh">
 
-项目锚点：[PMI Logistics](/docs/projects/pmi) — *How do you prevent an LLM from generating incorrect SQL?*
+SQL 考的仍然是面试表现：既要能写出来，也要能讲清为什么这样写。
+
+项目锚点：[PMI Logistics](/docs/projects/pmi) —— *怎么防止 LLM 生成错误的 SQL？*（*How do you prevent an LLM from generating incorrect SQL?*）
 
 ## 覆盖点
 
-- JOIN（含 LEFT vs INNER 的业务含义）
-- GROUP BY / aggregation
-- Window Functions
-- CTE
-- Ranking（`ROW_NUMBER` / `RANK` / `DENSE_RANK`）
+- JOIN（包括 LEFT JOIN 和 INNER JOIN 在业务上的含义差别）
+- GROUP BY / 聚合
+- 窗口函数
+- CTE（公用表表达式）
+- 排名函数（`ROW_NUMBER` / `RANK` / `DENSE_RANK`）
 
 ## 骨架
 
-把做过的一条分析查询贴在这里：业务问题、表、关键 JOIN、窗口函数、一个易错点。
+把做过的一条分析查询贴在这里：业务问题、用到的表、关键的 JOIN、窗口函数、一个容易出错的点。
 
 ## 代表题
 
@@ -30,4 +32,35 @@ keywords: ["sql", "bigquery", "window functions"]
 | 多表 JOIN + 过滤 | 待练 |
 | GROUP BY + HAVING | 待练 |
 | 窗口函数排名 / 滚动聚合 | 待练 |
-| CTE 拆复杂查询 | 待练 |
+| 用 CTE 拆解复杂查询 | 待练 |
+
+</Locale>
+
+<Locale lang="en">
+
+SQL is still about interview performance: you have to write it and explain why you wrote it that way.
+
+Project anchor: [PMI Logistics](/docs/projects/pmi) — *How do you prevent an LLM from generating incorrect SQL?*
+
+## Coverage
+
+- JOIN (including what LEFT vs INNER means for the business question)
+- GROUP BY / aggregation
+- Window functions
+- CTE
+- Ranking (`ROW_NUMBER` / `RANK` / `DENSE_RANK`)
+
+## Skeleton
+
+Paste an analysis query you've actually written here: the business question, the tables, the key JOIN, the window function, and one easy-to-miss pitfall.
+
+## Representative problems
+
+| Problem type | Status |
+| --- | --- |
+| Multi-table JOIN + filtering | To practice |
+| GROUP BY + HAVING | To practice |
+| Window-function ranking / rolling aggregates | To practice |
+| Breaking down a complex query with CTEs | To practice |
+
+</Locale>

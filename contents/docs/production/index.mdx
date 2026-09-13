@@ -7,20 +7,46 @@ date: 2026-09-07
 keywords: ["production", "ttft", "cost", "observability", "circuit breaker", "rate limit"]
 ---
 
+<Locale lang="zh">
+
 这些不是系统设计题的收藏夹，而是每一道设计题都要贯穿的工程能力。白板题本身写在 [AI System Design](/docs/system-design)。
 
 <CardGrid>
-  <Card title="API Engineering" description="streaming、timeout、retries、rate limit、async、连接池。" href="/docs/production/api-engineering" />
-  <Card title="Latency" description="TTFT + generation = 用户感知延迟。拆每一段耗时。" href="/docs/production/latency" />
-  <Card title="Cost" description="input / output / embedding / rerank / tool / infra。会估算。" href="/docs/production/cost" />
-  <Card title="Scaling" description="水平扩展、队列、缓存、batching、限流。" href="/docs/production/scaling" />
-  <Card title="Observability" description="一条 request 的 trace：LLM、检索、tool、token、版本。" href="/docs/production/observability" />
-  <Card title="Reliability" description="fallback、circuit breaker、graceful degradation、人工升级。" href="/docs/production/reliability" />
+  <Card title="API Engineering" description="流式输出、超时、重试、限流、异步、连接池。" href="/docs/production/api-engineering" />
+  <Card title="Latency" description="首 token 延迟 + 生成时间 = 用户感知延迟。拆开每一段耗时。" href="/docs/production/latency" />
+  <Card title="Cost" description="输入 / 输出 token、embedding、重排、工具、基础设施。要会估算。" href="/docs/production/cost" />
+  <Card title="Scaling" description="水平扩展、队列、缓存、批处理、限流。" href="/docs/production/scaling" />
+  <Card title="Observability" description="一条请求的 trace：LLM、检索、工具、token、版本。" href="/docs/production/observability" />
+  <Card title="Reliability" description="降级兜底、熔断、优雅降级、升级到人工。" href="/docs/production/reliability" />
 </CardGrid>
 
 ## 本专栏计划
 
-1. API：对照 FastAPI + Gemini streaming
-2. Latency：对照 Voice 1.2s，能拆 TTFT / retrieval / tool
-3. Cost：会算 100k users/day 的月费数量级
-4. Observability + Reliability：prompt 版本、token、失败都能追
+1. API：对照 FastAPI + Gemini 流式输出
+2. 延迟：对照 Voice 项目的 1.2s，能拆出首 token / 检索 / 工具各占多少
+3. 成本：会算每天 10 万用户时月费的数量级
+4. 可观测性 + 可靠性：prompt 版本、token、失败都能追踪
+
+</Locale>
+
+<Locale lang="en">
+
+This isn't a bookmark folder for system design questions — it's the engineering that runs through every one of them. The whiteboard problems themselves live in [AI System Design](/docs/system-design).
+
+<CardGrid>
+  <Card title="API Engineering" description="Streaming, timeouts, retries, rate limits, async, connection pools." href="/docs/production/api-engineering" />
+  <Card title="Latency" description="TTFT + generation = perceived latency. Break down every segment." href="/docs/production/latency" />
+  <Card title="Cost" description="Input / output tokens, embeddings, rerank, tools, infra. Be able to estimate." href="/docs/production/cost" />
+  <Card title="Scaling" description="Horizontal scaling, queues, caching, batching, rate limiting." href="/docs/production/scaling" />
+  <Card title="Observability" description="One request's trace: LLM, retrieval, tools, tokens, versions." href="/docs/production/observability" />
+  <Card title="Reliability" description="Fallbacks, circuit breakers, graceful degradation, human escalation." href="/docs/production/reliability" />
+</CardGrid>
+
+## Plan for this column
+
+1. API: compare against FastAPI + Gemini streaming
+2. Latency: use the Voice project's 1.2s to break down TTFT / retrieval / tools
+3. Cost: estimate the monthly bill's order of magnitude at 100k users/day
+4. Observability + reliability: prompt versions, tokens, and failures are all traceable
+
+</Locale>

@@ -7,17 +7,37 @@ date: 2026-09-07
 keywords: ["long-running agent", "agent state"]
 ---
 
-Design long-running agent.
+<Locale lang="zh">
+
+设计一个长时间运行的 agent。（Design a long-running agent.）
 
 <Note title="开口框架">
-每道题都走同一套 14 个 dimensions，不要一上来画微服务。知识点不够就回到 01–07 / 09。
+每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
 </Note>
 
 ## 本题要练什么
 
-Conversation ≠ State。要持久化 plan / 进度 / 文件 / 错误。见 [Agent State](/docs/ai-native/agent-state)。
+对话 ≠ 状态。要持久化计划、进度、文件和错误。见 [Agent State](/docs/ai-native/agent-state)。
 
 ## 白板草图
+
+</Locale>
+
+<Locale lang="en">
+
+Design a long-running agent.
+
+<Note title="Opening framework">
+Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+</Note>
+
+## What this problem trains
+
+Conversation ≠ state. Persist the plan, progress, files, and errors. See [Agent State](/docs/ai-native/agent-state).
+
+## Whiteboard sketch
+
+</Locale>
 
 ```
 job queue → worker agent
@@ -26,12 +46,44 @@ job queue → worker agent
           → resume / retry / notify
 ```
 
+<Locale lang="zh">
+
 ## 容易被追问
 
+1. 怎么让长时间运行的 agent 可靠？（How do you make a long-running agent reliable?）
+2. 进程被杀掉后怎么接着跑？（How does it resume after the process is killed?）
+3. 上下文溢出时保留什么？（What do you keep when the context overflows?）
+4. 用户中途改了目标怎么办？（What if the user changes the goal midway?）
+
+## 14 个维度
+
+```
+1. 需求（Requirements）
+2. 约束（Constraints）
+3. 架构（Architecture）
+4. 数据流（Data Flow）
+5. 模型（Model）
+6. 检索（Retrieval）
+7. 智能体（Agent）
+8. 评测（Evaluation）
+9. 扩展（Scaling）
+10. 延迟（Latency）
+11. 成本（Cost）
+12. 可靠性（Reliability）
+13. 安全（Security）
+14. 可观测性（Observability）
+```
+
+</Locale>
+
+<Locale lang="en">
+
+## Likely follow-ups
+
 1. How do you make a long-running agent reliable?
-2. 进程被杀如何续跑？
-3. Context overflow 保什么？
-4. 用户中途改目标怎么办？
+2. How does it resume after the process is killed?
+3. What do you keep when the context overflows?
+4. What if the user changes the goal midway?
 
 ## Dimensions
 
@@ -52,62 +104,214 @@ job queue → worker agent
 14. Observability
 ```
 
+</Locale>
+
+<Locale lang="zh">
+
+## 需求
+
+</Locale>
+
+<Locale lang="en">
+
 ## Requirements
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 约束
+
+</Locale>
+
+<Locale lang="en">
 
 ## Constraints
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 架构
+
+</Locale>
+
+<Locale lang="en">
 
 ## Architecture
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 数据流
+
+</Locale>
+
+<Locale lang="en">
 
 ## Data Flow
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 模型
+
+</Locale>
+
+<Locale lang="en">
 
 ## Model
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 检索
+
+</Locale>
+
+<Locale lang="en">
 
 ## Retrieval
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 智能体
+
+</Locale>
+
+<Locale lang="en">
 
 ## Agent
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 评测
+
+</Locale>
+
+<Locale lang="en">
 
 ## Evaluation
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 扩展
+
+</Locale>
+
+<Locale lang="en">
 
 ## Scaling
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 延迟
+
+</Locale>
+
+<Locale lang="en">
 
 ## Latency
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 成本
+
+</Locale>
+
+<Locale lang="en">
 
 ## Cost
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 可靠性
+
+</Locale>
+
+<Locale lang="en">
 
 ## Reliability
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 安全
+
+</Locale>
+
+<Locale lang="en">
 
 ## Security
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 可观测性
+
+</Locale>
+
+<Locale lang="en">
 
 ## Observability
 
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
 
 -

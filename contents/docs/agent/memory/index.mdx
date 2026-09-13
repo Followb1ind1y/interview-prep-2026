@@ -7,9 +7,60 @@ date: 2026-09-07
 keywords: ["memory", "episodic", "semantic memory", "procedural"]
 ---
 
-Memory 到底解决什么问题：跨轮一致性、个性化、技能复用，而不是「存聊天记录」。
+<Locale lang="zh">
+
+Memory 到底解决什么问题：跨轮次的一致性、个性化、技能复用，而不是「存聊天记录」。
 
 ## 需要掌握
+
+- Conversation Memory（对话记忆）
+- Working Memory（工作记忆）
+- Episodic Memory（情景记忆）
+- Semantic Memory（语义记忆）
+- Procedural Memory（程序性记忆）
+- External Memory（外部记忆）
+
+## 机制
+
+```
+Conversation  当前对话
+Working       当前任务的草稿
+Episodic      发生过的事件
+Semantic      稳定的事实 / 偏好
+Procedural    怎么做（技能、playbook）
+External      文件、数据库、检索
+```
+
+## 三级回答
+
+### Level 1 — 定义
+
+Memory 是跨步骤、跨会话仍然要能用的状态，不等于把历史全部塞进 prompt。
+
+### Level 2 — 机制
+
+工作记忆放当前的计划；情景记忆可以被检索；语义记忆是用户 / 企业层面的事实；程序性记忆是工具的用法。外部记忆就是 RAG / 文件。
+
+### Level 3 — 工程
+
+乱写记忆会造成上下文污染和错误的个性化。写入前要过滤，读取时要检索，而不是只追加不删的日志。
+
+## 面试问题
+
+1. 你怎么管理 agent 的记忆？（How do you manage agent memory?）
+2. Memory 到底解决什么问题？（What problem does memory actually solve?）
+3. 为什么只有对话历史不够？（Why isn't conversation history enough?）
+4. 记忆写错了怎么修正？（How do you correct a memory that was written wrong?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+What memory really solves: consistency across turns, personalization, and reusing skills — not "storing the chat log."
+
+## Must know
 
 - Conversation Memory
 - Working Memory
@@ -18,42 +69,54 @@ Memory 到底解决什么问题：跨轮一致性、个性化、技能复用，�
 - Procedural Memory
 - External Memory
 
-## 机制
+## Mechanism
 
 ```
-Conversation  当前对话
-Working       当前任务草稿
-Episodic      发生过的事件
-Semantic      稳定事实 / 偏好
-Procedural    怎么做（技能、playbook）
-External      文件、DB、检索
+Conversation  the current conversation
+Working       scratchpad for the current task
+Episodic      events that happened
+Semantic      stable facts / preferences
+Procedural    how to do things (skills, playbooks)
+External      files, databases, retrieval
 ```
 
-## 三级回答
+## Three-level answers
 
 ### Level 1 — Definition
 
-Memory 是跨步骤、跨会话仍要可用的状态，不等于把历史全塞进 prompt。
+Memory is state that has to stay usable across steps and sessions. It isn't the same as stuffing all history into the prompt.
 
 ### Level 2 — Mechanism
 
-工作记忆放当前 plan；情景记忆可检索；语义记忆是用户/企业事实；程序性记忆是工具用法。外部记忆是 RAG / 文件。
+Working memory holds the current plan; episodic memory is retrievable; semantic memory holds user and company facts; procedural memory is how to use tools. External memory is RAG or files.
 
 ### Level 3 — Engineering
 
-乱写记忆会造成 context pollution 和错误个性化。写入要过滤，读取要检索，而不是 append-only 日志。
+Careless writes cause context pollution and wrong personalization. Filter before writing and retrieve when reading — don't treat memory as an append-only log.
 
-## 面试问题
+## Interview questions
 
 1. How do you manage agent memory?
-2. Memory 到底解决什么问题？
-3. Conversation history 为什么不够？
-4. 记忆写错了如何修正？
+2. What problem does memory actually solve?
+3. Why isn't conversation history enough?
+4. How do you correct a memory that was written wrong?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

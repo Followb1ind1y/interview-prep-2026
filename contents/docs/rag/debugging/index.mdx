@@ -7,13 +7,74 @@ date: 2026-09-07
 keywords: ["rag debugging", "failure diagnosis"]
 ---
 
-这是非常重要的一页。面试官问 RAG answer is wrong 时，要能自然走完这张图。
+<Locale lang="zh">
+
+这是非常重要的一页。面试官问「RAG 答错了怎么办」时，要能自然地把这张图走一遍。
 
 ## 需要掌握
 
-按层排查，不要一上来换模型。
+按层排查，不要一上来就换模型。
 
 ## 机制
+
+```
+问题
+ ↓
+正确的文档被检索到了吗？
+ ↓
+没有 → 检索问题
+有
+ ↓
+正确的 chunk 排在前面了吗？
+ ↓
+没有 → 排序问题
+有
+ ↓
+context 拼装对了吗？
+ ↓
+不对 → 上下文问题
+对
+ ↓
+模型用上 context 了吗？
+ ↓
+没有 → 生成问题
+```
+
+## 三级回答
+
+### Level 1 — 定义
+
+把「答错了」拆成检索 / 排序 / 上下文 / 生成四类故障。
+
+### Level 2 — 机制
+
+逐层看：检索回来的文档 id、它们的排名、实际拼进 prompt 的片段，以及模型有没有引用这些片段。对应指标：Recall@K 看检索，faithfulness 看生成。
+
+### Level 3 — 工程
+
+「你的 RAG 检索召回率 90%，但答案准确率只有 70%，怎么诊断？」检索本身是够的，问题出在排序、context 拼装，或者生成时没有忠于证据。
+
+## 面试问题
+
+1. RAG 答错了，你查什么？（RAG answer is wrong. What do you investigate?）
+2. 正确的文档检索到了，答案却错了，为什么？（Correct document retrieved but answer wrong. Why?）
+3. 没有答案的查询怎么处理？（How do you handle no-answer queries?）
+4. 怎么降低 RAG 的延迟？（How would you reduce RAG latency?）
+5. 怎么评测 RAG？（How do you evaluate RAG?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+This page matters a lot. When an interviewer says "your RAG answer is wrong," you should walk through this diagram without thinking.
+
+## Must know
+
+Debug layer by layer. Don't start by swapping the model.
+
+## Mechanism
 
 ```
 Question
@@ -38,21 +99,21 @@ Did LLM use the context?
 NO → Generation problem
 ```
 
-## 三级回答
+## Three-level answers
 
 ### Level 1 — Definition
 
-把「答错了」拆成检索 / 排序 / 上下文 / 生成四类故障。
+Breaking "the answer is wrong" into four kinds of failure: retrieval, ranking, context, and generation.
 
 ### Level 2 — Mechanism
 
-看 retrieved ids、rank、拼进 prompt 的片段、以及模型是否引用了它们。指标：Recall@K vs faithfulness。
+Check each layer: the retrieved document ids, their ranks, the snippets that actually went into the prompt, and whether the model cited them. The matching metrics: Recall@K for retrieval, faithfulness for generation.
 
 ### Level 3 — Engineering
 
-Your RAG has 90% retrieval recall but only 70% answer accuracy. Diagnose it：检索是够的，问题在 ranking、context 拼装或生成不守证据。
+"Your RAG has 90% retrieval recall but only 70% answer accuracy. Diagnose it." Retrieval is good enough — the problem is in ranking, context assembly, or generation that doesn't stick to the evidence.
 
-## 面试问题
+## Interview questions
 
 1. RAG answer is wrong. What do you investigate?
 2. Correct document retrieved but answer wrong. Why?
@@ -60,10 +121,22 @@ Your RAG has 90% retrieval recall but only 70% answer accuracy. Diagnose it：�
 4. How would you reduce RAG latency?
 5. How do you evaluate RAG?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

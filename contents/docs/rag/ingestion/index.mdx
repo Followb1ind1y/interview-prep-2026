@@ -7,9 +7,28 @@ date: 2026-09-07
 keywords: ["ingestion", "ocr", "pdf", "metadata"]
 ---
 
+<Locale lang="zh">
+
 企业文档不干净。解析错了，后面全错。
 
 ## 需要掌握
+
+- PDF / HTML / Markdown
+- tables（表格）
+- images（图片）
+- OCR（光学字符识别）
+- metadata（元数据）
+- document versioning（文档版本管理）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Enterprise documents are messy. Get parsing wrong and everything after it is wrong.
+
+## Must know
 
 - PDF / HTML / Markdown
 - tables
@@ -18,37 +37,80 @@ keywords: ["ingestion", "ocr", "pdf", "metadata"]
 - metadata
 - document versioning
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 Raw files → parse → clean → attach metadata → version → chunk
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-把各格式文档变成可切块、可追溯的文本 + 元数据。
+把各种格式的文档变成可以切块、可以追溯来源的文本 + 元数据。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-解析器按类型处理；表和扫描件要 OCR / 结构保留。Metadata（source、时间、权限、版本）留给过滤和引用。
+解析器按文件类型分别处理；表格和扫描件要做 OCR，并保留结构。元数据（来源、时间、权限、版本）留给后续过滤和引用。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-版本更新必须能失效旧 chunk。权限字段要进 metadata filter，不能只靠 prompt「不要看机密」。
+文档版本更新时必须能让旧 chunk 失效。权限字段要进元数据过滤，不能只靠 prompt 里写一句「不要看机密内容」。
 
 ## 面试问题
 
-1. PDF 表格和扫描件你怎么 ingest？
-2. 文档更新后索引如何保持一致？
-3. Metadata 至少要有哪些字段？
-4. Ingestion 失败如何被观测到？
+1. PDF 表格和扫描件你怎么入库？（How do you ingest PDF tables and scanned documents?）
+2. 文档更新后，索引怎么保持一致？（How do you keep the index consistent when documents change?）
+3. 元数据至少要有哪些字段？（What metadata fields are the bare minimum?）
+4. 入库失败怎么被观测到？（How do you detect ingestion failures?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Turning documents in every format into text plus metadata that can be chunked and traced back to its source.
+
+### Level 2 — Mechanism
+
+Parsers handle each file type separately; tables and scans need OCR with their structure preserved. Metadata (source, timestamp, permissions, version) is kept for filtering and citations later.
+
+### Level 3 — Engineering
+
+When a document gets a new version, the old chunks have to be invalidated. Permission fields belong in the metadata filter — you can't rely on a prompt that says "don't look at confidential content."
+
+## Interview questions
+
+1. How do you ingest PDF tables and scanned documents?
+2. How do you keep the index consistent when documents change?
+3. What metadata fields are the bare minimum?
+4. How do you detect ingestion failures?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

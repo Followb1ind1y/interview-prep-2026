@@ -7,6 +7,8 @@ date: 2026-09-07
 keywords: ["agent loop", "observe", "reason", "act"]
 ---
 
+<Locale lang="zh">
+
 Agent 的定义从 loop 开始，而不是从框架名开始。
 
 ## 需要掌握
@@ -15,6 +17,20 @@ Agent 的定义从 loop 开始，而不是从框架名开始。
 
 ## 机制
 
+</Locale>
+
+<Locale lang="en">
+
+Defining an agent starts with the loop, not with a framework name.
+
+## Must know
+
+You must be able to draw and explain this loop.
+
+## Mechanism
+
+</Locale>
+
 ```
 Observe
  ↓
@@ -28,32 +44,73 @@ Reason
  ↓
 Act
 ```
+
+<Locale lang="zh">
 
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-Agent 是在环境中循环：看状态、决定、行动、再看结果。
+Agent 在环境里循环：观察状态、做决定、执行动作、再看结果。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-没有 loop 就只是一次 LLM 调用。工具结果、检索、代码输出都必须回到模型，才能纠正和继续。
+没有 loop，就只是一次 LLM 调用。工具结果、检索内容、代码输出都必须回到模型，模型才能纠错和继续。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-Loop 带来无限循环、费用和延迟。必须有 max iterations、timeout、budget。Your agent occasionally loops for 20 steps and costs $0.50 per request. How do you debug and fix it?
+Loop 会带来死循环、费用和延迟问题，所以必须有最大迭代次数、超时和预算。典型题：「你的 agent 偶尔会循环 20 步，每次请求花 $0.50，怎么排查和修复？」
 
 ## 面试问题
 
-1. What is an agent?
-2. Explain the agent loop.
-3. 为什么需要 agent loop，而不是一次生成完？
-4. 如何发现 loop 在空转？
+1. 什么是 agent？（What is an agent?）
+2. 解释一下 agent loop。（Explain the agent loop.）
+3. 为什么需要 agent loop，而不是一次生成完？（Why do you need an agent loop instead of generating everything in one pass?）
+4. 怎么发现 loop 在空转？（How do you detect that the loop is spinning without making progress?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+An agent runs in a loop inside an environment: observe the state, decide, act, then look at the result.
+
+### Level 2 — Mechanism
+
+Without the loop, it's just a single LLM call. Tool results, retrieved content, and code output all have to flow back to the model so it can correct itself and keep going.
+
+### Level 3 — Engineering
+
+The loop brings infinite loops, cost, and latency with it, so you need max iterations, timeouts, and budgets. Classic question: "Your agent occasionally loops for 20 steps and costs $0.50 per request. How do you debug and fix it?"
+
+## Interview questions
+
+1. What is an agent?
+2. Explain the agent loop.
+3. Why do you need an agent loop instead of generating everything in one pass?
+4. How do you detect that the loop is spinning without making progress?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

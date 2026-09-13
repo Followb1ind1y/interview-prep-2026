@@ -7,47 +7,104 @@ date: 2026-09-07
 keywords: ["offline eval", "golden dataset", "regression testing", "a/b test"]
 ---
 
-上线前必须能在固定集上回归。A/B 是线上，但设计从离线开始。
+<Locale lang="zh">
+
+上线前必须能在固定的评测集上跑回归。A/B 测试发生在线上，但设计要从离线开始。
 
 ## 需要掌握
+
+- golden dataset（标准评测集）
+- benchmark（基准测试）
+- regression testing（回归测试）
+- A/B test（A/B 测试）
+
+## 机制
+
+```
+golden set → 跑系统 → 打分 → 通过 / 不通过的发布门槛
+线上 A/B → 真实用户 → 结果要等一段时间才能确认
+```
+
+## 三级回答
+
+### Level 1 — 定义
+
+离线：用冻结的标注集反复跑；线上：分流用户，看真实指标。
+
+### Level 2 — 机制
+
+Golden set 要覆盖各种失败模式，而不只是理想路径。回归测试要接进 CI。A/B 测试用来验证离线分数高的改动，对用户是不是真的更好。
+
+### Level 3 — 工程
+
+评测集太小，会对评测本身过拟合。线上的失败要回流进 golden set，见 Production Eval。
+
+## 面试问题
+
+1. Golden dataset 怎么建？谁来标注？（How do you build a golden dataset, and who labels it?）
+2. 公开 benchmark 和私有评测集怎么搭配？（How do you combine public benchmarks with a private eval set?）
+3. 哪些改动必须挡住不能发布？（What kinds of changes should block a release?）
+4. 离线分数涨了、线上却变差了，说明什么？（Offline scores went up but production got worse — what does that tell you?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+Before launch, you must be able to run regressions against a fixed set. A/B tests happen online, but the design starts offline.
+
+## Must know
 
 - golden dataset
 - benchmark
 - regression testing
 - A/B test
 
-## 机制
+## Mechanism
 
 ```
 golden set → run system → scores → pass/fail gate
-online A/B → 真实用户 → 延迟确认
+online A/B → real users → confirmation takes time
 ```
 
-## 三级回答
+## Three-level answers
 
 ### Level 1 — Definition
 
-离线用冻结的标注集反复跑；线上用分流看真实指标。
+Offline: rerun a frozen, labeled set again and again. Online: split traffic and watch real metrics.
 
 ### Level 2 — Mechanism
 
-Golden set 要覆盖失败模式，不只 happy path。Regression 绑 CI。A/B 验证离线分高的改动真的对用户好。
+The golden set has to cover failure modes, not just the happy path. Regression tests hook into CI. A/B tests confirm that a change with better offline scores is actually better for users.
 
 ### Level 3 — Engineering
 
-集太小会过拟合评测。生产失败要回流进 golden set，见 Production Eval。
+If the set is too small, you end up overfitting to the eval. Production failures need to flow back into the golden set — see Production Eval.
 
-## 面试问题
+## Interview questions
 
-1. Golden dataset 怎么建、谁来标？
-2. 公开 benchmark 和私有集如何搭配？
-3. 什么改动必须挡住发布？
-4. 离线分数涨、线上变差，说明什么？
+1. How do you build a golden dataset, and who labels it?
+2. How do you combine public benchmarks with a private eval set?
+3. What kinds of changes should block a release?
+4. Offline scores went up but production got worse — what does that tell you?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

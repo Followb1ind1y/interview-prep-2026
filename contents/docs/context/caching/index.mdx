@@ -7,48 +7,106 @@ date: 2026-09-07
 keywords: ["prompt caching", "kv cache", "semantic caching"]
 ---
 
-三张缓存图必须能分开讲。
+<Locale lang="zh">
+
+三种缓存必须能分开讲清楚。
 
 ## 需要掌握
+
+- prompt caching（prompt 缓存）
+- KV cache
+- application-level caching（应用层缓存）
+- semantic caching（语义缓存）
+
+## 机制
+
+```
+Prompt cache     前缀 token 在 API / 推理侧跨请求复用
+KV cache         同一次生成里复用已经算好的 K/V
+Semantic cache   相似问题直接返回答案，可能完全跳过 LLM
+```
+
+## 三级回答
+
+### Level 1 — 定义
+
+缓存用来减少重复计算或重复计费。不同缓存处在不同层，失效条件也不同。
+
+### Level 2 — 机制
+
+KV cache 是单次解码过程中的状态。Prompt cache 复用跨请求的公共前缀。Semantic cache 按 embedding 相似度近似命中。
+
+### Level 3 — 工程
+
+前缀不稳定，就别指望 prompt cache 生效。用户私有数据不能进共享的语义缓存。KV cache 撑爆显存的问题在 Inference 页。
+
+## 面试问题
+
+1. Prompt cache、KV cache、semantic cache 有什么区别？（What's the difference between prompt cache, KV cache, and semantic cache?）
+2. 什么样的 system prompt 适合做 prompt caching？（What kind of system prompt is a good fit for prompt caching?）
+3. 怎么防止语义缓存误命中？（How do you prevent false hits in a semantic cache?）
+4. 应用层缓存该缓存答案、检索结果，还是 embedding？（Should an application-level cache store answers, retrieval results, or embeddings?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+You have to be able to explain the three caches separately.
+
+## Must know
 
 - prompt caching
 - KV cache
 - application-level caching
 - semantic caching
 
-## 机制
+## Mechanism
 
 ```
-Prompt cache     前缀 token 在 API / 推理侧复用
-KV cache         同一次生成里复用已算的 K/V
-Semantic cache   相似问题直接返回答案，可能跳过 LLM
+Prompt cache     prefix tokens reused across requests on the API / inference side
+KV cache         already-computed K/V reused within a single generation
+Semantic cache   similar questions get a stored answer, possibly skipping the LLM
 ```
 
-## 三级回答
+## Three-level answers
 
 ### Level 1 — Definition
 
-缓存减少重复计算或重复计费，层不同、失效条件不同。
+Caches cut repeated computation or repeated billing. Each one sits at a different layer and invalidates under different conditions.
 
 ### Level 2 — Mechanism
 
-KV 是单次 decode 的状态。Prompt cache 是跨请求的公共前缀。Semantic cache 按嵌入近似命中。
+The KV cache is state inside a single decode. The prompt cache reuses a shared prefix across requests. The semantic cache hits approximately, by embedding similarity.
 
 ### Level 3 — Engineering
 
-前缀不稳定就别指望 prompt cache。用户数据不能进共享 semantic cache。KV 爆显存在 Inference 页。
+If the prefix isn't stable, don't count on prompt caching. User-private data can't go into a shared semantic cache. KV cache blowing up GPU memory is covered on the Inference page.
 
-## 面试问题
+## Interview questions
 
-1. Prompt cache、KV cache、semantic cache 有什么区别？
-2. 什么样的 system prompt 适合 prompt caching？
-3. Semantic cache 的错误命中如何防？
-4. 应用层缓存该缓存答案、检索结果还是 embedding？
+1. What's the difference between prompt cache, KV cache, and semantic cache?
+2. What kind of system prompt is a good fit for prompt caching?
+3. How do you prevent false hits in a semantic cache?
+4. Should an application-level cache store answers, retrieval results, or embeddings?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

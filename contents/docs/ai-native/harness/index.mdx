@@ -7,13 +7,29 @@ date: 2026-09-07
 keywords: ["agent harness", "harness engineering"]
 ---
 
-OpenAI 2026 对 Codex 的总结直接使用 Harness Engineering：从「人写代码」转向设计 agent 工作环境、specification 和 feedback loops。
+<Locale lang="zh">
+
+OpenAI 2026 年对 Codex 的总结直接用了 Harness Engineering 这个说法：从「人写代码」转向设计 agent 的工作环境、规格说明和反馈闭环。
 
 ## 需要掌握
 
-Harness 里通常有：Tools、Memory、Context、Sandbox、State、Compaction、Files。
+Harness 里通常包括：工具、记忆、上下文、沙箱、状态、上下文压缩、文件。
 
 ## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+OpenAI's 2026 write-up on Codex uses the term harness engineering directly: the shift from humans writing code to designing the agent's working environment, specifications, and feedback loops.
+
+## Must know
+
+A harness usually includes: tools, memory, context, sandbox, state, compaction, files.
+
+## Mechanism
+
+</Locale>
 
 ```
                 Agent
@@ -31,32 +47,74 @@ Harness 里通常有：Tools、Memory、Context、Sandbox、State、Compaction�
           Files
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
+
+### Level 1 — 定义
+
+Harness 是 agent 的运行环境：它能碰到什么、怎么拿到反馈、上下文怎么维护。
+
+### Level 2 — 机制
+
+模型只负责输出 token。Harness 负责执行工具、管理权限、截断 / 压缩上下文、跑测试、保存状态。
+
+### Level 3 — 工程
+
+面试可能会问「你会怎么搭一个 coding agent 的 harness？」答案不是再包一层 LLM 调用，而是规格说明、工具接口、沙箱和验证闭环。
+
+## 面试问题
+
+1. 什么是 agent harness？（What is an agent harness?）
+2. 模型和 harness 有什么区别？（Model vs harness?）
+3. Harness 里应该包含哪些组件？（What components belong in a harness?）
+4. 你会怎么搭一个 coding agent 的 harness？（How would you build a coding-agent harness?）
+5. Harness 和 MCP 是什么关系？（How do the harness and MCP relate?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
 
 ### Level 1 — Definition
 
-Harness 是 agent 的运行环境：它能碰什么、怎么得到反馈、上下文如何维护。
+The harness is the agent's operating environment: what it can touch, how it gets feedback, and how its context is maintained.
 
 ### Level 2 — Mechanism
 
-模型只出 token。Harness 负责执行工具、管权限、截断/压缩 context、跑测试、存 state。
+The model only produces tokens. The harness executes tools, manages permissions, truncates or compacts context, runs tests, and persists state.
 
 ### Level 3 — Engineering
 
-面试可能问 How would you build a coding-agent harness? 答案不是再包一个 LLM 调用，而是规格、工具面、sandbox、验证环。
+You may get asked "How would you build a coding-agent harness?" The answer isn't another wrapper around an LLM call — it's specifications, the tool surface, a sandbox, and a verification loop.
 
-## 面试问题
+## Interview questions
 
 1. What is an agent harness?
 2. Model vs harness?
 3. What components belong in a harness?
 4. How would you build a coding-agent harness?
-5. Harness 和 MCP 是什么关系？
+5. How do the harness and MCP relate?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

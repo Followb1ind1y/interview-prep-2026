@@ -7,9 +7,29 @@ date: 2026-09-07
 keywords: ["pretraining", "next-token", "scaling laws", "cross entropy"]
 ---
 
-知道预训练在优化什么就够。SFT / RLHF 在 Post-training。
+<Locale lang="zh">
+
+知道预训练在优化什么就够了。SFT / RLHF 放在 Post-training 页。
 
 ## 需要掌握
+
+- pretraining（预训练）
+- next-token prediction（下一个 token 预测）
+- cross entropy（交叉熵）
+- gradient descent（梯度下降）
+- backpropagation（反向传播）
+- scaling laws（缩放定律）
+- 数据 / 模型 / 算力的同步扩展
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Knowing what pretraining optimizes is enough. SFT / RLHF live on the Post-training page.
+
+## Must know
 
 - pretraining
 - next-token prediction
@@ -19,7 +39,9 @@ keywords: ["pretraining", "next-token", "scaling laws", "cross entropy"]
 - scaling laws
 - data / model / compute scaling
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 prefix tokens → predict next token
@@ -27,31 +49,72 @@ prefix tokens → predict next token
              → backprop → update weights
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-预训练是大规模 next-token prediction，让模型学会语言和世界知识的统计结构。
+预训练就是大规模的下一个 token 预测，让模型学到语言和世界知识的统计结构。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-每个位置预测下一个 token，loss 是交叉熵。数据、模型、算力按 scaling laws 一起涨。
+每个位置都预测下一个 token，loss 是交叉熵。数据、模型规模和算力按 scaling laws 一起增长。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-面试不要展开优化器论文。能说清：预训练给的是通用先验；任务能力和听话来自 post-training。
+面试时不要展开优化器论文。能讲清这一点就够：预训练给的是通用先验；完成任务的能力和「听话」来自 post-training。
 
 ## 面试问题
 
-1. Pretraining 到底在优化什么目标？
-2. 为什么用 cross entropy 而不是直接「生成整句」？
-3. Scaling laws 对选模型和估效果有什么用？
-4. 预训练知识过时了，该 fine-tune 还是上 RAG？
+1. 预训练到底在优化什么目标？（What objective is pretraining actually optimizing?）
+2. 为什么用交叉熵，而不是直接「生成整句」？（Why train with cross entropy instead of generating whole sentences directly?）
+3. Scaling laws 对选模型和预估效果有什么用？（How do scaling laws help with choosing a model and estimating quality?）
+4. 预训练的知识过时了，该 fine-tune 还是上 RAG？（The model's pretraining knowledge is out of date — do you fine-tune or add RAG?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Pretraining is next-token prediction at massive scale. It teaches the model the statistical structure of language and world knowledge.
+
+### Level 2 — Mechanism
+
+Every position predicts the next token, and the loss is cross entropy. Data, model size, and compute are scaled up together along the scaling laws.
+
+### Level 3 — Engineering
+
+Don't wander into optimizer papers in an interview. The point to land: pretraining gives you a general prior; task skill and instruction following come from post-training.
+
+## Interview questions
+
+1. What objective is pretraining actually optimizing?
+2. Why train with cross entropy instead of generating whole sentences directly?
+3. How do scaling laws help with choosing a model and estimating quality?
+4. The model's pretraining knowledge is out of date — do you fine-tune or add RAG?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

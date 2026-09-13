@@ -7,14 +7,31 @@ date: 2026-08-30
 keywords: ["array", "hash", "two pointers"]
 ---
 
+<Locale lang="zh">
+
 ## 模式
 
-- 哈希表做 **O(1) 查找 / 计数**
+- 用哈希表做 **O(1) 查找 / 计数**
 - 左右指针处理有序数组
 - 滑动窗口维护区间约束
-- 前缀和把区间询问变成两次前缀相减
+- 前缀和把区间查询变成两个前缀相减
 
 ## 骨架
+
+</Locale>
+
+<Locale lang="en">
+
+## Patterns
+
+- Hash maps for **O(1) lookup / counting**
+- Left and right pointers on sorted arrays
+- Sliding window to maintain a range constraint
+- Prefix sums turn a range query into the difference of two prefixes
+
+## Skeleton
+
+</Locale>
 
 ```ts
 function twoSum(nums: number[], target: number) {
@@ -27,15 +44,36 @@ function twoSum(nums: number[], target: number) {
 }
 ```
 
+<Locale lang="zh">
+
 ## 代表题
 
 | 题 | 模式 | 状态 |
 | --- | --- | --- |
-| Two Sum | Hash | 待刷 |
-| Valid Anagram | Count | 待刷 |
-| Product of Array Except Self | Prefix | 待刷 |
-| Longest Consecutive Sequence | Hash set | 待刷 |
+| Two Sum | 哈希 | 待刷 |
+| Valid Anagram | 计数 | 待刷 |
+| Product of Array Except Self | 前缀积 | 待刷 |
+| Longest Consecutive Sequence | 哈希集合 | 待刷 |
 
 ## 复盘
 
 把做错的题和「当时卡在哪」写在这里。
+
+</Locale>
+
+<Locale lang="en">
+
+## Representative problems
+
+| Problem | Pattern | Status |
+| --- | --- | --- |
+| Two Sum | Hash | To do |
+| Valid Anagram | Count | To do |
+| Product of Array Except Self | Prefix | To do |
+| Longest Consecutive Sequence | Hash set | To do |
+
+## Retro
+
+Write down the problems you got wrong and where you got stuck.
+
+</Locale>

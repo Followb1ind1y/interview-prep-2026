@@ -7,9 +7,57 @@ date: 2026-09-07
 keywords: ["agent eval", "trajectory evaluation", "tool selection accuracy"]
 ---
 
-只评最终答案会放过乱跑的 agent。
+<Locale lang="zh">
+
+只评最终答案，会放过那些乱跑的 agent。
 
 ## 需要掌握
+
+- Task success（任务成功率）
+- Tool selection accuracy（工具选择准确率）
+- Tool argument accuracy（工具参数准确率）
+- Number of steps（步数）
+- Latency / Cost（延迟 / 成本）
+- Failure rate（失败率）
+- trajectory evaluation（执行轨迹评测）
+
+## 机制
+
+```
+最终答案评测     任务有没有完成
+轨迹评测         每一步的工具调用 / 状态是否合理
+```
+
+## 三级回答
+
+### Level 1 — 定义
+
+Agent 评测既看过程也看结果：任务做成了没有，以及工具用得对不对、用了多少步。
+
+### Level 2 — 机制
+
+轨迹评测对照标准路径或约束条件（比如禁止调用某个工具、必须做验证）。就算成功了，用了 20 步也照样不及格。
+
+### Level 3 — 工程
+
+线上监控成功率、费用和失败类型。离线用固定的任务集。工具参数错误要和选错工具分开统计。
+
+## 面试问题
+
+1. 怎么评测一个 agent？（How do you evaluate an agent?）
+2. 为什么需要执行轨迹评测？（Why do you need trajectory evaluation?）
+3. 步数很少但结果是碰巧对的，算好吗？（If an agent takes few steps but gets the right answer by luck, is that good?）
+4. 怎么评 multi-agent 之间的协调质量？（How do you evaluate coordination quality in a multi-agent system?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+If you only score the final answer, agents that wander all over the place slip through.
+
+## Must know
 
 - Task success
 - Tool selection accuracy
@@ -19,38 +67,50 @@ keywords: ["agent eval", "trajectory evaluation", "tool selection accuracy"]
 - Failure rate
 - trajectory evaluation
 
-## 机制
+## Mechanism
 
 ```
-final answer eval     任务成没成
-trajectory eval       每一步 tool / 状态是否合理
+final answer eval     did the task get done?
+trajectory eval       was each tool call / state transition reasonable?
 ```
 
-## 三级回答
+## Three-level answers
 
 ### Level 1 — Definition
 
-Agent 评的是过程和结果：做成了没有，以及是不是用对工具、用了多少步。
+Agent evaluation looks at both process and outcome: did it finish the task, did it use the right tools, and how many steps did it take.
 
 ### Level 2 — Mechanism
 
-Trajectory 对照金标路径或约束（禁止某 tool、必须验证）。成功但 20 步仍然不及格。
+Trajectory eval compares against a gold path or constraints (a tool that must never be called, a verification step that must happen). Succeeding in 20 steps still fails.
 
 ### Level 3 — Engineering
 
-线上用成功率、费用、失败类型监控。离线用固定任务集。工具参数错了要和选错工具分开记。
+Online, monitor success rate, cost, and failure types. Offline, use a fixed task set. Track wrong tool arguments separately from picking the wrong tool.
 
-## 面试问题
+## Interview questions
 
 1. How do you evaluate an agent?
-2. 为什么需要 trajectory evaluation？
-3. 步数少但是碰巧对了，算不算好？
-4. 如何评 multi-agent 的协调质量？
+2. Why do you need trajectory evaluation?
+3. If an agent takes few steps but gets the right answer by luck, is that good?
+4. How do you evaluate coordination quality in a multi-agent system?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

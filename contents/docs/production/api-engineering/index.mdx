@@ -7,9 +7,30 @@ date: 2026-09-07
 keywords: ["streaming", "retries", "rate limit", "asyncio"]
 ---
 
-对照 FastAPI + Gemini。这是把模型当依赖服务来用。
+<Locale lang="zh">
+
+对照 FastAPI + Gemini。核心是把模型当成一个依赖服务来用。
 
 ## 需要掌握
+
+- streaming（流式输出）
+- timeout（超时）
+- retries（重试）
+- rate limit（限流）
+- exponential backoff（指数退避）
+- concurrency（并发）
+- connection pooling（连接池）
+- async（异步）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Compare against FastAPI + Gemini. The core idea is treating the model as a dependency service.
+
+## Must know
 
 - streaming
 - timeout
@@ -20,7 +41,9 @@ keywords: ["streaming", "retries", "rate limit", "asyncio"]
 - connection pooling
 - async
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 client → API gateway → async worker
@@ -28,31 +51,72 @@ client → API gateway → async worker
        → backpressure / retry / timeout
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-LLM 是高延迟、限流、部分失败的 HTTP/RPC 依赖。
+LLM 是一个高延迟、会限流、会部分失败的 HTTP / RPC 依赖。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-流式降低 TTFT 体感。超时要分连接 / 首 token / 总时长。限流和 backoff 保护你和供应商。
+流式输出改善的是首 token 的体感。超时要分成连接超时、首 token 超时和总时长超时。限流和退避既保护你自己，也保护供应商。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-对非幂等工具不要盲目 retry。连接池和 async 决定能否撑 QPS。接到 Voice 的 streaming。
+对不幂等的工具不要盲目重试。连接池和异步决定你能扛多少 QPS。接到 Voice 项目的流式输出。
 
 ## 面试问题
 
-1. Streaming 对超时设计有什么影响？
-2. 429 和 5xx 的重试策略有何不同？
-3. 为什么 LLM 调用必须设硬超时？
-4. 并发打满时先排队、丢弃还是降级模型？
+1. 流式输出对超时设计有什么影响？（How does streaming change the way you design timeouts?）
+2. 429 和 5xx 的重试策略有什么不同？（How should retry strategy differ for 429 versus 5xx?）
+3. 为什么 LLM 调用必须设硬超时？（Why must LLM calls have a hard timeout?）
+4. 并发打满时，是排队、丢弃，还是降级到别的模型？（When concurrency is maxed out, do you queue, drop, or fall back to another model?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+An LLM is an HTTP / RPC dependency that's slow, rate-limited, and partially fails.
+
+### Level 2 — Mechanism
+
+Streaming improves how fast the first token feels. Timeouts should be split into connect, time-to-first-token, and total duration. Rate limits and backoff protect both you and the provider.
+
+### Level 3 — Engineering
+
+Don't blindly retry non-idempotent tools. Connection pooling and async decide how much QPS you can handle. This connects to streaming in the Voice project.
+
+## Interview questions
+
+1. How does streaming change the way you design timeouts?
+2. How should retry strategy differ for 429 versus 5xx?
+3. Why must LLM calls have a hard timeout?
+4. When concurrency is maxed out, do you queue, drop, or fall back to another model?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

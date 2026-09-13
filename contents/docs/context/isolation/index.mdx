@@ -7,13 +7,29 @@ date: 2026-09-07
 keywords: ["context isolation", "mcp", "security boundary"]
 ---
 
-MCP 2026 architecture 强调 server 不应默认看到完整 conversation，host 负责边界。
+<Locale lang="zh">
+
+MCP 2026 的架构强调：server 默认不应该看到完整对话，由 host 负责划定边界。
 
 ## 需要掌握
 
-多 agent / 多 tool 时，默认最小可见集。
+多 agent / 多工具的场景下，默认只给最小的可见范围。
 
 ## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+The 2026 MCP architecture is explicit that servers shouldn't see the full conversation by default — the host owns the boundary.
+
+## Must know
+
+With multiple agents or tools, default to the smallest visible set.
+
+## Mechanism
+
+</Locale>
 
 ```
 Agent A
@@ -23,33 +39,76 @@ Tool
 Agent B
 ```
 
-B 需要的是任务相关的输入，不是 A 的全部历史。
+<Locale lang="zh">
+
+B 需要的是和任务相关的输入，而不是 A 的全部历史。
 
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-每个模型调用、每个工具只看到完成该步所需的 context。
+每一次模型调用、每一个工具，都只看到完成这一步所需的 context。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-Host 做隔离；tool / MCP server 拿参数和授权资源，而不是整段聊天。
+由 host 负责隔离；tool / MCP server 拿到的是参数和经过授权的资源，而不是整段聊天记录。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-不隔离就会 prompt injection 扩散、数据外泄、权限打穿。接到 [Agent Security](/docs/agent/security) 和 [MCP](/docs/ai-native/mcp)。
+不做隔离，prompt injection 会扩散、数据会外泄、权限会被打穿。接到 [Agent Security](/docs/agent/security) 和 [MCP](/docs/ai-native/mcp)。
 
 ## 面试问题
 
-1. Agent B 是否应该看到全部 conversation？为什么？
-2. Host 和 tool server 的 context 边界怎么划？
-3. 隔离会不会让 agent 变笨？如何补偿？
-4. 这和普通微服务的权限模型有何相似？
+1. Agent B 应该看到全部对话吗？为什么？（Should Agent B see the full conversation? Why or why not?）
+2. Host 和 tool server 之间的 context 边界怎么划？（Where do you draw the context boundary between the host and a tool server?）
+3. 隔离会不会让 agent 变笨？怎么弥补？（Does isolation make an agent less capable, and how do you compensate?）
+4. 这和普通微服务的权限模型有什么相似之处？（How is this similar to the permission model of ordinary microservices?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+B needs the inputs relevant to its task, not A's entire history.
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Every model call and every tool sees only the context needed to finish that step.
+
+### Level 2 — Mechanism
+
+The host enforces isolation; a tool or MCP server gets arguments and authorized resources, not the whole chat transcript.
+
+### Level 3 — Engineering
+
+Without isolation, prompt injection spreads, data leaks, and permissions get bypassed. This connects to [Agent Security](/docs/agent/security) and [MCP](/docs/ai-native/mcp).
+
+## Interview questions
+
+1. Should Agent B see the full conversation? Why or why not?
+2. Where do you draw the context boundary between the host and a tool server?
+3. Does isolation make an agent less capable, and how do you compensate?
+4. How is this similar to the permission model of ordinary microservices?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

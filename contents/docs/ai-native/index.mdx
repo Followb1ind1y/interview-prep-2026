@@ -7,26 +7,61 @@ date: 2026-09-07
 keywords: ["mcp", "harness", "claude code", "codex", "context compaction", "sandbox"]
 ---
 
-放在最后学。先有 LLM + Tools + Context + State + Feedback loop，再看 Claude Code / Codex，会发现它们并不神秘：
+<Locale lang="zh">
+
+放在最后学。先把 LLM + 工具 + 上下文 + 状态 + 反馈闭环学明白，再看 Claude Code / Codex，会发现它们并不神秘：
+
+</Locale>
+
+<Locale lang="en">
+
+Learn this last. Once LLM + tools + context + state + feedback loop make sense, Claude Code / Codex stop looking mysterious:
+
+</Locale>
 
 ```
 LLM + Tools + Context + State
   + Execution Environment + Feedback Loop + Safety
 ```
 
+<Locale lang="zh">
+
 <CardGrid>
   <Card title="MCP" description="Host / Client / Server；Tools、Resources、Prompts。和 function calling 的区别。" href="/docs/ai-native/mcp" />
-  <Card title="Agent Harness" description="Model 是 brain，Harness 是 operating environment。" href="/docs/ai-native/harness" />
-  <Card title="Claude Code / Codex" description="理解 architecture，不必成为产品专家。" href="/docs/ai-native/coding-workflow" />
-  <Card title="Agentic Coding" description="Agent 怎么知道自己写对了：feedback loop。" href="/docs/ai-native/agentic-coding" />
-  <Card title="Context Compaction" description="overflow 时保什么，而不是「把聊天总结一下」。" href="/docs/ai-native/compaction" />
-  <Card title="Agent State" description="Conversation ≠ State。长任务 / 后台 agent。" href="/docs/ai-native/agent-state" />
-  <Card title="Sandbox" description="filesystem / process / network / credentials 隔离。" href="/docs/ai-native/sandbox" />
+  <Card title="Agent Harness" description="模型是大脑，Harness 是它的运行环境。" href="/docs/ai-native/harness" />
+  <Card title="Claude Code / Codex" description="理解背后的架构，不必成为产品专家。" href="/docs/ai-native/coding-workflow" />
+  <Card title="Agentic Coding" description="Agent 怎么知道自己写对了：反馈闭环。" href="/docs/ai-native/agentic-coding" />
+  <Card title="Context Compaction" description="上下文溢出时保留什么，而不是「把聊天总结一下」。" href="/docs/ai-native/compaction" />
+  <Card title="Agent State" description="对话 ≠ 状态。长任务 / 后台 agent。" href="/docs/ai-native/agent-state" />
+  <Card title="Sandbox" description="文件系统 / 进程 / 网络 / 凭证隔离。" href="/docs/ai-native/sandbox" />
 </CardGrid>
 
 ## 本专栏计划
 
-1. MCP：能画 Host → Client → Server，能答和 function calling 的区别
-2. Harness：能列出 tools / memory / context / sandbox / compaction
-3. Coding workflow + Agentic coding：Write → Test → Observe → Fix
-4. Compaction + State + Sandbox：长任务怎么可靠、怎么控制 blast radius
+1. MCP：能画出 Host → Client → Server，能讲清和 function calling 的区别
+2. Harness：能列出工具 / 记忆 / 上下文 / 沙箱 / 压缩这些组成部分
+3. Coding workflow + Agentic coding：写 → 测 → 观察 → 修
+4. Compaction + State + Sandbox：长任务怎么做可靠、怎么控制影响范围
+
+</Locale>
+
+<Locale lang="en">
+
+<CardGrid>
+  <Card title="MCP" description="Host / Client / Server; tools, resources, prompts. How it differs from function calling." href="/docs/ai-native/mcp" />
+  <Card title="Agent Harness" description="The model is the brain; the harness is its operating environment." href="/docs/ai-native/harness" />
+  <Card title="Claude Code / Codex" description="Understand the architecture — no need to be a product expert." href="/docs/ai-native/coding-workflow" />
+  <Card title="Agentic Coding" description="How does an agent know its code is right? The feedback loop." href="/docs/ai-native/agentic-coding" />
+  <Card title="Context Compaction" description="What to keep when context overflows — not just summarizing the chat." href="/docs/ai-native/compaction" />
+  <Card title="Agent State" description="Conversation ≠ state. Long-running and background agents." href="/docs/ai-native/agent-state" />
+  <Card title="Sandbox" description="Isolating filesystem, processes, network, and credentials." href="/docs/ai-native/sandbox" />
+</CardGrid>
+
+## Plan for this column
+
+1. MCP: draw Host → Client → Server and explain how it differs from function calling
+2. Harness: list its components — tools, memory, context, sandbox, compaction
+3. Coding workflow + agentic coding: Write → Test → Observe → Fix
+4. Compaction + state + sandbox: making long-running tasks reliable and containing the blast radius
+
+</Locale>

@@ -7,11 +7,34 @@ date: 2026-09-07
 keywords: ["observability", "tracing", "prompt version"]
 ---
 
-没有 trace 就无法做 Production Eval 和故障诊断。
+<Locale lang="zh">
+
+没有 trace，就没法做线上评测和故障诊断。
 
 ## 需要掌握
 
-记录：
+要记录：
+
+- latency（延迟）
+- token usage / cost（token 用量 / 成本）
+- model（模型）
+- prompt version（prompt 版本）
+- retrieved documents（检索到的文档）
+- tool calls（工具调用）
+- errors（错误）
+- evaluation score（评测分数）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Without traces, you can't do production evaluation or failure diagnosis.
+
+## Must know
+
+Record:
 
 - latency
 - token usage / cost
@@ -22,7 +45,9 @@ keywords: ["observability", "tracing", "prompt version"]
 - errors
 - evaluation score
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 Request
@@ -40,31 +65,72 @@ Tool
 LLM
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-能复盘一次请求为什么慢、贵、错。
+能事后复盘：一次请求为什么慢、为什么贵、为什么错。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-分布式 trace 把子调用串起来。Prompt 必须有版本号。检索文档 id 要能回放。
+分布式 trace 把所有子调用串起来。Prompt 必须有版本号。检索到的文档 id 要能回放。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-日志里不要明文密钥和用户隐私。采样高流量，全量存失败。接到 eval 闭环。
+日志里不要出现明文密钥和用户隐私。高流量时做采样，失败的请求全量保存。接到评测闭环。
 
 ## 面试问题
 
-1. 一次 RAG 请求最少要打哪些 span？
-2. Prompt 变更如何在线上对比？
-3. Token / cost 如何按租户聚合？
-4. 如何从 trace 跳到失败样本集？
+1. 一次 RAG 请求至少要打哪些 span？（What spans does a single RAG request need at minimum?）
+2. Prompt 改动之后怎么在线上做对比？（How do you compare prompt changes in production?）
+3. Token 用量和成本怎么按租户汇总？（How do you aggregate token usage and cost per tenant?）
+4. 怎么从 trace 直接跳到失败样本集？（How do you go from a trace straight to a set of failure cases?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Being able to reconstruct why a single request was slow, expensive, or wrong.
+
+### Level 2 — Mechanism
+
+Distributed tracing ties all the sub-calls together. Prompts must carry a version number. Retrieved document IDs have to be replayable.
+
+### Level 3 — Engineering
+
+Keep plaintext secrets and user PII out of logs. Sample high-volume traffic, and keep every failed request. Feed it all into the eval loop.
+
+## Interview questions
+
+1. What spans does a single RAG request need at minimum?
+2. How do you compare prompt changes in production?
+3. How do you aggregate token usage and cost per tenant?
+4. How do you go from a trace straight to a set of failure cases?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

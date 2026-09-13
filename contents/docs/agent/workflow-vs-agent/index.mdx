@@ -7,13 +7,29 @@ date: 2026-09-07
 keywords: ["workflow vs agent", "deterministic"]
 ---
 
-固定流程通常更便宜、更可预测。2026 面试资料特别强调这一点。
+<Locale lang="zh">
+
+固定流程通常更便宜、更可预测。2026 年的面试资料特别强调这一点。
 
 ## 需要掌握
 
-能画两种控制流，能举一个自己做过的「不该上 agent」的例子。
+能画出两种控制流，能举一个自己做过的「不该上 agent」的例子。
 
 ## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+A fixed flow is usually cheaper and more predictable. Interview prep material in 2026 stresses this a lot.
+
+## Must know
+
+Draw both control flows, and give an example from your own work where an agent was the wrong call.
+
+## Mechanism
+
+</Locale>
 
 ```
 Workflow
@@ -27,31 +43,72 @@ A → LLM decides → B
                   A again
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-Workflow 预定义路径。Agent 由模型在运行时选择下一步。
+Workflow 的路径是预先定义好的。Agent 由模型在运行时选择下一步。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-确定性步骤（抽字段 → 校验 → 写库）用 workflow。分支依赖未知环境和工具结果时，才需要 agent。
+确定性的步骤（抽取字段 → 校验 → 写库）用 workflow。只有分支取决于未知环境和工具结果时，才需要 agent。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-Agent 的代价是延迟、成本、不可复现。能 workflow 解决的不要包一层「智能」。
+Agent 的代价是延迟、成本和结果不可复现。能用 workflow 解决的，就不要再包一层「智能」。
 
 ## 面试问题
 
-1. Agent vs workflow?
-2. 什么时候不要使用 Agent？
-3. 如何在同一产品里混用二者？
-4. 你的项目里哪一段其实是 workflow？
+1. Agent 和 workflow 怎么选？（Agent vs workflow?）
+2. 什么时候不应该用 agent？（When should you not use an agent?）
+3. 同一个产品里怎么混用两者？（How do you mix both in the same product?）
+4. 你的项目里哪一段其实是 workflow？（Which part of your project is really a workflow?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+A workflow follows a predefined path. An agent lets the model pick the next step at runtime.
+
+### Level 2 — Mechanism
+
+Deterministic steps (extract fields → validate → write to the DB) belong in a workflow. You only need an agent when branching depends on an unknown environment and tool results.
+
+### Level 3 — Engineering
+
+An agent costs you latency, money, and reproducibility. If a workflow solves it, don't wrap it in a layer of "intelligence."
+
+## Interview questions
+
+1. Agent vs workflow?
+2. When should you not use an agent?
+3. How do you mix both in the same product?
+4. Which part of your project is really a workflow?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

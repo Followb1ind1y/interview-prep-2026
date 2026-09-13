@@ -7,13 +7,29 @@ date: 2026-09-07
 keywords: ["production eval", "tracing", "eval-driven"]
 ---
 
+<Locale lang="zh">
+
 这才是成熟的 AI Engineer 思维。
 
 ## 需要掌握
 
-评测不是发布前的一次打分。
+评测不是发布前打一次分就结束。
 
 ## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+This is what mature AI engineering thinking looks like.
+
+## Must know
+
+Evaluation isn't a one-time score before release.
+
+## Mechanism
+
+</Locale>
 
 ```
 Offline Eval
@@ -33,31 +49,72 @@ New Eval
 Regression Test
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-把线上失败变成离线回归，形成闭环。
+把线上的失败变成离线的回归用例，形成闭环。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-Trace 记录 prompt 版本、检索、工具、输出。失败样本人工或 judge 标注后进入 golden set。
+Trace 记录 prompt 版本、检索内容、工具调用和输出。失败样本经过人工或评审模型标注后，进入 golden set。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-没有这条环，eval 会和真实用户脱节。Staging 要用生产流量的影子或回放。
+没有这个闭环，评测会和真实用户脱节。预发环境要用生产流量的影子流量或回放。
 
 ## 面试问题
 
-1. 线上幻觉如何在一周内变成回归用例？
-2. Trace 至少要记哪些字段？
-3. 如何避免评测集只反映上周的故障？
-4. Online eval 和离线 gate 如何分工？
+1. 线上出现的幻觉，怎么在一周内变成回归用例？（How do you turn a production hallucination into a regression test within a week?）
+2. Trace 至少要记录哪些字段？（What fields must a trace record at minimum?）
+3. 怎么避免评测集只反映上周的故障？（How do you keep the eval set from only reflecting last week's incidents?）
+4. 线上评测和离线发布门槛怎么分工？（How do online evaluation and offline release gates divide the work?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Turning production failures into offline regression tests, closing the loop.
+
+### Level 2 — Mechanism
+
+Traces record the prompt version, retrieval, tool calls, and output. Failed samples get labeled by a human or a judge and go into the golden set.
+
+### Level 3 — Engineering
+
+Without this loop, evaluation drifts away from real users. Staging should use shadow or replayed production traffic.
+
+## Interview questions
+
+1. How do you turn a production hallucination into a regression test within a week?
+2. What fields must a trace record at minimum?
+3. How do you keep the eval set from only reflecting last week's incidents?
+4. How do online evaluation and offline release gates divide the work?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

@@ -7,9 +7,32 @@ date: 2026-09-07
 keywords: ["agent reliability", "circuit breaker", "human-in-the-loop", "timeout"]
 ---
 
-可靠性不是加分项。没有这些，agent 不能上生产。
+<Locale lang="zh">
+
+可靠性不是加分项。没有这些，agent 就不能上生产。
 
 ## 需要掌握
+
+- max iterations（最大迭代次数）
+- timeout（超时）
+- retry / exponential backoff（重试 / 指数退避）
+- circuit breaker（熔断）
+- tool failure（工具失败）
+- hallucinated tool arguments（幻觉出的工具参数）
+- infinite loops / stuck agents（死循环 / 卡住的 agent）
+- fallback（降级兜底）
+- human-in-the-loop（人工介入）
+- budget limits（预算上限）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Reliability isn't a bonus. Without these, an agent can't go to production.
+
+## Must know
 
 - max iterations
 - timeout
@@ -22,7 +45,9 @@ keywords: ["agent reliability", "circuit breaker", "human-in-the-loop", "timeout
 - human-in-the-loop
 - budget limits
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 budget / max steps / timeout
@@ -34,31 +59,72 @@ circuit breaker / fallback model
 human escalation
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-保证 agent 在失败、幻觉、卡住时仍然停得下来、降级得了、转得走人工。
+保证 agent 在失败、幻觉、卡住的时候，仍然停得下来、能降级、能转给人工。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-步数和预算是硬限制。工具层 retry 与模型层 fallback 分开。熔断避免下游被打爆。
+步数和预算是硬性限制。工具层的重试和模型层的降级要分开处理。熔断避免把下游服务打垮。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-Your agent loops 20 steps and costs $0.50：查是否缺终止条件、工具是否总失败、prompt 是否鼓励「再试一次」、有没有重复同参调用。
+「你的 agent 循环了 20 步、花了 $0.50」：查是不是缺终止条件、工具是不是一直在失败、prompt 是不是在鼓励「再试一次」、有没有用相同参数重复调用。
 
 ## 面试问题
 
-1. How do you prevent infinite loops?
-2. What if a tool fails?
-3. Budget limits 按 token、美元还是步数？
-4. 哪些失败必须 HITL，哪些可以自动 fallback？
+1. 怎么防止死循环？（How do you prevent infinite loops?）
+2. 工具调用失败了怎么办？（What if a tool fails?）
+3. 预算上限按 token、美元还是步数算？（Should budget limits be measured in tokens, dollars, or steps?）
+4. 哪些失败必须人工介入，哪些可以自动降级？（Which failures require a human in the loop, and which can fall back automatically?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Making sure that when an agent fails, hallucinates, or gets stuck, it can still stop, degrade gracefully, and hand off to a human.
+
+### Level 2 — Mechanism
+
+Step counts and budgets are hard limits. Tool-level retries and model-level fallbacks are handled separately. Circuit breakers keep you from hammering downstream services.
+
+### Level 3 — Engineering
+
+"Your agent loops for 20 steps and costs $0.50": check for a missing stop condition, a tool that keeps failing, a prompt that encourages "try again," and repeated calls with identical arguments.
+
+## Interview questions
+
+1. How do you prevent infinite loops?
+2. What if a tool fails?
+3. Should budget limits be measured in tokens, dollars, or steps?
+4. Which failures require a human in the loop, and which can fall back automatically?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

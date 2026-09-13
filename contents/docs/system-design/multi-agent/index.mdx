@@ -7,17 +7,37 @@ date: 2026-09-07
 keywords: ["multi-agent system"]
 ---
 
-Design multi-agent system.
+<Locale lang="zh">
+
+设计一个 multi-agent 系统。（Design a multi-agent system.）
 
 <Note title="开口框架">
-每道题都走同一套 14 个 dimensions，不要一上来画微服务。知识点不够就回到 01–07 / 09。
+每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
 </Note>
 
 ## 本题要练什么
 
-对照 Tariff Supervisor。先论证为什么单 agent 不够。强调 isolation 和延迟。
+对照 Tariff 项目的 Supervisor。先论证为什么单个 agent 不够，强调隔离和延迟。
 
 ## 白板草图
+
+</Locale>
+
+<Locale lang="en">
+
+Design a multi-agent system.
+
+<Note title="Opening framework">
+Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+</Note>
+
+## What this problem trains
+
+Compare against the Tariff Supervisor. First argue why a single agent isn't enough, and emphasize isolation and latency.
+
+## Whiteboard sketch
+
+</Locale>
 
 ```
 Supervisor
@@ -27,12 +47,44 @@ Supervisor
  shared state / bus
 ```
 
+<Locale lang="zh">
+
 ## 容易被追问
 
+1. 什么时候应该用 multi-agent？（When should you use multi-agent?）
+2. 用共享记忆还是消息传递？（Shared memory or message passing?）
+3. 怎么防止两个 agent 互相覆盖对方的状态？（How do you stop two agents from overwriting each other's state?）
+4. 成本模型怎么算？（How do you model the cost?）
+
+## 14 个维度
+
+```
+1. 需求（Requirements）
+2. 约束（Constraints）
+3. 架构（Architecture）
+4. 数据流（Data Flow）
+5. 模型（Model）
+6. 检索（Retrieval）
+7. 智能体（Agent）
+8. 评测（Evaluation）
+9. 扩展（Scaling）
+10. 延迟（Latency）
+11. 成本（Cost）
+12. 可靠性（Reliability）
+13. 安全（Security）
+14. 可观测性（Observability）
+```
+
+</Locale>
+
+<Locale lang="en">
+
+## Likely follow-ups
+
 1. When should you use multi-agent?
-2. 共享 memory 还是消息传递？
-3. 如何防止两个 agent 互相改写状态？
-4. 成本模型怎么算？
+2. Shared memory or message passing?
+3. How do you stop two agents from overwriting each other's state?
+4. How do you model the cost?
 
 ## Dimensions
 
@@ -53,62 +105,214 @@ Supervisor
 14. Observability
 ```
 
+</Locale>
+
+<Locale lang="zh">
+
+## 需求
+
+</Locale>
+
+<Locale lang="en">
+
 ## Requirements
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 约束
+
+</Locale>
+
+<Locale lang="en">
 
 ## Constraints
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 架构
+
+</Locale>
+
+<Locale lang="en">
 
 ## Architecture
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 数据流
+
+</Locale>
+
+<Locale lang="en">
 
 ## Data Flow
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 模型
+
+</Locale>
+
+<Locale lang="en">
 
 ## Model
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 检索
+
+</Locale>
+
+<Locale lang="en">
 
 ## Retrieval
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 智能体
+
+</Locale>
+
+<Locale lang="en">
 
 ## Agent
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 评测
+
+</Locale>
+
+<Locale lang="en">
 
 ## Evaluation
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 扩展
+
+</Locale>
+
+<Locale lang="en">
 
 ## Scaling
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 延迟
+
+</Locale>
+
+<Locale lang="en">
 
 ## Latency
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 成本
+
+</Locale>
+
+<Locale lang="en">
 
 ## Cost
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 可靠性
+
+</Locale>
+
+<Locale lang="en">
 
 ## Reliability
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 安全
+
+</Locale>
+
+<Locale lang="en">
 
 ## Security
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 可观测性
+
+</Locale>
+
+<Locale lang="en">
 
 ## Observability
 
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
 
 -

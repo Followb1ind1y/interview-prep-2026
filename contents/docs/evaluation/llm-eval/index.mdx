@@ -7,49 +7,108 @@ date: 2026-09-07
 keywords: ["llm-as-judge", "pairwise evaluation", "rubric"]
 ---
 
-生成任务很少能只靠 exact match。
+<Locale lang="zh">
+
+生成类任务很少能只靠精确匹配来评。
 
 ## 需要掌握
 
-- exact match
+- exact match（精确匹配）
 - BLEU / ROUGE（知道即可）
+- semantic similarity（语义相似度）
+- LLM-as-a-judge（用 LLM 当评审）
+- pairwise evaluation（两两对比评测）
+- rubric-based evaluation（按评分细则打分）
+
+## 机制
+
+```
+有参考答案     精确匹配 / 文本重叠 / embedding 相似度
+无参考答案     评审模型 + 评分细则 / 两两对比
+```
+
+## 三级回答
+
+### Level 1 — 定义
+
+给自由文本的输出打分。有的对照参考答案，有的用更强的模型当评审。
+
+### Level 2 — 机制
+
+LLM-as-judge 用评分细则减少主观噪声。两两对比比打绝对分更稳定。BLEU / ROUGE 对对话类任务很弱，知道它们的局限就够了。
+
+### Level 3 — 工程
+
+评审模型会偏爱某种风格，也会受答案位置影响。要抽样和人工标注对齐，并固定评审模型的版本。
+
+## 面试问题
+
+1. 什么时候绝对不能用 LLM-as-judge？（When should you never use LLM-as-judge?）
+2. 两两对比比 1–5 分打分好在哪？（Why is pairwise comparison better than a 1–5 score?）
+3. 评分细则至少要包含哪几条？（What must a rubric include at minimum?）
+4. 怎么校准评审模型和人工标注的一致性？（How do you calibrate agreement between the judge and human labels?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+Generation tasks can rarely be evaluated with exact match alone.
+
+## Must know
+
+- exact match
+- BLEU / ROUGE (know them, don't dwell)
 - semantic similarity
 - LLM-as-a-judge
 - pairwise evaluation
 - rubric-based evaluation
 
-## 机制
+## Mechanism
 
 ```
 reference-based     exact / overlap / embedding similarity
 reference-free      judge model + rubric / pairwise
 ```
 
-## 三级回答
+## Three-level answers
 
 ### Level 1 — Definition
 
-对自由文本输出打分。有的对照参考答案，有的用更强模型当法官。
+Scoring free-text output. Some methods compare against a reference answer; others use a stronger model as the judge.
 
 ### Level 2 — Mechanism
 
-LLM-as-judge 用 rubric 降主观噪声。Pairwise 比绝对分更稳。BLEU / ROUGE 对对话类任务很弱，知道局限即可。
+LLM-as-judge uses a rubric to cut subjective noise. Pairwise comparison is more stable than absolute scores. BLEU and ROUGE are weak for conversational tasks — just know their limits.
 
 ### Level 3 — Engineering
 
-Judge 会偏爱某风格、会被位置影响。要抽检人工对齐，固定 judge 模型版本。
+Judges favor certain styles and are swayed by answer position. Spot-check against human labels and pin the judge model version.
 
-## 面试问题
+## Interview questions
 
-1. 什么时候绝对不能用 LLM-as-judge？
-2. Pairwise 比 1–5 分好在哪？
-3. Rubric 至少要有哪几条？
-4. 如何校准 judge 和人类标注的一致性？
+1. When should you never use LLM-as-judge?
+2. Why is pairwise comparison better than a 1–5 score?
+3. What must a rubric include at minimum?
+4. How do you calibrate agreement between the judge and human labels?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

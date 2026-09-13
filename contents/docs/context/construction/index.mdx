@@ -7,13 +7,29 @@ date: 2026-09-07
 keywords: ["context construction", "context selection"]
 ---
 
-选择比堆叠更重要。
+<Locale lang="zh">
+
+选择比堆砌更重要。
 
 ## 需要掌握
 
 只放当前任务需要的记忆、文档、工具和状态。
 
 ## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Selecting matters more than stacking.
+
+## Must know
+
+Only include the memory, documents, tools, and state the current task needs.
+
+## Mechanism
+
+</Locale>
 
 ```
 User
@@ -29,31 +45,72 @@ Current task state
 LLM
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-按当前步的目标组装最小充分上下文。
+围绕当前这一步的目标，组装「最小但足够」的上下文。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-用检索、规则、权限、工具相关性做选择。顺序也有意义：指令、证据、问题。
+用检索、规则、权限和工具相关性来做筛选。顺序同样有意义：指令、证据、问题。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-工具定义过多会干扰选 tool。历史过长会淹没当前问题。这是 Agent 可靠性和成本的同一杠杆。
+工具定义太多，会干扰模型选工具。历史太长，会淹没当前的问题。这和 Agent 的可靠性、成本是同一个杠杆。
 
 ## 面试问题
 
-1. 什么应该进入 context？
-2. 工具很多时如何避免全部塞进 prompt？
-3. 检索到 20 段，如何选 5 段、如何排序？
-4. Construction 失败和 retrieval 失败如何区分？
+1. 什么应该进入 context？（What should go into the context?）
+2. 工具很多时，怎么避免把它们全部塞进 prompt？（With lots of tools, how do you avoid putting all of them in the prompt?）
+3. 检索回来 20 段，怎么选出 5 段、怎么排序？（You retrieved 20 passages — how do you pick 5, and how do you order them?）
+4. 怎么区分是 context 拼装失败，还是检索失败？（How do you tell a context-construction failure from a retrieval failure?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Assembling the smallest context that's still sufficient for the goal of the current step.
+
+### Level 2 — Mechanism
+
+Select with retrieval, rules, permissions, and tool relevance. Order matters too: instructions, then evidence, then the question.
+
+### Level 3 — Engineering
+
+Too many tool definitions confuse tool selection. Too much history buries the current question. It's the same lever that drives agent reliability and cost.
+
+## Interview questions
+
+1. What should go into the context?
+2. With lots of tools, how do you avoid putting all of them in the prompt?
+3. You retrieved 20 passages — how do you pick 5, and how do you order them?
+4. How do you tell a context-construction failure from a retrieval failure?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

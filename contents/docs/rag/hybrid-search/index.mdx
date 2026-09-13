@@ -7,15 +7,33 @@ date: 2026-09-07
 keywords: ["hybrid search", "rrf", "reciprocal rank fusion", "faiss"]
 ---
 
-项目锚点：FAISS + BM25 + RRF。用自己的系统讲，不要只背名词。
+<Locale lang="zh">
+
+项目锚点：FAISS + BM25 + RRF。用自己做过的系统来讲，不要只背名词。
 
 ## 需要掌握
+
+- weighted fusion（加权融合）
+- Reciprocal Rank Fusion（倒数排名融合，RRF）
+- 词面检索 vs 语义检索
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Project anchor: FAISS + BM25 + RRF. Explain it through the system you actually built, not as vocabulary.
+
+## Must know
 
 - weighted fusion
 - Reciprocal Rank Fusion
 - lexical vs semantic retrieval
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 BM25
@@ -25,31 +43,72 @@ Vector Search
 Fusion
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-同时用词面和语义两路检索，再融合排序。
+同时走词面和语义两路检索，再把结果融合排序。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-加权融合要校准分数尺度。RRF 用名次融合，少调参、更稳。
+加权融合需要先把两路的分数尺度校准。RRF 按名次融合，基本不用调参，结果更稳定。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-两路都要能被 metadata filter。融合后再 rerank。延迟是两路并行 + 融合，不是简单「加一次检索」。
+两路检索都要支持元数据过滤。融合之后再做 rerank。延迟是「两路并行 + 融合」，而不是简单地「多做一次检索」。
 
 ## 面试问题
 
-1. Why hybrid search?
-2. Weighted sum 和 RRF 怎么选？
-3. 两路权重如何调？用什么指标？
-4. 你的项目里 FAISS + BM25 + RRF 解决了哪类失败？
+1. 为什么要用 hybrid search？（Why hybrid search?）
+2. 加权求和和 RRF 怎么选？（How do you choose between a weighted sum and RRF?）
+3. 两路的权重怎么调？看什么指标？（How do you tune the weights between the two paths, and which metric do you watch?）
+4. 你项目里的 FAISS + BM25 + RRF 解决了哪类失败？（What kind of failure did FAISS + BM25 + RRF fix in your project?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Running lexical and semantic retrieval side by side, then fusing the two rankings.
+
+### Level 2 — Mechanism
+
+Weighted fusion needs the two score scales calibrated first. RRF fuses by rank instead, so there's almost nothing to tune and results are more stable.
+
+### Level 3 — Engineering
+
+Both paths need to support metadata filters. Rerank after fusion. The latency cost is two parallel retrievals plus fusion — not simply "one more search."
+
+## Interview questions
+
+1. Why hybrid search?
+2. How do you choose between a weighted sum and RRF?
+3. How do you tune the weights between the two paths, and which metric do you watch?
+4. What kind of failure did FAISS + BM25 + RRF fix in your project?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

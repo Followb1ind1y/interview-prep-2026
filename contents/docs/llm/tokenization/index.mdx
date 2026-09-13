@@ -762,6 +762,29 @@ Cost ←──────────────────────  Late
 
 先自己口头答一遍，再回上面对照。
 
+**L1 — 定义**
+
+1. token 是什么？tokenizer 实际做了什么？（What is a token? What does a tokenizer actually do?）
+2. token、token ID 和 embedding 有什么区别？（What's the difference between a token, a token ID, and an embedding?）
+3. 为什么 LLM 按 token 计费，而不是按词或字符？（Why do LLMs bill by token instead of by word or character?）
+
+**L2 — 机制**
+
+4. 为什么用 subword 分词，而不是按词或按字符切？（Why subword tokenization instead of word-level or character-level?）
+5. 讲一遍 BPE 是怎么构建词表的。（Walk me through how BPE builds its vocabulary.）
+6. WordPiece 和 BPE 有什么不同？（How does WordPiece differ from BPE?）
+7. SentencePiece 解决了什么 BPE 解决不了的问题？（What problem does SentencePiece solve that BPE doesn't?）
+8. 词表更大有什么取舍？（What's the trade-off of a larger vocabulary?）
+9. 现代 tokenizer 怎么处理未登录词？（How do modern tokenizers handle out-of-vocabulary words?）
+
+**L3 — 工程**
+
+10. 为什么 output token 比 input token 贵？（Why does an output token cost more than an input token?）
+11. 为什么同一个 prompt 在两个模型上的 token 数不一样？（Why can the same prompt produce different token counts on two different models?）
+12. 请求量没变，这个月的 LLM 账单却翻倍了。可能和 tokenization 有关吗？怎么查？（Your LLM bill doubled this month with flat request volume. Could tokenization be involved, and how would you check?）
+13. 要给一个中英文和代码混合文档的 RAG 系统规划 context 预算，怎么做？（You're sizing a context budget for a RAG system over mixed English / Chinese / code documents. How do you plan it?）
+14. 为什么 LLM 数不准一个单词里有几个字母？（Why can't an LLM reliably count the letters in a word?）
+
 </Locale>
 
 <Locale lang="en">
@@ -773,8 +796,6 @@ Cost ←──────────────────────  Late
 ## Interview questions
 
 Answer out loud first, then check against the sections above.
-
-</Locale>
 
 **L1 — Definition**
 
@@ -799,6 +820,8 @@ Answer out loud first, then check against the sections above.
 13. You're sizing a context budget for a RAG system over mixed English / Chinese / code documents. How do you plan it?
 14. Why can't an LLM reliably count the letters in a word?
 
+</Locale>
+
 ---
 
 <Locale lang="zh">
@@ -817,7 +840,17 @@ Jot down questions as they come up while reading — don't stop to look them up.
 
 </Locale>
 
+<Locale lang="zh">
+
 - [ ] （示例）byte-level BPE 的「字节」是 UTF-8 字节吗？那一个汉字岂不是要 3 个 token？
+
+</Locale>
+
+<Locale lang="en">
+
+- [ ] (example) In byte-level BPE, are the "bytes" UTF-8 bytes? Wouldn't one Chinese character then take 3 tokens?
+
+</Locale>
 
 ---
 

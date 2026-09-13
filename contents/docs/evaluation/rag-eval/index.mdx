@@ -7,9 +7,63 @@ date: 2026-09-07
 keywords: ["recall@k", "ndcg", "faithfulness", "groundedness", "deepeval"]
 ---
 
-接到 DeepEval：correctness / completeness / relevance。
+<Locale lang="zh">
+
+接到 DeepEval：正确性 / 完整性 / 相关性。
 
 ## 需要掌握
+
+检索指标
+
+- Recall@K（前 K 个结果的召回率）
+- Precision@K（前 K 个结果的精确率）
+- MRR（平均倒数排名）
+- NDCG（归一化折损累计增益）
+
+生成指标
+
+- Faithfulness（忠实度）
+- Groundedness（有据可依）
+- Answer relevance（答案相关性）
+- Context relevance（上下文相关性）
+
+## 机制
+
+```
+检索指标     标准文档有没有出现在 Top-K 里
+生成指标     有没有编造、有没有回答到问题
+```
+
+## 三级回答
+
+### Level 1 — 定义
+
+RAG 要同时评「找没找对」和「写没写对」。
+
+### Level 2 — 机制
+
+召回率低，先修检索。召回率高但忠实度低，说明是生成时没忠于证据，或者 context 拼坏了。
+
+### Level 3 — 工程
+
+召回率 90%、答案准确率 70%：按 [Failure Diagnosis](/docs/rag/debugging) 一层层往下拆，不要只去调生成的温度参数。
+
+## 面试问题
+
+1. 怎么评测 RAG？（How do you evaluate RAG?）
+2. Recall@K 和 NDCG 分别回答什么问题？（What question does Recall@K answer, and what does NDCG answer?）
+3. 忠实度和答案相关性冲突时听谁的？（When faithfulness and answer relevance conflict, which one wins?）
+4. 没有标准文档时，怎么评检索？（How do you evaluate retrieval when you have no gold documents?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+Tie it to DeepEval: correctness / completeness / relevance.
+
+## Must know
 
 Retrieval
 
@@ -25,38 +79,50 @@ Generation
 - Answer relevance
 - Context relevance
 
-## 机制
+## Mechanism
 
 ```
-retriever metrics     金标文档在不在 Top-K
-generator metrics     有没有编造、有没有回答问题
+retriever metrics     is the gold document in the Top-K?
+generator metrics     did it make things up, and did it answer the question?
 ```
 
-## 三级回答
+## Three-level answers
 
 ### Level 1 — Definition
 
-RAG 要同时评「找对了没有」和「写对了没有」。
+RAG has to be scored on two things at once: did it find the right material, and did it write the right answer.
 
 ### Level 2 — Mechanism
 
-Recall 低先修检索。Recall 高但 faithfulness 低，是生成不守证据或 context 拼坏了。
+Low recall means fix retrieval first. High recall with low faithfulness means generation isn't sticking to the evidence, or the context was assembled badly.
 
 ### Level 3 — Engineering
 
-90% recall、70% answer accuracy：按 [Failure Diagnosis](/docs/rag/debugging) 往下拆，不要只调生成温度。
+90% recall with 70% answer accuracy: break it down with [Failure Diagnosis](/docs/rag/debugging) instead of just tweaking the generation temperature.
 
-## 面试问题
+## Interview questions
 
 1. How do you evaluate RAG?
-2. Recall@K 和 NDCG 各回答什么问题？
-3. Faithfulness 和 answer relevance 冲突时听谁？
-4. 没有金标文档时如何评检索？
+2. What question does Recall@K answer, and what does NDCG answer?
+3. When faithfulness and answer relevance conflict, which one wins?
+4. How do you evaluate retrieval when you have no gold documents?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

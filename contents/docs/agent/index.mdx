@@ -7,25 +7,56 @@ date: 2026-09-07
 keywords: ["agent", "react", "tool calling", "multi-agent", "reliability", "prompt injection"]
 ---
 
-这是主投 LLM Engineer 最该深挖的专栏。Agent eval 在 [Evaluation](/docs/evaluation/agent-eval)；MCP / Harness 在 [AI-Native](/docs/ai-native)。
+<Locale lang="zh">
+
+这是主投 LLM Engineer 最该深挖的专栏。Agent 评测在 [Evaluation](/docs/evaluation/agent-eval)；MCP / Harness 在 [AI-Native](/docs/ai-native)。
 
 > 如果流程高度确定，就用 workflow。不要为了 Agent 而 Agent。
 
 <CardGrid>
   <Card title="Agent Loop" description="Observe → Reason → Act，为什么需要 loop。" href="/docs/agent/loop" />
-  <Card title="Tool Calling" description="schema、选择、校验、执行、timeout、幂等。" href="/docs/agent/tool-calling" />
-  <Card title="ReAct" description="Thought → Action → Observation。不要停在这个名词。" href="/docs/agent/react" />
+  <Card title="Tool Calling" description="schema、选择、校验、执行、超时、幂等。" href="/docs/agent/tool-calling" />
+  <Card title="ReAct" description="Thought → Action → Observation。不要停在这个名词上。" href="/docs/agent/react" />
   <Card title="Workflow vs Agent" description="高频判断题。什么时候不要用 Agent。" href="/docs/agent/workflow-vs-agent" />
-  <Card title="Planning" description="分解、plan-and-execute、replanning、reflection。" href="/docs/agent/planning" />
-  <Card title="Memory" description="不只 short / long-term。五种 memory 各解决什么。" href="/docs/agent/memory" />
-  <Card title="Multi-Agent" description="supervisor / router / specialist。为什么有时更差。" href="/docs/agent/multi-agent" />
-  <Card title="Reliability" description="max iterations、circuit breaker、HITL、budget。" href="/docs/agent/reliability" />
-  <Card title="Security" description="injection、exfiltration、excessive agency、sandbox。" href="/docs/agent/security" />
+  <Card title="Planning" description="任务分解、先计划后执行、重新规划、反思。" href="/docs/agent/planning" />
+  <Card title="Memory" description="不只是短期 / 长期记忆。几种 memory 各自解决什么问题。" href="/docs/agent/memory" />
+  <Card title="Multi-Agent" description="supervisor / router / specialist。为什么有时反而更差。" href="/docs/agent/multi-agent" />
+  <Card title="Reliability" description="最大迭代次数、熔断、人工介入、预算。" href="/docs/agent/reliability" />
+  <Card title="Security" description="注入攻击、数据外泄、权限过大、沙箱。" href="/docs/agent/security" />
 </CardGrid>
 
 ## 本专栏计划
 
-1. 先讲清 loop 和 Workflow vs Agent，用一个自己做过的反例
+1. 先讲清 loop 和 Workflow vs Agent，配一个自己做过的反例
 2. Tool calling 接到 Tariff / Gemini function calling
-3. Multi-agent：为什么拆、何时不拆
-4. Reliability + Security 当成生产问题，不是加分项
+3. Multi-agent：为什么拆、什么时候不拆
+4. 把可靠性和安全当成生产问题，而不是加分项
+
+</Locale>
+
+<Locale lang="en">
+
+For an LLM Engineer target, this is the column worth digging into the most. Agent evaluation lives in [Evaluation](/docs/evaluation/agent-eval); MCP / Harness live in [AI-Native](/docs/ai-native).
+
+> If the flow is highly deterministic, use a workflow. Don't build an agent for the sake of it.
+
+<CardGrid>
+  <Card title="Agent Loop" description="Observe → Reason → Act, and why the loop exists." href="/docs/agent/loop" />
+  <Card title="Tool Calling" description="Schema, selection, validation, execution, timeouts, idempotency." href="/docs/agent/tool-calling" />
+  <Card title="ReAct" description="Thought → Action → Observation. Don't stop at the buzzword." href="/docs/agent/react" />
+  <Card title="Workflow vs Agent" description="A frequent judgment call. When not to use an agent." href="/docs/agent/workflow-vs-agent" />
+  <Card title="Planning" description="Decomposition, plan-and-execute, replanning, reflection." href="/docs/agent/planning" />
+  <Card title="Memory" description="More than short- vs long-term. What each kind of memory is for." href="/docs/agent/memory" />
+  <Card title="Multi-Agent" description="Supervisor / router / specialist. Why it's sometimes worse." href="/docs/agent/multi-agent" />
+  <Card title="Reliability" description="Max iterations, circuit breakers, human-in-the-loop, budgets." href="/docs/agent/reliability" />
+  <Card title="Security" description="Injection, exfiltration, excessive agency, sandboxing." href="/docs/agent/security" />
+</CardGrid>
+
+## Plan for this column
+
+1. Explain the loop and workflow vs agent first, with a counterexample from my own work
+2. Tie tool calling to Tariff / Gemini function calling
+3. Multi-agent: why split, and when not to
+4. Treat reliability and security as production problems, not bonus points
+
+</Locale>

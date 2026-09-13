@@ -7,9 +7,30 @@ date: 2026-09-07
 keywords: ["inference", "kv cache", "prefill", "decode", "quantization", "flashattention", "vllm"]
 ---
 
-2026 年 LLM Engineer 面试已经用 KV cache、quantization、batching、tokens/sec 区分深度。
+<Locale lang="zh">
+
+2026 年的 LLM Engineer 面试，已经用 KV cache、量化、batching、tokens/sec 来区分候选人的深度。
 
 ## 需要掌握
+
+- prefill / decode（预填充 / 解码）
+- TTFT / TPOT（首 token 延迟 / 每个输出 token 的耗时）
+- throughput / latency（吞吐 / 延迟）
+- KV cache
+- batching / continuous batching（批处理 / 连续批处理）
+- quantization（量化）
+- speculative decoding（投机解码）
+- FlashAttention
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+In 2026, LLM Engineer interviews use KV cache, quantization, batching, and tokens/sec to tell how deep a candidate really goes.
+
+## Must know
 
 - prefill / decode
 - TTFT / TPOT
@@ -20,7 +41,9 @@ keywords: ["inference", "kv cache", "prefill", "decode", "quantization", "flasha
 - speculative decoding
 - FlashAttention
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 Prefill
@@ -30,35 +53,80 @@ Decode
 Token → KV Cache → Next Token → KV Cache update → Next Token
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-推理分两段：prefill 吃完整 prompt，decode 一个一个吐 token。
+推理分两段：prefill 一次性处理完整个 prompt，decode 一个一个地输出 token。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-KV cache 避免 decode 时重算历史 K/V。Batching 把多个请求拼在一起提高 GPU 利用率；continuous batching 让请求随时进出。Quantization 降精度换显存和吞吐。
+KV cache 避免 decode 时重算历史 token 的 K/V。Batching 把多个请求拼在一起，提高 GPU 利用率；continuous batching 让请求随时进出。量化降低数值精度，换取显存和吞吐。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-TTFT 主要看 prefill；用户打字感主要看 TPOT。KV cache 随 batch × layers × seq × dim 涨，长会话会先爆显存。vLLM / PagedAttention 解决碎片化。FlashAttention 是算子层的 IO 优化，不是另一种模型。
+TTFT 主要看 prefill；用户感受到的「打字速度」主要看 TPOT。KV cache 随 batch × 层数 × 序列长度 × 维度增长，长会话会先把显存撑爆。vLLM / PagedAttention 解决的是显存碎片化。FlashAttention 是算子层面的 IO 优化，不是另一种模型。
 
 ## 面试问题
 
-1. Prefill 和 decode 有什么不同？
-2. What is KV cache? How does it work?
-3. When does KV cache become a bottleneck and how would you solve it?
-4. TTFT 和 TPOT 分别被什么影响？
-5. 为什么需要 continuous batching？
-6. 4-bit quantization 对质量 / 延迟 / 显存的 trade-off？
-7. Speculative decoding 什么时候有效？
-8. FlashAttention 解决的是计算还是内存带宽？
+1. Prefill 和 decode 有什么不同？（How do prefill and decode differ?）
+2. KV cache 是什么？它是怎么工作的？（What is KV cache? How does it work?）
+3. KV cache 什么时候会成为瓶颈？怎么解决？（When does KV cache become a bottleneck and how would you solve it?）
+4. TTFT 和 TPOT 分别受什么影响？（What drives TTFT, and what drives TPOT?）
+5. 为什么需要 continuous batching？（Why do we need continuous batching?）
+6. 4-bit 量化在质量、延迟、显存上怎么取舍？（What are the quality / latency / memory trade-offs of 4-bit quantization?）
+7. Speculative decoding 什么时候有效？（When does speculative decoding actually help?）
+8. FlashAttention 解决的是计算瓶颈还是内存带宽瓶颈？（Does FlashAttention address compute or memory bandwidth?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Inference has two phases: prefill processes the entire prompt at once, and decode emits tokens one at a time.
+
+### Level 2 — Mechanism
+
+The KV cache avoids recomputing K/V for earlier tokens during decode. Batching packs multiple requests together to raise GPU utilization; continuous batching lets requests join and leave at any step. Quantization lowers numeric precision in exchange for memory and throughput.
+
+### Level 3 — Engineering
+
+TTFT is mostly about prefill; the typing speed users feel is mostly TPOT. The KV cache grows with batch × layers × sequence length × hidden size, so long sessions run out of GPU memory first. vLLM / PagedAttention fix memory fragmentation. FlashAttention is an IO-aware kernel optimization, not a different model.
+
+## Interview questions
+
+1. How do prefill and decode differ?
+2. What is KV cache? How does it work?
+3. When does KV cache become a bottleneck and how would you solve it?
+4. What drives TTFT, and what drives TPOT?
+5. Why do we need continuous batching?
+6. What are the quality / latency / memory trade-offs of 4-bit quantization?
+7. When does speculative decoding actually help?
+8. Does FlashAttention address compute or memory bandwidth?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

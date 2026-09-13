@@ -7,40 +7,86 @@ date: 2026-09-06
 keywords: ["projects", "deep dive", "tariff", "negotiation", "voice ai"]
 ---
 
-简历 bullet 在 [CV](/resume/cv)。这里写面试官能追问的那一层。不要背项目介绍，准备的是 **Project Deep Dive**。
+<Locale lang="zh">
 
-STAR 冲突 / 失败故事写在 [行为面试](/docs/behavioral)，本专栏只写技术深挖。
+简历上的要点在 [CV](/resume/cv)。这里写的是面试官能继续追问的那一层。不要背项目介绍，要准备的是 **项目深挖**。
+
+STAR 格式的冲突 / 失败故事写在 [行为面试](/docs/behavioral)，本专栏只写技术深挖。
 
 <CardGrid>
-  <Card title="Negotiation Practice" description="Tier 1 · 全栈实时，可白板 30–45 分钟。" href="/docs/projects/negotiation" />
-  <Card title="Tariff Agent" description="Tier 1 · Multi-agent flagship。" href="/docs/projects/tariff" />
-  <Card title="Voice AI" description="Tier 1 · 1.2s 延迟故事。" href="/docs/projects/voice" />
-  <Card title="PMI Logistics" description="Tier 2 · NL → Analytics，防错 SQL。" href="/docs/projects/pmi" />
-  <Card title="LLaMA Fine-tuning" description="Tier 2 · 证明不只会调 API。" href="/docs/projects/fine-tuning" />
+  <Card title="Negotiation Practice" description="Tier 1 · 全栈实时系统，能白板讲 30–45 分钟。" href="/docs/projects/negotiation" />
+  <Card title="Tariff Agent" description="Tier 1 · multi-agent 代表项目。" href="/docs/projects/tariff" />
+  <Card title="Voice AI" description="Tier 1 · 1.2s 延迟的故事。" href="/docs/projects/voice" />
+  <Card title="PMI Logistics" description="Tier 2 · 自然语言 → 数据分析，防止生成错误的 SQL。" href="/docs/projects/pmi" />
+  <Card title="LLaMA Fine-tuning" description="Tier 2 · 证明自己不只会调 API。" href="/docs/projects/fine-tuning" />
 </CardGrid>
 
 ## 投入分层
 
-- **Tier 1**：5 min 架构 + 10 min 深挖，无稿
-- **Tier 2**：架构、贡献、一个权衡
-- **Tier 3**（备问，不单独开页）：Sustainability Agent、Negotiation Expert
+- **Tier 1**：5 分钟讲架构 + 10 分钟深挖，不看稿
+- **Tier 2**：架构、个人贡献、一个取舍
+- **Tier 3**（备用，不单独开页）：Sustainability Agent、Negotiation Expert
 
-不再花大量时间做新 demo。
+不再花大量时间做新的 demo。
 
 ## 每张卡片必答
 
 | 维度 | 问题 |
 | --- | --- |
-| What | 你做了什么产品？ |
-| Why | 为什么要做？ |
-| Architecture | 数据怎么流？ |
-| Contribution | **你**具体做了哪几块？ |
-| Decisions | 为什么 Gemini / LangGraph / multi-agent，而不是 X？ |
-| Problems | 哪里坏过？ |
-| Trade-offs | 还考虑过什么方案？ |
-| Results | 延迟、准确、成本、规模 |
-| Reflection | 现在会怎么改？ |
+| 做了什么 | 你做的是什么产品？ |
+| 为什么 | 为什么要做？ |
+| 架构 | 数据是怎么流动的？ |
+| 个人贡献 | **你** 具体负责了哪几块？ |
+| 决策 | 为什么选 Gemini / LangGraph / multi-agent，而不是别的方案？ |
+| 问题 | 哪里出过问题？ |
+| 取舍 | 还考虑过哪些方案？ |
+| 结果 | 延迟、准确率、成本、规模 |
+| 反思 | 现在的话会怎么改？ |
 
 ## 本专栏计划
 
-先填满三张 Tier 1，再补 PMI 的 SQL 防护和 Fine-tuning 的 ZeRO / vLLM。
+先填满三张 Tier 1 卡片，再补 PMI 的 SQL 防护，以及 Fine-tuning 项目里的 ZeRO / vLLM。
+
+</Locale>
+
+<Locale lang="en">
+
+Resume bullets live in the [CV](/resume/cv). This column covers the layer interviewers dig into. Don't memorize a project pitch — prepare a **project deep dive**.
+
+STAR conflict / failure stories belong in [Behavioral](/docs/behavioral); this column is only for technical depth.
+
+<CardGrid>
+  <Card title="Negotiation Practice" description="Tier 1 · Full-stack real-time system; can whiteboard it for 30–45 minutes." href="/docs/projects/negotiation" />
+  <Card title="Tariff Agent" description="Tier 1 · Multi-agent flagship." href="/docs/projects/tariff" />
+  <Card title="Voice AI" description="Tier 1 · The 1.2s latency story." href="/docs/projects/voice" />
+  <Card title="PMI Logistics" description="Tier 2 · Natural language → analytics, guarding against bad SQL." href="/docs/projects/pmi" />
+  <Card title="LLaMA Fine-tuning" description="Tier 2 · Proof of more than calling APIs." href="/docs/projects/fine-tuning" />
+</CardGrid>
+
+## Depth by tier
+
+- **Tier 1**: 5 minutes of architecture + 10 minutes of deep dive, no notes
+- **Tier 2**: architecture, contribution, one trade-off
+- **Tier 3** (backup only, no dedicated page): Sustainability Agent, Negotiation Expert
+
+No more big time investments in new demos.
+
+## Every card must answer
+
+| Dimension | Question |
+| --- | --- |
+| What | What product did you build? |
+| Why | Why build it? |
+| Architecture | How does data flow? |
+| Contribution | Which parts did **you** build? |
+| Decisions | Why Gemini / LangGraph / multi-agent instead of X? |
+| Problems | What broke? |
+| Trade-offs | What alternatives did you consider? |
+| Results | Latency, accuracy, cost, scale |
+| Reflection | What would you change now? |
+
+## Plan for this column
+
+Fill in the three Tier 1 cards first, then add PMI's SQL safeguards and the ZeRO / vLLM details from the fine-tuning project.
+
+</Locale>

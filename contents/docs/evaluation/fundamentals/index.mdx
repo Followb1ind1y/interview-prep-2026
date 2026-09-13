@@ -7,6 +7,8 @@ date: 2026-09-07
 keywords: ["evaluation", "metric", "golden dataset"]
 ---
 
+<Locale lang="zh">
+
 先有闭环，再谈 LLM-as-judge。
 
 ## 需要掌握
@@ -14,6 +16,20 @@ keywords: ["evaluation", "metric", "golden dataset"]
 理解评测的最小单元。
 
 ## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Build the loop first; LLM-as-judge comes later.
+
+## Must know
+
+Understand the smallest unit of an evaluation.
+
+## Mechanism
+
+</Locale>
 
 ```
 Input
@@ -27,31 +43,72 @@ Expected / Reference
 Metric
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-用固定输入和可比较的分数，判断系统是否变好。
+用固定的输入和可比较的分数，判断系统是不是变好了。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-没有 expected，就只能看偏好或人工。Metric 必须和产品目标一致：检索看 recall，客服看解决率。
+没有参考答案，就只能看偏好或靠人工判断。指标必须和产品目标一致：检索看召回率，客服看问题解决率。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-没有这一环，所有 RAG / Agent 改动都是感觉。Eval-driven：先有集，再改系统。
+没有这一环，所有 RAG / Agent 的改动都只是凭感觉。评测驱动：先有评测集，再改系统。
 
 ## 面试问题
 
-1. 没有 reference 的开放生成怎么评？
-2. 指标和业务 KPI 如何对齐？
-3. 评测集泄漏（train on test）如何防？
-4. 什么是 eval-driven development？
+1. 没有参考答案的开放式生成怎么评？（How do you evaluate open-ended generation with no reference answer?）
+2. 评测指标和业务 KPI 怎么对齐？（How do you align eval metrics with business KPIs?）
+3. 怎么防止评测集泄漏（在测试集上训练）？（How do you prevent eval set leakage, i.e. training on the test set?）
+4. 什么是评测驱动开发？（What is eval-driven development?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Using fixed inputs and comparable scores to tell whether the system actually got better.
+
+### Level 2 — Mechanism
+
+Without an expected output, all you have is preference or human judgment. The metric has to match the product goal: recall for retrieval, resolution rate for customer support.
+
+### Level 3 — Engineering
+
+Without this loop, every RAG or agent change is just a feeling. Eval-driven means: build the eval set first, then change the system.
+
+## Interview questions
+
+1. How do you evaluate open-ended generation with no reference answer?
+2. How do you align eval metrics with business KPIs?
+3. How do you prevent eval set leakage, i.e. training on the test set?
+4. What is eval-driven development?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

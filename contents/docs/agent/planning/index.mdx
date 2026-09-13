@@ -7,9 +7,28 @@ date: 2026-09-07
 keywords: ["planning", "replanning", "reflection", "verification"]
 ---
 
-Plan 不是越长越好。执行失败要能 replan。
+<Locale lang="zh">
+
+计划不是越长越好。执行失败时要能重新规划。
 
 ## 需要掌握
+
+- task decomposition（任务分解）
+- plan-and-execute（先计划后执行）
+- dynamic planning（动态规划每一步）
+- replanning（重新规划）
+- reflection（反思）
+- verification（验证）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+A longer plan isn't a better plan. When execution fails, the agent has to be able to replan.
+
+## Must know
 
 - task decomposition
 - plan-and-execute
@@ -18,7 +37,9 @@ Plan 不是越长越好。执行失败要能 replan。
 - reflection
 - verification
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 Goal → Plan → Execute step
@@ -26,31 +47,72 @@ Goal → Plan → Execute step
             → Replan / Reflect / Verify
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-把目标拆成可执行步骤，并在反馈后修改计划。
+把目标拆成可以执行的步骤，并根据反馈修改计划。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-Plan-and-execute 先计划再跑。Dynamic planning 每步重想。Reflection / verification 检查对错。
+Plan-and-execute 先定好计划再执行。Dynamic planning 每一步都重新思考。Reflection / verification 负责检查结果对不对。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-过度规划浪费 token。缺 verification 的 coding agent 会自信地交错误代码。接到 Agentic Coding 的 feedback loop。
+过度规划会浪费 token。缺少验证环节的 coding agent 会很自信地交出错误代码。接到 Agentic Coding 里的反馈闭环。
 
 ## 面试问题
 
-1. 什么时候需要显式 plan，什么时候直接 ReAct？
-2. Replanning 的触发条件是什么？
-3. Reflection 如何避免变成空洞自我表扬？
-4. Verification 应该由模型做还是由测试 / 规则做？
+1. 什么时候需要显式的计划，什么时候直接用 ReAct？（When do you need an explicit plan, and when is ReAct enough?）
+2. 重新规划的触发条件是什么？（What should trigger replanning?）
+3. 怎么避免 reflection 变成空洞的自我表扬？（How do you keep reflection from turning into empty self-praise?）
+4. 验证该由模型来做，还是由测试 / 规则来做？（Should verification be done by the model, or by tests and rules?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Breaking a goal into executable steps and revising the plan based on feedback.
+
+### Level 2 — Mechanism
+
+Plan-and-execute commits to a plan up front and then runs it. Dynamic planning rethinks at every step. Reflection and verification check whether the result is actually right.
+
+### Level 3 — Engineering
+
+Over-planning burns tokens. A coding agent without verification will confidently ship broken code. This connects to the feedback loop in Agentic Coding.
+
+## Interview questions
+
+1. When do you need an explicit plan, and when is ReAct enough?
+2. What should trigger replanning?
+3. How do you keep reflection from turning into empty self-praise?
+4. Should verification be done by the model, or by tests and rules?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

@@ -7,13 +7,29 @@ date: 2026-09-07
 keywords: ["claude code", "codex", "coding agent workflow"]
 ---
 
-它们本质上是在 LLM + Tools + Context + State + Environment + Feedback + Safety 上构建的 agent system。
+<Locale lang="zh">
+
+它们本质上是建立在 LLM + 工具 + 上下文 + 状态 + 执行环境 + 反馈 + 安全之上的 agent 系统。
 
 ## 需要掌握
 
-理解这条工作流即可。
+理解这条工作流就够了。
 
 ## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+At their core, they're agent systems built on LLM + tools + context + state + environment + feedback + safety.
+
+## Must know
+
+Understanding this workflow is enough.
+
+## Mechanism
+
+</Locale>
 
 ```
 User Goal
@@ -38,31 +54,72 @@ Agent
 Verification
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-Claude Code / Codex 是带仓库工具和验证环的 coding agent 产品。
+Claude Code / Codex 是带有代码仓库工具和验证闭环的 coding agent 产品。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-读文件、改文件、跑命令、看测试，再决定下一步。Harness 限制 blast radius。
+读文件、改文件、跑命令、看测试结果，再决定下一步。Harness 负责限制出错时的影响范围。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-面试问 How does Codex / Claude Code work conceptually? 用上面这张图答，不要背发布会名词。
+面试问「Codex / Claude Code 在概念上是怎么工作的？」就用上面这张图来回答，不要背发布会上的名词。
 
 ## 面试问题
 
-1. How does Codex work conceptually?
-2. How does Claude Code work conceptually?
-3. 为什么需要 git / tests 作为一等工具？
-4. 和「聊天窗口里贴代码」差在哪？
+1. Codex 在概念上是怎么工作的？（How does Codex work conceptually?）
+2. Claude Code 在概念上是怎么工作的？（How does Claude Code work conceptually?）
+3. 为什么 git 和测试要作为一等工具？（Why do git and tests need to be first-class tools?）
+4. 它和「在聊天窗口里贴代码」差在哪？（How is it different from pasting code into a chat window?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Claude Code and Codex are coding-agent products with repository tools and a verification loop.
+
+### Level 2 — Mechanism
+
+Read files, edit files, run commands, check test results, then decide the next step. The harness limits the blast radius when something goes wrong.
+
+### Level 3 — Engineering
+
+When asked "How does Codex / Claude Code work conceptually?", answer with the diagram above — not with launch-event buzzwords.
+
+## Interview questions
+
+1. How does Codex work conceptually?
+2. How does Claude Code work conceptually?
+3. Why do git and tests need to be first-class tools?
+4. How is it different from pasting code into a chat window?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

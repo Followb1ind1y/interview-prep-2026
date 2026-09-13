@@ -7,9 +7,30 @@ date: 2026-09-07
 keywords: ["mcp", "model context protocol", "json-rpc", "tools", "resources", "prompts"]
 ---
 
-不要只记 MCP = Model Context Protocol。2026-07-28 spec 进一步标准化了 primitives、stateless、authorization、extensions。
+<Locale lang="zh">
+
+不要只记住 MCP = Model Context Protocol。2026-07-28 的规范进一步标准化了 primitives、无状态、授权和扩展机制。
 
 ## 需要掌握
+
+- Host / Client / Server
+- Tools / Resources / Prompts（工具 / 资源 / 提示模板）
+- JSON-RPC
+- stdio / Streamable HTTP（两种传输方式）
+- authorization（授权）
+- capability negotiation（能力协商）
+- tool discovery（工具发现）
+- security boundary（安全边界）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Don't stop at "MCP = Model Context Protocol." The 2026-07-28 spec further standardized primitives, statelessness, authorization, and extensions.
+
+## Must know
 
 - Host / Client / Server
 - Tools / Resources / Prompts
@@ -20,7 +41,9 @@ keywords: ["mcp", "model context protocol", "json-rpc", "tools", "resources", "p
 - tool discovery
 - security boundary
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 Host
@@ -33,32 +56,74 @@ MCP Server
  └── Prompts
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-MCP 是模型与外部能力之间的协议：工具、资源和提示模板，而不是某家模型的私有 function calling。
+MCP 是模型和外部能力之间的协议，覆盖工具、资源和提示模板，而不是某一家模型私有的 function calling。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-Host 管会话和 context 边界。Client 连 server。Server 暴露 primitives。传输可以是 stdio 或 Streamable HTTP，消息是 JSON-RPC。双方协商 capability。
+Host 管理会话和上下文边界。Client 负责连接 server。Server 暴露 primitives。传输可以是 stdio 或 Streamable HTTP，消息格式是 JSON-RPC。双方会协商各自支持的能力。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-Function calling 是模型 API 的参数形状；MCP 是工具生态和安全边界的协议。Server 不应默认看到完整 conversation。Tool discovery 让 harness 在运行时找能力。
+Function calling 是模型 API 的参数形状；MCP 是工具生态和安全边界的协议。Server 默认不应该看到完整对话。工具发现让 harness 能在运行时找到可用的能力。
 
 ## 面试问题
 
-1. MCP 和 function calling 有什么区别？
-2. Tools、Resources、Prompts 各解决什么？
-3. Host 为什么必须负责 isolation？
-4. stdio 和 Streamable HTTP 怎么选？
-5. 授权和 capability negotiation 失败时会发生什么？
+1. MCP 和 function calling 有什么区别？（How is MCP different from function calling?）
+2. Tools、Resources、Prompts 各自解决什么问题？（What does each of Tools, Resources, and Prompts solve?）
+3. 为什么必须由 Host 负责隔离？（Why must the host be responsible for isolation?）
+4. stdio 和 Streamable HTTP 怎么选？（How do you choose between stdio and Streamable HTTP?）
+5. 授权或能力协商失败时会发生什么？（What happens when authorization or capability negotiation fails?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+MCP is a protocol between models and external capabilities — tools, resources, and prompt templates — rather than one vendor's private function-calling format.
+
+### Level 2 — Mechanism
+
+The host manages sessions and the context boundary. The client connects to servers. Servers expose primitives. Transport is stdio or Streamable HTTP, and messages are JSON-RPC. Both sides negotiate capabilities.
+
+### Level 3 — Engineering
+
+Function calling is the argument shape of a model API; MCP is a protocol for a tool ecosystem and its security boundary. Servers shouldn't see the full conversation by default. Tool discovery lets the harness find capabilities at runtime.
+
+## Interview questions
+
+1. How is MCP different from function calling?
+2. What does each of Tools, Resources, and Prompts solve?
+3. Why must the host be responsible for isolation?
+4. How do you choose between stdio and Streamable HTTP?
+5. What happens when authorization or capability negotiation fails?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

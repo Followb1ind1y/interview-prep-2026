@@ -7,17 +7,37 @@ date: 2026-09-07
 keywords: ["ai search", "hybrid search"]
 ---
 
-Design AI search.
+<Locale lang="zh">
+
+设计一个 AI 搜索系统。（Design AI search.）
 
 <Note title="开口框架">
-每道题都走同一套 14 个 dimensions，不要一上来画微服务。知识点不够就回到 01–07 / 09。
+每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
 </Note>
 
 ## 本题要练什么
 
-query understanding、hybrid、facet、rerank、生成式 snippet。延迟预算比 chatbot 更紧。
+查询理解、混合检索、分面筛选、重排、生成式摘要片段。延迟预算比聊天机器人更紧。
 
 ## 白板草图
+
+</Locale>
+
+<Locale lang="en">
+
+Design AI search.
+
+<Note title="Opening framework">
+Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+</Note>
+
+## What this problem trains
+
+Query understanding, hybrid retrieval, facets, reranking, generated snippets. The latency budget is tighter than a chatbot's.
+
+## Whiteboard sketch
+
+</Locale>
 
 ```
 query → rewrite / spell
@@ -26,12 +46,44 @@ query → rewrite / spell
       → results + optional AI overview
 ```
 
+<Locale lang="zh">
+
 ## 容易被追问
 
-1. Overview 幻觉如何接地？
-2. 过滤器（价格、类目）和向量检索如何组合？
-3. 空结果 vs 乱结果？
-4. 如何 A/B 搜索质量？
+1. AI 概览里的幻觉怎么让它有据可依？（How do you ground hallucinations in the AI overview?）
+2. 过滤条件（价格、类目）和向量检索怎么组合？（How do you combine filters (price, category) with vector search?）
+3. 返回空结果和返回不相关的结果，哪个更糟？（Which is worse: empty results or irrelevant results?）
+4. 怎么对搜索质量做 A/B 测试？（How do you A/B test search quality?）
+
+## 14 个维度
+
+```
+1. 需求（Requirements）
+2. 约束（Constraints）
+3. 架构（Architecture）
+4. 数据流（Data Flow）
+5. 模型（Model）
+6. 检索（Retrieval）
+7. 智能体（Agent）
+8. 评测（Evaluation）
+9. 扩展（Scaling）
+10. 延迟（Latency）
+11. 成本（Cost）
+12. 可靠性（Reliability）
+13. 安全（Security）
+14. 可观测性（Observability）
+```
+
+</Locale>
+
+<Locale lang="en">
+
+## Likely follow-ups
+
+1. How do you ground hallucinations in the AI overview?
+2. How do you combine filters (price, category) with vector search?
+3. Which is worse: empty results or irrelevant results?
+4. How do you A/B test search quality?
 
 ## Dimensions
 
@@ -52,62 +104,214 @@ query → rewrite / spell
 14. Observability
 ```
 
+</Locale>
+
+<Locale lang="zh">
+
+## 需求
+
+</Locale>
+
+<Locale lang="en">
+
 ## Requirements
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 约束
+
+</Locale>
+
+<Locale lang="en">
 
 ## Constraints
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 架构
+
+</Locale>
+
+<Locale lang="en">
 
 ## Architecture
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 数据流
+
+</Locale>
+
+<Locale lang="en">
 
 ## Data Flow
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 模型
+
+</Locale>
+
+<Locale lang="en">
 
 ## Model
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 检索
+
+</Locale>
+
+<Locale lang="en">
 
 ## Retrieval
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 智能体
+
+</Locale>
+
+<Locale lang="en">
 
 ## Agent
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 评测
+
+</Locale>
+
+<Locale lang="en">
 
 ## Evaluation
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 扩展
+
+</Locale>
+
+<Locale lang="en">
 
 ## Scaling
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 延迟
+
+</Locale>
+
+<Locale lang="en">
 
 ## Latency
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 成本
+
+</Locale>
+
+<Locale lang="en">
 
 ## Cost
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 可靠性
+
+</Locale>
+
+<Locale lang="en">
 
 ## Reliability
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 安全
+
+</Locale>
+
+<Locale lang="en">
 
 ## Security
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 可观测性
+
+</Locale>
+
+<Locale lang="en">
 
 ## Observability
 
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
 
 -

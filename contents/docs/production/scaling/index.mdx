@@ -7,9 +7,57 @@ date: 2026-09-07
 keywords: ["scaling", "queue", "batching", "load balancing"]
 ---
 
-QPS 上来之后，同步链会先断在模型和检索。
+<Locale lang="zh">
+
+QPS 上来之后，同步调用链最先断在模型和检索上。
 
 ## 需要掌握
+
+- horizontal scaling（水平扩展）
+- load balancing（负载均衡）
+- async processing（异步处理）
+- queues（队列）
+- caching（缓存）
+- batching（批处理）
+- rate limiting（限流）
+
+## 机制
+
+```
+同步链路     用户在线等待的问答
+异步链路     建索引、生成摘要、跑评测、长任务
+```
+
+## 三级回答
+
+### Level 1 — 定义
+
+用多副本、队列和批处理来承接更高的流量，同时保护下游服务。
+
+### Level 2 — 机制
+
+检索层和 API 层做水平扩展。LLM 靠并发配额 + 批处理。长任务放进队列。
+
+### Level 3 — 工程
+
+限流要区分用户级和租户级。批处理能提高吞吐，但可能拖慢延迟。和 Inference 页里的 continuous batching 对应起来。
+
+## 面试问题
+
+1. RAG 里哪些组件能水平扩展，哪些不能？（Which RAG components scale horizontally, and which don't?）
+2. 哪些东西必须异步处理？（What has to be asynchronous?）
+3. 被限流返回 429 时，对用户怎么降级？（When you get rate-limited with a 429, how do you degrade for the user?）
+4. 会话状态放在哪里，才能扩成多副本？（Where should session state live so you can run multiple replicas?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+Once QPS climbs, the synchronous path breaks first at the model and at retrieval.
+
+## Must know
 
 - horizontal scaling
 - load balancing
@@ -19,38 +67,50 @@ QPS 上来之后，同步链会先断在模型和检索。
 - batching
 - rate limiting
 
-## 机制
+## Mechanism
 
 ```
-sync path     用户等待的问答
-async path    索引、摘要、评测、长任务
+sync path     Q&A the user is waiting on
+async path    indexing, summaries, evals, long-running jobs
 ```
 
-## 三级回答
+## Three-level answers
 
 ### Level 1 — Definition
 
-用副本、队列和批处理吃更高流量，同时保护下游。
+Using replicas, queues, and batching to absorb more traffic while protecting downstream services.
 
 ### Level 2 — Mechanism
 
-检索和 API 层水平扩展。LLM 靠并发配额 + batching。长任务进队列。
+Scale the retrieval and API layers horizontally. The LLM side relies on concurrency quotas plus batching. Long-running work goes into queues.
 
 ### Level 3 — Engineering
 
-限流要区分用户级和租户级。Batching 提高吞吐但可能伤延迟。和 Inference 的 continuous batching 对齐。
+Rate limits should distinguish per-user from per-tenant. Batching raises throughput but can hurt latency. Line this up with continuous batching on the Inference page.
 
-## 面试问题
+## Interview questions
 
-1. 哪些 RAG 组件可以水平扩展，哪些不行？
-2. 什么必须异步？
-3. 限流 429 时对用户怎么降级？
-4. 会话状态放哪，才能扩多副本？
+1. Which RAG components scale horizontally, and which don't?
+2. What has to be asynchronous?
+3. When you get rate-limited with a 429, how do you degrade for the user?
+4. Where should session state live so you can run multiple replicas?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

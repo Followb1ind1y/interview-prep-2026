@@ -7,12 +7,34 @@ date: 2026-09-07
 keywords: ["transformer", "decoder-only", "ffn", "positional encoding"]
 ---
 
-能画从 token 到 sampling 的整条路径，不需要成为 ML Researcher。
+<Locale lang="zh">
+
+能画出从 token 到采样的整条路径就够了，不需要成为 ML Researcher。
 
 ## 需要掌握
 
-- Encoder / Decoder
-- Decoder-only architecture
+- Encoder / Decoder（编码器 / 解码器）
+- Decoder-only 架构
+- embedding（词嵌入）
+- positional encoding（位置编码）
+- residual connection（残差连接）
+- layer normalization（层归一化）
+- MLP / FFN（前馈网络）
+- attention（注意力）
+- output logits（输出 logits）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Be able to draw the whole path from token to sampling. You don't need to be an ML researcher.
+
+## Must know
+
+- encoder / decoder
+- decoder-only architecture
 - embedding
 - positional encoding
 - residual connection
@@ -21,7 +43,9 @@ keywords: ["transformer", "decoder-only", "ffn", "positional encoding"]
 - attention
 - output logits
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 Token
@@ -39,31 +63,72 @@ Logits
 Sampling
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-Transformer 用 self-attention 建模序列依赖。现代 LLM 几乎都是 decoder-only。
+Transformer 用 self-attention 建模序列里的依赖关系。现代 LLM 几乎都是 decoder-only。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-每个 block：attention 混合信息，FFN 做位置级非线性，residual + norm 让深层可训。最后线性层得到 logits，再采样。
+每个 block 里：attention 负责在 token 之间混合信息，FFN 在每个位置上做非线性变换，residual + norm 让很深的网络也能训得动。最后一层线性层输出 logits，再从中采样。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-面试要能指出：位置编码影响长上下文；decoder-only 用 causal mask 才能自回归生成。细节数学放到 Attention / Training 页。
+面试时要能指出：位置编码影响长上下文能力；decoder-only 要靠 causal mask 才能自回归生成。细节数学放到 Attention / Training 页。
 
 ## 面试问题
 
-1. Encoder-decoder 和 decoder-only 差在哪？为什么 LLM 多用后者？
-2. 一个 Transformer block 里有哪些子层？各自干什么？
-3. Residual 和 LayerNorm 去掉会怎样？
-4. Logits 之后如何变成下一个 token？
+1. Encoder-decoder 和 decoder-only 差在哪？为什么 LLM 多用后者？（How does encoder-decoder differ from decoder-only, and why do most LLMs use decoder-only?）
+2. 一个 Transformer block 里有哪些子层？各自干什么？（What sublayers make up a Transformer block, and what does each one do?）
+3. 去掉 residual 和 LayerNorm 会怎样？（What happens if you remove the residual connections and LayerNorm?）
+4. Logits 之后怎么变成下一个 token？（How do logits turn into the next token?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+A Transformer models dependencies across a sequence with self-attention. Almost every modern LLM is decoder-only.
+
+### Level 2 — Mechanism
+
+Inside each block, attention mixes information across tokens and the FFN applies a per-position non-linearity. Residual connections plus normalization keep a deep stack trainable. A final linear layer produces logits, and the next token is sampled from them.
+
+### Level 3 — Engineering
+
+The points to land in an interview: positional encoding shapes how well the model handles long context, and a decoder-only model needs a causal mask to generate autoregressively. Leave the detailed math to the Attention and Training pages.
+
+## Interview questions
+
+1. How does encoder-decoder differ from decoder-only, and why do most LLMs use decoder-only?
+2. What sublayers make up a Transformer block, and what does each one do?
+3. What happens if you remove the residual connections and LayerNorm?
+4. How do logits turn into the next token?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

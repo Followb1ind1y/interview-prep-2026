@@ -7,9 +7,55 @@ date: 2026-09-07
 keywords: ["context window", "lost-in-the-middle", "long context"]
 ---
 
-长上下文不是免费的，也不是质量单调变好。
+<Locale lang="zh">
+
+长上下文不是免费的，质量也不会随长度单调变好。
 
 ## 需要掌握
+
+- context limit（上下文长度上限）
+- input tokens / output tokens（输入 / 输出 token）
+- attention cost（注意力计算成本）
+- long context degradation（长上下文性能退化）
+- lost-in-the-middle（中间信息丢失）
+
+## 机制
+
+```
+input tokens + reserved output ≤ context limit
+attention ~ O(n²)  （稀疏变体也仍然随 n 变贵）
+```
+
+## 三级回答
+
+### Level 1 — 定义
+
+模型单次能处理的最大 token 数。输入和输出通常共享这个额度，或者分别计算。
+
+### Level 2 — 机制
+
+n 变大，attention 计算和 KV cache 都变贵。放在中间位置的证据更容易被模型忽略（lost-in-the-middle）。
+
+### Level 3 — 工程
+
+就算有 1M 的窗口，也不该把整个语料库塞进去。检索、压缩、缓存依然必要。
+
+## 面试问题
+
+1. 输入 token 和输出 token 分别怎么影响窗口和账单？（How do input tokens and output tokens affect the window and the bill?）
+2. 为什么长上下文会导致效果退化？（Why does quality degrade with long context?）
+3. Lost-in-the-middle 对 RAG 里的拼接顺序意味着什么？（What does lost-in-the-middle mean for how you order chunks in RAG?）
+4. 有了超长窗口，还需要 RAG 吗？（With a huge context window, do you still need RAG?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+Long context isn't free, and quality doesn't keep improving as it gets longer.
+
+## Must know
 
 - context limit
 - input tokens / output tokens
@@ -17,38 +63,50 @@ keywords: ["context window", "lost-in-the-middle", "long context"]
 - long context degradation
 - lost-in-the-middle
 
-## 机制
+## Mechanism
 
 ```
 input tokens + reserved output ≤ context limit
-attention ~ O(n²)  （或稀疏变体，仍然随 n 变贵）
+attention ~ O(n²)  (sparse variants still get more expensive as n grows)
 ```
 
-## 三级回答
+## Three-level answers
 
 ### Level 1 — Definition
 
-模型单次能处理的最大 token 数，输入和输出通常共享或分别计。
+The maximum number of tokens a model can handle in one call. Input and output usually share that budget or are counted separately.
 
 ### Level 2 — Mechanism
 
-n 变大，attention 和 KV 都变贵。中间位置的证据更容易被忽略（lost-in-the-middle）。
+As n grows, both attention compute and the KV cache get more expensive. Evidence placed in the middle is more likely to be ignored (lost-in-the-middle).
 
 ### Level 3 — Engineering
 
-有 1M window 也不该把整个语料塞进去。检索、压缩、缓存仍然必要。
+Even with a 1M-token window, you shouldn't pour the whole corpus in. Retrieval, compression, and caching are still necessary.
 
-## 面试问题
+## Interview questions
 
-1. Input tokens 和 output tokens 如何影响 window 和账单？
-2. 为什么 long context 会 degradation？
-3. Lost-in-the-middle 对 RAG 拼接顺序意味着什么？
-4. 有超长 window 还要不要 RAG？
+1. How do input tokens and output tokens affect the window and the bill?
+2. Why does quality degrade with long context?
+3. What does lost-in-the-middle mean for how you order chunks in RAG?
+4. With a huge context window, do you still need RAG?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

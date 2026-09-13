@@ -7,9 +7,68 @@ date: 2026-09-07
 keywords: ["system design", "rag chatbot", "coding agent", "enterprise ai platform"]
 ---
 
-Latency / Cost / Reliability / Observability 的知识点在 [Production AI](/docs/production)。这里只练开口和权衡。
+<Locale lang="zh">
 
-每道题都按：
+延迟 / 成本 / 可靠性 / 可观测性这些知识点在 [Production AI](/docs/production)。这里只练开口表达和权衡取舍。
+
+每道题都按这 14 个维度走：
+
+1. 需求（Requirements）
+2. 约束（Constraints）
+3. 架构（Architecture）
+4. 数据流（Data Flow）
+5. 模型（Model）
+6. 检索（Retrieval）
+7. 智能体（Agent）
+8. 评测（Evaluation）
+9. 扩展（Scaling）
+10. 延迟（Latency）
+11. 成本（Cost）
+12. 可靠性（Reliability）
+13. 安全（Security）
+14. 可观测性（Observability）
+
+概念不够就回到 01–07 专栏。这一阶段的目标是 **每天一道题**，不再堆新的词条。
+
+<CardGrid>
+  <Card title="L1 · RAG Chatbot" description="最基础的 RAG 白板题。" href="/docs/system-design/rag-chatbot" />
+  <Card title="L1 · Knowledge Assistant" description="企业知识助手。" href="/docs/system-design/knowledge-assistant" />
+  <Card title="L1 · Document Q&A" description="文档问答。" href="/docs/system-design/document-qa" />
+  <Card title="L2 · Customer Support" description="AI 客服：工单、工具、升级人工。" href="/docs/system-design/customer-support" />
+  <Card title="L2 · AI Search" description="做搜索，而不只是聊天机器人。" href="/docs/system-design/ai-search" />
+  <Card title="L2 · Meeting Summarization" description="长音频 / 会议纪要。" href="/docs/system-design/meeting-summarization" />
+  <Card title="L2 · Document Extraction" description="结构化抽取流水线。" href="/docs/system-design/document-extraction" />
+  <Card title="L3 · AI Agent" description="通用 agent。" href="/docs/system-design/ai-agent" />
+  <Card title="L3 · Coding Agent" description="接到 Harness / 沙箱。" href="/docs/system-design/coding-agent" />
+  <Card title="L3 · Multi-Agent" description="什么时候拆、怎么协调。" href="/docs/system-design/multi-agent" />
+  <Card title="L3 · Long-running Agent" description="状态、上下文压缩、断点恢复。" href="/docs/system-design/long-running-agent" />
+  <Card title="L4 · ChatGPT-like" description="会话、记忆、工具、多模型。" href="/docs/system-design/chatgpt" />
+  <Card title="L4 · Agent Platform" description="企业级 Agent 平台。" href="/docs/system-design/agent-platform" />
+  <Card title="L4 · Inference Platform" description="模型服务、KV cache、批处理。" href="/docs/system-design/inference-platform" />
+  <Card title="L4 · Large-scale RAG" description="大规模检索平台。" href="/docs/system-design/rag-platform" />
+</CardGrid>
+
+## 本专栏计划（每天一题）
+
+| 天 | 题目 |
+| --- | --- |
+| 1 | 设计 RAG 聊天机器人 |
+| 2 | 设计企业知识助手 |
+| 3 | 设计 AI 客服 |
+| 4 | 设计 AI 搜索 |
+| 5 | 设计一个 AI agent |
+| 6 | 设计 coding agent |
+| 7 | 设计大规模 AI 平台 |
+
+传统的短链接 / 信息流设计题，只有在 JD 明显偏通用后端时再补。
+
+</Locale>
+
+<Locale lang="en">
+
+The knowledge behind latency / cost / reliability / observability lives in [Production AI](/docs/production). This column is only for practicing how to talk through a design and its trade-offs.
+
+Every problem goes through the same 14 dimensions:
 
 1. Requirements
 2. Constraints
@@ -26,29 +85,29 @@ Latency / Cost / Reliability / Observability 的知识点在 [Production AI](/do
 13. Security
 14. Observability
 
-概念不够就回到 01–07。这一阶段目标是 **每天一道题**，不再堆新词条。
+If a concept is shaky, go back to columns 01–07. The goal at this stage is **one problem a day**, not collecting new terms.
 
 <CardGrid>
-  <Card title="L1 · RAG Chatbot" description="最基本的 RAG 白板。" href="/docs/system-design/rag-chatbot" />
-  <Card title="L1 · Knowledge Assistant" description="企业知识助手。" href="/docs/system-design/knowledge-assistant" />
-  <Card title="L1 · Document Q&A" description="文档问答。" href="/docs/system-design/document-qa" />
-  <Card title="L2 · Customer Support" description="客服 AI：工单、工具、升级人工。" href="/docs/system-design/customer-support" />
-  <Card title="L2 · AI Search" description="搜索，而不只是 chatbot。" href="/docs/system-design/ai-search" />
-  <Card title="L2 · Meeting Summarization" description="长音频 / 纪要。" href="/docs/system-design/meeting-summarization" />
-  <Card title="L2 · Document Extraction" description="结构化抽取 pipeline。" href="/docs/system-design/document-extraction" />
-  <Card title="L3 · AI Agent" description="通用 agent。" href="/docs/system-design/ai-agent" />
-  <Card title="L3 · Coding Agent" description="接到 Harness / Sandbox。" href="/docs/system-design/coding-agent" />
-  <Card title="L3 · Multi-Agent" description="何时拆、怎么协调。" href="/docs/system-design/multi-agent" />
-  <Card title="L3 · Long-running Agent" description="状态、compaction、恢复。" href="/docs/system-design/long-running-agent" />
-  <Card title="L4 · ChatGPT-like" description="会话、记忆、工具、多模型。" href="/docs/system-design/chatgpt" />
-  <Card title="L4 · Agent Platform" description="企业 Agent 平台。" href="/docs/system-design/agent-platform" />
-  <Card title="L4 · Inference Platform" description="serving、KV、batching。" href="/docs/system-design/inference-platform" />
-  <Card title="L4 · Large-scale RAG" description="大规模检索平台。" href="/docs/system-design/rag-platform" />
+  <Card title="L1 · RAG Chatbot" description="The baseline RAG whiteboard." href="/docs/system-design/rag-chatbot" />
+  <Card title="L1 · Knowledge Assistant" description="Enterprise knowledge assistant." href="/docs/system-design/knowledge-assistant" />
+  <Card title="L1 · Document Q&A" description="Question answering over documents." href="/docs/system-design/document-qa" />
+  <Card title="L2 · Customer Support" description="Support AI: tickets, tools, human escalation." href="/docs/system-design/customer-support" />
+  <Card title="L2 · AI Search" description="Search, not just a chatbot." href="/docs/system-design/ai-search" />
+  <Card title="L2 · Meeting Summarization" description="Long audio / meeting notes." href="/docs/system-design/meeting-summarization" />
+  <Card title="L2 · Document Extraction" description="Structured extraction pipeline." href="/docs/system-design/document-extraction" />
+  <Card title="L3 · AI Agent" description="A general-purpose agent." href="/docs/system-design/ai-agent" />
+  <Card title="L3 · Coding Agent" description="Ties into harnesses and sandboxes." href="/docs/system-design/coding-agent" />
+  <Card title="L3 · Multi-Agent" description="When to split and how to coordinate." href="/docs/system-design/multi-agent" />
+  <Card title="L3 · Long-running Agent" description="State, compaction, resuming." href="/docs/system-design/long-running-agent" />
+  <Card title="L4 · ChatGPT-like" description="Sessions, memory, tools, multiple models." href="/docs/system-design/chatgpt" />
+  <Card title="L4 · Agent Platform" description="Enterprise agent platform." href="/docs/system-design/agent-platform" />
+  <Card title="L4 · Inference Platform" description="Serving, KV cache, batching." href="/docs/system-design/inference-platform" />
+  <Card title="L4 · Large-scale RAG" description="Large-scale retrieval platform." href="/docs/system-design/rag-platform" />
 </CardGrid>
 
-## 本专栏计划（每天一题）
+## Plan for this column (one a day)
 
-| Day | 题 |
+| Day | Problem |
 | --- | --- |
 | 1 | Design RAG chatbot |
 | 2 | Design enterprise knowledge assistant |
@@ -58,4 +117,6 @@ Latency / Cost / Reliability / Observability 的知识点在 [Production AI](/do
 | 6 | Design coding agent |
 | 7 | Design large-scale AI platform |
 
-传统 Shortener / Feed 只在 JD 明显偏通用后端时再补。
+Classic URL shortener / feed problems only get added if a JD clearly leans toward general backend work.
+
+</Locale>

@@ -7,9 +7,30 @@ date: 2026-09-07
 keywords: ["prompt engineering", "few-shot", "instruction hierarchy"]
 ---
 
-Prompt 是 context 的一部分，但先把这一层讲清楚，再进入 Context Engineering。
+<Locale lang="zh">
+
+Prompt 是 context 的一部分，但要先把这一层讲清楚，再进入 Context Engineering。
 
 ## 需要掌握
+
+- zero-shot / few-shot（零样本 / 少样本）
+- role prompting（角色设定）
+- structured prompting（结构化 prompt）
+- XML / JSON 格式
+- output constraints（输出约束）
+- instruction hierarchy（指令优先级）
+- examples（示例）
+- prompt templates（prompt 模板）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+A prompt is part of the context, but get this layer clear first before moving on to Context Engineering.
+
+## Must know
 
 - zero-shot / few-shot
 - role prompting
@@ -20,7 +41,9 @@ Prompt 是 context 的一部分，但先把这一层讲清楚，再进入 Contex
 - examples
 - prompt templates
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 System / developer instructions
@@ -32,31 +55,72 @@ Examples / schema
 Output contract
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-用自然语言规定任务、约束和输出形状。
+用自然语言规定任务、约束和输出的形状。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-Instruction hierarchy 决定 system 和 user 冲突时听谁。Few-shot 用例子锁格式。XML / JSON 标签让模型更容易定位指令和数据。
+指令优先级决定 system 和 user 冲突时听谁的。Few-shot 用例子锁定格式。XML / JSON 标签让模型更容易分清哪部分是指令、哪部分是资料。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-生产里 prompt 要版本化、模板化，并和 structured output 一起用。长 prompt 的成本与丢失中间信息，转到 Context Engineering。
+生产环境里 prompt 要版本化、模板化，并和结构化输出一起用。长 prompt 带来的成本和中间信息丢失问题，放到 Context Engineering 里讲。
 
 ## 面试问题
 
-1. Zero-shot 和 few-shot 什么时候选哪个？
-2. 为什么要用 XML / JSON 包住指令和资料？
-3. System prompt 和 user prompt 冲突时怎么办？
-4. Prompt 模板如何做版本管理和 A/B？
+1. Zero-shot 和 few-shot 什么时候选哪个？（When do you choose zero-shot versus few-shot?）
+2. 为什么要用 XML / JSON 把指令和资料包起来？（Why wrap instructions and reference material in XML / JSON?）
+3. System prompt 和 user prompt 冲突时怎么办？（What happens when the system prompt and the user prompt conflict?）
+4. Prompt 模板怎么做版本管理和 A/B 测试？（How do you version and A/B test prompt templates?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Using natural language to specify the task, its constraints, and the shape of the output.
+
+### Level 2 — Mechanism
+
+The instruction hierarchy decides who wins when system and user instructions conflict. Few-shot examples lock in the format. XML / JSON tags make it easier for the model to tell instructions apart from data.
+
+### Level 3 — Engineering
+
+In production, prompts are versioned, templated, and paired with structured output. The cost of long prompts and the lost-in-the-middle problem belong to Context Engineering.
+
+## Interview questions
+
+1. When do you choose zero-shot versus few-shot?
+2. Why wrap instructions and reference material in XML / JSON?
+3. What happens when the system prompt and the user prompt conflict?
+4. How do you version and A/B test prompt templates?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

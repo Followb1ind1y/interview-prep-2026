@@ -7,11 +7,34 @@ date: 2026-09-07
 keywords: ["model selection", "gpt", "claude", "gemini"]
 ---
 
-能做 trade-off，而不是背一个「最强模型」。
+<Locale lang="zh">
+
+要能讲取舍，而不是背一个「最强模型」。
 
 ## 需要掌握
 
-从下面几维比较：
+从下面几个维度比较：
+
+- quality（质量）
+- latency（延迟）
+- cost（成本）
+- context（上下文长度）
+- tool calling（工具调用）
+- structured output（结构化输出）
+- multimodal（多模态）
+- reliability（可靠性）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Be able to reason about trade-offs, not recite "the best model."
+
+## Must know
+
+Compare along these dimensions:
 
 - quality
 - latency
@@ -22,7 +45,9 @@ keywords: ["model selection", "gpt", "claude", "gemini"]
 - multimodal
 - reliability
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 Task requirements
@@ -32,31 +57,72 @@ quality × latency × cost × tools × context
 Primary model + fallback
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-按任务选模型，而不是按品牌。
+按任务选模型，而不是按品牌选。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-同一任务可在便宜模型和强模型之间测。工具、结构化、长上下文、多模态支持是硬约束。
+同一个任务可以在便宜模型和强模型上都测一遍。工具调用、结构化输出、长上下文、多模态支持是硬约束。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-你的项目里为什么是 Gemini：企业生态、BigQuery、延迟还是质量？要能说出备选 Claude / GPT 会在哪一维更好。
+你的项目里为什么选 Gemini：企业生态、BigQuery、延迟，还是质量？要能说出备选的 Claude / GPT 会在哪个维度更好。
 
 ## 面试问题
 
-1. GPT / Claude / Gemini 怎么选？
-2. 什么任务可以降级到小模型？
-3. Tool calling 质量差，是换模型还是改 schema？
-4. 多模态和纯文本管道如何拆模型？
+1. GPT / Claude / Gemini 怎么选？（How do you choose between GPT, Claude, and Gemini?）
+2. 哪些任务可以降级到小模型？（Which tasks can you downgrade to a smaller model?）
+3. Tool calling 质量差，是换模型还是改 schema？（Tool calling quality is poor — do you switch models or fix the schema?）
+4. 多模态管道和纯文本管道怎么拆分模型？（How do you split models between multimodal and text-only pipelines?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Pick the model for the task, not for the brand.
+
+### Level 2 — Mechanism
+
+Run the same task on both a cheap model and a strong one. Tool calling, structured output, long context, and multimodal support are hard constraints.
+
+### Level 3 — Engineering
+
+Why Gemini in my projects: the enterprise ecosystem, BigQuery, latency, or quality? Be ready to say where Claude or GPT would have been the better pick, and on which dimension.
+
+## Interview questions
+
+1. How do you choose between GPT, Claude, and Gemini?
+2. Which tasks can you downgrade to a smaller model?
+3. Tool calling quality is poor — do you switch models or fix the schema?
+4. How do you split models between multimodal and text-only pipelines?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

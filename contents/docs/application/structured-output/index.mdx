@@ -7,9 +7,28 @@ date: 2026-09-07
 keywords: ["structured output", "json schema", "pydantic", "json mode"]
 ---
 
-应用层不能假设模型永远吐合法 JSON。
+<Locale lang="zh">
+
+应用层不能假设模型永远输出合法的 JSON。
 
 ## 需要掌握
+
+- JSON mode
+- structured outputs（结构化输出）
+- schema validation（schema 校验）
+- Pydantic
+- retries（重试）
+- malformed output（格式错误的输出）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+The application layer can't assume the model will always return valid JSON.
+
+## Must know
 
 - JSON mode
 - structured outputs
@@ -18,7 +37,9 @@ keywords: ["structured output", "json schema", "pydantic", "json mode"]
 - retries
 - malformed output
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 LLM
@@ -30,31 +51,72 @@ Validation
 Application
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-迫使模型输出可解析、可校验的结构，而不是自由文本。
+强制模型输出可解析、可校验的结构，而不是自由文本。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-JSON mode / constrained decoding 降低语法错误。应用侧仍要用 schema（Pydantic）校验字段类型和必填项。失败则 retry 或降级。
+JSON mode / 约束解码能减少语法错误。但应用侧仍要用 schema（Pydantic）校验字段类型和必填项。校验失败就重试或降级。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-Schema 越严，下游越稳，但复杂嵌套会增加失败率。校验失败不要死循环 retry。Tool calling 的参数校验是同一模式。
+Schema 越严，下游越稳，但复杂的嵌套结构会提高失败率。校验失败时不要无限重试。Tool calling 的参数校验也是同一个模式。
 
 ## 面试问题
 
-1. JSON mode 和真正的 schema-constrained decoding 有什么差别？
-2. Validation 失败时你的重试策略是什么？
-3. 为什么还需要 Pydantic，而不是相信模型？
-4. Structured output 和 function calling 是什么关系？
+1. JSON mode 和真正的 schema 约束解码有什么区别？（How is JSON mode different from true schema-constrained decoding?）
+2. 校验失败时，你的重试策略是什么？（What's your retry strategy when validation fails?）
+3. 为什么还需要 Pydantic，而不是直接相信模型？（Why do you still need Pydantic instead of trusting the model?）
+4. 结构化输出和 function calling 是什么关系？（How do structured output and function calling relate?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Forcing the model to produce a structure you can parse and validate, instead of free text.
+
+### Level 2 — Mechanism
+
+JSON mode and constrained decoding cut down on syntax errors. The application still validates field types and required fields against a schema (Pydantic). On failure, retry or fall back.
+
+### Level 3 — Engineering
+
+The stricter the schema, the more stable everything downstream — but deeply nested structures raise the failure rate. Never retry forever on validation errors. Tool-call argument validation follows exactly the same pattern.
+
+## Interview questions
+
+1. How is JSON mode different from true schema-constrained decoding?
+2. What's your retry strategy when validation fails?
+3. Why do you still need Pydantic instead of trusting the model?
+4. How do structured output and function calling relate?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

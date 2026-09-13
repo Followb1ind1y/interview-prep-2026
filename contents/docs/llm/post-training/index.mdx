@@ -7,9 +7,30 @@ date: 2026-09-07
 keywords: ["sft", "rlhf", "dpo", "alignment", "instruction tuning"]
 ---
 
-这一段非常重要。要能画出从预训练到听话的整条链。
+<Locale lang="zh">
+
+这一段非常重要。要能画出从预训练到「听话」的整条链。
 
 ## 需要掌握
+
+- SFT（监督微调）
+- RLHF（基于人类反馈的强化学习）
+- DPO（直接偏好优化）
+- preference data（偏好数据）
+- reward model（奖励模型）
+- alignment（对齐）
+- instruction tuning（指令微调）
+- catastrophic forgetting（灾难性遗忘）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+This part matters a lot. Be able to draw the whole chain from a pretrained model to one that follows instructions.
+
+## Must know
 
 - SFT
 - RLHF
@@ -20,7 +41,9 @@ keywords: ["sft", "rlhf", "dpo", "alignment", "instruction tuning"]
 - instruction tuning
 - catastrophic forgetting
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 Pretraining
@@ -34,31 +57,72 @@ RLHF / DPO
 Instruction Following
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-Post-training 把「会续写」变成「会按指令做、偏好人类认可的回答」。
+Post-training 把「会续写」的模型，变成「会按指令做事、回答符合人类偏好」的模型。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-SFT 教格式和任务。RLHF 用 reward model + RL；DPO 直接在偏好对上优化，省掉显式 RM 采样。
+SFT 教格式和任务。RLHF 用 reward model + 强化学习；DPO 直接在偏好对上优化，省掉显式的奖励模型和采样。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-数据质量和偏好覆盖决定行为。Fine-tune 过猛会 catastrophic forgetting。生产里多数能力用 RAG / prompt，而不是再训一遍基座。
+数据质量和偏好覆盖面决定模型行为。微调过猛会导致灾难性遗忘。生产环境里多数能力靠 RAG / prompt 解决，而不是把基座模型再训一遍。
 
 ## 面试问题
 
-1. SFT、RLHF、DPO 各自解决什么问题？
-2. Preference data 从哪来？坏数据会怎样？
-3. 为什么很多团队用 DPO 而不是完整 RLHF？
-4. Instruction tuning 之后模型为什么可能「不会」原来的能力？
+1. SFT、RLHF、DPO 各自解决什么问题？（What problem does each of SFT, RLHF, and DPO solve?）
+2. 偏好数据从哪来？数据质量差会怎样？（Where does preference data come from, and what happens when it's bad?）
+3. 为什么很多团队用 DPO 而不是完整的 RLHF？（Why do many teams use DPO instead of full RLHF?）
+4. 指令微调之后，模型为什么可能「忘了」原来的能力？（Why can a model lose abilities it had after instruction tuning?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Post-training turns a model that can continue text into one that follows instructions and gives the answers people prefer.
+
+### Level 2 — Mechanism
+
+SFT teaches format and tasks. RLHF uses a reward model plus reinforcement learning; DPO optimizes directly on preference pairs, skipping the explicit reward model and sampling loop.
+
+### Level 3 — Engineering
+
+Data quality and preference coverage decide how the model behaves. Fine-tune too aggressively and you get catastrophic forgetting. In production, most capabilities come from RAG or prompting — not from retraining the base model.
+
+## Interview questions
+
+1. What problem does each of SFT, RLHF, and DPO solve?
+2. Where does preference data come from, and what happens when it's bad?
+3. Why do many teams use DPO instead of full RLHF?
+4. Why can a model lose abilities it had after instruction tuning?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

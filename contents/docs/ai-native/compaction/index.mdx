@@ -7,11 +7,34 @@ date: 2026-09-07
 keywords: ["context compaction", "context anxiety", "context reset"]
 ---
 
-不是「把之前聊天总结一下」。Anthropic 讨论过 context reset 和接近 limit 时的 context anxiety。
+<Locale lang="zh">
+
+它不是「把之前的聊天总结一下」。Anthropic 讨论过 context reset，以及接近上限时模型出现的 context anxiety。
 
 ## 需要掌握
 
-应保留例如：
+应该保留的内容，比如：
+
+- current goal（当前目标）
+- completed tasks（已完成的任务）
+- important decisions（重要决策）
+- files changed（改过的文件）
+- errors（错误）
+- unresolved issues（未解决的问题）
+- tool state（工具状态）
+- user preferences（用户偏好）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+It isn't "summarize the chat so far." Anthropic has written about context resets and the context anxiety models show as they approach the limit.
+
+## Must know
+
+Things that should be preserved, for example:
 
 - current goal
 - completed tasks
@@ -22,7 +45,9 @@ keywords: ["context compaction", "context anxiety", "context reset"]
 - tool state
 - user preferences
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 Long trajectory
@@ -38,31 +63,72 @@ New context
 Continue
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-轨迹变长后，主动压缩 context 以便继续工作。
+执行轨迹变长之后，主动压缩上下文，好让工作继续下去。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-摘要 + 结构化状态替换原始 observation。必要时 reset 再注入关键状态。
+用摘要 + 结构化状态替换原始的观察记录。必要时直接重置上下文，再把关键状态注入回去。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-丢掉错误和未决问题会导致重复失败。Coding agent 必须保留改过的文件和测试红灯。
+丢掉错误信息和未解决的问题，会导致重复犯同样的错。Coding agent 必须保留改过的文件和失败的测试。
 
 ## 面试问题
 
-1. How do you handle context overflow?
-2. What should context compaction preserve?
-3. Context reset 和 rolling summary 怎么选？
-4. 什么是 context anxiety，工程上如何缓解？
+1. 上下文溢出怎么处理？（How do you handle context overflow?）
+2. 上下文压缩应该保留什么？（What should context compaction preserve?）
+3. 重置上下文和滚动摘要怎么选？（How do you choose between a context reset and a rolling summary?）
+4. 什么是 context anxiety？工程上怎么缓解？（What is context anxiety, and how do you mitigate it in practice?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Proactively compressing context once the trajectory gets long, so the work can continue.
+
+### Level 2 — Mechanism
+
+Replace raw observations with a summary plus structured state. When needed, reset the context and inject the key state back in.
+
+### Level 3 — Engineering
+
+Drop the errors and open issues and the agent repeats the same failures. A coding agent has to keep the files it changed and the tests that are still failing.
+
+## Interview questions
+
+1. How do you handle context overflow?
+2. What should context compaction preserve?
+3. How do you choose between a context reset and a rolling summary?
+4. What is context anxiety, and how do you mitigate it in practice?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

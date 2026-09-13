@@ -7,51 +7,115 @@ date: 2026-09-07
 keywords: ["cost", "tokens", "unit economics"]
 ---
 
-必须能估算：100k users/day，平均 5k input + 1k output，一个月多少钱？
+<Locale lang="zh">
+
+必须能当场估算：每天 10 万用户，平均 5k 输入 + 1k 输出 token，一个月要花多少钱？
 
 ## 需要掌握
 
-成本项：
+成本构成：
+
+- 输入 token
+- 输出 token（通常更贵）
+- Embedding
+- 重排
+- 工具 / 第三方 API
+- 基础设施
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+You have to be able to estimate on the spot: 100k users/day, averaging 5k input + 1k output tokens — what does a month cost?
+
+## Must know
+
+Cost components:
 
 - Input tokens
-- Output tokens（通常更贵）
+- Output tokens (usually more expensive)
 - Embedding
 - Reranking
 - Tool / API
 - Infrastructure
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 monthly ≈ days × users × reqs × (in_tokens × p_in + out_tokens × p_out)
         + embed + rerank + tools + gpu/hosting
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-LLM 产品的变动成本主要按 token 和调用次数。
+LLM 产品的变动成本，主要按 token 数和调用次数计算。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-输出 token 贵、agent 多步会放大。Prompt cache / routing / 更小模型是杠杆。
+输出 token 贵，agent 多步调用会把成本放大。Prompt 缓存、路由、换更小的模型都是降本的杠杆。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-先算数量级再优化。缓存命中率和 routing 准确率直接进账单。面试要能当场估算。
+先算清数量级，再做优化。缓存命中率和路由准确率会直接反映到账单上。面试时要能当场估算。
 
 ## 面试问题
 
-1. 100k users/day，5k input + 1k output，月费怎么估？
-2. 为什么 output token 往往更值得压缩？
-3. Agent 多 3 步对成本意味着什么？
-4. 如何把成本打进 observability？
+1. 每天 10 万用户、5k 输入 + 1k 输出，月费怎么估？（100k users/day at 5k input + 1k output tokens — how do you estimate the monthly cost?）
+2. 为什么输出 token 往往更值得压缩？（Why are output tokens usually more worth compressing?）
+3. Agent 多走 3 步，对成本意味着什么？（What do 3 extra agent steps mean for cost?）
+4. 怎么把成本数据纳入可观测性？（How do you build cost into observability?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+The variable cost of an LLM product is driven mainly by token count and number of calls.
+
+### Level 2 — Mechanism
+
+Output tokens are expensive, and multi-step agents multiply the cost. Prompt caching, routing, and smaller models are the main levers.
+
+### Level 3 — Engineering
+
+Get the order of magnitude right before optimizing. Cache hit rate and routing accuracy show up directly on the bill. In an interview, you need to do this math on the spot.
+
+## Interview questions
+
+1. 100k users/day at 5k input + 1k output tokens — how do you estimate the monthly cost?
+2. Why are output tokens usually more worth compressing?
+3. What do 3 extra agent steps mean for cost?
+4. How do you build cost into observability?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

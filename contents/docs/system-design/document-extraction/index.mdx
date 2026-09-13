@@ -7,17 +7,37 @@ date: 2026-09-07
 keywords: ["document extraction", "structured output"]
 ---
 
-Design document extraction pipeline.
+<Locale lang="zh">
+
+设计一个文档结构化抽取流水线。（Design a document extraction pipeline.）
 
 <Note title="开口框架">
-每道题都走同一套 14 个 dimensions，不要一上来画微服务。知识点不够就回到 01–07 / 09。
+每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
 </Note>
 
 ## 本题要练什么
 
-这是 structured output + workflow 题。Agent 往往过重。置信度低走人工。
+这是结构化输出 + workflow 的题，上 agent 往往太重。置信度低的结果交给人工。
 
 ## 白板草图
+
+</Locale>
+
+<Locale lang="en">
+
+Design a document extraction pipeline.
+
+<Note title="Opening framework">
+Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+</Note>
+
+## What this problem trains
+
+This is a structured output + workflow problem; an agent is usually overkill. Low-confidence results go to a human.
+
+## Whiteboard sketch
+
+</Locale>
 
 ```
 docs → parse → LLM/JSON schema → validate
@@ -25,12 +45,44 @@ docs → parse → LLM/JSON schema → validate
      → warehouse
 ```
 
+<Locale lang="zh">
+
 ## 容易被追问
 
-1. Schema 变更如何版本化？
-2. 表格抽取失败怎么修？
-3. 如何算抽取准确率？
-4. 为什么不要用自由 agent 来抽字段？
+1. Schema 变更怎么做版本管理？（How do you version schema changes?）
+2. 表格抽取失败怎么修？（How do you fix failed table extraction?）
+3. 抽取准确率怎么算？（How do you measure extraction accuracy?）
+4. 为什么不该用自由发挥的 agent 来抽字段？（Why shouldn't you use a free-form agent to extract fields?）
+
+## 14 个维度
+
+```
+1. 需求（Requirements）
+2. 约束（Constraints）
+3. 架构（Architecture）
+4. 数据流（Data Flow）
+5. 模型（Model）
+6. 检索（Retrieval）
+7. 智能体（Agent）
+8. 评测（Evaluation）
+9. 扩展（Scaling）
+10. 延迟（Latency）
+11. 成本（Cost）
+12. 可靠性（Reliability）
+13. 安全（Security）
+14. 可观测性（Observability）
+```
+
+</Locale>
+
+<Locale lang="en">
+
+## Likely follow-ups
+
+1. How do you version schema changes?
+2. How do you fix failed table extraction?
+3. How do you measure extraction accuracy?
+4. Why shouldn't you use a free-form agent to extract fields?
 
 ## Dimensions
 
@@ -51,62 +103,214 @@ docs → parse → LLM/JSON schema → validate
 14. Observability
 ```
 
+</Locale>
+
+<Locale lang="zh">
+
+## 需求
+
+</Locale>
+
+<Locale lang="en">
+
 ## Requirements
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 约束
+
+</Locale>
+
+<Locale lang="en">
 
 ## Constraints
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 架构
+
+</Locale>
+
+<Locale lang="en">
 
 ## Architecture
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 数据流
+
+</Locale>
+
+<Locale lang="en">
 
 ## Data Flow
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 模型
+
+</Locale>
+
+<Locale lang="en">
 
 ## Model
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 检索
+
+</Locale>
+
+<Locale lang="en">
 
 ## Retrieval
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 智能体
+
+</Locale>
+
+<Locale lang="en">
 
 ## Agent
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 评测
+
+</Locale>
+
+<Locale lang="en">
 
 ## Evaluation
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 扩展
+
+</Locale>
+
+<Locale lang="en">
 
 ## Scaling
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 延迟
+
+</Locale>
+
+<Locale lang="en">
 
 ## Latency
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 成本
+
+</Locale>
+
+<Locale lang="en">
 
 ## Cost
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 可靠性
+
+</Locale>
+
+<Locale lang="en">
 
 ## Reliability
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 安全
+
+</Locale>
+
+<Locale lang="en">
 
 ## Security
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 可观测性
+
+</Locale>
+
+<Locale lang="en">
 
 ## Observability
 
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
 
 -

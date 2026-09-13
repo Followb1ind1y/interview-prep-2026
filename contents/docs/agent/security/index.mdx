@@ -7,9 +7,29 @@ date: 2026-09-07
 keywords: ["prompt injection", "excessive agency", "sandboxing", "data exfiltration"]
 ---
 
-Anthropic 把「agent 能做什么」和 blast radius 当作核心工程问题。
+<Locale lang="zh">
+
+Anthropic 把「agent 能做什么」和出事后的影响范围（blast radius）当作核心工程问题。
 
 ## 需要掌握
+
+- prompt injection / indirect prompt injection（提示注入 / 间接提示注入）
+- tool injection（工具注入）
+- data exfiltration（数据外泄）
+- privilege escalation（权限提升）
+- excessive agency（权限过大）
+- sandboxing（沙箱）
+- permission boundaries（权限边界）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Anthropic treats "what can this agent do" and the blast radius when it goes wrong as core engineering questions.
+
+## Must know
 
 - prompt injection / indirect prompt injection
 - tool injection
@@ -19,7 +39,9 @@ Anthropic 把「agent 能做什么」和 blast radius 当作核心工程问题�
 - sandboxing
 - permission boundaries
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 untrusted content (web, docs, emails)
@@ -29,31 +51,72 @@ model follows injected instructions?
 tools / files / network  →  blast radius
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-Agent 把不可信内容和可执行工具连在一起，攻击面大于普通 chatbot。
+Agent 把不可信的内容和可执行的工具连在了一起，攻击面比普通 chatbot 大得多。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-间接注入藏在检索文档或网页里。模型一旦遵从，就会滥用工具。隔离靠权限、sandbox、人工确认。
+间接注入藏在检索到的文档或网页里。模型一旦照做，就会滥用工具。隔离要靠权限、沙箱和人工确认。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-最小权限、确认高风险动作、隔离文件系统和网络、不要把密钥放进 prompt。接到 [Sandbox](/docs/ai-native/sandbox) 与 [Context Isolation](/docs/context/isolation)。
+最小权限、高风险动作要确认、隔离文件系统和网络、不要把密钥放进 prompt。接到 [Sandbox](/docs/ai-native/sandbox) 和 [Context Isolation](/docs/context/isolation)。
 
 ## 面试问题
 
-1. How do you defend against prompt injection?
-2. Indirect prompt injection 和直接注入差在哪？
-3. Excessive agency 如何从产品层限制？
-4. 哪些 tool 必须 human confirm？
+1. 怎么防御 prompt injection？（How do you defend against prompt injection?）
+2. 间接提示注入和直接注入有什么区别？（How does indirect prompt injection differ from direct injection?）
+3. 怎么从产品层面限制 agent 权限过大？（How do you limit excessive agency at the product level?）
+4. 哪些工具必须经过人工确认？（Which tools must require human confirmation?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+An agent connects untrusted content to tools that can take real actions, so its attack surface is much larger than a plain chatbot's.
+
+### Level 2 — Mechanism
+
+Indirect injection hides inside retrieved documents or web pages. Once the model follows those instructions, it misuses its tools. Containment comes from permissions, sandboxes, and human confirmation.
+
+### Level 3 — Engineering
+
+Least privilege, confirmation for high-risk actions, isolated filesystem and network, and no secrets in the prompt. This connects to [Sandbox](/docs/ai-native/sandbox) and [Context Isolation](/docs/context/isolation).
+
+## Interview questions
+
+1. How do you defend against prompt injection?
+2. How does indirect prompt injection differ from direct injection?
+3. How do you limit excessive agency at the product level?
+4. Which tools must require human confirmation?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

@@ -7,15 +7,40 @@ date: 2026-09-07
 keywords: ["latency", "ttft", "tpot", "cold start"]
 ---
 
-对照 Voice 1.2s。必须能拆，不能只说「模型有点慢」。
+<Locale lang="zh">
+
+对照 Voice 项目的 1.2s。必须能拆开讲，不能只说「模型有点慢」。
 
 ## 需要掌握
 
-用户感知：
+用户感知到的延迟：
+
+首 token 延迟（TTFT）+ 生成耗时 = 用户感知延迟
+
+还要拆出：
+
+- 模型延迟
+- 检索 / 重排延迟
+- 工具调用延迟
+- 网络延迟
+- 序列化
+- 冷启动
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Compare against the Voice project's 1.2s. You have to break it down — "the model is kind of slow" isn't an answer.
+
+## Must know
+
+What users perceive:
 
 TTFT + Generation latency = User perceived latency
 
-还要拆：
+Also break out:
 
 - model latency
 - retrieval / reranker latency
@@ -24,7 +49,9 @@ TTFT + Generation latency = User perceived latency
 - serialization
 - cold start
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 request
@@ -36,31 +63,72 @@ request
  → tools (maybe loop)
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-延迟是分段之和。流式只改善感知，不减少总计算。
+延迟是各段耗时的总和。流式输出只改善体感，不减少总计算量。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-TTFT 看 prefill 和排队。生成看输出长度。Agent 再乘上循环次数。
+首 token 延迟取决于 prefill 和排队。生成耗时取决于输出长度。Agent 还要再乘上循环次数。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-优化前先 trace。常见杠杆：缓存、更小模型、少 rerank、并行工具、限制输出 token、避免冷启动。
+优化之前先看 trace。常见的杠杆：缓存、换更小的模型、少做重排、并行调用工具、限制输出 token、避免冷启动。
 
 ## 面试问题
 
-1. 如何把用户感知延迟拆开？
-2. RAG 里哪一段通常最好砍？
-3. Streaming 解决不了什么延迟？
-4. Voice 1.2s 你砍过哪些段？
+1. 怎么把用户感知延迟拆开？（How do you break down user-perceived latency?）
+2. RAG 里哪一段通常最好砍？（Which part of a RAG pipeline is usually easiest to cut?）
+3. 流式输出解决不了哪些延迟？（What latency can streaming not fix?）
+4. Voice 项目的 1.2s 里，你砍过哪些段？（In the Voice project's 1.2s, which segments did you cut?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Latency is the sum of its segments. Streaming only improves how it feels; it doesn't reduce total compute.
+
+### Level 2 — Mechanism
+
+TTFT depends on prefill and queueing. Generation time depends on output length. For an agent, multiply by the number of loop iterations.
+
+### Level 3 — Engineering
+
+Look at a trace before optimizing. Common levers: caching, smaller models, less reranking, parallel tool calls, capping output tokens, avoiding cold starts.
+
+## Interview questions
+
+1. How do you break down user-perceived latency?
+2. Which part of a RAG pipeline is usually easiest to cut?
+3. What latency can streaming not fix?
+4. In the Voice project's 1.2s, which segments did you cut?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

@@ -7,9 +7,31 @@ date: 2026-09-07
 keywords: ["tool calling", "function calling", "idempotency"]
 ---
 
-这是 agent 能「做事」的接口。接到 Tariff / Gemini tools。
+<Locale lang="zh">
+
+这是 agent 能「做事」的接口。接到 Tariff / Gemini 的工具调用。
 
 ## 需要掌握
+
+- function calling（函数调用）
+- tool schema（工具 schema）
+- tool selection（工具选择）
+- tool arguments（工具参数）
+- validation（校验）
+- execution（执行）
+- tool result（工具结果）
+- retry / timeout（重试 / 超时）
+- idempotency（幂等）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+This is the interface that lets an agent actually do things. Tie it to the Tariff / Gemini tools.
+
+## Must know
 
 - function calling
 - tool schema
@@ -21,39 +43,83 @@ keywords: ["tool calling", "function calling", "idempotency"]
 - retry / timeout
 - idempotency
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 LLM → choose tool + args → validate
     → execute → tool result → LLM
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-模型输出结构化的工具名和参数，由运行时执行，再把结果喂回模型。
+模型输出结构化的工具名和参数，由运行时去执行，再把结果喂回给模型。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-Schema 限制可调用面。校验挡住幻觉参数。超时和重试要考虑幂等，避免重复下单 / 重复写。
+Schema 限制了能调用的范围。校验挡住模型幻觉出来的参数。超时和重试要考虑幂等，避免重复下单、重复写入。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-工具失败不是「再问一次模型」就完。要分类：参数错、下游 5xx、权限、超时。过多 tool 会降低选择准确率，转到 Context Construction。
+工具失败不是「再问一次模型」就完事。要分类处理：参数错误、下游 5xx、权限问题、超时。工具太多会降低选择准确率，这部分转到 Context Construction。
 
 ## 面试问题
 
-1. How does tool calling work?
-2. MCP 和 function calling 有什么区别？（细节见 MCP 页）
-3. 如何防止 hallucinated tool arguments？
-4. 工具是否必须幂等？不幂等怎么做？
-5. What if a tool fails?
+1. Tool calling 是怎么工作的？（How does tool calling work?）
+2. MCP 和 function calling 有什么区别？细节见 MCP 页。（How is MCP different from function calling? Details on the MCP page.）
+3. 怎么防止模型幻觉出工具参数？（How do you prevent hallucinated tool arguments?）
+4. 工具必须幂等吗？不幂等的话怎么办？（Do tools have to be idempotent, and what do you do when they aren't?）
+5. 工具调用失败了怎么办？（What if a tool fails?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+The model outputs a structured tool name and arguments, the runtime executes the call, and the result gets fed back to the model.
+
+### Level 2 — Mechanism
+
+The schema limits what can be called. Validation blocks hallucinated arguments. Timeouts and retries have to respect idempotency so you don't place an order twice or write the same record twice.
+
+### Level 3 — Engineering
+
+A tool failure isn't fixed by "just ask the model again." Classify it: bad arguments, downstream 5xx, permissions, timeout. Too many tools lower selection accuracy — that's a Context Construction problem.
+
+## Interview questions
+
+1. How does tool calling work?
+2. How is MCP different from function calling? Details on the MCP page.
+3. How do you prevent hallucinated tool arguments?
+4. Do tools have to be idempotent, and what do you do when they aren't?
+5. What if a tool fails?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

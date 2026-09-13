@@ -7,29 +7,81 @@ date: 2026-09-07
 keywords: ["meeting summarization", "asr"]
 ---
 
-Design meeting summarization system.
+<Locale lang="zh">
+
+设计一个会议纪要生成系统。（Design a meeting summarization system.）
 
 <Note title="开口框架">
-每道题都走同一套 14 个 dimensions，不要一上来画微服务。知识点不够就回到 01–07 / 09。
+每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
 </Note>
 
 ## 本题要练什么
 
-必须异步。长 transcript 要 chunk + map-reduce 或长窗口 + 压缩。行动项要结构化输出。
+必须异步处理。长转录稿要么切块做 map-reduce，要么用长窗口 + 压缩。行动项要用结构化输出。
 
 ## 白板草图
+
+</Locale>
+
+<Locale lang="en">
+
+Design a meeting summarization system.
+
+<Note title="Opening framework">
+Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+</Note>
+
+## What this problem trains
+
+It has to be asynchronous. Long transcripts need chunking with map-reduce, or a long window plus compression. Action items should come out as structured output.
+
+## Whiteboard sketch
+
+</Locale>
 
 ```
 audio → ASR + diarization → transcript store
       → chunk summarize → reduce → actions/JSON
 ```
 
+<Locale lang="zh">
+
 ## 容易被追问
 
-1. 2 小时会议如何避免丢 action item？
-2. ASR 错误如何进 eval？
-3. 为什么这题通常不是 agent？
-4. 隐私和保留策略？
+1. 2 小时的会议怎么避免漏掉行动项？（How do you avoid missing action items in a 2-hour meeting?）
+2. 语音识别的错误怎么纳入评测？（How do you factor ASR errors into evaluation?）
+3. 为什么这道题通常不需要 agent？（Why is this usually not an agent problem?）
+4. 隐私和数据保留策略怎么定？（How do you handle privacy and data retention?）
+
+## 14 个维度
+
+```
+1. 需求（Requirements）
+2. 约束（Constraints）
+3. 架构（Architecture）
+4. 数据流（Data Flow）
+5. 模型（Model）
+6. 检索（Retrieval）
+7. 智能体（Agent）
+8. 评测（Evaluation）
+9. 扩展（Scaling）
+10. 延迟（Latency）
+11. 成本（Cost）
+12. 可靠性（Reliability）
+13. 安全（Security）
+14. 可观测性（Observability）
+```
+
+</Locale>
+
+<Locale lang="en">
+
+## Likely follow-ups
+
+1. How do you avoid missing action items in a 2-hour meeting?
+2. How do you factor ASR errors into evaluation?
+3. Why is this usually not an agent problem?
+4. How do you handle privacy and data retention?
 
 ## Dimensions
 
@@ -50,62 +102,214 @@ audio → ASR + diarization → transcript store
 14. Observability
 ```
 
+</Locale>
+
+<Locale lang="zh">
+
+## 需求
+
+</Locale>
+
+<Locale lang="en">
+
 ## Requirements
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 约束
+
+</Locale>
+
+<Locale lang="en">
 
 ## Constraints
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 架构
+
+</Locale>
+
+<Locale lang="en">
 
 ## Architecture
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 数据流
+
+</Locale>
+
+<Locale lang="en">
 
 ## Data Flow
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 模型
+
+</Locale>
+
+<Locale lang="en">
 
 ## Model
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 检索
+
+</Locale>
+
+<Locale lang="en">
 
 ## Retrieval
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 智能体
+
+</Locale>
+
+<Locale lang="en">
 
 ## Agent
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 评测
+
+</Locale>
+
+<Locale lang="en">
 
 ## Evaluation
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 扩展
+
+</Locale>
+
+<Locale lang="en">
 
 ## Scaling
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 延迟
+
+</Locale>
+
+<Locale lang="en">
 
 ## Latency
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 成本
+
+</Locale>
+
+<Locale lang="en">
 
 ## Cost
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 可靠性
+
+</Locale>
+
+<Locale lang="en">
 
 ## Reliability
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 安全
+
+</Locale>
+
+<Locale lang="en">
 
 ## Security
 
+</Locale>
+
 -
+
+<Locale lang="zh">
+
+## 可观测性
+
+</Locale>
+
+<Locale lang="en">
 
 ## Observability
 
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
 
 -

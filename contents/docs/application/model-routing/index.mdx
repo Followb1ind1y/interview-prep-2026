@@ -7,16 +7,35 @@ date: 2026-09-07
 keywords: ["model routing", "cascade", "fallback", "a/b testing"]
 ---
 
-Routing 是成本和质量的杠杆，也是 Production 的入口。
+<Locale lang="zh">
+
+路由是调节成本和质量的杠杆，也是进入 Production 话题的入口。
 
 ## 需要掌握
+
+- routing（路由）
+- fallback（降级兜底）
+- model cascade（模型级联）
+- A/B testing（A/B 测试）
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+Routing is the lever between cost and quality, and it's also the way into production topics.
+
+## Must know
 
 - routing
 - fallback
 - model cascade
 - A/B testing
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 Easy query        → cheap model
@@ -25,31 +44,72 @@ Coding            → specialized model
 Summarization     → cheap model
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
 
-### Level 1 — Definition
+### Level 1 — 定义
 
-按请求特征把流量分到不同模型。
+按请求的特征，把流量分到不同的模型。
 
-### Level 2 — Mechanism
+### Level 2 — 机制
 
-可用规则（长度、任务类型）或小分类器 / 小模型先判断难度。Cascade：先便宜模型，置信度低再升级。
+可以用规则（长度、任务类型），或者先用小分类器 / 小模型判断难度。Cascade：先用便宜模型，置信度低再升级到强模型。
 
-### Level 3 — Engineering
+### Level 3 — 工程
 
-误路由会把简单问题打贵、把难题打崩。必须有 fallback 和 A/B。和 Agent 的 tool 选择不同：这里选的是「哪个脑」，不是「哪个工具」。
+路由错了，简单问题会花冤枉钱，难题会答崩。必须有 fallback 和 A/B 测试。这和 agent 选工具不同：这里选的是「用哪个大脑」，不是「用哪个工具」。
 
 ## 面试问题
 
-1. 你用什么信号判断 query 难不难？
-2. Cascade 比直接打大模型省在哪、慢在哪？
-3. Fallback 触发条件是什么？
-4. 如何用 A/B 验证 routing 没有伤质量？
+1. 你用什么信号判断一个查询难不难？（What signals do you use to judge how hard a query is?）
+2. Cascade 比直接打大模型省在哪、慢在哪？（Compared with always calling the large model, where does a cascade save money and where does it add latency?）
+3. Fallback 的触发条件是什么？（What triggers a fallback?）
+4. 怎么用 A/B 测试验证路由没有伤害质量？（How do you use A/B testing to prove routing didn't hurt quality?）
 
 ## 我的答案
 
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
+
+### Level 1 — Definition
+
+Sending traffic to different models based on what each request looks like.
+
+### Level 2 — Mechanism
+
+Use rules (length, task type), or have a small classifier or small model judge difficulty first. A cascade starts with the cheap model and escalates to the strong one when confidence is low.
+
+### Level 3 — Engineering
+
+Misrouting makes easy questions expensive and breaks hard ones. You need fallbacks and A/B tests. This is different from an agent choosing tools: here you're choosing which brain, not which tool.
+
+## Interview questions
+
+1. What signals do you use to judge how hard a query is?
+2. Compared with always calling the large model, where does a cascade save money and where does it add latency?
+3. What triggers a fallback?
+4. How do you use A/B testing to prove routing didn't hurt quality?
+
+## My answer
+
+</Locale>
+
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -

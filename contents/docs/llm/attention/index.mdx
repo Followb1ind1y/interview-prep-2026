@@ -7,9 +7,30 @@ date: 2026-09-07
 keywords: ["attention", "qkv", "mha", "mqa", "gqa"]
 ---
 
-必须非常熟。能画 QKV，能讲复杂度，能连到 KV cache。
+<Locale lang="zh">
+
+这一页必须非常熟：能画出 QKV，能讲清复杂度，能连到 KV cache。
 
 ## 需要掌握
+
+- Q / K / V（查询 / 键 / 值）
+- self-attention（自注意力）
+- causal attention（因果注意力）
+- multi-head attention（多头注意力，MHA）
+- multi-query attention（多查询注意力，MQA）
+- grouped-query attention（分组查询注意力，GQA）
+- attention 的计算复杂度
+- 为什么是 O(n²)
+
+## 机制
+
+</Locale>
+
+<Locale lang="en">
+
+This one has to be second nature: draw QKV, explain the complexity, and connect it to the KV cache.
+
+## Must know
 
 - Q / K / V
 - self-attention
@@ -20,7 +41,9 @@ keywords: ["attention", "qkv", "mha", "mqa", "gqa"]
 - attention complexity
 - why O(n²)
 
-## 机制
+## Mechanism
+
+</Locale>
 
 ```
 Q = X Wq
@@ -31,21 +54,54 @@ weights = softmax(scores + causal mask)
 output = weights V
 ```
 
+<Locale lang="zh">
+
 ## 三级回答
+
+### Level 1 — 定义
+
+Attention 让每个 token 按相关性去聚合其他 token 的信息。
+
+### Level 2 — 机制
+
+Q 负责提问，K 负责被匹配，V 是被加权取出的内容。Causal mask 禁止看到未来的 token。多个头在不同子空间里并行做这件事。
+
+### Level 3 — 工程
+
+序列长度为 n 时，QKᵀ 是 n×n 的矩阵。长上下文之所以贵，是因为计算量和 KV cache 都随 n 增长。MQA / GQA 减少 K/V 的头数，用一点质量换吞吐和显存。
+
+## 面试问题
+
+1. 解释一下 self-attention。（Explain self-attention.）
+2. Q / K / V 分别是什么？（What are Q / K / V?）
+3. 为什么 attention 是 O(n²)？（Why is attention O(n²)?）
+4. MHA、MQA 和 GQA 有什么区别？（What is the difference between MHA, MQA and GQA?）
+5. 为什么长上下文会变贵？（Why does long context become expensive?）
+6. 为什么长上下文会增加推理成本？（Why does long context increase inference cost?）
+7. KV cache 起了什么作用？（How does KV cache help?）
+8. KV cache 要占多少内存？（How much memory does KV cache consume?）
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## Three-level answers
 
 ### Level 1 — Definition
 
-Attention 让每个 token 按相关性聚合其他 token 的信息。
+Attention lets each token pull in information from other tokens, weighted by how relevant they are.
 
 ### Level 2 — Mechanism
 
-Q 问、K 被匹配、V 被加权取出。Causal mask 禁止看未来。多头并行不同子空间。
+Q asks the question, K is what gets matched against, and V is what gets pulled out by weight. The causal mask stops a token from seeing the future. Multiple heads do this in parallel across different subspaces.
 
 ### Level 3 — Engineering
 
-序列长 n 时，QKᵀ 是 n×n。长上下文变贵，是因为计算和 KV cache 都随 n 涨。MQA / GQA 减少 K/V 头数，换吞吐和显存。
+With sequence length n, QKᵀ is an n×n matrix. Long context gets expensive because both compute and the KV cache grow with n. MQA and GQA cut the number of K/V heads, trading a little quality for throughput and memory.
 
-## 面试问题
+## Interview questions
 
 1. Explain self-attention.
 2. What are Q / K / V?
@@ -56,10 +112,22 @@ Q 问、K 被匹配、V 被加权取出。Causal mask 禁止看未来。多头�
 7. How does KV cache help?
 8. How much memory does KV cache consume?
 
-## 我的答案
+## My answer
+
+</Locale>
 
 -
 
+<Locale lang="zh">
+
 ## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
 
 -
