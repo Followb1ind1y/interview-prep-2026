@@ -44,6 +44,7 @@ function serialize(pages: AnnotationPages): string {
         pages[key].map((item) => ({
           id: item.id,
           kind: item.kind,
+          ...(item.locale && { locale: item.locale }),
           quote: { exact: item.quote.exact, prefix: item.quote.prefix, suffix: item.quote.suffix },
           ...(item.note !== undefined && { note: item.note }),
           ...(item.translation && {

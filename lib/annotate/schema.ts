@@ -9,6 +9,7 @@ const annotationSchema = z.object({
   createdAt: z.number().int().nonnegative(),
   id,
   kind: z.enum(['highlight', 'note']),
+  locale: z.enum(['zh', 'en']).optional(),
   note: z.string().max(5000).optional(),
   quote: z.object({
     exact: z.string().min(1).max(20_000),

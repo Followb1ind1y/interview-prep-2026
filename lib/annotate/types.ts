@@ -1,3 +1,4 @@
+import { type Locale } from '@/lib/i18n/types'
 import { type TranslateDirection, type Translation } from '@/lib/translate/types'
 
 export type AnnotationKind = 'highlight' | 'note'
@@ -21,6 +22,11 @@ export interface Annotation {
   createdAt: number
   id: string
   kind: AnnotationKind
+  /**
+   * 在哪种语言界面下创建的，只在同一语言下显示——中英文正文是两份独立内容，批注也各管各的。
+   * 缺省表示两种语言都显示：早期没记录语言的数据、或划在两边共用的代码块上。
+   */
+  locale?: Locale
   /** 自己写的备注，只有 kind === 'note' 才有；存翻译时可以为空 */
   note?: string
   quote: TextQuote
@@ -32,6 +38,7 @@ export interface Annotation {
 export type EditorState =
   | {
       id: string
+      locale: Locale
       mode: 'create'
       path: string
       quote: TextQuote

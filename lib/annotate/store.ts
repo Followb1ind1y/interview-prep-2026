@@ -5,6 +5,7 @@ import {
   type SavedTranslation,
   type TextQuote,
 } from '@/lib/annotate/types'
+import { type Locale } from '@/lib/i18n/types'
 
 /**
  * 客户端的批注状态。数据源是仓库里的 contents/site/annotations.json（见 lib/annotate/file.ts）：
@@ -131,13 +132,24 @@ function sameQuote(a: TextQuote, b: TextQuote): boolean {
 
 export function addAnnotation(
   path: string,
-  input: { kind: AnnotationKind; note?: string; quote: TextQuote; translation?: SavedTranslation }
+  input: {
+    kind: AnnotationKind
+    locale: Locale
+    note?: string
+    quote: TextQuote
+    translation?: SavedTranslation
+  }
 ) {
   const list = getAnnotations(path)
-  // 同一处重复点高亮不叠加
+  // 同一语言下同一处重复点高亮不叠加
   if (
     input.kind === 'highlight' &&
-    list.some((item) => item.kind === 'highlight' && sameQuote(item.quote, input.quote))
+    list.some(
+      (item) =>
+        item.kind === 'highlight' &&
+        item.locale === input.locale &&
+        sameQuote(item.quote, input.quote)
+    )
   ) {
     return
   }
@@ -159,12 +171,17 @@ export function removeAnnotation(path: string, id: string) {
 }
 
 /** 同一处已经有批注（自己写的或之前存的翻译）就把翻译挂上去，不另起一条 */
-export function upsertTranslation(path: string, quote: TextQuote, translation: SavedTranslation) {
+export function upsertTranslation(
+  path: string,
+  quote: TextQuote,
+  translation: SavedTranslation,
+  locale: Locale
+) {
   const existing = getAnnotations(path).find(
-    (item) => item.kind === 'note' && sameQuote(item.quote, quote)
+    (item) => item.kind === 'note' && item.locale === locale && sameQuote(item.quote, quote)
   )
   if (!existing) {
-    addAnnotation(path, { kind: 'note', note: '', quote, translation })
+    addAnnotation(path, { kind: 'note', locale, note: '', quote, translation })
     return
   }
   commit({ id: existing.id, patch: { translation, updatedAt: Date.now() }, path, type: 'update' })
@@ -172,7 +189,10 @@ export function upsertTranslation(path: string, quote: TextQuote, translation: S
 
 const normalize = (text: string) => text.replace(/\s+/g, ' ').trim()
 
-/** 本页存过的同一段文字的翻译。只查本页：同一个词换个语境释义可能不同 */
+/**
+ * 本页存过的同一段文字的翻译。只查本页：同一个词换个语境释义可能不同。
+ * 不区分语言：英文界面存过的术语，在中文界面划同一个词照样直接复用，不花 token。
+ */
 export function findSavedTranslation(path: string, text: string): SavedTranslation | null {
   const target = normalize(text)
   const found = getAnnotations(path).find(

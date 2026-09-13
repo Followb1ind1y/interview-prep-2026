@@ -9,6 +9,7 @@ import { annotationRoot, resolveAll } from '@/lib/annotate/anchor'
 import { addAnnotation, removeAnnotation, updateNote } from '@/lib/annotate/store'
 import { type Annotation, type EditorState } from '@/lib/annotate/types'
 import { floatingStyle, GAP } from '@/lib/floating'
+import { type Locale } from '@/lib/i18n/types'
 
 const MARK = 'annotate-mark'
 const NOTE = 'annotate-note'
@@ -92,11 +93,13 @@ function useAnchoredRanges(annotations: Annotation[]): Map<string, Range> {
 export function AnnotationLayer({
   annotations,
   editor,
+  locale,
   onEditorChange,
   path,
 }: {
   annotations: Annotation[]
   editor: EditorState | null
+  locale: Locale
   onEditorChange: (next: EditorState | null) => void
   path: string
 }) {
@@ -272,6 +275,8 @@ export function AnnotationLayer({
     if (!range) return
     onEditorChange({
       id: `note-for-${annotation.id}`,
+      // 界面上能看到的批注，要么属于当前语言、要么两边共用，新批注都记在当前语言下
+      locale: annotation.locale ?? locale,
       mode: 'create',
       path,
       quote: annotation.quote,
@@ -282,7 +287,12 @@ export function AnnotationLayer({
   function save(note: string) {
     if (!editor) return
     if (editor.mode === 'create') {
-      addAnnotation(editor.path, { kind: 'note', note, quote: editor.quote })
+      addAnnotation(editor.path, {
+        kind: 'note',
+        locale: editor.locale,
+        note,
+        quote: editor.quote,
+      })
     } else {
       updateNote(editor.path, editor.annotation.id, note)
     }

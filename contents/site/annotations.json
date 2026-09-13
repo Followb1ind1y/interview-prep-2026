@@ -3,6 +3,7 @@
     {
       "id": "35cbba85-f254-4b01-a505-3e193ea7ba21",
       "kind": "highlight",
+      "locale": "zh",
       "quote": {
         "exact": "不是成为 ML Researcher",
         "prefix": "M FundamentalsLLM Fundamentals目标",
@@ -14,6 +15,7 @@
     {
       "id": "6d1be0bb-138a-431a-854a-2409b3261f11",
       "kind": "highlight",
+      "locale": "zh",
       "quote": {
         "exact": "从模型机制讲到 production behavior",
         "prefix": "标不是成为 ML Researcher。面试官问「为什么」时，能",
@@ -25,6 +27,7 @@
     {
       "id": "1656f124-31a1-48b6-8853-67df9ab60e27",
       "kind": "highlight",
+      "locale": "zh",
       "quote": {
         "exact": "能从模型机制讲到 production behavior",
         "prefix": "目标不是成为 ML Researcher。面试官问「为什么」时，",
@@ -38,6 +41,7 @@
     {
       "id": "45620088-f81e-4034-8a63-ac52d55dec6d",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "translates \"text a human wrote\"",
         "prefix": ". Tokenization is the step that ",
@@ -49,6 +53,7 @@
     {
       "id": "ede7df8c-5ea7-47ea-a300-09175d5cc4be",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "integers a model can consume",
         "prefix": "ates \"text a human wrote\" into \"",
@@ -60,6 +65,7 @@
     {
       "id": "45f2dafe-4877-49f6-a3e6-443d6e71dde5",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "tokens",
         "prefix": " text into smaller units called ",
@@ -71,6 +77,7 @@
     {
       "id": "d82c85b5-f406-460d-b318-082d8f40fd60",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "mapped through a vocabulary to an integer id",
         "prefix": " characters. Each token is then ",
@@ -82,6 +89,7 @@
     {
       "id": "d510e13c-9679-4625-b224-c3f68f65473f",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "a 128K context window means 128K tokens",
         "prefix": "ured in tokens, not characters:\n",
@@ -93,6 +101,7 @@
     {
       "id": "395fef9c-b299-48fb-a2ce-abfc77e6804b",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "billing is per token",
         "prefix": "ontext window means 128K tokens\n",
@@ -104,6 +113,7 @@
     {
       "id": "5d720cbd-0d96-4d2c-8adf-065829a111e9",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "plumbing",
         "prefix": "odel can consume.\"It looks like ",
@@ -122,6 +132,7 @@
     {
       "id": "0eb0c9e9-3374-4a68-876c-ec172b2c4aaf",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "notion",
         "prefix": ", ...]\nIt matters because every ",
@@ -140,6 +151,7 @@
     {
       "id": "669a2af6-f7f7-4438-88fd-62b3926502e5",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "Tokenization is the exchange rate between a piece of text and a dollar amount.",
         "prefix": "e memory grows with token count\n",
@@ -158,6 +170,7 @@
     {
       "id": "d12a3b47-cc1b-4ef4-b465-fe7b63b406d3",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "vocabulary",
         "prefix": "nt.Tokenizer vs. vocabulary:The ",
@@ -176,6 +189,7 @@
     {
       "id": "fe678ead-526d-40dd-8c27-3e54b6368ef9",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "a static table mapping every possible token to an id",
         "prefix": "s. vocabulary:The vocabulary is ",
@@ -187,6 +201,7 @@
     {
       "id": "ceffd81f-a76f-4516-a957-7a922d29b504",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "tokenizer",
         "prefix": "ry possible token to an id. The ",
@@ -205,6 +220,7 @@
     {
       "id": "d38883a3-eb92-4fce-823e-ea6467064b9a",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "tool",
         "prefix": " to an id. The tokenizer is the ",
@@ -216,6 +232,7 @@
     {
       "id": "20ea16d5-4a7b-4bb0-bbc2-3bd0be775bb9",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "applies the splitting rules",
         "prefix": " The tokenizer is the tool that ",
@@ -227,6 +244,7 @@
     {
       "id": "18d8459d-3b82-4b43-8ac4-a2fcf843a67e",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "conflated",
         "prefix": " and embedding relate?These get ",
@@ -245,6 +263,7 @@
     {
       "id": "a9b68820-5285-4425-8689-5faea736743b",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "token ids carry no semantics",
         "prefix": "aning starts hereThe key point: ",
@@ -256,6 +275,7 @@
     {
       "id": "d8dfa9f3-ff86-462f-b6f6-7806bfaf20e5",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "numerically adjacent",
         "prefix": "emantics. Ids 1917 and 1918 are ",
@@ -274,6 +294,7 @@
     {
       "id": "5c48cb1c-e81d-403c-b036-09f87a385944",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "embedding layer",
         "prefix": "ning is learned entirely by the ",
@@ -285,6 +306,7 @@
     {
       "id": "a0a744e7-e5be-4aee-9450-6d15378621c8",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "how does tokenization capture meaning,\" the correct answer is that it doesn't",
         "prefix": " in interviews:If you're asked \"",
@@ -303,6 +325,7 @@
     {
       "id": "fa3f147e-a14d-4834-9772-083bdf31c29f",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "meaning is the job of embedding plus attention downstream",
         "prefix": "zation only splits and numbers; ",
@@ -321,6 +344,7 @@
     {
       "id": "b97a6cfa-51a3-4fbb-bda4-bb6cac772bba",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "shaky",
         "prefix": "eam. Getting this wrong signals ",
@@ -339,6 +363,7 @@
     {
       "id": "276efbdd-a51f-425c-be18-1f38b6f078c9",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "proportion",
         "prefix": "ute. Each forward pass costs in ",
@@ -357,6 +382,7 @@
     {
       "id": "a2572b5a-2369-4899-a9c6-5ce8e6d3d179",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "in proportion to",
         "prefix": "ompute. Each forward pass costs ",
@@ -375,6 +401,7 @@
     {
       "id": "07498d8e-51f2-4f02-99e4-93cb87dd2e45",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "intuition",
         "prefix": "r a single Chinese character.An ",
@@ -393,6 +420,7 @@
     {
       "id": "9f5ede5d-34b2-475d-91ea-9d7575c91e39",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "Letter-level information was destroyed at the tokenization step",
         "prefix": "ing for [\"str\", \"aw\", \"berry\"]. ",
@@ -404,6 +432,7 @@
     {
       "id": "70d15bce-6346-4de9-8401-f9c4701cfdea",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "only counting tokens is accurate",
         "prefix": ", counting words gets it wrong; ",
@@ -415,6 +444,7 @@
     {
       "id": "b3e4b9da-f1ab-4064-a9f6-557e3e251e97",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "sequence length",
         "prefix": "trading vocabulary size against ",
@@ -426,6 +456,7 @@
     {
       "id": "ce431190-047c-4f59-919b-2da16bc006a8",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "vocabulary size",
         "prefix": "off?Three families, all trading ",
@@ -437,6 +468,7 @@
     {
       "id": "5a3b489a-0091-4baa-b256-11a210f4597c",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "severe OOV",
         "prefix": ", \"processing\"]huge (100k+)short",
@@ -455,6 +487,7 @@
     {
       "id": "61e86cf3-15d3-4621-bda5-1f860ffd3458",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "Subword-level",
         "prefix": "e [UNK] and lose all information",
@@ -466,6 +499,7 @@
     {
       "id": "1ce3f815-227f-4f45-99ac-2271e934b55a",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "fatal flaw",
         "prefix": "moderatethe standard choice, no ",
@@ -484,6 +518,7 @@
     {
       "id": "5129d2e5-4c43-413c-ae58-d2ce48418afc",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "frequent words stay whole",
         "prefix": "it takes the good half of both: ",
@@ -495,6 +530,7 @@
     {
       "id": "3bd17767-d78d-437c-bba6-af2793771e4e",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "rare words break into meaningful pieces",
         "prefix": "hole (\"the\" is one token) while ",
@@ -506,6 +542,7 @@
     {
       "id": "ebcdec90-eba8-43d3-a9bb-5aa77d12be72",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "BPE",
         "prefix": " no sequence explosion.How does ",
@@ -517,6 +554,7 @@
     {
       "id": "558d3c4f-9a92-4353-aa58-72ee043e6731",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "BPE",
         "prefix": " no sequence explosion.How does ",
@@ -535,6 +573,7 @@
     {
       "id": "fb4a88c1-61dd-48b5-bc83-be4f0ab53981",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "repeatedly merge the most frequent adjacent pair into a new token, until the vocabulary reaches its target size",
         "prefix": "The whole idea in one sentence: ",
@@ -546,6 +585,7 @@
     {
       "id": "85847177-4901-4c9b-84ee-bb2ff8cbd416",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "</w> marks end of word",
         "prefix": "lit everything into characters (",
@@ -557,6 +597,7 @@
     {
       "id": "ce6053ff-84b1-41da-bbab-5e4e1089a072",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "Stop when the vocabulary hits its target size",
         "prefix": "lo w e r5(lo, w)lowlow / low e r",
@@ -568,6 +609,7 @@
     {
       "id": "f78c89cc-8b45-4017-8e43-7ba3a594db40",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "a tokenizer is fully deterministic",
         "prefix": " replayed in the same order. So ",
@@ -579,6 +621,7 @@
     {
       "id": "83aca27a-595c-4c66-ae81-4638e6bf7a93",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "same text, same tokenizer, always the same split",
         "prefix": "kenizer is fully deterministic: ",
@@ -597,6 +640,7 @@
     {
       "id": "78e1600a-883b-4ec7-bdb6-56d1d428ed32",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "emit",
         "prefix": "peared in training, BPE doesn't ",
@@ -615,6 +659,7 @@
     {
       "id": "cc706641-f6f9-4068-9bf5-804ab3fbe0ef",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "assembles",
         "prefix": "ng, BPE doesn't emit [UNK] — it ",
@@ -633,6 +678,7 @@
     {
       "id": "8c0a66a6-56e5-4027-891a-bc7bd41429de",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "it assembles [\"low\", \"est</w>\"] from existing merge rules",
         "prefix": "ining, BPE doesn't emit [UNK] — ",
@@ -644,6 +690,7 @@
     {
       "id": "e0361750-d58e-498c-b802-b32c42eb6cfa",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "procedure",
         "prefix": "s WordPiece differ from BPE?The ",
@@ -662,6 +709,7 @@
     {
       "id": "ccbdcfd8-e11a-4025-a5b0-df61577d849f",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "identical",
         "prefix": "rom BPE?The procedure is nearly ",
@@ -680,6 +728,7 @@
     {
       "id": "6b9a442f-1cad-4b7f-b490-8f9112893fe2",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "criterion",
         "prefix": "e is nearly identical. Only the ",
@@ -698,6 +747,7 @@
     {
       "id": "b7583e75-4e03-49c5-aebe-0e2dfb81ed58",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "freq(u, v) / (freq(u) × freq(v))",
         "prefix": " pick the pair with the highest ",
@@ -709,6 +759,7 @@
     {
       "id": "f453d40b-3a7b-4ab9-bf26-605f214e7a5c",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "The denominator penalizes combinations whose parts are already common on their own.",
         "prefix": "req(u, v) / (freq(u) × freq(v))\n",
@@ -727,6 +778,7 @@
     {
       "id": "e8a9f856-62f2-4cee-9d47-3cafcc6dc176",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "Concretely",
         "prefix": "are already common on their own.",
@@ -745,6 +797,7 @@
     {
       "id": "b92a5ed1-64eb-4a80-8d3e-6e6339495939",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "decent",
         "prefix": "es. BPE sees 9 and considers it ",
@@ -763,6 +816,7 @@
     {
       "id": "bc4d327a-bb9b-419e-a43f-61ebc6edcda8",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "merely",
         "prefix": "tiny score — and concludes they ",
@@ -781,6 +835,7 @@
     {
       "id": "7be13e90-55db-4e2c-894d-da02d29bb70f",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "merely happen to sit next to each other rather than forming a meaningful unit",
         "prefix": "tiny score — and concludes they ",
@@ -792,6 +847,7 @@
     {
       "id": "ba28819d-d12a-4856-8869-02314f13dc7d",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "prefix",
         "prefix": "s at correlation.WordPiece's ## ",
@@ -810,6 +866,7 @@
     {
       "id": "bbe61a6a-277a-41a4-ab16-4dc98dfdd634",
       "kind": "note",
+      "locale": "en",
       "quote": {
         "exact": "suffix",
         "prefix": "this token can only appear as a ",
@@ -828,6 +885,7 @@
     {
       "id": "fedec794-d22b-4528-983a-5c86e8470761",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "never standalone",
         "prefix": "en can only appear as a suffix, ",
@@ -841,6 +899,7 @@
     {
       "id": "df85fbdc-450d-4784-b84d-142983c8629e",
       "kind": "highlight",
+      "locale": "zh",
       "quote": {
         "exact": "Interview Performance",
         "prefix": "重新学一遍 AI，而是把已有 3+ 年 LLM 工程经验 转成 ",
@@ -852,6 +911,7 @@
     {
       "id": "c614f00f-17de-4691-93c3-3b9bc94befe4",
       "kind": "highlight",
+      "locale": "zh",
       "quote": {
         "exact": "Production LLM / AI Engineer",
         "prefix": "验 转成 Interview Performance。\n定位是 ",
@@ -863,6 +923,7 @@
     {
       "id": "166bc3c4-db8f-426b-b3f9-67423083ab6e",
       "kind": "highlight",
+      "locale": "zh",
       "quote": {
         "exact": "我应该找什么工作？",
         "prefix": "：压力下能不能讲出来。\n六个模块\n#模块核心问题写在哪1求职定位",
@@ -874,6 +935,7 @@
     {
       "id": "f1312c5b-247c-4b44-8aad-2de9cd69b8e2",
       "kind": "highlight",
+      "locale": "zh",
       "quote": {
         "exact": "怎么让别人愿意见我？",
         "prefix": "求职定位我应该找什么工作？求职定位2Resume / Intro",
@@ -885,6 +947,7 @@
     {
       "id": "96b4e319-df2c-4885-bc15-c1791b7ffeb7",
       "kind": "highlight",
+      "locale": "zh",
       "quote": {
         "exact": "怎么证明我真的做过？",
         "prefix": " / Intro怎么让别人愿意见我？简历 · 个人介绍3项目深挖",
@@ -896,6 +959,7 @@
     {
       "id": "4b23dfa7-21fd-4d97-89ed-b87e8a5d1829",
       "kind": "highlight",
+      "locale": "zh",
       "quote": {
         "exact": "我到底懂不懂？",
         "prefix": "介绍3项目深挖怎么证明我真的做过？项目深挖（面试表现）4技术知识",
@@ -907,6 +971,7 @@
     {
       "id": "ed494948-5579-43fa-a57f-40693859ea81",
       "kind": "highlight",
+      "locale": "zh",
       "quote": {
         "exact": "我能不能写代码？",
         "prefix": "术知识我到底懂不懂？下面 9 个专栏 · 工程基础5Coding",
@@ -918,6 +983,7 @@
     {
       "id": "66ea32eb-65c7-4386-a842-22e21e2a2ead",
       "kind": "highlight",
+      "locale": "zh",
       "quote": {
         "exact": "我能不能在压力下讲出来",
         "prefix": "个专栏 · 工程基础5Coding我能不能写代码？算法6面试表现",
@@ -929,6 +995,7 @@
     {
       "id": "a6908365-53fc-4722-b0c9-c01bbb281401",
       "kind": "highlight",
+      "locale": "zh",
       "quote": {
         "exact": "我能不能在压力下讲出来？",
         "prefix": "个专栏 · 工程基础5Coding我能不能写代码？算法6面试表现",
@@ -942,6 +1009,7 @@
     {
       "id": "858a1506-7a3d-4076-8dcc-95df6e3f929a",
       "kind": "highlight",
+      "locale": "en",
       "quote": {
         "exact": "Production LLM Engineer / AI Engineer / Applied AI Engineer",
         "prefix": "tion、enterprise AI。\n项当前定稿Primary",

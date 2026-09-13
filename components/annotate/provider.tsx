@@ -25,6 +25,7 @@ import {
   upsertTranslation,
 } from '@/lib/annotate/store'
 import { type EditorState, type SavedTranslation } from '@/lib/annotate/types'
+import { useI18n } from '@/lib/i18n/provider'
 
 interface AnnotateContextValue {
   /** 浏览器支持 CSS Custom Highlight API，且选区完整落在页面主体里 */
@@ -41,6 +42,12 @@ export function AnnotateProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const getSnapshot = useCallback(() => getAnnotations(pathname), [pathname])
   const annotations = useSyncExternalStore(subscribe, getSnapshot, getServerAnnotations)
+  const { locale } = useI18n()
+  // 引用必须稳定：layer 按数组引用决定是否重新定位，每次渲染都新建数组会反复重算
+  const visible = useMemo(
+    () => annotations.filter((item) => !item.locale || item.locale === locale),
+    [annotations, locale]
+  )
 
   const [supported, setSupported] = useState(false)
   const [editor, setEditor] = useState<EditorState | null>(null)
@@ -71,9 +78,9 @@ export function AnnotateProvider({ children }: { children: ReactNode }) {
     (range: Range) => {
       const root = annotationRoot()
       const quote = root && describe(range, root)
-      if (quote) addAnnotation(pathname, { kind: 'highlight', quote })
+      if (quote) addAnnotation(pathname, { kind: 'highlight', locale, quote })
     },
-    [pathname]
+    [locale, pathname]
   )
 
   const note = useCallback(
@@ -83,22 +90,23 @@ export function AnnotateProvider({ children }: { children: ReactNode }) {
       if (!quote) return
       setEditor({
         id: `new-${Date.now()}`,
+        locale,
         mode: 'create',
         path: pathname,
         quote,
         range: range.cloneRange(),
       })
     },
-    [pathname]
+    [locale, pathname]
   )
 
   const saveTranslation = useCallback(
     (range: Range, translation: SavedTranslation) => {
       const root = annotationRoot()
       const quote = root && describe(range, root)
-      if (quote) upsertTranslation(pathname, quote, translation)
+      if (quote) upsertTranslation(pathname, quote, translation, locale)
     },
-    [pathname]
+    [locale, pathname]
   )
 
   const findTranslation = useCallback(
@@ -116,9 +124,10 @@ export function AnnotateProvider({ children }: { children: ReactNode }) {
       {children}
       {supported && (
         <AnnotationLayer
-          annotations={annotations}
+          annotations={visible}
           // 编辑框绑定的是打开时那一页的选区，换页就不再显示
           editor={editor?.path === pathname ? editor : null}
+          locale={locale}
           onEditorChange={setEditor}
           path={pathname}
         />
