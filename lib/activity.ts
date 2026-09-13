@@ -1,18 +1,41 @@
-import { promises as fs } from 'node:fs'
+import { type Dirent, promises as fs } from 'node:fs'
 import path from 'node:path'
 import grayMatter from 'gray-matter'
 
 import timeline from '@/contents/site/timeline.json'
+import { readAnnotationPages } from '@/lib/annotate/file'
 import { COLLECTION_IDS } from '@/lib/collections'
+import { type DayCount, readGitActivity } from '@/lib/git-activity'
+
+/** Counted per source so the heatmap tooltip can show what a day was made of. */
+export interface ActivityBreakdown {
+  annotations: number
+  commits: number
+  milestones: number
+  notes: number
+}
 
 export interface ActivityDay {
+  breakdown: ActivityBreakdown
   count: number
   date: string
 }
 
+/**
+ * Annotations only carry a timestamp, so turning them into a calendar day needs a timezone.
+ * Use where the site owner lives, which also matches how git dates the commits.
+ */
+const TIME_ZONE = 'America/Toronto'
+const dayFormatter = new Intl.DateTimeFormat('en-CA', {
+  day: '2-digit',
+  month: '2-digit',
+  timeZone: TIME_ZONE,
+  year: 'numeric',
+})
+
 async function walkMdx(dir: string): Promise<string[]> {
   const files: string[] = []
-  let entries
+  let entries: Dirent[]
 
   try {
     entries = await fs.readdir(dir, { withFileTypes: true })
@@ -40,51 +63,67 @@ function toDay(value: string | Date | undefined): string | null {
 }
 
 /**
- * Commits per day, pre-generated at build time by scripts/content.ts (git history
- * isn't available from the deployed serverless function at request time). Missing
- * on a fresh checkout before the first build, so a missing file is not an error.
+ * Commits per day. In development read git directly so today's commits show up right away;
+ * the deployed serverless function has no .git directory, so production reads the snapshot
+ * scripts/content.ts writes at build time (missing on a fresh checkout — not an error).
  */
-async function getDevActivityDays(): Promise<ActivityDay[]> {
+async function getCommitDays(): Promise<DayCount[]> {
+  if (process.env.NODE_ENV === 'development') {
+    try {
+      return readGitActivity()
+    } catch {
+      // No git available: fall through to the build snapshot
+    }
+  }
+
   try {
     const raw = await fs.readFile(
       path.join(process.cwd(), 'public', 'search-data', 'dev-activity.json'),
       'utf-8'
     )
-    return JSON.parse(raw) as ActivityDay[]
+    return JSON.parse(raw) as DayCount[]
   } catch {
     return []
   }
 }
 
 export async function getActivityDays(): Promise<ActivityDay[]> {
-  const counts = new Map<string, number>()
+  const days = new Map<string, ActivityBreakdown>()
 
-  const bump = (day: string | null, amount = 1) => {
+  const bump = (day: string | null, source: keyof ActivityBreakdown, amount = 1) => {
     if (!day) return
-    counts.set(day, (counts.get(day) ?? 0) + amount)
+    const entry = days.get(day) ?? { annotations: 0, commits: 0, milestones: 0, notes: 0 }
+    entry[source] += amount
+    days.set(day, entry)
   }
 
   for (const id of COLLECTION_IDS) {
-    const dir = path.join(process.cwd(), 'contents', id)
-    const files = await walkMdx(dir)
-
+    const files = await walkMdx(path.join(process.cwd(), 'contents', id))
     for (const file of files) {
-      const raw = await fs.readFile(file, 'utf-8')
-      const { data } = grayMatter(raw)
-      bump(toDay(data.date))
+      const { data } = grayMatter(await fs.readFile(file, 'utf-8'))
+      bump(toDay(data.date), 'notes')
     }
   }
 
   for (const item of timeline) {
-    bump(toDay(item.date))
+    bump(toDay(item.date), 'milestones')
   }
 
-  for (const day of await getDevActivityDays()) {
-    bump(toDay(day.date), day.count)
+  for (const day of await getCommitDays()) {
+    bump(toDay(day.date), 'commits', day.count)
   }
 
-  return [...counts.entries()]
-    .map(([date, count]) => ({ date, count }))
+  // Highlights, notes, and saved translations are study work too — one each, on the day created
+  for (const list of Object.values(await readAnnotationPages())) {
+    for (const item of list) bump(dayFormatter.format(item.createdAt), 'annotations')
+  }
+
+  return [...days.entries()]
+    .map(([date, breakdown]) => ({
+      breakdown,
+      count: breakdown.annotations + breakdown.commits + breakdown.milestones + breakdown.notes,
+      date,
+    }))
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 

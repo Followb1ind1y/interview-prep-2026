@@ -1,7 +1,7 @@
-import { execFileSync } from 'node:child_process'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 
+import { type DayCount, readGitActivity } from '@/lib/git-activity'
 import { buildSearchIndex } from '@/lib/search-index'
 
 const outputDir = path.join(process.cwd(), 'public', 'search-data')
@@ -11,21 +11,9 @@ const outputDir = path.join(process.cwd(), 'public', 'search-data')
  * not just dated notes. Runs at build time because the deployed serverless
  * function has no .git directory to read from at request time.
  */
-function getDevActivity(): { count: number; date: string }[] {
+function getDevActivity(): DayCount[] {
   try {
-    const out = execFileSync('git', ['log', '--date=format:%Y-%m-%d', '--pretty=format:%ad'], {
-      cwd: process.cwd(),
-      encoding: 'utf-8',
-    })
-
-    const counts = new Map<string, number>()
-    for (const line of out.split('\n')) {
-      const date = line.trim()
-      if (!date) continue
-      counts.set(date, (counts.get(date) ?? 0) + 1)
-    }
-
-    return [...counts.entries()].map(([date, count]) => ({ date, count }))
+    return readGitActivity()
   } catch (err) {
     console.warn('Could not read git history for dev activity:', err)
     return []

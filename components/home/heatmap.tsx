@@ -13,19 +13,19 @@ interface ActivityDay {
 const WEEKDAYS_ZH = ['日', '一', '二', '三', '四', '五', '六']
 const WEEKDAYS_EN = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
+/**
+ * Minimum count to reach shade 1–4. Fixed buckets instead of "relative to the busiest day":
+ * one bulk day (e.g. 80 note pages created at once) would otherwise wash every normal study
+ * day out to the palest shade.
+ */
+const LEVEL_MINIMUMS = [1, 3, 6, 12]
+
 function daysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate()
 }
 
-/** Shade relative to the busiest day in the visible month so "darker = more" is readable. */
-function levelFor(count: number, monthMax: number) {
-  if (count <= 0) return 0
-  if (monthMax <= 1) return 4
-  const ratio = count / monthMax
-  if (ratio <= 0.25) return 1
-  if (ratio <= 0.5) return 2
-  if (ratio <= 0.75) return 3
-  return 4
+function levelFor(count: number) {
+  return LEVEL_MINIMUMS.filter((min) => count >= min).length
 }
 
 export function HomeHeatmap({ activity }: { activity: ActivityDay[] }) {
@@ -53,11 +53,6 @@ export function HomeHeatmap({ activity }: { activity: ActivityDay[] }) {
     return result
   }, [cursor, countMap])
 
-  const monthMax = useMemo(
-    () => cells.reduce((max, cell) => Math.max(max, cell.count), 0),
-    [cells]
-  )
-
   const label = new Date(cursor.year, cursor.month, 1).toLocaleDateString(
     locale === 'zh' ? 'zh-CN' : 'en-US',
     { year: 'numeric', month: 'long' }
@@ -74,7 +69,6 @@ export function HomeHeatmap({ activity }: { activity: ActivityDay[] }) {
         <div>
           <p className="mb-2 text-xs tracking-[0.22em] text-muted-foreground uppercase">Activity</p>
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{m.home.activity}</h2>
-          <p className="mt-2 text-sm text-muted-foreground">{m.home.activityHint}</p>
         </div>
         <div className="flex items-center gap-2 text-sm">
           <button
@@ -117,9 +111,7 @@ export function HomeHeatmap({ activity }: { activity: ActivityDay[] }) {
             <div
               className={cn(
                 'aspect-square rounded-[4px] border',
-                cell.date
-                  ? `heat-${levelFor(cell.count, monthMax)}`
-                  : 'border-transparent bg-transparent'
+                cell.date ? `heat-${levelFor(cell.count)}` : 'border-transparent bg-transparent'
               )}
               key={cell.date ?? `empty-${i}`}
               title={

@@ -24,7 +24,7 @@ async function load(): Promise<AnnotationPages> {
 /** 线上文件不会变，构建时 100 多个页面共用一次读取；开发时每次都读最新的 */
 let memo: Promise<AnnotationPages> | null = null
 
-function readAnnotationPages(): Promise<AnnotationPages> {
+export function readAnnotationPages(): Promise<AnnotationPages> {
   if (process.env.NODE_ENV !== 'production') return load()
   memo ??= load()
   return memo
