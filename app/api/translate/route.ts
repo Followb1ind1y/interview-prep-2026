@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 
+import { sameOrigin } from '@/lib/same-origin'
 import { allowRequest, cacheGet, cacheKey, cacheSet } from '@/lib/translate/guard'
 import { systemPrompt, userPrompt } from '@/lib/translate/prompt'
 import {
@@ -22,28 +23,11 @@ function bad(message: string, status: number) {
   return NextResponse.json({ error: message }, { status })
 }
 
-/**
- * 只接受同源请求，避免这个代理被别人当免费翻译 API 用。
- * 浏览器对 POST 一定会带 Origin，所以这里要求它必须存在且匹配——
- * 只要放过缺失的情况，curl 不带这个头就能绕过去。
- */
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get('origin')
-  if (!origin) return false
-
-  // Vercel 等平台会把原始域名放在 x-forwarded-host
-  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host')
-  try {
-    return new URL(origin).host === host
-  } catch {
-    return false
-  }
-}
-
 export async function POST(request: Request) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return bad('missing-api-key', 503)
   }
+  // 只接受同源请求，避免这个代理被别人当免费翻译 API 用
   if (!sameOrigin(request)) {
     return bad('forbidden', 403)
   }

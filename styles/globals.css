@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
+/* 批注是你写的自由文本，不让 Tailwind 当成类名来源扫描，也免得每存一条就重建 CSS */
+@source not "../contents/site/annotations.json";
 
 @custom-variant dark (&:is(.dark *));
 

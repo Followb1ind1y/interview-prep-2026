@@ -16,9 +16,11 @@ import { AnnotationLayer } from '@/components/annotate/layer'
 import { annotationRoot, describe } from '@/lib/annotate/anchor'
 import {
   addAnnotation,
+  editable,
   findSavedTranslation,
   getAnnotations,
   getServerAnnotations,
+  migrateLegacyStorage,
   subscribe,
   upsertTranslation,
 } from '@/lib/annotate/store'
@@ -50,9 +52,14 @@ export function AnnotateProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
+  useEffect(() => {
+    migrateLegacyStorage()
+  }, [])
+
   const canAnnotate = useCallback(
     (range: Range) => {
-      if (!supported) return false
+      // 线上只读：批注只能在本地 next dev 里加，commit 后随部署展示
+      if (!supported || !editable) return false
       const root = annotationRoot()
       if (!root) return false
       return root.contains(range.startContainer) && root.contains(range.endContainer)

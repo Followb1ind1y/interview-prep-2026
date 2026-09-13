@@ -12,6 +12,7 @@ import {
 } from 'react-icons/lu'
 
 import { Button } from '@/components/ui/button'
+import { editable } from '@/lib/annotate/store'
 import { type Annotation, type SavedTranslation } from '@/lib/annotate/types'
 import { useI18n } from '@/lib/i18n/provider'
 import { cn } from '@/lib/utils'
@@ -102,35 +103,37 @@ function NoteItem({ annotation, onEdit, onRemove }: ItemProps) {
           {formatTime(annotation.createdAt)}
           {edited && ` · ${m.annotate.edited} ${formatTime(annotation.updatedAt)}`}
         </time>
-        <div className="flex shrink-0 items-center gap-0.5">
-          {confirming ? (
-            <>
-              <IconButton label={m.annotate.cancel} onClick={() => setConfirming(false)}>
-                <LuX />
-              </IconButton>
-              <Button
-                onClick={() => onRemove(annotation)}
-                size="xs"
-                type="button"
-                variant="destructive"
-              >
-                {m.annotate.confirmRemove}
-              </Button>
-            </>
-          ) : (
-            <>
-              <IconButton
-                label={annotation.note ? m.annotate.edit : m.annotate.addNote}
-                onClick={() => onEdit(annotation)}
-              >
-                <LuPencil />
-              </IconButton>
-              <IconButton label={m.annotate.remove} onClick={() => setConfirming(true)}>
-                <LuTrash2 />
-              </IconButton>
-            </>
-          )}
-        </div>
+        {editable && (
+          <div className="flex shrink-0 items-center gap-0.5">
+            {confirming ? (
+              <>
+                <IconButton label={m.annotate.cancel} onClick={() => setConfirming(false)}>
+                  <LuX />
+                </IconButton>
+                <Button
+                  onClick={() => onRemove(annotation)}
+                  size="xs"
+                  type="button"
+                  variant="destructive"
+                >
+                  {m.annotate.confirmRemove}
+                </Button>
+              </>
+            ) : (
+              <>
+                <IconButton
+                  label={annotation.note ? m.annotate.edit : m.annotate.addNote}
+                  onClick={() => onEdit(annotation)}
+                >
+                  <LuPencil />
+                </IconButton>
+                <IconButton label={m.annotate.remove} onClick={() => setConfirming(true)}>
+                  <LuTrash2 />
+                </IconButton>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -147,14 +150,16 @@ function HighlightItem({ annotation, onAddNote, onRemove }: ItemProps) {
           {m.annotate.highlighted} {formatTime(annotation.createdAt)}
         </time>
       </span>
-      <div className="flex shrink-0 items-center gap-0.5">
-        <IconButton label={m.annotate.addNote} onClick={() => onAddNote(annotation)}>
-          <LuMessageSquarePlus />
-        </IconButton>
-        <IconButton label={m.annotate.removeHighlight} onClick={() => onRemove(annotation)}>
-          <LuEraser />
-        </IconButton>
-      </div>
+      {editable && (
+        <div className="flex shrink-0 items-center gap-0.5">
+          <IconButton label={m.annotate.addNote} onClick={() => onAddNote(annotation)}>
+            <LuMessageSquarePlus />
+          </IconButton>
+          <IconButton label={m.annotate.removeHighlight} onClick={() => onRemove(annotation)}>
+            <LuEraser />
+          </IconButton>
+        </div>
+      )}
     </div>
   )
 }

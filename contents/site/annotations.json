@@ -1,0 +1,530 @@
+{
+  "/docs/llm": [
+    {
+      "id": "35cbba85-f254-4b01-a505-3e193ea7ba21",
+      "kind": "highlight",
+      "quote": {
+        "exact": "不是成为 ML Researcher",
+        "prefix": "M FundamentalsLLM Fundamentals目标",
+        "suffix": "。面试官问「为什么」时，能从模型机制讲到 production "
+      },
+      "createdAt": 1789330065843,
+      "updatedAt": 1789330065843
+    },
+    {
+      "id": "6d1be0bb-138a-431a-854a-2409b3261f11",
+      "kind": "highlight",
+      "quote": {
+        "exact": "从模型机制讲到 production behavior",
+        "prefix": "标不是成为 ML Researcher。面试官问「为什么」时，能",
+        "suffix": "。更新于 2026年9月7日llmtokenizationtra"
+      },
+      "createdAt": 1789330070374,
+      "updatedAt": 1789330070374
+    },
+    {
+      "id": "1656f124-31a1-48b6-8853-67df9ab60e27",
+      "kind": "highlight",
+      "quote": {
+        "exact": "能从模型机制讲到 production behavior",
+        "prefix": "目标不是成为 ML Researcher。面试官问「为什么」时，",
+        "suffix": "。更新于 2026年9月7日llmtokenizationtra"
+      },
+      "createdAt": 1789330074888,
+      "updatedAt": 1789330074888
+    }
+  ],
+  "/docs/llm/tokenization": [
+    {
+      "id": "45620088-f81e-4034-8a63-ac52d55dec6d",
+      "kind": "highlight",
+      "quote": {
+        "exact": "translates \"text a human wrote\"",
+        "prefix": ". Tokenization is the step that ",
+        "suffix": " into \"integers a model can cons"
+      },
+      "createdAt": 1789330149713,
+      "updatedAt": 1789330149713
+    },
+    {
+      "id": "ede7df8c-5ea7-47ea-a300-09175d5cc4be",
+      "kind": "highlight",
+      "quote": {
+        "exact": "integers a model can consume",
+        "prefix": "ates \"text a human wrote\" into \"",
+        "suffix": ".\"It looks like plumbing, but it"
+      },
+      "createdAt": 1789330157082,
+      "updatedAt": 1789330157082
+    },
+    {
+      "id": "45f2dafe-4877-49f6-a3e6-443d6e71dde5",
+      "kind": "highlight",
+      "quote": {
+        "exact": "tokens",
+        "prefix": " text into smaller units called ",
+        "suffix": " — words, subwords, or character"
+      },
+      "createdAt": 1789330247239,
+      "updatedAt": 1789330247239
+    },
+    {
+      "id": "d82c85b5-f406-460d-b318-082d8f40fd60",
+      "kind": "highlight",
+      "quote": {
+        "exact": "mapped through a vocabulary to an integer id",
+        "prefix": " characters. Each token is then ",
+        "suffix": ", and that sequence of integers "
+      },
+      "createdAt": 1789330294026,
+      "updatedAt": 1789330294026
+    },
+    {
+      "id": "d510e13c-9679-4625-b224-c3f68f65473f",
+      "kind": "highlight",
+      "quote": {
+        "exact": "a 128K context window means 128K tokens",
+        "prefix": "ured in tokens, not characters:\n",
+        "suffix": "\nbilling is per token\npositional"
+      },
+      "createdAt": 1789330333852,
+      "updatedAt": 1789330333852
+    },
+    {
+      "id": "395fef9c-b299-48fb-a2ce-abfc77e6804b",
+      "kind": "highlight",
+      "quote": {
+        "exact": "billing is per token",
+        "prefix": "ontext window means 128K tokens\n",
+        "suffix": "\npositional encoding indexes tok"
+      },
+      "createdAt": 1789330339506,
+      "updatedAt": 1789330339506
+    },
+    {
+      "id": "5d720cbd-0d96-4d2c-8adf-065829a111e9",
+      "kind": "note",
+      "quote": {
+        "exact": "plumbing",
+        "prefix": "odel can consume.\"It looks like ",
+        "suffix": ", but it decides how much contex"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "管道工程/基础设施，这里指tokenization看起来像是底层技术细节，实际上却起着重要的基础性作用",
+        "pos": "n.",
+        "note": "plumbing的引申义指系统的底层或内部工作机制，暗示这是不引人注目但至关重要的基础部分"
+      },
+      "createdAt": 1789330393651,
+      "updatedAt": 1789330393651
+    },
+    {
+      "id": "0eb0c9e9-3374-4a68-876c-ec172b2c4aaf",
+      "kind": "note",
+      "quote": {
+        "exact": "notion",
+        "prefix": ", ...]\nIt matters because every ",
+        "suffix": " of \"length\" in an LLM is measur"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "观念、概念，这里指对长度的定义或理解方式",
+        "pos": "n.",
+        "note": "notion 强调一种抽象的想法或理解，相比 concept 或 idea 更具体指某种观点或定义"
+      },
+      "createdAt": 1789330435493,
+      "updatedAt": 1789330435493
+    },
+    {
+      "id": "669a2af6-f7f7-4438-88fd-62b3926502e5",
+      "kind": "note",
+      "quote": {
+        "exact": "Tokenization is the exchange rate between a piece of text and a dollar amount.",
+        "prefix": "e memory grows with token count\n",
+        "suffix": "Tokenizer vs. vocabulary:The voc"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "分词是文本段与美元金额之间的兑换比率",
+        "pos": "",
+        "note": "在LLM计费语境中，tokenization特指计算token数量并转换为成本的过程，exchange rate指token与费用的对应关系"
+      },
+      "createdAt": 1789330490940,
+      "updatedAt": 1789330490940
+    },
+    {
+      "id": "d12a3b47-cc1b-4ef4-b465-fe7b63b406d3",
+      "kind": "note",
+      "quote": {
+        "exact": "vocabulary",
+        "prefix": "nt.Tokenizer vs. vocabulary:The ",
+        "suffix": " is a static table mapping every"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "词汇表，即将每个可能的token映射到对应id的静态查找表",
+        "pos": "n.",
+        "note": "在tokenization中，vocabulary是预先构建的固定映射表，与动态应用分割规则的tokenizer不同"
+      },
+      "createdAt": 1789330513919,
+      "updatedAt": 1789330513919
+    },
+    {
+      "id": "fe678ead-526d-40dd-8c27-3e54b6368ef9",
+      "kind": "highlight",
+      "quote": {
+        "exact": "a static table mapping every possible token to an id",
+        "prefix": "s. vocabulary:The vocabulary is ",
+        "suffix": ". The tokenizer is the tool that"
+      },
+      "createdAt": 1789330625124,
+      "updatedAt": 1789330625124
+    },
+    {
+      "id": "ceffd81f-a76f-4516-a957-7a922d29b504",
+      "kind": "note",
+      "quote": {
+        "exact": "tokenizer",
+        "prefix": "ry possible token to an id. The ",
+        "suffix": " is the tool that applies the sp"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "将文本分割成tokens（词元）并将其映射到词表中对应ID的工具",
+        "pos": "n.",
+        "note": "不是词表本身，而是执行分割和映射操作的程序或模块"
+      },
+      "createdAt": 1789330642524,
+      "updatedAt": 1789330642524
+    },
+    {
+      "id": "d38883a3-eb92-4fce-823e-ea6467064b9a",
+      "kind": "highlight",
+      "quote": {
+        "exact": "tool",
+        "prefix": " to an id. The tokenizer is the ",
+        "suffix": " that applies the splitting rule"
+      },
+      "createdAt": 1789330651905,
+      "updatedAt": 1789330651905
+    },
+    {
+      "id": "20ea16d5-4a7b-4bb0-bbc2-3bd0be775bb9",
+      "kind": "highlight",
+      "quote": {
+        "exact": "applies the splitting rules",
+        "prefix": " The tokenizer is the tool that ",
+        "suffix": ". The vocabulary is the dictiona"
+      },
+      "createdAt": 1789330657702,
+      "updatedAt": 1789330657702
+    },
+    {
+      "id": "18d8459d-3b82-4b43-8ac4-a2fcf843a67e",
+      "kind": "note",
+      "quote": {
+        "exact": "conflated",
+        "prefix": " and embedding relate?These get ",
+        "suffix": " constantly, but they're three d"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "经常被混淆、混为一谈",
+        "pos": "v.",
+        "note": "conflate是指把不同的东西错误地当作同一个或混在一起讨论，这里指three distinct stages常被人搞混"
+      },
+      "createdAt": 1789330690181,
+      "updatedAt": 1789330690181
+    },
+    {
+      "id": "a9b68820-5285-4425-8689-5faea736743b",
+      "kind": "highlight",
+      "quote": {
+        "exact": "token ids carry no semantics",
+        "prefix": "aning starts hereThe key point: ",
+        "suffix": ". Ids 1917 and 1918 are numerica"
+      },
+      "createdAt": 1789330773839,
+      "updatedAt": 1789330773839
+    },
+    {
+      "id": "d8dfa9f3-ff86-462f-b6f6-7806bfaf20e5",
+      "kind": "note",
+      "quote": {
+        "exact": "numerically adjacent",
+        "prefix": "emantics. Ids 1917 and 1918 are ",
+        "suffix": " but may represent totally unrel"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "数值上相邻的；在数字上挨在一起",
+        "pos": "adv.",
+        "note": "修饰两个数字 1917 和 1918 之间的关系，强调它们作为数字值相差仅为 1，但这种数字接近不代表语义相关"
+      },
+      "createdAt": 1789330799147,
+      "updatedAt": 1789330799147
+    },
+    {
+      "id": "5c48cb1c-e81d-403c-b036-09f87a385944",
+      "kind": "highlight",
+      "quote": {
+        "exact": "embedding layer",
+        "prefix": "ning is learned entirely by the ",
+        "suffix": " — a [vocab_size, hidden_dim] ma"
+      },
+      "createdAt": 1789330862922,
+      "updatedAt": 1789330862922
+    },
+    {
+      "id": "a0a744e7-e5be-4aee-9450-6d15378621c8",
+      "kind": "note",
+      "quote": {
+        "exact": "how does tokenization capture meaning,\" the correct answer is that it doesn't",
+        "prefix": " in interviews:If you're asked \"",
+        "suffix": ". Tokenization only splits and n"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "tokenization 如何捕捉（理解）语义的这个问题，正确答案是它做不到",
+        "pos": "",
+        "note": "capture meaning 在这里指模型对文本内容的理解或语义把握，不是字面的获取。"
+      },
+      "createdAt": 1789330909956,
+      "updatedAt": 1789330909956
+    },
+    {
+      "id": "fa3f147e-a14d-4834-9772-083bdf31c29f",
+      "kind": "note",
+      "quote": {
+        "exact": "meaning is the job of embedding plus attention downstream",
+        "prefix": "zation only splits and numbers; ",
+        "suffix": ". Getting this wrong signals sha"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "意义的理解是 embedding（嵌入）加上后续 attention（注意力机制）的工作",
+        "pos": "",
+        "note": "downstream 指神经网络中后续的层级处理流程，表示 embedding 之后的模块"
+      },
+      "createdAt": 1789330938178,
+      "updatedAt": 1789330938178
+    },
+    {
+      "id": "b97a6cfa-51a3-4fbb-bda4-bb6cac772bba",
+      "kind": "note",
+      "quote": {
+        "exact": "shaky",
+        "prefix": "eam. Getting this wrong signals ",
+        "suffix": " fundamentals.Why bill per token"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "不稳定的、不扎实的，这里指基础知识不牢固",
+        "pos": "adj.",
+        "note": "在技术语境中常用来形容理解、掌握或基础不够深入"
+      },
+      "createdAt": 1789330954881,
+      "updatedAt": 1789330954881
+    },
+    {
+      "id": "276efbdd-a51f-425c-be18-1f38b6f078c9",
+      "kind": "note",
+      "quote": {
+        "exact": "proportion",
+        "prefix": "ute. Each forward pass costs in ",
+        "suffix": " to the number of tokens in the "
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "成正比、成比例关系。这里指前向传播的成本与序列中的token数量成正比",
+        "pos": "n.",
+        "note": "in proportion to 表示与某物成比例，不能改用 proportional to 短语"
+      },
+      "createdAt": 1789331008304,
+      "updatedAt": 1789331008304
+    },
+    {
+      "id": "a2572b5a-2369-4899-a9c6-5ce8e6d3d179",
+      "kind": "note",
+      "quote": {
+        "exact": "in proportion to",
+        "prefix": "ompute. Each forward pass costs ",
+        "suffix": " the number of tokens in the seq"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "与...成正比，与...相应增加",
+        "pos": "prep.",
+        "note": "常搭配 increase、cost 等动词，表示随着某事物变化而相应变化"
+      },
+      "createdAt": 1789331015554,
+      "updatedAt": 1789331015554
+    },
+    {
+      "id": "07498d8e-51f2-4f02-99e4-93cb87dd2e45",
+      "kind": "note",
+      "quote": {
+        "exact": "intuition",
+        "prefix": "r a single Chinese character.An ",
+        "suffix": ": \"strawberry\" might split into "
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "直观理解或朴素认识",
+        "pos": "n.",
+        "note": "这里指未经严格论证但容易理解的观点，用来引出后续的例子说明"
+      },
+      "createdAt": 1789331062821,
+      "updatedAt": 1789331062821
+    },
+    {
+      "id": "9f5ede5d-34b2-475d-91ea-9d7575c91e39",
+      "kind": "highlight",
+      "quote": {
+        "exact": "Letter-level information was destroyed at the tokenization step",
+        "prefix": "ing for [\"str\", \"aw\", \"berry\"]. ",
+        "suffix": ".\n\n\nLevel 2 · Tokenization metho"
+      },
+      "createdAt": 1789331151265,
+      "updatedAt": 1789331151265
+    },
+    {
+      "id": "70d15bce-6346-4de9-8401-f9c4701cfdea",
+      "kind": "highlight",
+      "quote": {
+        "exact": "only counting tokens is accurate",
+        "prefix": ", counting words gets it wrong; ",
+        "suffix": ".This also explains a classic fa"
+      },
+      "createdAt": 1789331167884,
+      "updatedAt": 1789331167884
+    }
+  ],
+  "/docs/overview": [
+    {
+      "id": "df85fbdc-450d-4784-b84d-142983c8629e",
+      "kind": "highlight",
+      "quote": {
+        "exact": "Interview Performance",
+        "prefix": "重新学一遍 AI，而是把已有 3+ 年 LLM 工程经验 转成 ",
+        "suffix": "。\n定位是 Production LLM / AI Engine"
+      },
+      "createdAt": 1789329497751,
+      "updatedAt": 1789329497751
+    },
+    {
+      "id": "c614f00f-17de-4691-93c3-3b9bc94befe4",
+      "kind": "highlight",
+      "quote": {
+        "exact": "Production LLM / AI Engineer",
+        "prefix": "验 转成 Interview Performance。\n定位是 ",
+        "suffix": "：能讲清模型机制，能建 RAG / Agent，能做 evalu"
+      },
+      "createdAt": 1789329504123,
+      "updatedAt": 1789329504123
+    },
+    {
+      "id": "166bc3c4-db8f-426b-b3f9-67423083ab6e",
+      "kind": "highlight",
+      "quote": {
+        "exact": "我应该找什么工作？",
+        "prefix": "：压力下能不能讲出来。\n六个模块\n#模块核心问题写在哪1求职定位",
+        "suffix": "求职定位2Resume / Intro怎么让别人愿意见我？简历 "
+      },
+      "createdAt": 1789329621811,
+      "updatedAt": 1789329621811
+    },
+    {
+      "id": "f1312c5b-247c-4b44-8aad-2de9cd69b8e2",
+      "kind": "highlight",
+      "quote": {
+        "exact": "怎么让别人愿意见我？",
+        "prefix": "求职定位我应该找什么工作？求职定位2Resume / Intro",
+        "suffix": "简历 · 个人介绍3项目深挖怎么证明我真的做过？项目深挖（面试表"
+      },
+      "createdAt": 1789329623992,
+      "updatedAt": 1789329623992
+    },
+    {
+      "id": "96b4e319-df2c-4885-bc15-c1791b7ffeb7",
+      "kind": "highlight",
+      "quote": {
+        "exact": "怎么证明我真的做过？",
+        "prefix": " / Intro怎么让别人愿意见我？简历 · 个人介绍3项目深挖",
+        "suffix": "项目深挖（面试表现）4技术知识我到底懂不懂？下面 9 个专栏 ·"
+      },
+      "createdAt": 1789329625678,
+      "updatedAt": 1789329625678
+    },
+    {
+      "id": "4b23dfa7-21fd-4d97-89ed-b87e8a5d1829",
+      "kind": "highlight",
+      "quote": {
+        "exact": "我到底懂不懂？",
+        "prefix": "介绍3项目深挖怎么证明我真的做过？项目深挖（面试表现）4技术知识",
+        "suffix": "下面 9 个专栏 · 工程基础5Coding我能不能写代码？算法"
+      },
+      "createdAt": 1789329627118,
+      "updatedAt": 1789329627118
+    },
+    {
+      "id": "ed494948-5579-43fa-a57f-40693859ea81",
+      "kind": "highlight",
+      "quote": {
+        "exact": "我能不能写代码？",
+        "prefix": "术知识我到底懂不懂？下面 9 个专栏 · 工程基础5Coding",
+        "suffix": "算法6面试表现我能不能在压力下讲出来？项目深挖 · 行为面试\n知"
+      },
+      "createdAt": 1789329628770,
+      "updatedAt": 1789329628770
+    },
+    {
+      "id": "66ea32eb-65c7-4386-a842-22e21e2a2ead",
+      "kind": "highlight",
+      "quote": {
+        "exact": "我能不能在压力下讲出来",
+        "prefix": "个专栏 · 工程基础5Coding我能不能写代码？算法6面试表现",
+        "suffix": "？项目深挖 · 行为面试\n知识体系：9 大模块\n面试已经从「会不"
+      },
+      "createdAt": 1789329632768,
+      "updatedAt": 1789329632768
+    },
+    {
+      "id": "a6908365-53fc-4722-b0c9-c01bbb281401",
+      "kind": "highlight",
+      "quote": {
+        "exact": "我能不能在压力下讲出来？",
+        "prefix": "个专栏 · 工程基础5Coding我能不能写代码？算法6面试表现",
+        "suffix": "项目深挖 · 行为面试\n知识体系：9 大模块\n面试已经从「会不会"
+      },
+      "createdAt": 1789329748475,
+      "updatedAt": 1789329748475
+    }
+  ],
+  "/docs/positioning": [
+    {
+      "id": "858a1506-7a3d-4076-8dcc-95df6e3f929a",
+      "kind": "highlight",
+      "quote": {
+        "exact": "Production LLM Engineer / AI Engineer / Applied AI Engineer",
+        "prefix": "tion、enterprise AI。\n项当前定稿Primary",
+        "suffix": "SecondaryML Engineer / Applied S"
+      },
+      "createdAt": 1789329805071,
+      "updatedAt": 1789329805071
+    }
+  ]
+}

@@ -1,11 +1,13 @@
 import { notFound } from 'next/navigation'
 
+import { AnnotationSeed } from '@/components/annotate/seed'
 import { ArticleBreadcrumb } from '@/components/article/breadcrumb'
 import { DocumentHeading } from '@/components/article/heading'
 import { Pagination } from '@/components/article/pagination'
 import { TableOfContents } from '@/components/toc'
 import { Separator } from '@/components/ui/separator'
 import { Typography } from '@/components/ui/typography'
+import { getPageAnnotations } from '@/lib/annotate/file'
 import { isCollectionId } from '@/lib/collections'
 import { companiesPageTocs } from '@/lib/companies-data'
 import { getDocument } from '@/lib/markdown'
@@ -21,7 +23,10 @@ export default async function CollectionPage({ params }: PageProps) {
   if (!isCollectionId(collection)) notFound()
 
   const pathName = slug.join('/')
-  const res = await getDocument(collection, pathName)
+  const [res, annotations] = await Promise.all([
+    getDocument(collection, pathName),
+    getPageAnnotations(`/${[collection, ...slug].join('/')}`),
+  ])
   if (!res) notFound()
 
   const { frontmatter, content } = res
@@ -30,11 +35,22 @@ export default async function CollectionPage({ params }: PageProps) {
     collection === 'companies' && companiesPageTocs[pathName]
       ? companiesPageTocs[pathName]
       : res.tocs
+  const seed = (
+    <AnnotationSeed annotations={annotations} path={`/${[collection, ...slug].join('/')}`} />
+  )
 
-  if (isProfile) return content
+  if (isProfile) {
+    return (
+      <>
+        {content}
+        {seed}
+      </>
+    )
+  }
 
   return (
     <div className="flex items-start gap-10">
+      {seed}
       <section className="min-w-0 flex-1">
         <ArticleBreadcrumb collection={collection} paths={slug} />
         <div>
