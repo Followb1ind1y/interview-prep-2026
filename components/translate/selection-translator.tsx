@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { LuLanguages, LuLoaderCircle } from 'react-icons/lu'
+import { LuHighlighter, LuLanguages, LuLoaderCircle, LuMessageSquarePlus } from 'react-icons/lu'
 
+import { useAnnotate } from '@/components/annotate/provider'
 import { TranslatePanel } from '@/components/translate/panel'
 import { type CapturedSelection, useTextSelection } from '@/components/translate/use-text-selection'
 import { buttonVariants } from '@/components/ui/button'
+import { floatingStyle, GAP } from '@/lib/floating'
 import { useI18n } from '@/lib/i18n/provider'
 import { localKey, readCached, writeCached } from '@/lib/translate/client-cache'
 import { type TranslateResponse } from '@/lib/translate/types'
@@ -15,9 +17,10 @@ import { cn } from '@/lib/utils'
 type Status = 'idle' | 'loading' | 'done' | 'error'
 
 const PANEL_WIDTH = 360
-const GAP = 8
 /** 下方剩余空间不够就翻到选区上方 */
 const MIN_SPACE_BELOW = 280
+/** 工具条的大致宽度，只用来防止贴着右边时溢出视口 */
+const TOOLBAR_WIDTH = { full: 300, single: 180 }
 
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -29,19 +32,18 @@ function isTyping(target: EventTarget | null): boolean {
   )
 }
 
-function floatingStyle(rect: DOMRect, width: number): React.CSSProperties {
-  const left = Math.min(Math.max(GAP, rect.left), Math.max(GAP, window.innerWidth - width - GAP))
-  const spaceBelow = window.innerHeight - rect.bottom
-
-  if (spaceBelow >= MIN_SPACE_BELOW) {
-    return { left, top: rect.bottom + GAP, width }
-  }
-  return { left, bottom: window.innerHeight - rect.top + GAP, width }
+function Shortcut({ children }: { children: string }) {
+  return (
+    <kbd className="rounded border border-border px-1 text-[0.65rem] text-muted-foreground">
+      {children}
+    </kbd>
+  )
 }
 
 export function SelectionTranslator() {
   const { m } = useI18n()
-  const { selection, rect, clear } = useTextSelection()
+  const annotate = useAnnotate()
+  const { selection, range, rect, translatable, clear } = useTextSelection()
 
   const [mounted, setMounted] = useState(false)
   const [status, setStatus] = useState<Status>('idle')
@@ -61,6 +63,8 @@ export function SelectionTranslator() {
     setData(null)
     setErrorCode('')
   }
+
+  const annotatable = range != null && annotate.canAnnotate(range)
 
   const translate = useCallback(async (target: CapturedSelection) => {
     abortRef.current?.abort()
@@ -101,51 +105,99 @@ export function SelectionTranslator() {
     }
   }, [])
 
+  const mark = useCallback(
+    (kind: 'highlight' | 'note') => {
+      if (!range) return
+      if (kind === 'highlight') annotate.highlight(range)
+      else annotate.note(range)
+      // 原生选区的蓝底会盖住刚画上去的颜色
+      window.getSelection()?.removeAllRanges()
+      clear()
+    },
+    [annotate, clear, range]
+  )
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         clear()
         return
       }
-      if (event.key !== 't' && event.key !== 'T') return
       if (event.metaKey || event.ctrlKey || event.altKey) return
-      if (isTyping(event.target)) return
-      if (!selection || status !== 'idle') return
+      if (isTyping(event.target) || !selection) return
 
-      event.preventDefault()
-      void translate(selection)
+      const key = event.key.toLowerCase()
+      if (key === 't' && translatable && status === 'idle') {
+        event.preventDefault()
+        void translate(selection)
+      } else if ((key === 'h' || key === 'n') && annotatable) {
+        event.preventDefault()
+        mark(key === 'h' ? 'highlight' : 'note')
+      }
     }
 
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [clear, selection, status, translate])
+  }, [annotatable, clear, mark, selection, status, translatable, translate])
 
   if (!mounted || !selection || !rect) return null
+  if (!translatable && !annotatable) return null
 
   const width = Math.min(PANEL_WIDTH, window.innerWidth - GAP * 2)
 
   if (status === 'idle') {
+    const toolbarWidth = translatable && annotatable ? TOOLBAR_WIDTH.full : TOOLBAR_WIDTH.single
+    const action = cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'gap-1.5')
+
     return createPortal(
-      <button
-        className={cn(
-          buttonVariants({ variant: 'outline', size: 'sm' }),
-          'fixed z-50 gap-1.5 shadow-md'
-        )}
+      <div
+        className="fixed z-50 flex items-center gap-0.5 rounded-lg border border-border bg-background p-0.5 shadow-md dark:border-input"
         data-translate-ui=""
-        onClick={() => void translate(selection)}
         style={{
-          left: Math.min(Math.max(GAP, rect.left), Math.max(GAP, window.innerWidth - 120)),
+          left: Math.min(Math.max(GAP, rect.left), Math.max(GAP, window.innerWidth - toolbarWidth)),
           top: rect.bottom + GAP,
         }}
-        title={m.translate.title}
-        type="button"
       >
-        <LuLanguages />
-        <span>{m.translate.action}</span>
-        <kbd className="rounded border border-border px-1 text-[0.65rem] text-muted-foreground">
-          T
-        </kbd>
-      </button>,
+        {translatable && (
+          <button
+            className={action}
+            onClick={() => void translate(selection)}
+            title={m.translate.title}
+            type="button"
+          >
+            <LuLanguages />
+            <span>{m.translate.action}</span>
+            <Shortcut>T</Shortcut>
+          </button>
+        )}
+        {translatable && annotatable && (
+          <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-border" />
+        )}
+        {annotatable && (
+          <>
+            <button
+              className={action}
+              onClick={() => mark('highlight')}
+              title={m.annotate.highlight}
+              type="button"
+            >
+              <LuHighlighter />
+              <span>{m.annotate.highlight}</span>
+              <Shortcut>H</Shortcut>
+            </button>
+            <button
+              className={action}
+              onClick={() => mark('note')}
+              title={m.annotate.note}
+              type="button"
+            >
+              <LuMessageSquarePlus />
+              <span>{m.annotate.note}</span>
+              <Shortcut>N</Shortcut>
+            </button>
+          </>
+        )}
+      </div>,
       document.body
     )
   }
@@ -154,7 +206,7 @@ export function SelectionTranslator() {
     <div
       className="fixed z-50 max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-popover p-3 shadow-lg"
       data-translate-ui=""
-      style={floatingStyle(rect, width)}
+      style={floatingStyle(rect, width, MIN_SPACE_BELOW)}
     >
       {status === 'loading' && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">

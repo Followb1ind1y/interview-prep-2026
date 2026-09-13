@@ -345,3 +345,20 @@ span.katex-html {
   border-color: transparent;
 }
 
+/*
+ * 高亮与批注的颜色（components/annotate）。
+ * ::highlight() 规则本身在 components/annotate/layer.tsx 运行时注入：
+ * Turbopack 的 CSS 解析器还不认识这个伪元素，写在这里每次请求都会报警告。
+ */
+:root {
+  --annotate-mark: oklch(0.93 0.13 100);
+  --annotate-note: oklch(0.68 0.17 50);
+  --annotate-active: oklch(0.75 0.15 65 / 0.28);
+}
+
+.dark {
+  --annotate-mark: oklch(0.55 0.11 95 / 0.5);
+  --annotate-note: oklch(0.78 0.15 65);
+  --annotate-active: oklch(0.75 0.14 65 / 0.25);
+}
+
