@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { LuCheck, LuCopy, LuX } from 'react-icons/lu'
+import { LuBookmarkPlus, LuCheck, LuCopy, LuX } from 'react-icons/lu'
 
 import { buttonVariants } from '@/components/ui/button'
 import { useI18n } from '@/lib/i18n/provider'
@@ -33,10 +33,16 @@ function CopyButton({ value }: { value: string }) {
 export function TranslatePanel({
   data,
   onClose,
+  onSave,
+  saved,
   source,
 }: {
   data: TranslateResponse
   onClose: () => void
+  /** 不传就不显示「存为批注」（比如选区在导航栏里，没法批注） */
+  onSave?: () => void
+  /** 结果来自本页已存的批注 */
+  saved: boolean
   source: string
 }) {
   const { m } = useI18n()
@@ -50,19 +56,37 @@ export function TranslatePanel({
           <div className="mt-0.5 text-[0.7rem] text-muted-foreground/70">
             {direction === 'zh2en' ? m.translate.toEn : m.translate.toZh}
             {result.pos ? ` · ${result.pos}` : ''}
+            {saved ? ` · ${m.translate.saved}` : ''}
           </div>
         </div>
-        <button
-          aria-label={m.translate.close}
-          className={cn(
-            buttonVariants({ variant: 'ghost', size: 'icon-xs' }),
-            'text-muted-foreground'
+        <div className="flex shrink-0 items-center gap-0.5">
+          {onSave && (
+            <button
+              className={cn(
+                buttonVariants({ variant: 'ghost', size: 'xs' }),
+                'text-muted-foreground'
+              )}
+              onClick={onSave}
+              title={m.translate.saveAsNote}
+              type="button"
+            >
+              <LuBookmarkPlus />
+              <span>{m.translate.saveAsNote}</span>
+              <kbd className="rounded border border-border px-1 text-[0.6rem]">S</kbd>
+            </button>
           )}
-          onClick={onClose}
-          type="button"
-        >
-          <LuX />
-        </button>
+          <button
+            aria-label={m.translate.close}
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'icon-xs' }),
+              'text-muted-foreground'
+            )}
+            onClick={onClose}
+            type="button"
+          >
+            <LuX />
+          </button>
+        </div>
       </div>
 
       <div className="flex items-start gap-1.5 border-t border-border pt-3">

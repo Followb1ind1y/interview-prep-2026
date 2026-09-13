@@ -49,6 +49,7 @@ export function SelectionTranslator() {
   const [status, setStatus] = useState<Status>('idle')
   const [data, setData] = useState<TranslateResponse | null>(null)
   const [errorCode, setErrorCode] = useState('')
+  const [saved, setSaved] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => setMounted(true), [])
@@ -62,48 +63,71 @@ export function SelectionTranslator() {
     setStatus('idle')
     setData(null)
     setErrorCode('')
+    setSaved(false)
   }
 
   const annotatable = range != null && annotate.canAnnotate(range)
 
-  const translate = useCallback(async (target: CapturedSelection) => {
-    abortRef.current?.abort()
-    const controller = new AbortController()
-    abortRef.current = controller
+  const translate = useCallback(
+    async (target: CapturedSelection) => {
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
 
-    const key = localKey(target.text, target.context)
-    const cached = readCached(key)
-    if (cached) {
-      setData(cached)
-      setStatus('done')
-      return
-    }
+      // 本页存成过批注的翻译优先：它不会像下面的缓存那样被挤掉
+      const fromNote = annotate.findTranslation(target.text)
+      if (fromNote) {
+        const { direction, ...result } = fromNote
+        setData({ direction, model: 'annotation', result })
+        setSaved(true)
+        setStatus('done')
+        return
+      }
+      setSaved(false)
 
-    setStatus('loading')
-    try {
-      const response = await fetch('/api/translate', {
-        body: JSON.stringify(target),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-        signal: controller.signal,
-      })
-      const payload = await response.json()
-
-      if (!response.ok) {
-        setErrorCode(typeof payload?.error === 'string' ? payload.error : 'unexpected-error')
-        setStatus('error')
+      const key = localKey(target.text, target.context)
+      const cached = readCached(key)
+      if (cached) {
+        setData(cached)
+        setStatus('done')
         return
       }
 
-      writeCached(key, payload as TranslateResponse)
-      setData(payload as TranslateResponse)
-      setStatus('done')
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return
-      setErrorCode('network-error')
-      setStatus('error')
-    }
-  }, [])
+      setStatus('loading')
+      try {
+        const response = await fetch('/api/translate', {
+          body: JSON.stringify(target),
+          headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+          signal: controller.signal,
+        })
+        const payload = await response.json()
+
+        if (!response.ok) {
+          setErrorCode(typeof payload?.error === 'string' ? payload.error : 'unexpected-error')
+          setStatus('error')
+          return
+        }
+
+        writeCached(key, payload as TranslateResponse)
+        setData(payload as TranslateResponse)
+        setStatus('done')
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setErrorCode('network-error')
+        setStatus('error')
+      }
+    },
+    [annotate]
+  )
+
+  const saveAsNote = useCallback(() => {
+    if (!range || !data) return
+    annotate.saveTranslation(range, { ...data.result, direction: data.direction })
+    // 关掉面板，波浪线马上出现，悬停就能看到
+    window.getSelection()?.removeAllRanges()
+    clear()
+  }, [annotate, clear, data, range])
 
   const mark = useCallback(
     (kind: 'highlight' | 'note') => {
@@ -133,12 +157,15 @@ export function SelectionTranslator() {
       } else if ((key === 'h' || key === 'n') && annotatable) {
         event.preventDefault()
         mark(key === 'h' ? 'highlight' : 'note')
+      } else if (key === 's' && status === 'done' && annotatable && !saved) {
+        event.preventDefault()
+        saveAsNote()
       }
     }
 
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [annotatable, clear, mark, selection, status, translatable, translate])
+  }, [annotatable, clear, mark, saveAsNote, saved, selection, status, translatable, translate])
 
   if (!mounted || !selection || !rect) return null
   if (!translatable && !annotatable) return null
@@ -229,7 +256,13 @@ export function SelectionTranslator() {
       )}
 
       {status === 'done' && data && (
-        <TranslatePanel data={data} onClose={clear} source={selection.text} />
+        <TranslatePanel
+          data={data}
+          onClose={clear}
+          onSave={annotatable && !saved ? saveAsNote : undefined}
+          saved={saved}
+          source={selection.text}
+        />
       )}
     </div>,
     document.body

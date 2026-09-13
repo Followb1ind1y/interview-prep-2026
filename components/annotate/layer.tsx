@@ -237,6 +237,12 @@ export function AnnotationLayer({
       if (event.key === 'Escape') hide()
     }
 
+    // 从批注文字上开始拖选时卡片已经弹出来了，不收起会盖住翻译工具条和面板
+    function onPointerDown(event: PointerEvent) {
+      if (!insideOwnUi(event)) hide()
+    }
+
+    document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('pointermove', onPointerMove)
     document.addEventListener('click', onClick)
     document.addEventListener('keydown', onKeyDown)
@@ -246,6 +252,7 @@ export function AnnotationLayer({
       window.cancelAnimationFrame(frame)
       window.clearTimeout(openTimer.current)
       pendingKey.current = ''
+      document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('pointermove', onPointerMove)
       document.removeEventListener('click', onClick)
       document.removeEventListener('keydown', onKeyDown)

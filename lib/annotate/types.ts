@@ -1,4 +1,11 @@
+import { type TranslateDirection, type Translation } from '@/lib/translate/types'
+
 export type AnnotationKind = 'highlight' | 'note'
+
+/** 划词翻译的结果存进批注：之后悬停直接看，再翻译同一段也直接读，不再调接口 */
+export interface SavedTranslation extends Translation {
+  direction: TranslateDirection
+}
 
 /**
  * 靠文字本身定位，而不是 DOM 路径：切语言、客户端跳转、组件结构调整后都能找回来。
@@ -14,9 +21,10 @@ export interface Annotation {
   createdAt: number
   id: string
   kind: AnnotationKind
-  /** 只有 kind === 'note' 才有 */
+  /** 自己写的备注，只有 kind === 'note' 才有；存翻译时可以为空 */
   note?: string
   quote: TextQuote
+  translation?: SavedTranslation
   updatedAt: number
 }
 

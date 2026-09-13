@@ -31,6 +31,8 @@ export function NoteEditor({
   const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const dirty = draft.trim() !== initial.trim()
+  // 存了翻译的批注，自己的备注清空也照样有内容
+  const allowEmpty = editor.mode === 'edit' && editor.annotation.translation != null
 
   useEffect(() => {
     const input = inputRef.current
@@ -51,7 +53,7 @@ export function NoteEditor({
 
   function submit() {
     const value = draft.trim()
-    if (value) onSave(value)
+    if (value || allowEmpty) onSave(value)
   }
 
   return (
@@ -87,7 +89,12 @@ export function NoteEditor({
           <Button onClick={onClose} size="sm" type="button" variant="ghost">
             {m.annotate.cancel}
           </Button>
-          <Button disabled={!draft.trim() || !dirty} onClick={submit} size="sm" type="button">
+          <Button
+            disabled={(!draft.trim() && !allowEmpty) || !dirty}
+            onClick={submit}
+            size="sm"
+            type="button"
+          >
             {m.annotate.save}
           </Button>
         </div>

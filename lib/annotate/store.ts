@@ -1,4 +1,9 @@
-import { type Annotation, type AnnotationKind, type TextQuote } from '@/lib/annotate/types'
+import {
+  type Annotation,
+  type AnnotationKind,
+  type SavedTranslation,
+  type TextQuote,
+} from '@/lib/annotate/types'
 
 /**
  * 高亮和批注只存在浏览器 localStorage 里，按页面路径分组。
@@ -81,7 +86,7 @@ function sameQuote(a: TextQuote, b: TextQuote): boolean {
 
 export function addAnnotation(
   path: string,
-  input: { kind: AnnotationKind; note?: string; quote: TextQuote }
+  input: { kind: AnnotationKind; note?: string; quote: TextQuote; translation?: SavedTranslation }
 ) {
   const list = getAnnotations(path)
   // 同一处重复点高亮不叠加
@@ -110,4 +115,31 @@ export function removeAnnotation(path: string, id: string) {
     path,
     getAnnotations(path).filter((item) => item.id !== id)
   )
+}
+
+/** 同一处已经有批注（自己写的或之前存的翻译）就把翻译挂上去，不另起一条 */
+export function upsertTranslation(path: string, quote: TextQuote, translation: SavedTranslation) {
+  const list = getAnnotations(path)
+  const existing = list.find((item) => item.kind === 'note' && sameQuote(item.quote, quote))
+  if (!existing) {
+    addAnnotation(path, { kind: 'note', note: '', quote, translation })
+    return
+  }
+  write(
+    path,
+    list.map((item) =>
+      item.id === existing.id ? { ...item, translation, updatedAt: Date.now() } : item
+    )
+  )
+}
+
+const normalize = (text: string) => text.replace(/\s+/g, ' ').trim()
+
+/** 本页存过的同一段文字的翻译。只查本页：同一个词换个语境释义可能不同 */
+export function findSavedTranslation(path: string, text: string): SavedTranslation | null {
+  const target = normalize(text)
+  const found = getAnnotations(path).find(
+    (item) => item.translation && normalize(item.quote.exact) === target
+  )
+  return found?.translation ?? null
 }

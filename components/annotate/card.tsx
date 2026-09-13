@@ -4,6 +4,7 @@ import { type ReactNode, useState } from 'react'
 import {
   LuEraser,
   LuHighlighter,
+  LuLanguages,
   LuMessageSquarePlus,
   LuPencil,
   LuTrash2,
@@ -11,8 +12,9 @@ import {
 } from 'react-icons/lu'
 
 import { Button } from '@/components/ui/button'
-import { type Annotation } from '@/lib/annotate/types'
+import { type Annotation, type SavedTranslation } from '@/lib/annotate/types'
 import { useI18n } from '@/lib/i18n/provider'
+import { cn } from '@/lib/utils'
 
 /** 创建后一分钟内的改动不算「编辑过」 */
 const EDIT_THRESHOLD = 60_000
@@ -54,6 +56,26 @@ function IconButton({
   )
 }
 
+function TranslationBlock({ translation }: { translation: SavedTranslation }) {
+  const { m } = useI18n()
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="flex items-center gap-1.5 text-[0.7rem] text-muted-foreground">
+        <LuLanguages className="size-3 shrink-0" />
+        {translation.direction === 'zh2en' ? m.translate.toEn : m.translate.toZh}
+        {translation.pos ? ` · ${translation.pos}` : ''}
+      </span>
+      <p className="text-sm leading-relaxed font-medium break-words text-foreground">
+        {translation.primary}
+      </p>
+      {translation.note && (
+        <p className="text-xs leading-relaxed text-muted-foreground">{translation.note}</p>
+      )}
+    </div>
+  )
+}
+
 function NoteItem({ annotation, onEdit, onRemove }: ItemProps) {
   const { m } = useI18n()
   const [confirming, setConfirming] = useState(false)
@@ -61,9 +83,17 @@ function NoteItem({ annotation, onEdit, onRemove }: ItemProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground">
-        {annotation.note}
-      </p>
+      {annotation.translation && <TranslationBlock translation={annotation.translation} />}
+      {annotation.note && (
+        <p
+          className={cn(
+            'text-sm leading-relaxed break-words whitespace-pre-wrap text-foreground',
+            annotation.translation && 'border-t border-border pt-2'
+          )}
+        >
+          {annotation.note}
+        </p>
+      )}
       <div className="flex items-center justify-between gap-2">
         <time
           className="text-[0.7rem] text-muted-foreground"
@@ -89,7 +119,10 @@ function NoteItem({ annotation, onEdit, onRemove }: ItemProps) {
             </>
           ) : (
             <>
-              <IconButton label={m.annotate.edit} onClick={() => onEdit(annotation)}>
+              <IconButton
+                label={annotation.note ? m.annotate.edit : m.annotate.addNote}
+                onClick={() => onEdit(annotation)}
+              >
                 <LuPencil />
               </IconButton>
               <IconButton label={m.annotate.remove} onClick={() => setConfirming(true)}>

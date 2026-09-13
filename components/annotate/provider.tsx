@@ -16,17 +16,21 @@ import { AnnotationLayer } from '@/components/annotate/layer'
 import { annotationRoot, describe } from '@/lib/annotate/anchor'
 import {
   addAnnotation,
+  findSavedTranslation,
   getAnnotations,
   getServerAnnotations,
   subscribe,
+  upsertTranslation,
 } from '@/lib/annotate/store'
-import { type EditorState } from '@/lib/annotate/types'
+import { type EditorState, type SavedTranslation } from '@/lib/annotate/types'
 
 interface AnnotateContextValue {
   /** 浏览器支持 CSS Custom Highlight API，且选区完整落在页面主体里 */
   canAnnotate: (range: Range) => boolean
+  findTranslation: (text: string) => SavedTranslation | null
   highlight: (range: Range) => void
   note: (range: Range) => void
+  saveTranslation: (range: Range, translation: SavedTranslation) => void
 }
 
 const AnnotateContext = createContext<AnnotateContextValue | null>(null)
@@ -81,7 +85,24 @@ export function AnnotateProvider({ children }: { children: ReactNode }) {
     [pathname]
   )
 
-  const value = useMemo(() => ({ canAnnotate, highlight, note }), [canAnnotate, highlight, note])
+  const saveTranslation = useCallback(
+    (range: Range, translation: SavedTranslation) => {
+      const root = annotationRoot()
+      const quote = root && describe(range, root)
+      if (quote) upsertTranslation(pathname, quote, translation)
+    },
+    [pathname]
+  )
+
+  const findTranslation = useCallback(
+    (text: string) => findSavedTranslation(pathname, text),
+    [pathname]
+  )
+
+  const value = useMemo(
+    () => ({ canAnnotate, findTranslation, highlight, note, saveTranslation }),
+    [canAnnotate, findTranslation, highlight, note, saveTranslation]
+  )
 
   return (
     <AnnotateContext.Provider value={value}>

@@ -68,6 +68,8 @@ export const messages = {
       errorKey: '未配置 ANTHROPIC_API_KEY，见 README',
       errorRate: '请求太频繁，稍后再试',
       errorLong: '选中的内容太长了',
+      saveAsNote: '存为批注',
+      saved: '已存为批注',
     },
     annotate: {
       highlight: '高亮',
@@ -160,6 +162,8 @@ export const messages = {
       errorKey: 'ANTHROPIC_API_KEY is not set — see README',
       errorRate: 'Too many requests, try again shortly',
       errorLong: 'Selection is too long',
+      saveAsNote: 'Save as note',
+      saved: 'saved as note',
     },
     annotate: {
       highlight: 'Highlight',
