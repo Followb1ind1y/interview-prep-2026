@@ -2,9 +2,10 @@ import { CompaniesOverview, CompaniesTemplate } from '@/components/companies/pag
 import { Card, CardGrid } from '@/components/markdown/card'
 import { FileTree } from '@/components/markdown/filetree'
 import { File, Folder } from '@/components/markdown/filetree/component'
-import { Locale } from '@/components/markdown/locale'
 import { Route } from '@/components/markdown/link'
+import { Locale } from '@/components/markdown/locale'
 import { Mermaid } from '@/components/markdown/mermaid'
+import { MyQuestion } from '@/components/markdown/my-question'
 import { Note } from '@/components/markdown/note'
 import { Step, StepItem } from '@/components/markdown/step'
 import { ResumeAbout, ResumeCV } from '@/components/resume/pages'
@@ -22,6 +23,7 @@ export const components = {
   File,
   Locale,
   Mermaid,
+  MyQuestion,
   Note,
   pre: Pre,
   ResumeAbout,

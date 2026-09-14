@@ -52,6 +52,8 @@ export const messages = {
       pageNav: '页面导航',
       backToTop: '回到顶部',
       updated: '更新于',
+      myQuestion: '我的问题',
+      questionPending: '还没解答，下次 /study 会在这里补上。',
     },
     translate: {
       title: '划词翻译',
@@ -145,6 +147,8 @@ export const messages = {
       pageNav: 'Page navigation',
       backToTop: 'Scroll to top',
       updated: 'Updated',
+      myQuestion: 'My question',
+      questionPending: 'Not answered yet — the next /study run fills it in here.',
     },
     translate: {
       title: 'Translate selection',

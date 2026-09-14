@@ -29,6 +29,20 @@ Root chrome: `Navbar` + `main.px-5.sm:px-8` + `Footer` in `app/layout.tsx`.
 - Surfaces: prefer borders/dividers over shadows. Cards (`rounded-xl border bg-card`) only where home heatmap/roadmap already use them — not in docs article body by default.
 - Controls: use `@/components/ui/*` and `buttonVariants`. Add via `npx shadcn@latest add …`, do not hand-roll duplicates.
 
+## Article callouts
+
+Callouts inside MDX (`<Note>`, `<MyQuestion>`) are the one place hue colors are allowed — pick the color by what the box says, never for looks. Styles live in `components/markdown/callout.ts`; don't restyle a callout inline.
+
+| Color | Component | Content |
+| --- | --- | --- |
+| Gray | `<Note>` (default) | Supplementary context, term distinctions, background — optional reading |
+| Green | `<Note type="tip">` | Connections to other mechanisms or classic behaviors; points worth raising unprompted in an interview |
+| Orange | `<Note type="warning">` | Pitfalls — easy to misunderstand, likely follow-up questions |
+| Red | `<Note type="danger">` | Wrong claims — saying this in an interview costs you |
+| Blue | `<MyQuestion q="…">` | The learner's own questions and answers; collapsed by default |
+
+All callouts share the same box: left accent bar, icon, colored title, `my-8` so stacked callouts stay visibly separate.
+
 ## Canonical files to match
 
 1. `styles/globals.css`

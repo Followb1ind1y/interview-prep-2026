@@ -80,11 +80,69 @@ Example：
 
 也就是说，tokenization 是「一段文本」和「一笔钱 / 一段延迟」之间的换算单位。
 
+<MyQuestion q="Tokenization 里说的 input 和 output 分别是什么？">
+
+这里其实有两层「input / output」，很容易混在一起。
+
+**第一层：tokenization 这个动作本身**——文字进，数字出。
+
+```
+Input   原始文本          "Hello, world!"
+          ↓ encode（切分 + 查词表）
+Output  token id 序列     [9906, 11, 1917, 0]
+```
+
+**第二层：一次 LLM 调用的 input tokens / output tokens**——账单上分开计价的那两个数。
+
+```
+你发出去的全部内容（system prompt、历史、工具定义、检索文档、问题）
+   ↓ tokenizer encode
+input tokens    → 模型在 prefill 阶段一次性读完
+   ↓
+output tokens   → 模型在 decode 阶段一个一个生成的 token id
+   ↓ tokenizer decode（查词表的反方向：id → 字符串）
+你看到的回答文本
+```
+
+所以同一个 tokenizer 用了两次：进去时 encode，出来时 decode。output 为什么比 input 贵，见 Level 3。
+
+</MyQuestion>
+
 <Note title="Tokenizer 和 Vocabulary 的区别">
 
 **Vocabulary（词表）**是一张静态的表，存着所有可能的 token 以及它们对应的 id。**Tokenizer（分词器）**是执行切分规则的工具。词表是「字典」，tokenizer 是「查字典的那个人」。
 
 </Note>
+
+<MyQuestion q="Tokenization 和 Tokenizer 是什么关系？Tokenizer 里包含词表吗？切分规则又是怎么来的？">
+
+**过程和工具的关系。** Tokenization 是「切分 + 编号」这个过程，tokenizer 是执行它的工具——就像「切菜」和「刀」。
+
+**Tokenizer 里包含词表**，而且词表是它的核心部件，不是外挂。上面说「tokenizer 是查字典的人」，要补一句：这本字典就拿在他自己手里。一个完整的 tokenizer 打包了两样东西：
+
+```
+Tokenizer = ① 切分规则（怎么把文本切成 token 字符串）
+          + ② 词表（token 字符串 ↔ 整数 id 的映射表）
+```
+
+以 BPE 为例，训练完得到的就是两个文件：`merges.txt`（合并顺序表）和 `vocab.json`（比如 `{"low": 1024, "est</w>": 1025}`，id 仅作示意）。推理时顺序固定，不能反：
+
+1. 先按 merge 规则把文本切成 token 字符串：`"lowest"` → `["low", "est</w>"]`
+2. 再查词表把字符串换成 id：→ `[1024, 1025]`
+
+**切分规则是算法学出来的，不是反过来。** 这里很容易把层次弄反，正确的顺序是：
+
+```
+第 1 层  方法 / 算法    BPE、WordPiece、Unigram —— 怎么学出规则
+第 2 层  训练产物       merges.txt + vocab.json —— 在某份语料上跑完学到了什么
+第 3 层  推理时应用     把第 2 层的规则套到一句新文本上
+```
+
+不是「切分规则设计出了 BPE」，而是「BPE 在语料上跑出了切分规则」。规则具体怎么学出来，见 Level 2 的 BPE 手推。
+
+不同算法存的东西不完全一样：BPE 存 merge 表 + 词表；WordPiece 只存词表，推理时按「最长匹配」去切；Unigram 存的是每个 token 带概率分数的词表，推理时挑概率最高的切法。但「规则 + 词表」这个结构是一样的。
+
+</MyQuestion>
 
 ### Token、Token ID、Embedding 到底是什么关系？
 
@@ -98,7 +156,7 @@ Example：
 
 关键点：**token id 是没有语义的**。id 1917 和 id 1918 在数值上相邻，但它们代表的词可能毫无关系。语义完全由 embedding 层学出来——embedding 表就是一个 `[vocab_size, hidden_dim]` 的大矩阵，token id 就是查这个矩阵的行号。
 
-<Note title="为什么这个区分在面试里重要">
+<Note title="为什么这个区分在面试里重要" type="tip">
 
 被问「tokenization 怎么捕捉语义」的时候，正确答案是「它不捕捉」。Tokenization 只负责切分和编号，语义是下游 embedding + attention 的事。答错这个会显得基础不牢。
 
@@ -110,7 +168,7 @@ Example：
 
 一个直觉：`"strawberry"` 这个词可能被切成 `["str", "aw", "berry"]` 3 个 token，而 `"the"` 是 1 个 token。它们的字符数差了 3 倍多，但模型处理前者的成本只有后者的 3 倍——按字符算会算错，按词算也会算错，只有按 token 算是准的。
 
-<Note title="顺便解释了一个经典问题">
+<Note title="顺便解释了一个经典问题" type="tip">
 
 「为什么 LLM 数不清 strawberry 里有几个 r？」——因为模型根本没看到过 `s-t-r-a-w-b-e-r-r-y` 这 10 个字符，它看到的是 `["str", "aw", "berry"]` 这 3 个整数。字母级别的信息在 tokenization 这一步就已经丢了。
 
@@ -147,11 +205,69 @@ It matters because **every notion of "length" in an LLM is measured in tokens**,
 
 Tokenization is the exchange rate between a piece of text and a dollar amount.
 
+<MyQuestion q="What exactly are the input and output of tokenization?">
+
+There are two different input/output pairs here, and they're easy to mix up.
+
+**Layer 1: tokenization itself** — text in, integers out.
+
+```
+Input   raw text                 "Hello, world!"
+          ↓ encode (split + vocabulary lookup)
+Output  sequence of token ids    [9906, 11, 1917, 0]
+```
+
+**Layer 2: the input tokens and output tokens of an LLM call** — the two numbers billed separately.
+
+```
+everything you send (system prompt, history, tool definitions, retrieved docs, question)
+   ↓ tokenizer encode
+input tokens    → read all at once during prefill
+   ↓
+output tokens   → token ids the model generates one at a time during decode
+   ↓ tokenizer decode (the lookup in reverse: id → string)
+the response text you see
+```
+
+So the same tokenizer runs twice: encode on the way in, decode on the way out. Why output tokens cost more is covered in Level 3.
+
+</MyQuestion>
+
 <Note title="Tokenizer vs. vocabulary">
 
 The **vocabulary** is a static table mapping every possible token to an id. The **tokenizer** is the tool that applies the splitting rules. The vocabulary is the dictionary; the tokenizer is the person looking things up in it.
 
 </Note>
+
+<MyQuestion q="How do tokenization and the tokenizer relate? Does the tokenizer contain the vocabulary, and where do the splitting rules come from?">
+
+**A process and its tool.** Tokenization is the process of splitting and numbering; the tokenizer is the tool that carries it out — the way chopping relates to the knife.
+
+**The tokenizer does contain the vocabulary**, and it's a core part, not an add-on. The "person looking things up" above keeps the dictionary in hand. A complete tokenizer bundles two things:
+
+```
+Tokenizer = ① splitting rules (how to cut text into token strings)
+          + ② vocabulary (token string ↔ integer id)
+```
+
+For BPE, training produces exactly two files: `merges.txt` (the merge order) and `vocab.json` (e.g. `{"low": 1024, "est</w>": 1025}`, ids for illustration only). At inference the order is fixed:
+
+1. Apply the merge rules to cut the text into token strings: `"lowest"` → `["low", "est</w>"]`
+2. Look those strings up in the vocabulary to get ids: → `[1024, 1025]`
+
+**The algorithm learns the rules — not the other way around.** The layers are easy to flip, so keep them straight:
+
+```
+Layer 1  method / algorithm   BPE, WordPiece, Unigram — how the rules get learned
+Layer 2  training artifacts   merges.txt + vocab.json — what was learned on a given corpus
+Layer 3  inference            apply the Layer 2 rules to new text
+```
+
+It isn't "the splitting rules define BPE"; it's "BPE, run on a corpus, produces the splitting rules." For how that learning works, see the BPE walkthrough in Level 2.
+
+What gets stored varies by algorithm: BPE keeps a merge table plus the vocabulary; WordPiece keeps only the vocabulary and splits by greedy longest match at inference; Unigram keeps a vocabulary with a probability score per token and picks the most likely segmentation. The rules-plus-vocabulary structure is the same.
+
+</MyQuestion>
 
 ### How do token, token id, and embedding relate?
 
@@ -165,7 +281,7 @@ These get conflated constantly, but they're three distinct stages of a pipeline:
 
 The key point: **token ids carry no semantics**. Ids 1917 and 1918 are numerically adjacent but may represent totally unrelated words. Meaning is learned entirely by the embedding layer — a `[vocab_size, hidden_dim]` matrix that the token id indexes into.
 
-<Note title="Why this distinction matters in interviews">
+<Note title="Why this distinction matters in interviews" type="tip">
 
 If you're asked "how does tokenization capture meaning," the correct answer is that it doesn't. Tokenization only splits and numbers; meaning is the job of embedding plus attention downstream. Getting this wrong signals shaky fundamentals.
 
@@ -177,7 +293,7 @@ Because the token is the model's real unit of compute. Each forward pass costs i
 
 An intuition: `"strawberry"` might split into `["str", "aw", "berry"]` — three tokens — while `"the"` is one. Their character counts differ by more than 3x, but the model's cost ratio is exactly 3x. Counting characters gets it wrong, counting words gets it wrong; only counting tokens is accurate.
 
-<Note title="This also explains a classic failure">
+<Note title="This also explains a classic failure" type="tip">
 
 "Why can't an LLM count the r's in strawberry?" Because the model never saw the ten characters `s-t-r-a-w-b-e-r-r-y`. It saw three integers standing for `["str", "aw", "berry"]`. Letter-level information was destroyed at the tokenization step.
 
@@ -270,6 +386,35 @@ w i d est </w>      × 3
 遇到训练时没出现过的 `"lowest"`，BPE 不会吐 `[UNK]`，而是用已有的 merge 规则拼出 `["low", "est</w>"]`。信息基本没丢——这就是 subword 对比 word-level 的核心优势。
 
 </Note>
+
+<MyQuestion q="词表和 BPE 这类算法是什么关系？词表大小又是谁决定的？">
+
+**词表是训练过程中一步步「长」出来的，不是先设计好再交给算法用。** 回看上面的手推：
+
+```
+第 0 步   词表 = 全部单个字符             {l, o, w, e, r, n, s, t, i, d, </w>}
+第 1 轮   合并 (e, s) → es               词表 + es
+第 2 轮   合并 (es, t) → est             词表 + est
+第 3 轮   合并 (est, </w>) → est</w>     词表 + est</w>
+```
+
+每合并一次，词表就多一个条目。所以 `merges.txt` 和 `vocab.json` 不是两个独立设计的东西，而是同一次训练的两份记录：一份记「按什么顺序合并」，一份记「合并到最后一共有哪些 token、各自的 id」。
+
+**词表大小是训练前设定的超参数**（最主要的一个；预切分规则、特殊 token 等也是），算法就合并到这个数为止：
+
+```
+目标词表大小（你设定）
+   ↓ 决定
+要跑多少轮 merge
+   ↓ 决定
+最终有哪些 token，切得多粗或多细
+```
+
+一个能对上账的真实例子：GPT-2 的词表是 50,257 = 256 个基础字节 + 50,000 次 merge + 1 个特殊 token（`<|endoftext|>`）。
+
+一句话：**算法是「怎么学」，词表大小是交给算法的参数，词表是算法跑完的产出**——方法 → 参数 → 产出。这也是 GPT-2（50k）和 LLaMA 3（128k）同为 BPE 系、切同一句话 token 数却不同的原因之一（训练语料和预切分规则也不同，见 Level 3）。词表大小本身怎么取舍，见下面「词表大小怎么选？」。
+
+</MyQuestion>
 
 ### WordPiece 和 BPE 差在哪？
 
@@ -431,6 +576,35 @@ Given `"lowest"`, which never appeared in training, BPE doesn't emit `[UNK]` —
 
 </Note>
 
+<MyQuestion q="How does the vocabulary relate to an algorithm like BPE, and what decides the vocabulary size?">
+
+**The vocabulary grows out of training step by step; it isn't designed first and then handed to the algorithm.** Look back at the walkthrough above:
+
+```
+Step 0    vocab = every single character   {l, o, w, e, r, n, s, t, i, d, </w>}
+Round 1   merge (e, s) → es                vocab + es
+Round 2   merge (es, t) → est              vocab + est
+Round 3   merge (est, </w>) → est</w>      vocab + est</w>
+```
+
+Every merge adds exactly one entry. So `merges.txt` and `vocab.json` aren't two independently designed pieces — they're two records of the same training run: one logs the merge order, the other lists every token that exists at the end, with its id.
+
+**Vocabulary size is a hyperparameter set before training** (the main one; pre-tokenization rules and special tokens are others). The algorithm keeps merging until it hits that number:
+
+```
+target vocabulary size (you choose it)
+   ↓ determines
+how many merge rounds run
+   ↓ determines
+which tokens exist, and how coarse or fine the splits are
+```
+
+A real example that adds up: GPT-2's vocabulary is 50,257 = 256 base bytes + 50,000 merges + 1 special token (`<|endoftext|>`).
+
+In one line: **the algorithm is how to learn, the vocabulary size is the parameter you give it, and the vocabulary is what comes out** — method → parameter → output. That's one reason GPT-2 (50k) and LLaMA 3 (128k), both BPE-family tokenizers, split the same sentence into different numbers of tokens; their training corpora and pre-tokenization rules differ too (see Level 3). For how to pick the size, see "How do you choose a vocabulary size?" below.
+
+</MyQuestion>
+
 ### How does WordPiece differ from BPE?
 
 The procedure is nearly identical. **Only the criterion for choosing which pair to merge differs:**
@@ -562,7 +736,7 @@ Output token → Decode   → 一次只能生成 1 个 → 无法并行 → 单�
 
 **工程结论：想省钱和降延迟，先砍 output 长度，再砍 input 长度。** 一个「请简短回答」的指令，省下来的钱通常比压缩 prompt 更多。
 
-<Note title="这也解释了 prompt caching 为什么有用" type="success">
+<Note title="这也解释了 prompt caching 为什么有用" type="tip">
 
 既然 prefill 的成本来自「重新处理一遍 prompt」，那把不变的前缀（system prompt、few-shot 例子）缓存下来，就能直接跳过这部分计算。这就是 [Caching](/docs/context/caching) 的原理。
 
@@ -613,7 +787,7 @@ Generating 100 output tokens means 100 forward passes, each re-reading the full 
 
 **Engineering takeaway: to cut cost and latency, shorten the output first, the input second.** A "be concise" instruction usually saves more money than compressing the prompt.
 
-<Note title="This also explains why prompt caching works" type="success">
+<Note title="This also explains why prompt caching works" type="tip">
 
 If prefill cost comes from re-processing the prompt, then caching an unchanging prefix — system prompt, few-shot examples — lets you skip that compute entirely. That's the mechanism behind [Caching](/docs/context/caching).
 
@@ -658,7 +832,7 @@ print(len(tok.encode("your text")))
 
 <Locale lang="zh">
 
-<Note title="RAG 场景的直接后果">
+<Note title="RAG 场景的直接后果" type="tip">
 
 chunk size 要按 **token** 定，不能按字数定。同样「500」，按字数切中文和切英文，实际 token 数可能差两倍，导致 context 预算算错。详见 [Chunking](/docs/rag/chunking)。
 
@@ -694,7 +868,7 @@ Input 走 prefill 可并行，output 走 decode 不可并行。延迟主要由 *
 
 <Locale lang="en">
 
-<Note title="Direct consequence for RAG">
+<Note title="Direct consequence for RAG" type="tip">
 
 Chunk size must be defined in **tokens**, not characters. The same "500" applied to Chinese versus English can differ by 2x in actual tokens, throwing off your context budget. See [Chunking](/docs/rag/chunking).
 
@@ -819,36 +993,6 @@ Answer out loud first, then check against the sections above.
 12. Your LLM bill doubled this month with flat request volume. Could tokenization be involved, and how would you check?
 13. You're sizing a context budget for a RAG system over mixed English / Chinese / code documents. How do you plan it?
 14. Why can't an LLM reliably count the letters in a word?
-
-</Locale>
-
----
-
-<Locale lang="zh">
-
-## 我的问题
-
-读的时候冒出来的问题随手加一行，别当场去查。下次 `/study` 会统一处理：把答案并进正文，再把这行打勾。
-
-</Locale>
-
-<Locale lang="en">
-
-## My questions
-
-Jot down questions as they come up while reading — don't stop to look them up. The next `/study` run folds the answers into the body above and checks the line off.
-
-</Locale>
-
-<Locale lang="zh">
-
-- [ ] （示例）byte-level BPE 的「字节」是 UTF-8 字节吗？那一个汉字岂不是要 3 个 token？
-
-</Locale>
-
-<Locale lang="en">
-
-- [ ] (example) In byte-level BPE, are the "bytes" UTF-8 bytes? Wouldn't one Chinese character then take 3 tokens?
 
 </Locale>
 

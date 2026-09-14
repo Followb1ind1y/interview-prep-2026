@@ -893,6 +893,472 @@
       },
       "createdAt": 1789333901733,
       "updatedAt": 1789333901733
+    },
+    {
+      "id": "096de516-f2b7-45d4-9ac2-bfb8a5ef0bef",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "by whitespace",
+        "prefix": "t split the sentence into words ",
+        "suffix": ", then split subwords inside eac"
+      },
+      "createdAt": 1789345506870,
+      "updatedAt": 1789345506870
+    },
+    {
+      "id": "95b04937-dd7a-4561-9fbd-46200563fc9c",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "split subwords inside each word",
+        "prefix": " into words by whitespace, then ",
+        "suffix": ". That assumption holds for Engl"
+      },
+      "createdAt": 1789345513115,
+      "updatedAt": 1789345513115
+    },
+    {
+      "id": "68c87f9d-a22d-46ff-9676-a223906b473d",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "fails completely for Chinese, Japanese, and Korean, which have no spaces at all",
+        "prefix": "ssumption holds for English and ",
+        "suffix": ".SentencePiece's answer: train d"
+      },
+      "note": "对中文等其他语言无效",
+      "createdAt": 1789345559502,
+      "updatedAt": 1789345559502
+    },
+    {
+      "id": "991e5c0e-297f-49a4-ac46-e082665166f5",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "treat the space as just another character",
+        "prefix": " train directly on raw text and ",
+        "suffix": " (written ▁, U+2581).Example:\"He"
+      },
+      "createdAt": 1789345573146,
+      "updatedAt": 1789345573146
+    },
+    {
+      "id": "ba5df982-0d30-4937-9dca-8db34ad1a4a8",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "BPE and WordPiece discard whitespace",
+        "prefix": "over the original text exactly. ",
+        "suffix": " information and need extra rule"
+      },
+      "createdAt": 1789345611896,
+      "updatedAt": 1789345611896
+    },
+    {
+      "id": "211d7ab9-ae2f-4dd0-b351-aa7cc61fb93e",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "concatenate the tokens, swap ▁ back to a space, and you recover the original text exactly",
+        "prefix": "he same path\nFully reversible — ",
+        "suffix": ". BPE and WordPiece discard whit"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "将分词后的 tokens 连接起来，把特殊符号 ▁ 替换回空格，就能准确还原原始文本",
+        "pos": "",
+        "note": "recover 在这里表示恢复/还原原状，体现了可逆性的含义"
+      },
+      "createdAt": 1789345623546,
+      "updatedAt": 1789345623546
+    },
+    {
+      "id": "20b81f8d-be66-4842-afff-2dddde086f01",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "Underneath",
+        "prefix": " need extra rules to detokenize\n",
+        "suffix": ", SentencePiece can run either B"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "在背后、在实现层面",
+        "pos": "adv.",
+        "note": "这里表示从底层实现的角度，相当于at the underlying level或internally"
+      },
+      "createdAt": 1789345660104,
+      "updatedAt": 1789345660104
+    },
+    {
+      "id": "361a7a2d-2e9f-413b-8760-58db27a35d47",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "universal",
+        "prefix": "size?A direct trade-off with no ",
+        "suffix": " answer:Small vocab (e.g. 32k)La"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "通用的、普遍适用的，这里指没有对所有情况都适用的答案",
+        "pos": "adj.",
+        "note": "在这个语境中强调不存在对各种场景都通用的解决方案"
+      },
+      "createdAt": 1789345715081,
+      "updatedAt": 1789345715081
+    },
+    {
+      "id": "56ac93e0-5715-46ad-9f76-825ed08a2a13",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "shredded",
+        "prefix": "contextRare words / multilingual",
+        "suffix": " into pieceswell coveredSome rea"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "被切割成碎片，分割",
+        "pos": "v.",
+        "note": "这里用过去分词作为被动语态的核心，shred通常指用粉碎机切碎纸张等物品，引申为将整体分割成许多小部分"
+      },
+      "createdAt": 1789345763180,
+      "updatedAt": 1789345763180
+    },
+    {
+      "id": "eb66c076-fabe-4c1f-b7d3-1bcf8dc01a61",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "calibration",
+        "prefix": "ll coveredSome real numbers for ",
+        "suffix": ":BERT-base      30,522\nLLaMA 1 /"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "校准，这里指用实际数据来核实或调整模型的准确度",
+        "pos": "n.",
+        "note": "在ML语境中常指用真实数据验证或调整模型参数"
+      },
+      "createdAt": 1789345811536,
+      "updatedAt": 1789345811536
+    },
+    {
+      "id": "846381c3-063a-4bac-b296-255928d0a37e",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "compresses",
+        "prefix": "re growing. A larger vocabulary ",
+        "suffix": " the same text into fewer tokens"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "把…压缩成更少的东西（这里指用更少数量的token表示相同的文本内容）",
+        "pos": "v.",
+        "note": "compress作动词时强调减少数量或大小，此处metaphor用法指用较少token来表示"
+      },
+      "createdAt": 1789345846330,
+      "updatedAt": 1789345846330
+    },
+    {
+      "id": "22f18ee3-ca49-43fc-9f53-79142baf3081",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "era",
+        "prefix": "re and more in the long-context ",
+        "suffix": ", while the extra embedding para"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "时代、阶段。这里指长上下文能力成为主流的时期。",
+        "pos": "n.",
+        "note": ""
+      },
+      "createdAt": 1789345875787,
+      "updatedAt": 1789345875787
+    },
+    {
+      "id": "99460c17-9102-4cf4-9f57-ea2f5428d67a",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "pays off",
+        "prefix": "e text into fewer tokens, which ",
+        "suffix": " more and more in the long-conte"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "（投资、努力等）获得回报、产生效益，在这里指更大词汇表在长上下文时代带来的好处",
+        "pos": "v.",
+        "note": "pays off 可作及物或不及物动词，此处不及物，表示某件事最终证明是值得的或有益的"
+      },
+      "createdAt": 1789345906474,
+      "updatedAt": 1789345906474
+    },
+    {
+      "id": "9a82e55b-6599-4fd5-9c76-bdc3bbab9baf",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "negligible",
+        "prefix": "ra embedding parameters are now ",
+        "suffix": " next to total model size.How ar"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "可以忽略不计的；不重要的",
+        "pos": "adj.",
+        "note": "这里强调embedding参数相对整个模型大小而言非常小，几乎不值一提"
+      },
+      "createdAt": 1789345922234,
+      "updatedAt": 1789345922234
+    },
+    {
+      "id": "e57e3e84-ca1e-4d82-86c8-cb4491fd9ca7",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "unseen words decompose into known subwords",
+        "prefix": "bword splitting (the standard): ",
+        "suffix": ", e.g. \"tokenization\" → [\"token\""
+      },
+      "createdAt": 1789345953648,
+      "updatedAt": 1789345953648
+    },
+    {
+      "id": "c5b2fc59-c422-41a4-abd9-f973e3077dbb",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "preserving",
+        "prefix": "zation\" → [\"token\", \"ization\"], ",
+        "suffix": " most information\nByte-level fal"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "保留、保存（这里指分词后仍然保留了原词的大部分信息）",
+        "pos": "v.",
+        "note": "present participle形式作状语，表示结果或目的"
+      },
+      "createdAt": 1789345964704,
+      "updatedAt": 1789345964704
+    },
+    {
+      "id": "603f3380-f1a0-4362-b3dc-0a11a0cb1f58",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "fallback",
+        "prefix": "ing most information\nByte-level ",
+        "suffix": ": GPT-family models use byte-lev"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "后备方案；指当无法从字符级别处理时转向字节级别处理",
+        "pos": "n.",
+        "note": "此处作名词，也可作动词或形容词使用；byte-level fallback指最后可以降级到字节级的处理能力"
+      },
+      "createdAt": 1789345975134,
+      "updatedAt": 1789345975134
+    },
+    {
+      "id": "d66c6c22-ac99-4137-bb72-62452223502b",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "drop it entirely and lose the information",
+        "prefix": "encode\nAn [UNK] token (legacy): ",
+        "suffix": ". Modern tokenizers rarely need "
+      },
+      "createdAt": 1789346032869,
+      "updatedAt": 1789346032869
+    },
+    {
+      "id": "b4748536-10a6-4c75-a037-540884f9875d",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "text in, integers out",
+        "prefix": ".Layer 1: tokenization itself — ",
+        "suffix": ".Input   raw text               "
+      },
+      "createdAt": 1789346715992,
+      "updatedAt": 1789346715992
+    },
+    {
+      "id": "1021008e-d150-4af5-8728-c9f482d05425",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "encode (split + vocabulary lookup)",
+        "prefix": "    \"Hello, world!\"\n          ↓ ",
+        "suffix": "\nOutput  sequence of token ids  "
+      },
+      "createdAt": 1789346729666,
+      "updatedAt": 1789346729666
+    },
+    {
+      "id": "636ad25a-79ee-487e-89e7-4132c4e30edf",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "Tokenization is the process of splitting and numbering; the tokenizer is the tool that carries it out",
+        "prefix": "me from?A process and its tool. ",
+        "suffix": " — the way chopping relates to t"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "分词（Tokenization）是将文本分割成词元（token）并编号的过程；tokenizer 是执行这一过程的工具",
+        "pos": "",
+        "note": "splitting and numbering 是对分词这一过程的完整描述，splitting 指按规则分割文本，numbering 指为每个词元赋予编号或 ID"
+      },
+      "createdAt": 1789346783127,
+      "updatedAt": 1789346783127
+    },
+    {
+      "id": "02a0e8f4-750c-432f-a1ab-89e6a1136bd1",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "chopping",
+        "prefix": "l that carries it out — the way ",
+        "suffix": " relates to the knife.The tokeni"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "这里指劈砍、分割（食物），作类比说明tokenization就是分割的过程",
+        "pos": "n.",
+        "note": "chopping是名词形式（动名词），与knife形成工具-动作的类比关系，不要理解为动词的进行式"
+      },
+      "createdAt": 1789346791618,
+      "updatedAt": 1789346791618
+    },
+    {
+      "id": "d4623f48-d357-48b1-acf1-a0bba6e09dd2",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "splitting rules",
+        "prefix": "undles two things:Tokenizer = ① ",
+        "suffix": " (how to cut text into token str"
+      },
+      "createdAt": 1789346824161,
+      "updatedAt": 1789346824161
+    },
+    {
+      "id": "a4bd8bc2-f95a-4616-b9df-86dbbbbd533c",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "vocabulary",
+        "prefix": "to token strings)\n          + ② ",
+        "suffix": " (token string ↔ integer id)\nFor"
+      },
+      "createdAt": 1789346826707,
+      "updatedAt": 1789346826707
+    },
+    {
+      "id": "625db29d-0880-4c31-b83d-5e8919b5b987",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "illustration",
+        "prefix": "1024, \"est</w>\": 1025}, ids for ",
+        "suffix": " only). At inference the order i"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "这里 illustration 指举例说明、示意，ids for illustration only 意思是这些 ID 号仅为示意用途，不是真实值",
+        "pos": "n.",
+        "note": ""
+      },
+      "createdAt": 1789346857263,
+      "updatedAt": 1789346857263
+    },
+    {
+      "id": "dedeb143-0687-452c-8103-286c14f7755e",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "Layer 1  method / algorithm",
+        "prefix": " to flip, so keep them straight:",
+        "suffix": "   BPE, WordPiece, Unigram — how"
+      },
+      "createdAt": 1789346888102,
+      "updatedAt": 1789346888102
+    },
+    {
+      "id": "1b1c33b6-ba93-4f61-b7bc-2ea989bf922a",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "merges.txt + vocab.json",
+        "prefix": "d\nLayer 2  training artifacts   ",
+        "suffix": " — what was learned on a given c"
+      },
+      "createdAt": 1789346899318,
+      "updatedAt": 1789346899318
+    },
+    {
+      "id": "e3015dbd-dd3e-422a-af41-dc03e8b6e160",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "a hyperparameter set before training",
+        "prefix": " with its id.Vocabulary size is ",
+        "suffix": " (the main one; pre-tokenization"
+      },
+      "createdAt": 1789347014367,
+      "updatedAt": 1789347014367
+    },
+    {
+      "id": "d3e2a57b-57ba-4d6a-bcb9-9e1cfe8d8369",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "the algorithm is how to learn, the vocabulary size is the parameter you give it, and the vocabulary is what comes out",
+        "prefix": "en (<|endoftext|>).In one line: ",
+        "suffix": " — method → parameter → output. "
+      },
+      "createdAt": 1789347047200,
+      "updatedAt": 1789347047200
+    },
+    {
+      "id": "0a8fc84a-9a91-46ee-af1a-a108d63a0522",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "propagate",
+        "prefix": "ring impactHow does token count ",
+        "suffix": " into latency and cost?This chai"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "传播，在这里指token数量的增加如何逐级影响到系统延迟和成本",
+        "pos": "v.",
+        "note": "在系统设计文中常用于描述某个指标或影响如何逐层传导，与spread或cascade同义但更正式"
+      },
+      "createdAt": 1789347084058,
+      "updatedAt": 1789347084058
     }
   ],
   "/docs/overview": [
