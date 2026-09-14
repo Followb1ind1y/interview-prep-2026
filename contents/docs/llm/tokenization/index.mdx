@@ -3,8 +3,8 @@ title: Tokenization
 titleEn: Tokenization
 description: BPE / WordPiece / SentencePiece。token 数决定 window、latency、cost。
 descriptionEn: BPE / WordPiece / SentencePiece. Token count drives window, latency, and cost.
-date: 2026-09-11
-keywords: ["tokenization", "bpe", "wordpiece", "sentencepiece", "vocabulary", "oov", "context window"]
+date: 2026-09-14
+keywords: ["tokenization", "bpe", "byte-level bpe", "wordpiece", "sentencepiece", "vocabulary", "oov", "context window"]
 tier: B
 status: todo
 cursor: ''
@@ -25,7 +25,7 @@ mastery: { talk: 0, probe: 0 }
 - WordPiece 和 BPE 到底差在哪一个公式上
 - SentencePiece 解决了什么前两者解决不了的问题
 - 词表大小的 trade-off
-- OOV（未登录词）怎么处理
+- OOV（未登录词）怎么处理，byte-level BPE 为什么能根治它
 - token 数 → context window / latency / cost 的传导链
 
 </Locale>
@@ -44,7 +44,7 @@ It looks like plumbing, but it decides how much context a passage costs, how muc
 - the one formula that separates WordPiece from BPE
 - what SentencePiece solves that the other two can't
 - the vocabulary size trade-off
-- how out-of-vocabulary words are handled
+- how out-of-vocabulary words are handled, and why byte-level BPE eliminates them
 - the chain from token count to context window, latency, and cost
 
 </Locale>
@@ -119,7 +119,7 @@ output tokens   → 模型在 decode 阶段一个一个生成的 token id
 
 <Note title="Tokenizer 和 Vocabulary 的区别">
 
-**Vocabulary（词表）**是一张静态的表，存着所有可能的 token 以及它们对应的 id。**Tokenizer（分词器）**是执行切分规则的工具。词表是「字典」，tokenizer 是「查字典的那个人」。
+**Vocabulary（词表）**是一张静态的表，存着所有可能的 token 以及它们对应的 id。**Tokenizer（分词器）**是执行切分的工具，词表就打包在它里面。打个比方：词表是「字典」，tokenizer 是「拿着这本字典干活的人」。
 
 </Note>
 
@@ -127,7 +127,7 @@ output tokens   → 模型在 decode 阶段一个一个生成的 token id
 
 **过程和工具的关系。** Tokenization 是「切分 + 编号」这个过程，tokenizer 是执行它的工具——就像「切菜」和「刀」。
 
-**Tokenizer 里包含词表**，而且词表是它的核心部件，不是外挂。上面说「tokenizer 是查字典的人」，要补一句：这本字典就拿在他自己手里。一个完整的 tokenizer 打包了两样东西：
+**Tokenizer 里包含词表**，而且词表是它的核心部件，不是外挂。一个完整的 tokenizer 打包了两样东西：
 
 ```
 Tokenizer = ① 切分规则（怎么把文本切成 token 字符串）
@@ -177,7 +177,15 @@ Tokenizer = ① 切分规则（怎么把文本切成 token 字符串）
 
 因为 token 才是模型真实的计算单位。模型的每一次前向传播，计算量直接由序列的 token 数决定——不管这个 token 对应的是一个 5 个字母的英文词，还是一个汉字。
 
-一个直觉：`"strawberry"` 这个词可能被切成 `["str", "aw", "berry"]` 3 个 token，而 `"the"` 是 1 个 token。它们的字符数差了 3 倍多，但模型处理前者的成本只有后者的 3 倍——按字符算会算错，按词算也会算错，只有按 token 算是准的。
+一个直觉（cl100k 实测）：
+
+```
+"the"          3 个字符   1 个词   1 个 token
+"strawberry"   10 个字符  1 个词   3 个 token   ["str", "aw", "berry"]
+"中国"          2 个字符   1 个词   1 个 token
+```
+
+按字符算，三者成本比是 3 : 10 : 2；按词算是 1 : 1 : 1；模型真实的计算量是 1 : 3 : 1。字符数和词数都对不上，只有 token 数是准的。
 
 <Note title="顺便解释了一个经典问题" type="tip">
 
@@ -255,7 +263,7 @@ So the same tokenizer runs twice: encode on the way in, decode on the way out. W
 
 <Note title="Tokenizer vs. vocabulary">
 
-The **vocabulary** is a static table mapping every possible token to an id. The **tokenizer** is the tool that applies the splitting rules. The vocabulary is the dictionary; the tokenizer is the person looking things up in it.
+The **vocabulary** is a static table mapping every possible token to an id. The **tokenizer** is the tool that does the splitting, and it ships with the vocabulary inside. The vocabulary is the dictionary; the tokenizer is the person working with that dictionary in hand.
 
 </Note>
 
@@ -263,7 +271,7 @@ The **vocabulary** is a static table mapping every possible token to an id. The 
 
 **A process and its tool.** Tokenization is the process of splitting and numbering; the tokenizer is the tool that carries it out — the way chopping relates to the knife.
 
-**The tokenizer does contain the vocabulary**, and it's a core part, not an add-on. The "person looking things up" above keeps the dictionary in hand. A complete tokenizer bundles two things:
+**The tokenizer does contain the vocabulary**, and it's a core part, not an add-on. A complete tokenizer bundles two things:
 
 ```
 Tokenizer = ① splitting rules (how to cut text into token strings)
@@ -313,7 +321,15 @@ If you're asked "how does tokenization capture meaning," the correct answer is t
 
 Because the token is the model's real unit of compute. Each forward pass costs in proportion to the number of tokens in the sequence — regardless of whether a token is a five-letter English word or a single Chinese character.
 
-An intuition: `"strawberry"` might split into `["str", "aw", "berry"]` — three tokens — while `"the"` is one. Their character counts differ by more than 3x, but the model's cost ratio is exactly 3x. Counting characters gets it wrong, counting words gets it wrong; only counting tokens is accurate.
+An intuition (measured with cl100k):
+
+```
+"the"          3 chars    1 word   1 token
+"strawberry"   10 chars   1 word   3 tokens   ["str", "aw", "berry"]
+"中国"          2 chars    1 word   1 token
+```
+
+Counting characters, the cost ratio would be 3 : 10 : 2; counting words, 1 : 1 : 1. The model's actual compute is 1 : 3 : 1. Neither lines up — only tokens do.
 
 <Note title="This also explains a classic failure" type="tip">
 
@@ -571,7 +587,7 @@ SentencePiece 不是第三种算法，而是一个训练框架：不需要预分
 
 ```
 GPT-4 / GPT-4o     byte-level BPE（tiktoken：cl100k_base / o200k_base）
-LLaMA 1 / 2        SentencePiece + BPE（32k）
+LLaMA 1 / 2        SentencePiece + BPE（32k，字符级 + byte fallback）
 LLaMA 3            byte-level BPE（基于 tiktoken，128k）
 Gemma / Gemini     SentencePiece
 BERT               WordPiece
@@ -579,7 +595,7 @@ T5                 SentencePiece + Unigram
 Claude             自研、未公开；只能用官方的 token 计数接口来数
 ```
 
-趋势很清楚：**新一代 LLM 基本收敛到 byte-level BPE + 大词表**。byte-level 保证任何文本都能编码（见下面 OOV 和「其他语言」），大词表让同样的文本占更少的 token。
+趋势很清楚：**新一代 LLM 基本收敛到 byte-level BPE + 大词表**。byte-level 保证任何文本都能编码（见下面 OOV 里 byte-level BPE 那条问答），大词表让同样的文本占更少的 token。
 
 </MyQuestion>
 
@@ -615,24 +631,56 @@ o200k_base     200,019   (GPT-4o)
 2. **Byte-level 兜底**：GPT 系用的是 byte-level BPE，最小单元是**字节**而不是字符。因为任何文本都能表示成字节，所以**理论上不存在 OOV**——emoji、乱码、二进制串都能编码
 3. **`[UNK]` 特殊标记**（老方案）：直接丢弃，信息完全损失，现代 tokenizer 基本不用了
 
-<MyQuestion q="如果一个模型用 BPE，它怎么处理中文这类其他语言？">
+<MyQuestion q="Byte-level BPE 和一般 BPE 有什么区别？用它怎么处理中文？现在的大词表又是怎么让中文省 token 的？">
 
-**靠 byte-level BPE：最小单元不是字符，而是 UTF-8 字节。**
+**核心区别只有一个：从什么单元开始合并。** 合并算法和上面手推的完全一样，差别只在第 0 步「全部拆成 ___」填的是什么：
 
-- 字符级 BPE 的初始集合得列出所有可能的字符，Unicode 有十几万个，训练里没见过的字符照样 OOV
-- 字节级只有 256 种字节值，任何语言、emoji、乱码都能表示——这就是上面第 2 条说的「理论上不存在 OOV」
+| | 字符级 BPE（一般 BPE） | Byte-level BPE |
+| --- | --- | --- |
+| 第 0 步拆成 | Unicode 字符 | UTF-8 字节 |
+| 初始集合 | 语料里出现过的字符，几千到几万个，**不封闭** | 固定 256 个，**封闭** |
+| 遇到没见过的字符 | OOV，变 `[UNK]` | 不可能发生 |
+| 代价 | 初始集合大，仍会 OOV | 语料里少见的语言会被切成字节碎片 |
+| 代表 | 早期机器翻译里的 BPE；LLaMA 1 / 2（加了 byte fallback） | GPT-2 起的 GPT 系（tiktoken）、LLaMA 3 |
+
+**字符级为什么还会 OOV？** 手推时用的是英文，第 0 步只有十几个字母，看不出问题。但 Unicode 有约 15 万个字符，emoji 每年还在加，训练语料不可能覆盖全。一个没见过的生僻字或新 emoji，在第 0 步就没有位置，只能变 `[UNK]`。这和 word-level 的 OOV 是同一个逻辑，只是粒度从「词」降到了「字符」：问题变小了，没有消失。
+
+**字节为什么能根治？** 任何文本存到磁盘上都是 UTF-8 字节，一个字节只有 0–255 这 256 种取值。以后出现什么新字符，都只是这 256 个值的组合，「没见过的最小单元」在字节层面不可能发生。
+
+拿「中」对比一下：
 
 ```
-"A"   → UTF-8 里 1 个字节    0x41
-"中"  → UTF-8 里 3 个字节    0xE4 0xB8 0xAD
+"A"   → UTF-8 里 1 个字节   0x41
+"中"  → UTF-8 里 3 个字节   0xE4 0xB8 0xAD
+
+字符级 BPE：「中」在第 0 步是 1 个单元
+           语料里有中文    → 还能和别的字继续合并
+           语料里一个中文都没有 → 词表里没有「中」 → [UNK]
+
+Byte-level：「中」在第 0 步是 3 个单元 E4 / B8 / AD
+           语料里有中文    → 3 个字节合并成 1 个 token
+           语料里没中文    → 停在 3 个字节碎片，但照样能编码
 ```
 
-训练时，BPE 在这 256 个字节上反复合并高频字节对。**所以「能不能编码」有保证，「编码得省不省」看训练语料**：
+**折中方案 byte fallback**：LLaMA 1 / 2 的 SentencePiece BPE 是字符级的，但词表里额外放了 256 个字节 token（`<0x00>` … `<0xFF>`）。认识的字按字符切，不认识的才退回字节，所以也不会 OOV。
 
-- 语料里中文少 → 汉字的 3 个字节很少被合并到一起 → 一个汉字常被切成 2–3 个字节碎片 token（GPT-2 时代中文很费 token 的原因）
-- 语料里中文多、词表又大 → 常用字甚至常用词被合并成 1 个 token（cl100k、o200k、LLaMA 3 对中文好很多的原因）
+**Byte-level 只保证「能编码」，不保证「编码得省」。** 省不省看两件事，这也是现在大词表对中文好很多的原因：
 
-一个能亲眼看到的副作用：流式输出时，如果一个汉字被切在两个 token 之间、客户端又没有缓冲字节，收到前半个字节时解码不出完整字符，会短暂显示成 `�`。
+1. **词表越大，合并轮数越多。** 前面算过 GPT-2 = 256 个字节 + 50,000 次 merge。合并名额按频率分，GPT-2 的语料以英文为主，名额大多被英文片段拿走，很多汉字的 3 个字节还没合完名额就用光了。词表涨到 10 万、20 万，多出来的几万到十几万次 merge 才轮得到中文的整字，甚至常用词
+2. **Tokenizer 训练语料里的中文变多了。** 用哪些语料训练 tokenizer 是团队自己挑的，多语言 tokenizer 通常会刻意提高中文、日文等的比例。中文片段频率高了，就会更早被合并。只加大词表、语料还几乎全是英文，中文的改善会很有限
+
+两件事叠加的效果（tiktoken 实测）：
+
+```
+                  "中国"                        一段 70 字的纯中文
+GPT-2   (50k)     3 token：中 / E5 9B / BD      143 token（每字约 2 个）
+cl100k  (100k)    1 token                       82 token（每字约 1.2 个）
+o200k   (200k)    1 token                       50 token（每字约 0.7 个）
+```
+
+GPT-2 里「中」已经合成了整字，「国」却停在两个字节碎片：越常见的字，越早分到合并名额。
+
+一个能亲眼看到的副作用：流式输出时，如果一个汉字被切在两个 token 之间、客户端又没有按字节缓冲，收到前半截时解码不出完整字符，会短暂显示成 `�`。
 
 中文 token 数怎么估算、为什么不能说「中文一定更贵」，见 Level 3 和陷阱。
 
@@ -886,7 +934,7 @@ SentencePiece isn't a third algorithm; it's a training framework that needs no p
 
 ```
 GPT-4 / GPT-4o     byte-level BPE (tiktoken: cl100k_base / o200k_base)
-LLaMA 1 / 2        SentencePiece + BPE (32k)
+LLaMA 1 / 2        SentencePiece + BPE (32k, character-level + byte fallback)
 LLaMA 3            byte-level BPE (tiktoken-based, 128k)
 Gemma / Gemini     SentencePiece
 BERT               WordPiece
@@ -894,7 +942,7 @@ T5                 SentencePiece + Unigram
 Claude             proprietary, unpublished; count tokens with the official token-counting API
 ```
 
-The trend is clear: **recent LLMs have largely converged on byte-level BPE with large vocabularies.** Byte-level guarantees any text can be encoded (see OOV and "other languages" below), and a large vocabulary fits the same text into fewer tokens.
+The trend is clear: **recent LLMs have largely converged on byte-level BPE with large vocabularies.** Byte-level guarantees any text can be encoded (see the byte-level BPE Q&A under OOV below), and a large vocabulary fits the same text into fewer tokens.
 
 </MyQuestion>
 
@@ -930,22 +978,54 @@ With subword tokenization, OOV is largely a solved problem, but the full answer 
 2. **Byte-level fallback**: GPT-family models use byte-level BPE, where the smallest unit is a **byte**, not a character. Since any text can be represented as bytes, **OOV is impossible in principle** — emoji, mojibake, and binary strings all encode
 3. **An `[UNK]` token** (legacy): drop it entirely and lose the information. Modern tokenizers rarely need this
 
-<MyQuestion q="If a model uses BPE, how does it handle Chinese and other languages?">
+<MyQuestion q="How does byte-level BPE differ from regular BPE? How does it handle Chinese, and how do today's large vocabularies make Chinese cheaper?">
 
-**Through byte-level BPE: the base unit is a UTF-8 byte, not a character.**
+**Only one thing differs: the unit merging starts from.** The merge algorithm is exactly the walkthrough above; what changes is what step 0 splits text into:
 
-- Character-level BPE would need every possible character in its starting set. Unicode has well over 100,000 characters, and any character missing from training is still OOV
-- Byte-level has only 256 possible byte values, so any language, emoji, or garbage string can be represented — that's the "OOV is impossible in principle" point above
+| | Character-level BPE (regular) | Byte-level BPE |
+| --- | --- | --- |
+| Step 0 splits into | Unicode characters | UTF-8 bytes |
+| Starting set | whatever characters the corpus contains — thousands to tens of thousands, **open-ended** | always 256, **closed** |
+| An unseen character | OOV, becomes `[UNK]` | can't happen |
+| Cost | large starting set, still hits OOV | languages rare in the corpus get split into byte fragments |
+| Used by | early machine-translation BPE; LLaMA 1 / 2 (with byte fallback) | GPT models from GPT-2 on (tiktoken), LLaMA 3 |
+
+**Why does character-level still hit OOV?** The walkthrough used English, so step 0 had a dozen letters and the problem stayed hidden. But Unicode has about 150,000 characters and adds emoji every year, so no corpus covers them all. A rare character or a brand-new emoji has no slot even at step 0, so it becomes `[UNK]`. It's the word-level OOV problem again, one level down: smaller, not gone.
+
+**Why do bytes fix it?** All text is stored as UTF-8 bytes, and a byte has only 256 possible values. Whatever new character shows up is still some combination of those 256, so "a base unit we've never seen" can't happen.
+
+Take `中` as an example:
 
 ```
-"A"   → 1 byte in UTF-8     0x41
-"中"  → 3 bytes in UTF-8    0xE4 0xB8 0xAD
+"A"   → 1 byte in UTF-8    0x41
+"中"  → 3 bytes in UTF-8   0xE4 0xB8 0xAD
+
+character-level:  中 is one unit at step 0
+                  Chinese in the corpus → can keep merging with other characters
+                  no Chinese at all     → 中 isn't in the vocabulary → [UNK]
+
+byte-level:       中 is three units at step 0: E4 / B8 / AD
+                  Chinese in the corpus → the 3 bytes merge into 1 token
+                  no Chinese at all     → stays as 3 byte fragments, but still encodes
 ```
 
-Training merges frequent byte pairs on top of those 256 bytes. **So being able to encode is guaranteed; encoding efficiently depends on the training corpus:**
+**The middle ground, byte fallback**: LLaMA 1 / 2 use character-level SentencePiece BPE, but the vocabulary also carries 256 byte tokens (`<0x00>` … `<0xFF>`). Known characters split as characters; only unknown ones fall back to bytes. So it never hits OOV either.
 
-- Little Chinese in the corpus → a character's 3 bytes rarely get merged → one character often costs 2–3 byte-fragment tokens (why Chinese was so expensive in the GPT-2 era)
-- Plenty of Chinese and a large vocabulary → common characters, even common words, merge into a single token (why cl100k, o200k, and LLaMA 3 do much better)
+**Byte-level guarantees text can be encoded, not that it's encoded efficiently.** Efficiency comes down to two things, and that's exactly why large vocabularies help Chinese so much:
+
+1. **A bigger vocabulary means more merge rounds.** GPT-2 is 256 bytes + 50,000 merges. Merges go to the most frequent pairs; GPT-2's corpus was mostly English, so English pieces took most of the budget and plenty of Chinese characters ran out before their 3 bytes were merged. At 100k or 200k entries, the extra merges finally reach whole Chinese characters, even common words
+2. **More Chinese in the tokenizer's training corpus.** The team chooses that corpus, and multilingual tokenizers usually raise the share of Chinese, Japanese, and so on on purpose. Frequent pieces get merged earlier. A bigger vocabulary trained on almost-all-English text would help Chinese much less
+
+Both effects together, measured with tiktoken:
+
+```
+                  "中国"                         a 70-character Chinese passage
+GPT-2   (50k)     3 tokens: 中 / E5 9B / BD      143 tokens (~2 per character)
+cl100k  (100k)    1 token                        82 tokens (~1.2 per character)
+o200k   (200k)    1 token                        50 tokens (~0.7 per character)
+```
+
+In GPT-2, `中` already merged into a whole character while `国` stayed as two byte fragments: the more common a character, the earlier it gets a merge.
 
 A side effect you can actually see: when streaming, if a character is split across two tokens and the client doesn't buffer bytes, the first half can't be decoded yet and briefly shows up as `�`.
 
@@ -1054,11 +1134,11 @@ Output token → Decode   → 一次只能生成 1 个 → 无法并行 → 单�
 
 ### 中文 / 代码场景怎么估算 token？
 
-不要背固定比例，**要实测**。但可以记几个粗略的量感（现代大词表 tokenizer）：
+不要背固定比例，**要实测**：同一段中文换个 tokenizer，token 数能差将近 3 倍（实测见 Level 2 byte-level BPE 那条问答）。粗略的量感：
 
 ```
 英文     ≈ 1 token / 0.75 词    （约 4 个字符 1 个 token）
-中文     ≈ 1 token / 1–1.5 字
+中文     cl100k 每字约 1.2 个 token，o200k 每字约 0.7 个
 代码     缩进、符号很吃 token，通常比同长度英文散文贵
 ```
 
@@ -1131,11 +1211,11 @@ For cross-model cost comparisons, always re-count with **each model's own tokeni
 
 ### How do you estimate tokens for Chinese or code?
 
-Don't memorize a ratio — **measure it**. But a rough sense of scale helps (modern large-vocabulary tokenizers):
+Don't memorize a ratio — **measure it**. The same Chinese passage can differ by almost 3x across tokenizers (numbers in the byte-level BPE Q&A in Level 2). A rough sense of scale:
 
 ```
 English   ≈ 1 token per 0.75 words   (roughly 4 characters per token)
-Chinese   ≈ 1 token per 1–1.5 characters
+Chinese   cl100k ~1.2 tokens per character, o200k ~0.7
 Code      indentation and punctuation are token-hungry, usually pricier
           than English prose of the same length
 ```
@@ -1174,7 +1254,7 @@ chunk size 要按 **token** 定，不能按字数定。同样「500」，按字�
 
 <Note title="别说「中文一定更贵」" type="danger">
 
-这是过时结论。GPT-2 / GPT-3 时代的小词表对中文确实很差，一个汉字可能吃 2–3 个 token；现代大词表（cl100k、o200k、LLaMA 3）对中文改善很大。正确说法是：**token 效率取决于该语言在 tokenizer 训练语料中的占比**，要实测，不要背结论。
+这是过时结论。GPT-2 / GPT-3 时代的小词表对中文确实很差，平均一个汉字约 2 个 token；到 o200k，同一段中文每字只要约 0.7 个。正确说法是：**token 效率取决于词表大小，以及该语言在 tokenizer 训练语料里的占比**，要实测，不要背结论。
 
 </Note>
 
@@ -1210,7 +1290,7 @@ A token can be a whole word, a subword, a single character, punctuation, or even
 
 <Note title="Don't claim Chinese is always more expensive" type="danger">
 
-That's an outdated conclusion. The small vocabularies of the GPT-2 / GPT-3 era handled Chinese badly, sometimes 2–3 tokens per character. Modern large vocabularies (cl100k, o200k, LLaMA 3) improved this substantially. The accurate framing: **token efficiency depends on how well that language is represented in the tokenizer's training corpus.** Measure, don't recite.
+That's an outdated conclusion. The small vocabularies of the GPT-2 / GPT-3 era handled Chinese badly, about 2 tokens per character on average; with o200k the same passage takes about 0.7. The accurate framing: **token efficiency depends on vocabulary size and on how well that language is represented in the tokenizer's training corpus.** Measure, don't recite.
 
 </Note>
 
@@ -1276,14 +1356,15 @@ Cost ←──────────────────────  Late
 7. SentencePiece 解决了什么 BPE 解决不了的问题？（What problem does SentencePiece solve that BPE doesn't?）
 8. 词表更大有什么取舍？（What's the trade-off of a larger vocabulary?）
 9. 现代 tokenizer 怎么处理未登录词？（How do modern tokenizers handle out-of-vocabulary words?）
+10. byte-level BPE 和字符级 BPE 有什么区别？为什么新一代 tokenizer 处理中文省了很多 token？（How does byte-level BPE differ from character-level BPE, and why do newer tokenizers use far fewer tokens for Chinese?）
 
 **L3 — 工程**
 
-10. 为什么 output token 比 input token 贵？（Why does an output token cost more than an input token?）
-11. 为什么同一个 prompt 在两个模型上的 token 数不一样？（Why can the same prompt produce different token counts on two different models?）
-12. 请求量没变，这个月的 LLM 账单却翻倍了。可能和 tokenization 有关吗？怎么查？（Your LLM bill doubled this month with flat request volume. Could tokenization be involved, and how would you check?）
-13. 要给一个中英文和代码混合文档的 RAG 系统规划 context 预算，怎么做？（You're sizing a context budget for a RAG system over mixed English / Chinese / code documents. How do you plan it?）
-14. 为什么 LLM 数不准一个单词里有几个字母？（Why can't an LLM reliably count the letters in a word?）
+11. 为什么 output token 比 input token 贵？（Why does an output token cost more than an input token?）
+12. 为什么同一个 prompt 在两个模型上的 token 数不一样？（Why can the same prompt produce different token counts on two different models?）
+13. 请求量没变，这个月的 LLM 账单却翻倍了。可能和 tokenization 有关吗？怎么查？（Your LLM bill doubled this month with flat request volume. Could tokenization be involved, and how would you check?）
+14. 要给一个中英文和代码混合文档的 RAG 系统规划 context 预算，怎么做？（You're sizing a context budget for a RAG system over mixed English / Chinese / code documents. How do you plan it?）
+15. 为什么 LLM 数不准一个单词里有几个字母？（Why can't an LLM reliably count the letters in a word?）
 
 </Locale>
 
@@ -1311,14 +1392,15 @@ Answer out loud first, then check against the sections above.
 7. What problem does SentencePiece solve that BPE doesn't?
 8. What's the trade-off of a larger vocabulary?
 9. How do modern tokenizers handle out-of-vocabulary words?
+10. How does byte-level BPE differ from character-level BPE, and why do newer tokenizers use far fewer tokens for Chinese?
 
 **L3 — Engineering**
 
-10. Why does an output token cost more than an input token?
-11. Why can the same prompt produce different token counts on two different models?
-12. Your LLM bill doubled this month with flat request volume. Could tokenization be involved, and how would you check?
-13. You're sizing a context budget for a RAG system over mixed English / Chinese / code documents. How do you plan it?
-14. Why can't an LLM reliably count the letters in a word?
+11. Why does an output token cost more than an input token?
+12. Why can the same prompt produce different token counts on two different models?
+13. Your LLM bill doubled this month with flat request volume. Could tokenization be involved, and how would you check?
+14. You're sizing a context budget for a RAG system over mixed English / Chinese / code documents. How do you plan it?
+15. Why can't an LLM reliably count the letters in a word?
 
 </Locale>
 
