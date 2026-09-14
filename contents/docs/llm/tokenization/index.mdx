@@ -80,7 +80,7 @@ Example：
 
 也就是说，tokenization 是「一段文本」和「一笔钱 / 一段延迟」之间的换算单位。
 
-<MyQuestion q="Tokenization 里说的 input 和 output 分别是什么？">
+<MyQuestion q="Tokenization 里说的 input 和 output 分别是什么？encode、decode 又是什么，tokenization 算不算 encoding？">
 
 这里其实有两层「input / output」，很容易混在一起。
 
@@ -91,6 +91,15 @@ Input   原始文本          "Hello, world!"
           ↓ encode（切分 + 查词表）
 Output  token id 序列     [9906, 11, 1917, 0]
 ```
+
+**encode 和 decode 是一对反方向的操作**：encode 是文本 → id，decode 是 id → 文本。严格说，tokenization 只指「切分」这一步；库里的 `tokenizer.encode()` 做的是「切分 + 查词表」两步。所以 **tokenization 是 encoding 的第一步，不是 encoding 的全部**——很多资料会混着叫，面试里能拆出这两步会显得更扎实。
+
+```python
+ids = tokenizer.encode("Hello, world!")   # [9906, 11, 1917, 0]
+tokenizer.decode(ids)                     # "Hello, world!"
+```
+
+理想情况下 `decode(encode(text)) == text`，但这不是必然的：能不能一字不差地还原，取决于 tokenizer 有没有保留空格信息——SentencePiece 和 byte-level BPE 可以，先按空格预分词的传统 BPE / WordPiece 不行（见 Level 2）。
 
 **第二层：一次 LLM 调用的 input tokens / output tokens**——账单上分开计价的那两个数。
 
@@ -104,7 +113,7 @@ output tokens   → 模型在 decode 阶段一个一个生成的 token id
 你看到的回答文本
 ```
 
-所以同一个 tokenizer 用了两次：进去时 encode，出来时 decode。output 为什么比 input 贵，见 Level 3。
+所以同一个 tokenizer 用了两次：进去时 encode，出来时 decode。output 为什么只能一个一个生成、为什么比 input 贵，见 Level 3。
 
 </MyQuestion>
 
@@ -129,6 +138,8 @@ Tokenizer = ① 切分规则（怎么把文本切成 token 字符串）
 
 1. 先按 merge 规则把文本切成 token 字符串：`"lowest"` → `["low", "est</w>"]`
 2. 再查词表把字符串换成 id：→ `[1024, 1025]`
+
+第 1 步里 merge 规则按什么顺序套用（不是从左往右），见 Level 2。
 
 **切分规则是算法学出来的，不是反过来。** 这里很容易把层次弄反，正确的顺序是：
 
@@ -205,7 +216,7 @@ It matters because **every notion of "length" in an LLM is measured in tokens**,
 
 Tokenization is the exchange rate between a piece of text and a dollar amount.
 
-<MyQuestion q="What exactly are the input and output of tokenization?">
+<MyQuestion q="What exactly are the input and output of tokenization? What are encode and decode, and is tokenization the same as encoding?">
 
 There are two different input/output pairs here, and they're easy to mix up.
 
@@ -216,6 +227,15 @@ Input   raw text                 "Hello, world!"
           ↓ encode (split + vocabulary lookup)
 Output  sequence of token ids    [9906, 11, 1917, 0]
 ```
+
+**Encode and decode are inverse operations**: encode turns text into ids, decode turns ids back into text. Strictly speaking, tokenization is only the splitting step; a library's `tokenizer.encode()` does split plus vocabulary lookup. So **tokenization is the first step of encoding, not the whole thing** — plenty of sources use the words interchangeably, but separating the two steps makes for a stronger interview answer.
+
+```python
+ids = tokenizer.encode("Hello, world!")   # [9906, 11, 1917, 0]
+tokenizer.decode(ids)                     # "Hello, world!"
+```
+
+Ideally `decode(encode(text)) == text`, but that isn't automatic. Whether text round-trips exactly depends on whether the tokenizer keeps whitespace information — SentencePiece and byte-level BPE do; classic BPE and WordPiece that pre-split on spaces don't (see Level 2).
 
 **Layer 2: the input tokens and output tokens of an LLM call** — the two numbers billed separately.
 
@@ -229,7 +249,7 @@ output tokens   → token ids the model generates one at a time during decode
 the response text you see
 ```
 
-So the same tokenizer runs twice: encode on the way in, decode on the way out. Why output tokens cost more is covered in Level 3.
+So the same tokenizer runs twice: encode on the way in, decode on the way out. Why output tokens come out one at a time, and why they cost more, is covered in Level 3.
 
 </MyQuestion>
 
@@ -254,6 +274,8 @@ For BPE, training produces exactly two files: `merges.txt` (the merge order) and
 
 1. Apply the merge rules to cut the text into token strings: `"lowest"` → `["low", "est</w>"]`
 2. Look those strings up in the vocabulary to get ids: → `[1024, 1025]`
+
+The order in which step 1 applies the merge rules (it isn't left to right) is covered in Level 2.
 
 **The algorithm learns the rules — not the other way around.** The layers are easy to flip, so keep them straight:
 
@@ -416,6 +438,40 @@ w i d est </w>      × 3
 
 </MyQuestion>
 
+<MyQuestion q="推理时 merge 规则到底怎么用？训练出词表之后，只按词表去切不行吗？">
+
+**不行，词表和 merge 的顺序缺一不可。** 词表只回答「哪些 token 合法」，但同一个词常常有好几种都合法的切法，词表（一个无序集合）没法告诉你选哪种；merge 规则的**先后顺序（rank）**才能。
+
+BPE 推理时是这样套用规则的：
+
+1. 把词拆成最小单元（字符或字节）
+2. 在当前所有相邻 pair 里，找出对应规则**学得最早**（rank 最小）的那一个——不管它在不在最左边
+3. 合并它，回到第 2 步，直到没有任何 pair 能匹配规则
+
+一个反例说明顺序为什么必需。假设学到的规则按先后是：
+
+```
+rule 1（最先学到）: (b, c) → bc
+rule 2           : (a, b) → ab
+```
+
+新词拆开是 `a b c a`：
+
+```
+按 rank 合并（正确）            从左往右，碰到能合并的就合并（错误）
+a b c a                        a b c a
+(a,b)=rule 2，(b,c)=rule 1     先碰到 (a,b)，直接合并
+→ 先合并 (b,c)                 → ab c a
+a bc a，再无规则可用，停止       再无规则可用，停止
+["a", "bc", "a"]               ["ab", "c", "a"]
+```
+
+两种结果里的 token 都在词表中，切法却不同。推理必须复现训练时的切法，否则模型拿到的是它几乎没见过的 token 序列，效果会变差。上面说「把 merge 规则按同样的顺序重放」，指的就是这个 rank 顺序。
+
+一句话：**词表回答「什么是合法 token」，merge 顺序回答「有多种合法合并时先做哪个」**。
+
+</MyQuestion>
+
 ### WordPiece 和 BPE 差在哪？
 
 流程几乎一模一样，**只差「选哪个 pair 来合并」这一个判据**：
@@ -439,6 +495,41 @@ BERT 系的 tokenizer 会看到 `##er`、`##ing` 这种带 `##` 的 token。`##`
 
 </Note>
 
+<MyQuestion q="WordPiece 具体是怎么跑的？能用数字算一遍吗？">
+
+**训练：循环和 BPE 一模一样，只换了「选哪个 pair」的打分。**
+
+```
+① 统计所有相邻 pair 的出现次数
+② 选分数最高的 pair          ← 只有这一步不同
+③ 合并，加进词表
+④ 重复，直到词表达到目标大小
+```
+
+把上面的例子换成能算出差别的数字（简化过，方便手算）：
+
+| pair | 各自出现次数 | 相邻出现次数 | BPE 看的分数 | WordPiece 分数 |
+| --- | --- | --- | --- | --- |
+| (e, s) | 10000 / 10000 | 900 | **900** | 900 / (10000 × 10000) = 0.000009 |
+| (happi, ness) | 10 / 10 | 9 | 9 | 9 / (10 × 10) = **0.09** |
+
+BPE 选 `(e, s)`，因为 900 次最多；WordPiece 选 `(happi, ness)`，分数高出一万倍。这个公式问的是：「这两个片段挨在一起的次数，相对它们各自出现的次数，算不算多？」`e`、`s` 到处都是，挨在一起 900 次也不稀奇；`happi` 出现的 10 次里有 9 次后面跟着 `ness`，说明它们本来就是一个单元。
+
+**推理：不用 merge 规则，而是拿词表做「最长匹配」。** WordPiece 只保存词表（词中间的片段带 `##` 前缀）。切一个词时从左往右，每次取词表里能匹配到的**最长**片段：
+
+```
+词表（节选）: un, ##happi, ##ness, ##h, ##a, ...
+"unhappiness"
+  从头找最长匹配                 → "un"
+  剩下 "happiness"，找最长的 ## 片段 → "##happi"
+  剩下 "ness"                    → "##ness"
+结果: ["un", "##happi", "##ness"]
+```
+
+如果某一步一个片段都匹配不上，整个词会变成 `[UNK]`——这就是 BERT 系 tokenizer 还会出现 `[UNK]`、而 byte-level BPE 不会的原因（见下面 OOV）。
+
+</MyQuestion>
+
 ### SentencePiece 解决了什么问题？
 
 前面两种方法都有一个隐含前提：**先按空格把句子切成词，再在词内部做子词切分**。这个前提对英语成立，对中文、日文、韩文完全不成立——它们压根没有空格。
@@ -454,9 +545,43 @@ Example：
 注意 `▁He` 里的 `▁` 就是那个空格。这带来两个好处：
 
 1. **不需要预分词**，中英文混排、日文、代码、社交媒体文本都能统一处理
-2. **完全可逆**：把所有 token 拼起来、把 `▁` 换回空格，就能一字不差地还原原文。BPE / WordPiece 因为丢了空格信息，还原时需要额外规则
+2. **完全可逆**：把所有 token 拼起来、把 `▁` 换回空格，就能一字不差地还原原文。传统 BPE / WordPiece（先按空格预分词的那种）因为丢了空格信息，还原时需要额外规则
 
-SentencePiece 底层可以用 BPE，也可以用 Unigram Language Model。T5、LLaMA 用的都是它。
+SentencePiece 底层可以用 BPE，也可以用 Unigram Language Model。T5、LLaMA 1 / 2 用的都是它。
+
+<MyQuestion q="这几种方法有优劣之分吗？现在主流 LLM 用的是哪一种？">
+
+**不是线性的优劣，而是后一个补了前一个的短板**，选哪个看场景。先理清一个常被混在一起的层次——这其实是三个不同维度：
+
+```
+算法（怎么学出词表）      BPE、WordPiece、Unigram LM
+最小单元                  字符 / 字节（byte-level）
+工具 / 实现               SentencePiece、tiktoken、Hugging Face tokenizers
+```
+
+SentencePiece 不是第三种算法，而是一个训练框架：不需要预分词，内部选 BPE 或 Unigram 来学词表。Unigram 的方向和 BPE 相反：先准备一个很大的候选词表，每轮删掉「删了对语料概率影响最小」的 token，直到剩下目标大小。
+
+| 方法 | 补了什么短板 | 局限 |
+| --- | --- | --- |
+| BPE | 用统计合并解决 OOV 和词表爆炸 | 按绝对频率合并，容易被高频片段带偏 |
+| WordPiece | 用相关性分数，合并更有意义的片段 | 仍依赖预分词；最长匹配失败时会出 `[UNK]` |
+| SentencePiece（BPE / Unigram） | 不依赖空格，中日韩和混排文本统一处理，可逆 | 本身不决定合并判据，效果取决于里面选的算法和语料 |
+
+**主流模型的选择**（以公开资料为准）：
+
+```
+GPT-4 / GPT-4o     byte-level BPE（tiktoken：cl100k_base / o200k_base）
+LLaMA 1 / 2        SentencePiece + BPE（32k）
+LLaMA 3            byte-level BPE（基于 tiktoken，128k）
+Gemma / Gemini     SentencePiece
+BERT               WordPiece
+T5                 SentencePiece + Unigram
+Claude             自研、未公开；只能用官方的 token 计数接口来数
+```
+
+趋势很清楚：**新一代 LLM 基本收敛到 byte-level BPE + 大词表**。byte-level 保证任何文本都能编码（见下面 OOV 和「其他语言」），大词表让同样的文本占更少的 token。
+
+</MyQuestion>
 
 ### 词表大小怎么选？
 
@@ -489,6 +614,29 @@ o200k_base     200,019   (GPT-4o)
 1. **子词切分**（主流）：把没见过的词拆成已知子词，如 `"tokenization"` → `["token", "ization"]`，信息基本保留
 2. **Byte-level 兜底**：GPT 系用的是 byte-level BPE，最小单元是**字节**而不是字符。因为任何文本都能表示成字节，所以**理论上不存在 OOV**——emoji、乱码、二进制串都能编码
 3. **`[UNK]` 特殊标记**（老方案）：直接丢弃，信息完全损失，现代 tokenizer 基本不用了
+
+<MyQuestion q="如果一个模型用 BPE，它怎么处理中文这类其他语言？">
+
+**靠 byte-level BPE：最小单元不是字符，而是 UTF-8 字节。**
+
+- 字符级 BPE 的初始集合得列出所有可能的字符，Unicode 有十几万个，训练里没见过的字符照样 OOV
+- 字节级只有 256 种字节值，任何语言、emoji、乱码都能表示——这就是上面第 2 条说的「理论上不存在 OOV」
+
+```
+"A"   → UTF-8 里 1 个字节    0x41
+"中"  → UTF-8 里 3 个字节    0xE4 0xB8 0xAD
+```
+
+训练时，BPE 在这 256 个字节上反复合并高频字节对。**所以「能不能编码」有保证，「编码得省不省」看训练语料**：
+
+- 语料里中文少 → 汉字的 3 个字节很少被合并到一起 → 一个汉字常被切成 2–3 个字节碎片 token（GPT-2 时代中文很费 token 的原因）
+- 语料里中文多、词表又大 → 常用字甚至常用词被合并成 1 个 token（cl100k、o200k、LLaMA 3 对中文好很多的原因）
+
+一个能亲眼看到的副作用：流式输出时，如果一个汉字被切在两个 token 之间、客户端又没有缓冲字节，收到前半个字节时解码不出完整字符，会短暂显示成 `�`。
+
+中文 token 数怎么估算、为什么不能说「中文一定更贵」，见 Level 3 和陷阱。
+
+</MyQuestion>
 
 </Locale>
 
@@ -605,6 +753,40 @@ In one line: **the algorithm is how to learn, the vocabulary size is the paramet
 
 </MyQuestion>
 
+<MyQuestion q="How are merge rules actually used at inference? Once training produces a vocabulary, why not just split using the vocabulary?">
+
+**Because the vocabulary alone isn't enough — you also need the merge order.** The vocabulary only answers "which tokens are valid." A word often has several splits that are all valid, and an unordered set can't tell you which to pick. The **order (rank)** of the merge rules can.
+
+Here's how BPE applies the rules at inference:
+
+1. Break the word into base units (characters or bytes)
+2. Among all current adjacent pairs, find the one whose rule was **learned earliest** (lowest rank) — wherever it sits, not just the leftmost
+3. Merge it and go back to step 2, until no pair matches any rule
+
+A counterexample shows why the order is required. Say the rules, in learned order, are:
+
+```
+rule 1 (learned first): (b, c) → bc
+rule 2                : (a, b) → ab
+```
+
+A new word splits into `a b c a`:
+
+```
+merge by rank (correct)          merge the first match left to right (wrong)
+a b c a                          a b c a
+(a,b)=rule 2, (b,c)=rule 1       hits (a,b) first and merges it
+→ merge (b,c) first              → ab c a
+a bc a, no rule applies, stop    no rule applies, stop
+["a", "bc", "a"]                 ["ab", "c", "a"]
+```
+
+Every token in both results is in the vocabulary, yet the splits differ. Inference has to reproduce the split used in training; otherwise the model gets a token sequence it has barely seen, and quality drops. That rank order is what "replayed in the same order" above refers to.
+
+In one line: **the vocabulary answers "what counts as a valid token"; the merge order answers "when several merges are valid, which goes first."**
+
+</MyQuestion>
+
 ### How does WordPiece differ from BPE?
 
 The procedure is nearly identical. **Only the criterion for choosing which pair to merge differs:**
@@ -628,6 +810,41 @@ BERT-family tokenizers produce tokens like `##er` and `##ing`. The `##` means "t
 
 </Note>
 
+<MyQuestion q="How does WordPiece actually run? Can you work it through with numbers?">
+
+**Training: the same loop as BPE, with a different score for picking the pair.**
+
+```
+① count every adjacent pair
+② pick the highest-scoring pair        ← the only step that differs
+③ merge it and add it to the vocabulary
+④ repeat until the vocabulary hits its target size
+```
+
+Here's the example above with numbers that actually separate the two (simplified for hand calculation):
+
+| Pair | Individual counts | Adjacent count | What BPE scores | WordPiece score |
+| --- | --- | --- | --- | --- |
+| (e, s) | 10000 / 10000 | 900 | **900** | 900 / (10000 × 10000) = 0.000009 |
+| (happi, ness) | 10 / 10 | 9 | 9 | 9 / (10 × 10) = **0.09** |
+
+BPE picks `(e, s)` because 900 is the largest count. WordPiece picks `(happi, ness)` because its score is 10,000x higher. The formula asks: "relative to how often each piece appears on its own, do these two appear together a lot?" `e` and `s` are everywhere, so 900 co-occurrences mean little; `happi` appears 10 times and is followed by `ness` in 9 of them, so they really are one unit.
+
+**Inference: no merge rules — greedy longest match against the vocabulary.** WordPiece stores only the vocabulary (word-internal pieces carry a `##` prefix). It scans each word left to right and takes the **longest** piece the vocabulary contains:
+
+```
+vocabulary (excerpt): un, ##happi, ##ness, ##h, ##a, ...
+"unhappiness"
+  longest match from the start             → "un"
+  remaining "happiness", longest ## piece  → "##happi"
+  remaining "ness"                         → "##ness"
+result: ["un", "##happi", "##ness"]
+```
+
+If nothing matches at some step, the whole word becomes `[UNK]` — which is why BERT-style tokenizers can still emit `[UNK]` while byte-level BPE can't (see OOV below).
+
+</MyQuestion>
+
 ### What problem does SentencePiece solve?
 
 Both methods above assume something: **first split the sentence into words by whitespace, then split subwords inside each word.** That assumption holds for English and fails completely for Chinese, Japanese, and Korean, which have no spaces at all.
@@ -643,9 +860,43 @@ Example:
 The `▁` in `▁He` is that space. Two benefits follow:
 
 1. **No pre-tokenization needed** — mixed Chinese/English, Japanese, code, and messy social-media text all go through the same path
-2. **Fully reversible** — concatenate the tokens, swap `▁` back to a space, and you recover the original text exactly. BPE and WordPiece discard whitespace information and need extra rules to detokenize
+2. **Fully reversible** — concatenate the tokens, swap `▁` back to a space, and you recover the original text exactly. Classic BPE and WordPiece discard whitespace information (they pre-split on spaces) and need extra rules to detokenize
 
-Underneath, SentencePiece can run either BPE or a Unigram language model. T5 and LLaMA both use it.
+Underneath, SentencePiece can run either BPE or a Unigram language model. T5 and LLaMA 1 / 2 both use it.
+
+<MyQuestion q="Is one of these methods better than the others? Which one do current LLMs use?">
+
+**It isn't a ranking — each one fixes a weakness of the one before**, and the right choice depends on the use case. First, untangle three dimensions that often get lumped together:
+
+```
+algorithm (how the vocabulary is learned)   BPE, WordPiece, Unigram LM
+base unit                                   characters / bytes (byte-level)
+tool / implementation                       SentencePiece, tiktoken, Hugging Face tokenizers
+```
+
+SentencePiece isn't a third algorithm; it's a training framework that needs no pre-tokenization and runs BPE or Unigram inside. Unigram works in the opposite direction from BPE: start from a large candidate vocabulary and, each round, drop the tokens whose removal hurts corpus likelihood the least, until the target size is reached.
+
+| Method | Weakness it fixes | Limitation |
+| --- | --- | --- |
+| BPE | Statistical merging solves OOV and vocabulary blow-up | Merges by raw frequency, so very common pieces can mislead it |
+| WordPiece | A correlation score merges more meaningful pieces | Still needs pre-tokenization; longest match can fall back to `[UNK]` |
+| SentencePiece (BPE / Unigram) | No reliance on spaces; handles CJK and mixed text uniformly; reversible | Doesn't define the merge criterion itself — results depend on the algorithm and corpus inside |
+
+**What major models use** (per public information):
+
+```
+GPT-4 / GPT-4o     byte-level BPE (tiktoken: cl100k_base / o200k_base)
+LLaMA 1 / 2        SentencePiece + BPE (32k)
+LLaMA 3            byte-level BPE (tiktoken-based, 128k)
+Gemma / Gemini     SentencePiece
+BERT               WordPiece
+T5                 SentencePiece + Unigram
+Claude             proprietary, unpublished; count tokens with the official token-counting API
+```
+
+The trend is clear: **recent LLMs have largely converged on byte-level BPE with large vocabularies.** Byte-level guarantees any text can be encoded (see OOV and "other languages" below), and a large vocabulary fits the same text into fewer tokens.
+
+</MyQuestion>
 
 ### How do you choose a vocabulary size?
 
@@ -678,6 +929,29 @@ With subword tokenization, OOV is largely a solved problem, but the full answer 
 1. **Subword splitting** (the standard): unseen words decompose into known subwords, e.g. `"tokenization"` → `["token", "ization"]`, preserving most information
 2. **Byte-level fallback**: GPT-family models use byte-level BPE, where the smallest unit is a **byte**, not a character. Since any text can be represented as bytes, **OOV is impossible in principle** — emoji, mojibake, and binary strings all encode
 3. **An `[UNK]` token** (legacy): drop it entirely and lose the information. Modern tokenizers rarely need this
+
+<MyQuestion q="If a model uses BPE, how does it handle Chinese and other languages?">
+
+**Through byte-level BPE: the base unit is a UTF-8 byte, not a character.**
+
+- Character-level BPE would need every possible character in its starting set. Unicode has well over 100,000 characters, and any character missing from training is still OOV
+- Byte-level has only 256 possible byte values, so any language, emoji, or garbage string can be represented — that's the "OOV is impossible in principle" point above
+
+```
+"A"   → 1 byte in UTF-8     0x41
+"中"  → 3 bytes in UTF-8    0xE4 0xB8 0xAD
+```
+
+Training merges frequent byte pairs on top of those 256 bytes. **So being able to encode is guaranteed; encoding efficiently depends on the training corpus:**
+
+- Little Chinese in the corpus → a character's 3 bytes rarely get merged → one character often costs 2–3 byte-fragment tokens (why Chinese was so expensive in the GPT-2 era)
+- Plenty of Chinese and a large vocabulary → common characters, even common words, merge into a single token (why cl100k, o200k, and LLaMA 3 do much better)
+
+A side effect you can actually see: when streaming, if a character is split across two tokens and the client doesn't buffer bytes, the first half can't be decoded yet and briefly shows up as `�`.
+
+For estimating Chinese token counts, and why "Chinese is always more expensive" is wrong, see Level 3 and Traps.
+
+</MyQuestion>
 
 </Locale>
 
@@ -742,6 +1016,32 @@ Output token → Decode   → 一次只能生成 1 个 → 无法并行 → 单�
 
 </Note>
 
+<MyQuestion q="为什么 output token 只能一个一个生成？不能像 input 那样并行，或者一次生成好几个吗？">
+
+**关键区别：input 是已经存在的，output 是还不存在的。**
+
+- **Prefill**：你发出请求时，prompt 里每个 token 都已经确定。模型可以把它们放进一次前向计算，所有位置并行算完（causal mask 保证每个位置只看它前面的 token）
+- **Decode**：LLM 是自回归模型，生成第 k 个 token 时，输入必须包含第 1 … k−1 个 token 的**真实结果**：
+
+```
+生成第 1 个：看 [prompt]
+生成第 2 个：看 [prompt] + 第 1 个     ← 第 1 个要先算完、采样出来才存在
+生成第 3 个：看 [prompt] + 第 1、2 个
+```
+
+这是严格的先后依赖：不是「数据都在、只是还没算」，而是下一步的输入要等上一步采样完才出现。
+
+**为什么不能一次猜好几个？** 可以猜，但第 5 个 token 就得建立在「假设的」第 2–4 个上。如果第 3 个实际采样出 "dog"，而你假设的是 "cat"，第 5 个就接不上了。所以标准 decode 必须串行。
+
+工程上有两种「绕开」的办法，都不违反这个依赖：
+
+- **跨请求并行**：同一时刻把很多用户的 decode 拼进一个 batch（continuous batching），但每条序列仍然一步只前进一个 token
+- **Speculative decoding**：让一个小模型先草拟几个 token，大模型用**一次**前向计算并行验证，从第一个不对的位置丢弃重来。猜中得越多越省时间，而且输出分布和逐个生成完全一样
+
+细节见 [Inference](/docs/llm/inference)。
+
+</MyQuestion>
+
 ### 为什么同一段文本在不同模型上 token 数不同？
 
 因为**每个模型有自己的 tokenizer 和词表**，而且 tokenizer 是和模型权重一起训练 / 发布的，不能混用。
@@ -792,6 +1092,32 @@ Generating 100 output tokens means 100 forward passes, each re-reading the full 
 If prefill cost comes from re-processing the prompt, then caching an unchanging prefix — system prompt, few-shot examples — lets you skip that compute entirely. That's the mechanism behind [Caching](/docs/context/caching).
 
 </Note>
+
+<MyQuestion q="Why can output tokens only be generated one at a time? Why not in parallel like the input, or several at once?">
+
+**The key difference: the input already exists; the output doesn't yet.**
+
+- **Prefill**: when you send a request, every prompt token is already known. The model can put all of them through a single forward pass and compute every position in parallel (the causal mask keeps each position from looking ahead)
+- **Decode**: an LLM is autoregressive. When generating token k, the input must include the **actual** tokens 1 … k−1:
+
+```
+token 1: sees [prompt]
+token 2: sees [prompt] + token 1       ← token 1 only exists once it's computed and sampled
+token 3: sees [prompt] + tokens 1, 2
+```
+
+That's a strict dependency chain — not "the data is there and just hasn't been computed," but "the next step's input doesn't exist until the previous step is sampled."
+
+**Why not guess several at once?** You can guess, but token 5 would rest on assumed tokens 2–4. If token 3 actually gets sampled as "dog" while you assumed "cat," token 5 no longer fits. So standard decoding is strictly sequential.
+
+Engineering has two ways around this that don't break the dependency:
+
+- **Parallelism across requests**: many users' decode steps share one batch (continuous batching), but each sequence still advances one token per step
+- **Speculative decoding**: a small model drafts several tokens, and the large model verifies them all in **one** forward pass, discarding everything from the first wrong token. The more drafts land, the more time you save, and the output distribution is exactly the same as generating one by one
+
+Details in [Inference](/docs/llm/inference).
+
+</MyQuestion>
 
 ### Why does the same text produce different token counts across models?
 

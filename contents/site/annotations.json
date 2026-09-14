@@ -1359,6 +1359,715 @@
       },
       "createdAt": 1789347084058,
       "updatedAt": 1789347084058
+    },
+    {
+      "id": "8bf5d064-39fb-4f9c-a030-35fba38c4a79",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "memory grows linearly with n",
+        "prefix": "nd V vectors must be cached, so ",
+        "suffix": ". Once memory fills up, fewer re"
+      },
+      "createdAt": 1789347354816,
+      "updatedAt": 1789347354816
+    },
+    {
+      "id": "972399cd-2ef5-49c2-a94e-e1c27fad86be",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "truncate or compress",
+        "prefix": "when it no longer fits you must ",
+        "suffix": " — that's where the whole Contex"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "削减（删除超出限制的部分）或压缩（减少信息但保留主要内容）",
+        "pos": "phr.",
+        "note": "truncate是直接截断丢弃，compress是通过总结等方式浓缩，两者处理方式不同"
+      },
+      "createdAt": 1789347382588,
+      "updatedAt": 1789347382588
+    },
+    {
+      "id": "29e9dc92-5293-4e17-8c9e-93876a2c9500",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "processed in parallel, all at once",
+        "prefix": " ways:Input token  → Prefill  → ",
+        "suffix": " → low unit cost\nOutput token → "
+      },
+      "createdAt": 1789347451374,
+      "updatedAt": 1789347451374
+    },
+    {
+      "id": "b01c396a-0df4-41c3-9fa8-1979954f4242",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "one at a time, no parallelism",
+        "prefix": " cost\nOutput token → Decode   → ",
+        "suffix": "      → high unit cost\nGeneratin"
+      },
+      "createdAt": 1789347459253,
+      "updatedAt": 1789347459253
+    },
+    {
+      "id": "251b5998-d514-477e-8c17-8b48259ccc15",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "Prefill",
+        "prefix": " this page:\n\n\nBreaking it down:\n",
+        "suffix": ": the model processes the entire"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "（填充阶段）模型一次性处理整个prompt的阶段",
+        "pos": "n.",
+        "note": "LLM推理的第一阶段，与decode阶段相对，decode是逐token生成阶段"
+      },
+      "createdAt": 1789347489545,
+      "updatedAt": 1789347489545
+    },
+    {
+      "id": "ba9d0a76-b5de-4909-836f-fbaa1beaf334",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "processes the entire prompt at once",
+        "prefix": "ing it down:\nPrefill: the model ",
+        "suffix": ". This part parallelizes, but at"
+      },
+      "createdAt": 1789347495207,
+      "updatedAt": 1789347495207
+    },
+    {
+      "id": "1eaf8913-d1a6-4d7a-af67-0e23d44a2bdc",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "shorten the output first, the input second",
+        "prefix": "eaway: to cut cost and latency, ",
+        "suffix": ". A \"be concise\" instruction usu"
+      },
+      "createdAt": 1789347513785,
+      "updatedAt": 1789347513785
+    },
+    {
+      "id": "0ea2f795-2664-435e-9d42-5f1611b199f7",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "each model ships its own tokenizer and vocabulary",
+        "prefix": "en counts across models?Because ",
+        "suffix": ", trained and released alongside"
+      },
+      "createdAt": 1789348351784,
+      "updatedAt": 1789348351784
+    },
+    {
+      "id": "04a5d80d-fc57-44b7-b282-d892e5d71250",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "interchangeable",
+        "prefix": "ngside the weights. They're not ",
+        "suffix": ".That creates a very practical t"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "可以互换的，指多个模型的tokenizer和vocabulary不能彼此替代或通用",
+        "pos": "adj.",
+        "note": "强调的是不同模型的tokenizer是专属的，不能混用"
+      },
+      "createdAt": 1789348365138,
+      "updatedAt": 1789348365138
+    },
+    {
+      "id": "01a4a871-ef69-45d9-8eb3-3fbdaed6a6e4",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "Multiplying the old token count by the new per-token price gives you the wrong number",
+        "prefix": "model it might be 950 or 1,400. ",
+        "suffix": ".\nFor cross-model cost compariso"
+      },
+      "createdAt": 1789348387510,
+      "updatedAt": 1789348387510
+    },
+    {
+      "id": "93301b91-89e4-4a37-b0b6-426c4e52b800",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "For cross-model cost comparisons, always re-count with each model's own tokenizer",
+        "prefix": "ice gives you the wrong number.\n",
+        "suffix": ".How do you estimate tokens for "
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "为了在不同模型之间进行成本比较，总是要用每个模型自己的 tokenizer（分词器）重新计数。",
+        "pos": "",
+        "note": "re-count 强调要重新计数而不是复用之前的结果，因为不同模型的 tokenizer 可能将同样的文本分割成不同数量的 token，导致成本差异。"
+      },
+      "createdAt": 1789348399922,
+      "updatedAt": 1789348399922
+    },
+    {
+      "id": "4fa344b2-0700-426c-be55-32e198fda0b3",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "a rough sense of scale",
+        "prefix": "orize a ratio — measure it. But ",
+        "suffix": " helps (modern large-vocabulary "
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "对规模大小有个粗略的了解",
+        "pos": "phr.",
+        "note": "sense of scale强调对数量级、量纲的直观认识，不是精确测量"
+      },
+      "createdAt": 1789348425566,
+      "updatedAt": 1789348425566
+    },
+    {
+      "id": "2f58f2d4-d6a5-4661-bfbd-87b17a8e448b",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "Chunk size must be defined in tokens, not characters",
+        "prefix": "))\n\n\nDirect consequence for RAG:",
+        "suffix": ". The same \"500\" applied to Chin"
+      },
+      "createdAt": 1789348597661,
+      "updatedAt": 1789348597661
+    },
+    {
+      "id": "85546f04-b496-4f2c-9652-0f4b898ef546",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "punctuation",
+        "prefix": " a subword, a single character, ",
+        "suffix": ", or even a leading space — \" th"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "标点符号，在tokenization中作为独立的单位被分割开来",
+        "pos": "n.",
+        "note": ""
+      },
+      "createdAt": 1789348809829,
+      "updatedAt": 1789348809829
+    },
+    {
+      "id": "a4604ab2-cb4e-460c-9909-9f11c658f9af",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "Saying \"one Chinese character equals one token\" invites an immediate follow-up",
+        "prefix": "rent tokens in most tokenizers. ",
+        "suffix": ".Don't claim Chinese is always m"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "说法",
+        "pos": "v.",
+        "note": "invites 在这里是动词，意为引发/招致某种反应，not 邀请"
+      },
+      "createdAt": 1789348841156,
+      "updatedAt": 1789348841156
+    },
+    {
+      "id": "d43f86a3-0f65-471c-933a-1bc2aaea8f26",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "substantially",
+        "prefix": ", o200k, LLaMA 3) improved this ",
+        "suffix": ". The accurate framing: token ef"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "大幅地、实质性地改进了",
+        "pos": "adv.",
+        "note": "在这里修饰improved，表示改进的程度很大，不是略微改进"
+      },
+      "createdAt": 1789348892706,
+      "updatedAt": 1789348892706
+    },
+    {
+      "id": "5e38385b-90c2-4fef-acab-cdc6c9e77464",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "framing",
+        "prefix": "his substantially. The accurate ",
+        "suffix": ": token efficiency depends on ho"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "表述方式或观点框架，此处指对这个问题的准确认识和描述方式",
+        "pos": "n.",
+        "note": "framing在论证中指论述问题的角度和方式，accurate framing意为用正确的角度来理解和表述"
+      },
+      "createdAt": 1789348913902,
+      "updatedAt": 1789348913902
+    },
+    {
+      "id": "42ca09e0-be39-4fa3-bf93-f127193f4fc0",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "recite",
+        "prefix": "training corpus. Measure, don't ",
+        "suffix": ".Latency doesn't scale linearly "
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "背诵、重复他人的观点而不加验证",
+        "pos": "v.",
+        "note": "强调盲目接受而非实际测量验证，与measure形成对比"
+      },
+      "createdAt": 1789348929067,
+      "updatedAt": 1789348929067
+    },
+    {
+      "id": "2fd7b5d7-65c4-4a6a-b13a-ff189a8840ef",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "That's an outdated conclusion",
+        "prefix": "hinese is always more expensive:",
+        "suffix": ". The small vocabularies of the "
+      },
+      "createdAt": 1789348935077,
+      "updatedAt": 1789348935077
+    },
+    {
+      "id": "f19fdf95-0035-4931-9163-1986575e48db",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "\" the\" and \"the\" are two different tokens in most tokenizers",
+        "prefix": "tion, or even a leading space — ",
+        "suffix": ". Saying \"one Chinese character "
+      },
+      "createdAt": 1789348943743,
+      "updatedAt": 1789348943743
+    },
+    {
+      "id": "4004223e-54c6-408e-aa1f-58fe82849a50",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "Latency is driven mainly by output length",
+        "prefix": "oes through decode and doesn't. ",
+        "suffix": ", not total token count. \"Longer"
+      },
+      "createdAt": 1789348968983,
+      "updatedAt": 1789348968983
+    },
+    {
+      "id": "e794826c-8e59-4ed2-a388-dc8e01e4b783",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "Longer prompts are slower\" is only half true",
+        "prefix": "length, not total token count. \"",
+        "suffix": ".Tokenization produces no semant"
+      },
+      "createdAt": 1789348982727,
+      "updatedAt": 1789348982727
+    },
+    {
+      "id": "0b7f0888-1e9b-492c-b306-c41bc5b42360",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "Meaning appears at the embedding layer",
+        "prefix": "d — purely a lookup row number. ",
+        "suffix": ". Asked \"how does tokenization u"
+      },
+      "createdAt": 1789349035404,
+      "updatedAt": 1789349035404
+    },
+    {
+      "id": "33125730-aa97-4c66-88e9-3843bf7a5b3d",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "encode turns text into ids",
+        "prefix": " decode are inverse operations: ",
+        "suffix": ", decode turns ids back into tex"
+      },
+      "createdAt": 1789349388868,
+      "updatedAt": 1789349388868
+    },
+    {
+      "id": "6e7b5ecb-30f2-44c3-9df2-b84818d533fc",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "decode turns ids back into text",
+        "prefix": "ns: encode turns text into ids, ",
+        "suffix": ". Strictly speaking, tokenizatio"
+      },
+      "createdAt": 1789349393795,
+      "updatedAt": 1789349393795
+    },
+    {
+      "id": "679da379-2887-4e60-b2f2-48881b963b40",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "interchangeably",
+        "prefix": "plenty of sources use the words ",
+        "suffix": ", but separating the two steps m"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "可以互换地使用，指多个词或概念的含义相同或等价，可用于相同的语境中",
+        "pos": "adv.",
+        "note": "注意不是 exchangeably，interchangeably 特指在意义或用法上可以互换"
+      },
+      "createdAt": 1789349417309,
+      "updatedAt": 1789349417309
+    },
+    {
+      "id": "24451f64-0ca9-41e0-a2d7-8655900b84fc",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "A word often has several splits that are all valid, and an unordered set can't tell you which to pick",
+        "prefix": "swers \"which tokens are valid.\" ",
+        "suffix": ". The order (rank) of the merge "
+      },
+      "createdAt": 1789349492717,
+      "updatedAt": 1789349492717
+    },
+    {
+      "id": "ce294f18-5af8-431d-98fb-898a6cc97338",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "find the one whose rule was learned earliest (lowest rank)",
+        "prefix": "ong all current adjacent pairs, ",
+        "suffix": " — wherever it sits, not just th"
+      },
+      "createdAt": 1789349511166,
+      "updatedAt": 1789349511166
+    },
+    {
+      "id": "6d28cfea-91bb-4348-b33d-b832cdabf668",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "Every token in both results is in the vocabulary, yet the splits differ",
+        "prefix": "               [\"ab\", \"c\", \"a\"]\n",
+        "suffix": ". Inference has to reproduce the"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "虽然两个结果中的每个 token 都在词表内，但分割方式不同",
+        "pos": "",
+        "note": "yet表示转折，重点是虽然都在词表内但分割不同这个对比关系"
+      },
+      "createdAt": 1789349551747,
+      "updatedAt": 1789349551747
+    },
+    {
+      "id": "379a8610-d892-45c5-9baf-73ea48fd79c0",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "greedy longest match against the vocabulary",
+        "prefix": "nit.Inference: no merge rules — ",
+        "suffix": ". WordPiece stores only the voca"
+      },
+      "createdAt": 1789349665402,
+      "updatedAt": 1789349665402
+    },
+    {
+      "id": "1d978c50-dd2e-4e1e-9dca-895f535cfe42",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "It scans each word left to right and takes the longest piece the vocabulary contains",
+        "prefix": "rnal pieces carry a ## prefix). ",
+        "suffix": ":vocabulary (excerpt): un, ##hap"
+      },
+      "createdAt": 1789349685159,
+      "updatedAt": 1789349685159
+    },
+    {
+      "id": "281526e8-804f-4009-965c-a63443067db4",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "untangle",
+        "prefix": "depends on the use case. First, ",
+        "suffix": " three dimensions that often get"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "理清、分开（这里指将混在一起的概念分别讲清楚）",
+        "pos": "v.",
+        "note": "常用比喻用法，指从复杂或混乱的情况中厘清某些概念或问题"
+      },
+      "createdAt": 1789349766597,
+      "updatedAt": 1789349766597
+    },
+    {
+      "id": "df297bc1-d77d-4764-a0ef-7ce47a34775f",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "lumped",
+        "prefix": "three dimensions that often get ",
+        "suffix": " together:algorithm (how the voc"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "混在一起、混淆(词组lump together)",
+        "pos": "v.",
+        "note": "lumped together强调不加区分地把不同的东西归为一类，这里指三个维度常被错误地混淆在一起讨论"
+      },
+      "createdAt": 1789349781605,
+      "updatedAt": 1789349781605
+    },
+    {
+      "id": "045e2d76-fbef-4453-ad6c-e540e528d2be",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "reliance",
+        "prefix": "SentencePiece (BPE / Unigram)No ",
+        "suffix": " on spaces; handles CJK and mixe"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "依赖，此处指需要依靠空格来分词",
+        "pos": "n.",
+        "note": "reliance on 表示对某物的依赖或信赖"
+      },
+      "createdAt": 1789349841683,
+      "updatedAt": 1789349841683
+    },
+    {
+      "id": "9028b237-9aa2-4889-baa3-ef1eb5fe0d4c",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "longest match can fall back to [UNK]",
+        "prefix": "esStill needs pre-tokenization; ",
+        "suffix": "SentencePiece (BPE / Unigram)No "
+      },
+      "createdAt": 1789349876019,
+      "updatedAt": 1789349876019
+    },
+    {
+      "id": "99fb32a3-cccd-4c9d-9004-90482894e72e",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "recent LLMs have largely converged on byte-level BPE with large vocabularies",
+        "prefix": "ounting API\nThe trend is clear: ",
+        "suffix": ". Byte-level guarantees any text"
+      },
+      "createdAt": 1789349904383,
+      "updatedAt": 1789349904383
+    },
+    {
+      "id": "149d859e-3afb-4ee5-b35d-d559dd713842",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "the base unit is a UTF-8 byte, not a character",
+        "prefix": "nguages?Through byte-level BPE: ",
+        "suffix": ".\nCharacter-level BPE would need"
+      },
+      "createdAt": 1789349936373,
+      "updatedAt": 1789349936373
+    },
+    {
+      "id": "da8307b9-ae1e-4de1-ae08-7839d579a460",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "Byte-level has only 256 possible byte values, so any language, emoji, or garbage string can be represented",
+        "prefix": "sing from training is still OOV\n",
+        "suffix": " — that's the \"OOV is impossible"
+      },
+      "createdAt": 1789349973830,
+      "updatedAt": 1789349973830
+    },
+    {
+      "id": "ee797747-d7af-45eb-8908-f0b27544dd06",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "byte-fragment tokens",
+        "prefix": "→ one character often costs 2–3 ",
+        "suffix": " (why Chinese was so expensive i"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "字节片段token，即由不完整字节序列组成的token。中文字符通常占3字节，当无法完整合并时，就被拆成多个字节片段分别作为token",
+        "pos": "n.",
+        "note": "byte-fragment是指单个字节或几个字节的碎片组合而成的token，相对于完整字符token或多字节token而言"
+      },
+      "createdAt": 1789350029758,
+      "updatedAt": 1789350029758
+    },
+    {
+      "id": "628eea74-a805-4801-8592-2c7f7d2a740f",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "buffer",
+        "prefix": "o tokens and the client doesn't ",
+        "suffix": " bytes, the first half can't be "
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "缓存/暂存（这里指客户端暂时存储字节数据以等待接收完整字符）",
+        "pos": "v.",
+        "note": "作为动词，buffer表示临时保存数据等待进一步处理，不同于cache强调重复使用"
+      },
+      "createdAt": 1789350071640,
+      "updatedAt": 1789350071640
+    },
+    {
+      "id": "ed76e002-b0dd-44e3-91b3-c7ead37ce514",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "the first half can't be decoded yet and briefly shows up as �",
+        "prefix": "he client doesn't buffer bytes, ",
+        "suffix": ".For estimating Chinese token co"
+      },
+      "createdAt": 1789350083220,
+      "updatedAt": 1789350083220
+    },
+    {
+      "id": "0eabe6a8-8b7b-4af8-b9c8-1b3c655d4f23",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "Chinese is always more expensive\" is wrong",
+        "prefix": " Chinese token counts, and why \"",
+        "suffix": ", see Level 3 and Traps.\n\n\nLevel"
+      },
+      "createdAt": 1789350093602,
+      "updatedAt": 1789350093602
+    },
+    {
+      "id": "88543202-79b4-4f1b-b6f5-f80beb01557e",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "the input already exists; the output doesn't yet",
+        "prefix": "ral at once?The key difference: ",
+        "suffix": ".\nPrefill: when you send a reque"
+      },
+      "createdAt": 1789350113554,
+      "updatedAt": 1789350113554
+    },
+    {
+      "id": "1ea4d242-3db9-4c76-86f2-16270e62bbfb",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "The model can put all of them through a single forward pass and compute every position in parallel",
+        "prefix": " prompt token is already known. ",
+        "suffix": " (the causal mask keeps each pos"
+      },
+      "createdAt": 1789350125133,
+      "updatedAt": 1789350125133
+    },
+    {
+      "id": "6e333128-5422-4d73-acbc-a62834227f00",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "autoregressive",
+        "prefix": "ooking ahead)\nDecode: an LLM is ",
+        "suffix": ". When generating token k, the i"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "自回归的；指模型生成每个新token时需要依赖所有之前生成的token作为输入",
+        "pos": "adj.",
+        "note": "在LLM语境中autoregressive意为按序列依次生成，每步输出依赖历史，与并行生成方式相对"
+      },
+      "createdAt": 1789350140748,
+      "updatedAt": 1789350140748
+    },
+    {
+      "id": "b0a66174-c982-44b8-942f-94f3a571f42c",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "\"the next step's input doesn't exist until the previous step is sampled.\"",
+        "prefix": "just hasn't been computed,\" but ",
+        "suffix": "Why not guess several at once? Y"
+      },
+      "createdAt": 1789350158082,
+      "updatedAt": 1789350158082
+    },
+    {
+      "id": "031c6b0f-f919-43bd-9c70-8bef9715d11e",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "So standard decoding is strictly sequential",
+        "prefix": " \"cat,\" token 5 no longer fits. ",
+        "suffix": ".Engineering has two ways around"
+      },
+      "createdAt": 1789350172378,
+      "updatedAt": 1789350172378
+    },
+    {
+      "id": "23ba53bc-5083-400a-aefc-65f35803dbb2",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "Speculative",
+        "prefix": "ill advances one token per step\n",
+        "suffix": " decoding: a small model drafts "
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "推测性的、投机性的，这里指用较小的模型预先推测（draft）即将生成的token",
+        "pos": "adj.",
+        "note": "speculative decoding是个固定术语，指使用小模型进行快速推测、大模型验证的加速推理技术"
+      },
+      "createdAt": 1789350194827,
+      "updatedAt": 1789350194827
     }
   ],
   "/docs/overview": [
