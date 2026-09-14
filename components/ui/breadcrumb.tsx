@@ -1,7 +1,6 @@
 import type * as React from 'react'
 import { Slot } from 'radix-ui'
-import { BsThreeDots } from 'react-icons/bs'
-import { LuChevronRight } from 'react-icons/lu'
+import { LuChevronRight, LuEllipsis } from 'react-icons/lu'
 
 import { cn } from '@/lib/utils'
 
@@ -84,7 +83,7 @@ function BreadcrumbEllipsis({ className, ...props }: React.ComponentProps<'span'
       role="presentation"
       {...props}
     >
-      <BsThreeDots className="size-4" />
+      <LuEllipsis className="size-4" />
       <span className="sr-only">More</span>
     </span>
   )

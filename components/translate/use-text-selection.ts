@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { MAX_TEXT_LENGTH } from '@/lib/translate/types'
+import { MAX_TEXT_LENGTH } from '@/lib/translate/limits'
 
 export interface CapturedSelection {
   /** 选中处所在段落，用来判断词义 */

@@ -1,7 +1,8 @@
 'use client'
 
 import { memo, useEffect, useRef } from 'react'
-import mermaid from 'mermaid'
+
+type MermaidApi = typeof import('mermaid').default
 
 interface MermaidProps {
   chart: string
@@ -19,11 +20,23 @@ const normalizeChart = (input?: string): string => {
     .join('\n')
 }
 
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'neutral',
-  securityLevel: 'loose',
-})
+let loader: Promise<MermaidApi> | null = null
+
+/**
+ * mermaid 有一两 MB，静态 import 会进每个文档页的首屏包，拖慢 hydration（批注高亮也要等 hydration 完才画）。
+ * 用到图的时候再加载，只加载一次。
+ */
+function loadMermaid(): Promise<MermaidApi> {
+  loader ??= import('mermaid').then(({ default: mermaid }) => {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'neutral',
+      securityLevel: 'loose',
+    })
+    return mermaid
+  })
+  return loader
+}
 
 export const Mermaid = memo(({ chart, className }: MermaidProps) => {
   const ref = useRef<HTMLDivElement>(null)
@@ -37,6 +50,7 @@ export const Mermaid = memo(({ chart, className }: MermaidProps) => {
       const id = `mermaid-${crypto.randomUUID()}`
 
       try {
+        const mermaid = await loadMermaid()
         const { svg } = await mermaid.render(id, normalizeChart(chart))
         current.innerHTML = svg
       } catch (err) {

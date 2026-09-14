@@ -6,6 +6,7 @@ import timeline from '@/contents/site/timeline.json'
 import { readAnnotationPages } from '@/lib/annotate/file'
 import { COLLECTION_IDS } from '@/lib/collections'
 import { type DayCount, readGitActivity } from '@/lib/git-activity'
+import devActivity from '@/public/search-data/dev-activity.json'
 
 /** Counted per source so the heatmap tooltip can show what a day was made of. */
 export interface ActivityBreakdown {
@@ -64,10 +65,11 @@ function toDay(value: string | Date | undefined): string | null {
 
 /**
  * Commits per day. In development read git directly so today's commits show up right away;
- * the deployed serverless function has no .git directory, so production reads the snapshot
- * scripts/content.ts writes at build time (missing on a fresh checkout — not an error).
+ * the deployed serverless function has no .git directory, so production uses the snapshot
+ * scripts/content.ts writes at build time. Imported rather than read with fs, so it is bundled
+ * into the function instead of relying on public/ being traced alongside it.
  */
-async function getCommitDays(): Promise<DayCount[]> {
+function getCommitDays(): DayCount[] {
   if (process.env.NODE_ENV === 'development') {
     try {
       return readGitActivity()
@@ -76,15 +78,7 @@ async function getCommitDays(): Promise<DayCount[]> {
     }
   }
 
-  try {
-    const raw = await fs.readFile(
-      path.join(process.cwd(), 'public', 'search-data', 'dev-activity.json'),
-      'utf-8'
-    )
-    return JSON.parse(raw) as DayCount[]
-  } catch {
-    return []
-  }
+  return devActivity
 }
 
 export async function getActivityDays(): Promise<ActivityDay[]> {
@@ -109,7 +103,7 @@ export async function getActivityDays(): Promise<ActivityDay[]> {
     bump(toDay(item.date), 'milestones')
   }
 
-  for (const day of await getCommitDays()) {
+  for (const day of getCommitDays()) {
     bump(toDay(day.date), 'commits', day.count)
   }
 

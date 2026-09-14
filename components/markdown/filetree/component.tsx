@@ -10,8 +10,7 @@ import {
   useState,
 } from 'react'
 import cn from 'clsx'
-import { FiFileText } from 'react-icons/fi'
-import { LuFolder, LuFolderClosed } from 'react-icons/lu'
+import { LuFileText, LuFolder, LuFolderClosed } from 'react-icons/lu'
 
 const ctx = createContext(0)
 
@@ -86,7 +85,7 @@ export const File = memo(({ label, name }: FileProps) => (
   <li className="list-none">
     <div className="inline-flex cursor-default items-center gap-2 py-1 text-xs transition-all hover:text-muted-foreground">
       <span>
-        <FiFileText size={14} />
+        <LuFileText size={14} />
       </span>
       <span>{label ?? name}</span>
     </div>

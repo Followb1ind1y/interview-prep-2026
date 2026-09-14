@@ -3,12 +3,7 @@ import * as z from 'zod'
 /** `en2zh`: 读英文笔记时看不懂 → 译成中文。`zh2en`: 写英文笔记时不会说 → 译成英文。 */
 export type TranslateDirection = 'en2zh' | 'zh2en'
 
-export const MAX_TEXT_LENGTH = 1200
-/**
- * 上下文只是给模型判断词义用，不需要整段。
- * 实测每多一个 token 都是每次调用都要重发的成本，400 字符足够定位词义。
- */
-export const MAX_CONTEXT_LENGTH = 400
+export { MAX_CONTEXT_LENGTH, MAX_TEXT_LENGTH } from '@/lib/translate/limits'
 
 /**
  * 结构化返回，前端按字段渲染。

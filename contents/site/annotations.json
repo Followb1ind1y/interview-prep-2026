@@ -2068,6 +2068,25 @@
       },
       "createdAt": 1789350194827,
       "updatedAt": 1789350194827
+    },
+    {
+      "id": "fbaff092-3653-45e1-ac38-1a7cc43ef860",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "Strictly speaking, tokenization is only the splitting step; a library's tokenizer.encode() does split plus vocabulary lookup",
+        "prefix": "ecode turns ids back into text. ",
+        "suffix": ". So tokenization is the first s"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "严格来说，分词只是分割这一步骤；库的 tokenizer.encode() 方法同时进行分割和词汇表查找",
+        "pos": "",
+        "note": "强调 tokenization 和 encode() 的区别：前者仅指文本分割，后者包含分割和词表映射两个步骤"
+      },
+      "createdAt": 1789401632023,
+      "updatedAt": 1789401632023
     }
   ],
   "/docs/overview": [
