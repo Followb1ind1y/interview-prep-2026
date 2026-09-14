@@ -1,126 +1,947 @@
 ---
 title: Attention
 titleEn: Attention
-description: QKV、causal、MHA / MQA / GQA、O(n²)。长上下文为什么贵。
-descriptionEn: QKV, causal attention, MHA / MQA / GQA, O(n²), long-context cost.
-date: 2026-09-07
-keywords: ["attention", "qkv", "mha", "mqa", "gqa"]
+description: QKV、缩放点积、causal mask、MHA / MQA / GQA、O(n²)。长上下文为什么贵。
+descriptionEn: QKV, scaled dot-product, causal mask, MHA / MQA / GQA, O(n²), and why long context is expensive.
+date: 2026-09-13
+keywords: ["attention", "self-attention", "qkv", "scaled dot-product", "causal mask", "mha", "mqa", "gqa", "kv cache", "o(n^2)"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-这一页必须非常熟：能画出 QKV，能讲清复杂度，能连到 KV cache。
+Tokenization 把文本变成一串向量之后，这些向量彼此之间还是「互不认识」的：`"bank"` 的向量不知道旁边是 `"river"` 还是 `"money"`。Attention 就是让每个 token 去看其他 token、按相关程度把信息拉过来的那一步。
+
+它是 Transformer 里唯一让 token 之间交换信息的地方，所以几乎所有 LLM 的工程问题——长上下文为什么贵、KV cache 为什么吃显存、GQA 为什么能提吞吐——最后都会追到这里。这一页要熟到能在白板上手算。
 
 ## 需要掌握
 
-- Q / K / V（查询 / 键 / 值）
-- self-attention（自注意力）
-- causal attention（因果注意力）
-- multi-head attention（多头注意力，MHA）
-- multi-query attention（多查询注意力，MQA）
-- grouped-query attention（分组查询注意力，GQA）
-- attention 的计算复杂度
-- 为什么是 O(n²)
-
-## 机制
+- Q / K / V 各自是什么、从哪来
+- 缩放点积注意力的完整计算过程（能手算一个 3 token 的例子）
+- 为什么要除以 √d_k
+- self-attention 和 cross-attention 的区别
+- causal mask 和 padding mask 各自解决什么
+- multi-head 为什么有用，head 之间怎么拆维度
+- MHA / MQA / GQA 的区别和取舍
+- 为什么是 O(n²)，以及它怎么连到 KV cache 和长上下文成本
 
 </Locale>
 
 <Locale lang="en">
 
-This one has to be second nature: draw QKV, explain the complexity, and connect it to the KV cache.
+After tokenization turns text into a sequence of vectors, those vectors still know nothing about each other: the vector for `"bank"` has no idea whether `"river"` or `"money"` sits next to it. Attention is the step where each token looks at the others and pulls in information in proportion to relevance.
+
+It's the only place in a Transformer where tokens exchange information, so nearly every LLM engineering question — why long context is expensive, why the KV cache eats memory, why GQA raises throughput — traces back here. You want to know it well enough to compute by hand on a whiteboard.
 
 ## Must know
 
-- Q / K / V
-- self-attention
-- causal attention
-- multi-head attention
-- multi-query attention
-- grouped-query attention
-- attention complexity
-- why O(n²)
+- what Q, K, and V are and where they come from
+- the full scaled dot-product computation (compute a 3-token example by hand)
+- why the scores are divided by √d_k
+- self-attention vs. cross-attention
+- what the causal mask and padding mask each solve
+- why multiple heads help and how the dimensions get split across heads
+- MHA vs. MQA vs. GQA and their trade-offs
+- why attention is O(n²), and how that connects to the KV cache and long-context cost
 
-## Mechanism
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 基本概念
+
+### 什么是注意力机制？它解决了什么问题？
+
+一句话：**注意力让每个 token 的表示，变成「所有 token 表示的加权平均」，权重由相关程度决定。**
+
+它解决的问题是「上下文」。单独一个 token 的 embedding 是固定的，`"bank"` 永远是同一个向量。但人读句子时，`"bank"` 的意思取决于周围：
+
+```
+"I sat by the river bank."     → bank ≈ 河岸
+"I deposited money at the bank." → bank ≈ 银行
+```
+
+Attention 做的事：让 `"bank"` 去「看」句子里的每个词，发现 `"river"` 很相关，就从 `"river"` 那里多拉一些信息，把自己的表示更新成「河岸意义上的 bank」。
+
+在 Transformer 之前，RNN 靠一个隐藏状态从左到右一路传递信息，句子一长，开头的信息就被压没了；也没法并行。Attention 让**任意两个 token 之间一步直达**，而且所有位置可以同时算。
+
+<Note title="Attention 最早是给翻译模型打补丁的">
+
+2014 年的 seq2seq 翻译模型要把整句原文压成一个固定长度的向量再交给解码器，长句必然丢信息。Bahdanau attention 让解码器每生成一个词都回头看原文的所有位置、按相关度取信息。2017 年的 Transformer 走到极端：干脆去掉 RNN，只留 attention。
+
+</Note>
+
+### Q、K、V 分别是什么？
+
+最好的类比是**一次模糊的数据库查询**：
+
+| | 数据库类比 | 在一句话里 |
+| --- | --- | --- |
+| **Query（查询）** | 你拿着去搜的问题 | 当前这个 token 想找什么信息 |
+| **Key（键）** | 每条记录的索引标签 | 每个 token 对外宣称「我能提供什么」 |
+| **Value（值）** | 每条记录的实际内容 | 被选中后真正交出去的信息 |
+
+精确查询是「key 完全匹配才返回那一条」。Attention 是**模糊查询**：query 和每个 key 都算一个相似度，所有 value 按相似度加权混在一起返回。
+
+**Q、K、V 从哪来？** 都来自同一个输入 X（当前层每个 token 的向量），各乘一个可学习的矩阵：
+
+```
+Q = X · W_Q
+K = X · W_K
+V = X · W_V
+```
+
+同一个 token 的向量，投影出三个不同「角色」。之所以要拆成三个，是因为「我想找什么」「我能被怎样找到」「我被找到后交出什么」是三件不同的事，给三套参数分别学，表达能力比直接拿 X 和 X 算相似度强得多。
+
+<Note title="W_Q、W_K、W_V 是模型权重，不是每次现算的">
+
+这三个矩阵和其他参数一样在训练中学出来，推理时固定不变。每个 token 的 Q、K、V 则是每次前向计算时现乘出来的。**「什么算相似」不是人定义的（不像余弦相似度那样写死），而是模型通过学这三个矩阵自己学会的。**
+
+</Note>
+
+### Self-attention 和 cross-attention 有什么区别？
+
+计算公式完全一样，**区别只在 Q 和 K/V 从哪来**：
+
+| | Q 来自 | K、V 来自 | 用在哪 |
+| --- | --- | --- | --- |
+| Self-attention | 序列 A | 同一个序列 A | GPT、BERT 的每一层；序列内部互相看 |
+| Cross-attention | 序列 A（如译文） | 另一个序列 B（如原文） | 原始 Transformer 的解码器、T5、多模态模型里文本看图像 |
+
+现在主流的 decoder-only LLM（GPT、LLaMA、Claude 这一类）**每一层都只有 self-attention**，没有 cross-attention。「原文」和「译文」都拼在同一个序列里，靠 causal self-attention 一起处理。
+
+<Note title="面试时顺手把「为什么 decoder-only 不需要 cross-attention」说出来" type="tip">
+
+因为 prompt 和回答在同一个序列里，回答部分的 token 用 self-attention 就能看到 prompt。这也是为什么 decoder-only 能用一种结构统一翻译、问答、对话：任务差异全部变成了「prompt 里写什么」。架构层面的对比见 [Transformer](/docs/llm/transformer)。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Fundamentals
+
+### What is attention, and what problem does it solve?
+
+In one sentence: **attention turns each token's representation into a weighted average of all token representations, with weights set by relevance.**
+
+The problem it solves is context. A token's embedding on its own is fixed — `"bank"` is always the same vector. But when people read, the meaning of `"bank"` depends on its neighbors:
+
+```
+"I sat by the river bank."       → bank ≈ riverside
+"I deposited money at the bank." → bank ≈ financial institution
+```
+
+Attention lets `"bank"` look at every word in the sentence, notice that `"river"` is highly relevant, pull in more information from it, and update itself into "bank in the riverside sense."
+
+Before Transformers, RNNs passed information left to right through a single hidden state. In long sentences the early information got washed out, and nothing could run in parallel. Attention gives **every pair of tokens a direct one-step path**, and all positions compute at once.
+
+<Note title="Attention started as a patch for translation models">
+
+The 2014 seq2seq translation models squeezed the entire source sentence into one fixed-length vector before decoding, so long sentences inevitably lost information. Bahdanau attention let the decoder look back at every source position for each word it generated. The 2017 Transformer took it to the extreme: remove the RNN entirely and keep only attention.
+
+</Note>
+
+### What are Q, K, and V?
+
+The best analogy is **a fuzzy database lookup**:
+
+| | Database analogy | Inside a sentence |
+| --- | --- | --- |
+| **Query** | the question you search with | what this token is looking for |
+| **Key** | each record's index label | what each token advertises it can offer |
+| **Value** | each record's actual content | the information handed over once selected |
+
+An exact lookup returns the one record whose key matches. Attention is a **soft lookup**: the query is scored against every key, and all values come back blended by those scores.
+
+**Where do Q, K, and V come from?** All three come from the same input X — each token's vector at the current layer — multiplied by a learned matrix:
+
+```
+Q = X · W_Q
+K = X · W_K
+V = X · W_V
+```
+
+The same token vector is projected into three roles. They're split because "what I'm looking for," "how I can be found," and "what I hand over when found" are different jobs; giving each its own parameters is far more expressive than scoring X against X directly.
+
+<Note title="W_Q, W_K, W_V are model weights, not computed per request">
+
+These matrices are learned during training like every other parameter and stay fixed at inference. Each token's Q, K, and V are computed fresh on every forward pass. **"What counts as similar" isn't hand-defined the way cosine similarity is — the model learns it by learning these three matrices.**
+
+</Note>
+
+### How does self-attention differ from cross-attention?
+
+The formula is identical. **The only difference is where Q and K/V come from:**
+
+| | Q from | K, V from | Where it's used |
+| --- | --- | --- | --- |
+| Self-attention | sequence A | the same sequence A | every layer of GPT and BERT; tokens within one sequence look at each other |
+| Cross-attention | sequence A (e.g. the translation) | another sequence B (e.g. the source) | the original Transformer decoder, T5, text attending to images in multimodal models |
+
+Today's mainstream decoder-only LLMs (GPT, LLaMA, Claude and the like) **use only self-attention in every layer** — no cross-attention. The "source" and the "output" live in one sequence and are handled together by causal self-attention.
+
+<Note title="Worth raising unprompted: why decoder-only needs no cross-attention" type="tip">
+
+The prompt and the answer share one sequence, so answer tokens can see the prompt through self-attention alone. That's also why one decoder-only architecture covers translation, QA, and chat: task differences become "what goes in the prompt." The architecture comparison is on [Transformer](/docs/llm/transformer).
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 计算机制
+
+### 缩放点积注意力是怎么算的？手算一遍
+
+公式：
+
+```
+Attention(Q, K, V) = softmax( Q·Kᵀ / √d_k ) · V
+```
+
+拆成四步：**打分 → 缩放 → softmax 变权重 → 加权求和**。
+
+用一个最小的例子手算。句子 3 个 token，维度 d_k = 2。假设已经投影好了：
+
+```
+K:  k₁ = [1, 0]    k₂ = [0, 1]    k₃ = [1, 1]
+V:  v₁ = [1, 0]    v₂ = [0, 1]    v₃ = [1, 1]
+当前 token 的 query:  q = [1, 2]
+```
+
+**第 1 步：打分**——q 和每个 k 做点积（对应位置相乘再相加）
+
+```
+q·k₁ = 1×1 + 2×0 = 1
+q·k₂ = 1×0 + 2×1 = 2
+q·k₃ = 1×1 + 2×1 = 3
+```
+
+**第 2 步：缩放**——除以 √d_k = √2 ≈ 1.414
+
+```
+[1, 2, 3] / 1.414 = [0.707, 1.414, 2.121]
+```
+
+**第 3 步：softmax**——变成和为 1 的权重
+
+```
+softmax([0.707, 1.414, 2.121]) = [0.140, 0.284, 0.576]
+```
+
+**第 4 步：加权求和**——用权重去混 V
+
+```
+0.140 × [1, 0] + 0.284 × [0, 1] + 0.576 × [1, 1]
+= [0.140 + 0.576,  0.284 + 0.576]
+= [0.716, 0.860]
+```
+
+这个 `[0.716, 0.860]` 就是这个 token 经过 attention 后的新表示：57.6% 来自 token 3，28.4% 来自 token 2，14% 来自 token 1。
+
+**矩阵形式**：真实计算不是一个 query 一个 query 地算，而是所有 token 一起：
+
+```
+X        [n, d_model]        n 个 token
+Q, K     [n, d_k]
+Q · Kᵀ   [n, n]              第 i 行第 j 列 = token i 对 token j 的打分
+softmax  [n, n]              按行做，每一行和为 1
+× V      [n, d_v]            每个 token 得到一个新向量
+```
+
+输出的 token 数和输入一样，只是每个向量都「融合了上下文」。
+
+<Note title="那个 n × n 矩阵就是 O(n²) 的来源" type="tip">
+
+`Q·Kᵀ` 是「每个 token 对每个 token」打一次分，n 个 token 就是 n² 个分数。这个矩阵是后面长上下文成本、FlashAttention、KV cache 所有讨论的起点，见 Level 3。
+
+</Note>
+
+### 为什么要除以 √d_k？
+
+**不除的话，维度一大，softmax 会饱和成接近 one-hot，梯度几乎为零，训练不动。**
+
+原因分两步：
+
+**1. 点积的数值随维度变大。** 如果 q 和 k 的每个分量都是均值 0、方差 1 的随机数，那 `q·k = q₁k₁ + … + q_d k_d` 是 d 个方差为 1 的项相加，方差就是 d，标准差是 √d。d_k = 128 时，点积的典型大小是 ±11 左右，而不是 ±1。
+
+**2. softmax 对数值大小非常敏感。** 分数之间的「相对差距」不变，只是整体放大，softmax 结果就完全变了：
+
+```
+softmax([1,  2,  3])  = [0.090, 0.245, 0.665]     ← 有梯度，各位置都在学
+softmax([10, 20, 30]) = [0.000, 0.000045, 0.99996] ← 几乎 one-hot
+softmax([30, 60, 90]) = [0.0,   0.0,      1.0]     ← 完全饱和
+```
+
+饱和后，最大那项的权重已经是 1，其余是 0，微调参数也改变不了输出，梯度趋近于 0。
+
+**除以 √d_k 正好把方差从 d_k 拉回 1**，让分数不管维度多大都保持在 softmax 的「敏感区间」。常见的 head 维度是 64 或 128，对应除以 8 或约 11.3。
+
+<Note title="除以 √d_k，不是除以 d_k">
+
+目标是把**标准差**归一化到 1。方差是 d_k，标准差是 √d_k，所以除 √d_k。面试追问「为什么是根号」时，答「方差 d_k，除以标准差」就对了。
+
+</Note>
+
+### Causal mask 是做什么的？怎么实现的？
+
+**让第 i 个 token 只能看到第 1 到第 i 个 token，看不到后面的。**
+
+原因：LLM 训练时一次喂进整句话，同时学「看到前 1 个词预测第 2 个」「看到前 2 个词预测第 3 个」……如果第 2 个位置能看到第 3 个词，它就能直接「抄答案」，模型学不到任何东西。推理时后面的 token 本来就还不存在，训练和推理的条件必须一致。
+
+**实现方式很简单：在 softmax 之前，把「未来位置」的分数设成负无穷。** `e^(-∞) = 0`，softmax 之后这些位置的权重恰好为 0。
+
+4 个 token，假设原始分数全是 0，加上 mask：
+
+```
+              看 t₁   看 t₂   看 t₃   看 t₄
+t₁ 的分数    [  0     -∞      -∞      -∞  ]  → softmax → [1.00, 0,    0,    0   ]
+t₂ 的分数    [  0      0      -∞      -∞  ]  → softmax → [0.50, 0.50, 0,    0   ]
+t₃ 的分数    [  0      0       0      -∞  ]  → softmax → [0.33, 0.33, 0.33, 0   ]
+t₄ 的分数    [  0      0       0       0  ]  → softmax → [0.25, 0.25, 0.25, 0.25]
+```
+
+权重矩阵变成下三角。**用一次矩阵运算就让 n 个位置同时、各自只看过去**——这正是 Transformer 训练能并行、而 RNN 不能的关键。
+
+<Note title="Padding mask 是另一回事">
+
+一个 batch 里句子长短不一，短句会用 `<pad>` 补齐。Padding mask 同样用 -∞ 把 `<pad>` 位置的分数屏蔽掉，防止真实 token 去关注这些无意义的填充。**Causal mask 屏蔽「未来」，padding mask 屏蔽「填充」**，decoder-only 训练时两个经常同时用。
+
+</Note>
+
+<Note title="Causal mask 直接决定了 KV cache 能不能用" type="tip">
+
+因为第 i 个 token 永远看不到后面，所以它的 K、V 一旦算出来，之后生成再多 token 都**不会变**。这才能把它们缓存下来反复用。BERT 这种双向 attention 每加一个 token，前面所有位置的表示都要重算，就没法这样缓存。见 Level 3。
+
+</Note>
+
+### 为什么要用多头注意力？维度是怎么拆的？
+
+**单头注意力每个 token 只能输出一组权重分布，而一句话里同时存在很多种关系。**
+
+`"The animal didn't cross the street because it was too tired."` 里的 `"it"`：
+
+- 一种关系是指代：`it` → `animal`
+- 一种是句法：`it` → `was`（主谓）
+- 一种是邻近：`it` → `because`
+
+一组权重只能是这些关系的平均，平均后谁都不清楚。多头就是**并行跑 h 组独立的 attention，每组有自己的 W_Q、W_K、W_V**，各自学一种关系，最后拼起来。
+
+**维度怎么拆（不是每个头都用完整维度）：**
+
+```
+d_model = 4096，h = 32 个头        （LLaMA 2 7B 的真实配置）
+每个头的维度 d_head = 4096 / 32 = 128
+
+X            [n, 4096]
+× W_Q        [n, 4096]  → reshape →  [32, n, 128]    32 个头，每头 128 维
+每个头独立做 attention                  [32, n, 128]
+拼接                                    [n, 4096]
+× W_O（输出投影）                       [n, 4096]
+```
+
+**总计算量和单头 4096 维差不多**：把一个大空间切成 32 个小空间并行算，不是把计算量乘 32。最后的 W_O 负责把各头学到的东西混合回一个向量。
+
+<Note title="「每个头学一种关系」是直觉，不是保证">
+
+研究里确实能找到专门看前一个 token、专门做指代的头，但大部分头学到的东西没法用人话描述，而且很多头剪掉后效果几乎不变。面试说「多个子空间捕捉不同类型的依赖」没问题，别说成「第 3 个头负责语法」这种确定结论。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · How it's computed
+
+### How is scaled dot-product attention computed? Work it by hand
+
+The formula:
+
+```
+Attention(Q, K, V) = softmax( Q·Kᵀ / √d_k ) · V
+```
+
+Four steps: **score → scale → softmax into weights → weighted sum**.
+
+A minimal example. Three tokens, dimension d_k = 2, already projected:
+
+```
+K:  k₁ = [1, 0]    k₂ = [0, 1]    k₃ = [1, 1]
+V:  v₁ = [1, 0]    v₂ = [0, 1]    v₃ = [1, 1]
+query for the current token:  q = [1, 2]
+```
+
+**Step 1: score** — dot q with every k (multiply matching positions, then add)
+
+```
+q·k₁ = 1×1 + 2×0 = 1
+q·k₂ = 1×0 + 2×1 = 2
+q·k₃ = 1×1 + 2×1 = 3
+```
+
+**Step 2: scale** — divide by √d_k = √2 ≈ 1.414
+
+```
+[1, 2, 3] / 1.414 = [0.707, 1.414, 2.121]
+```
+
+**Step 3: softmax** — turn the scores into weights that sum to 1
+
+```
+softmax([0.707, 1.414, 2.121]) = [0.140, 0.284, 0.576]
+```
+
+**Step 4: weighted sum** — blend the values using those weights
+
+```
+0.140 × [1, 0] + 0.284 × [0, 1] + 0.576 × [1, 1]
+= [0.140 + 0.576,  0.284 + 0.576]
+= [0.716, 0.860]
+```
+
+`[0.716, 0.860]` is this token's new representation after attention: 57.6% from token 3, 28.4% from token 2, 14% from token 1.
+
+**Matrix form**: in practice every token is computed at once, not one query at a time:
+
+```
+X        [n, d_model]        n tokens
+Q, K     [n, d_k]
+Q · Kᵀ   [n, n]              row i, column j = token i's score for token j
+softmax  [n, n]              applied per row; each row sums to 1
+× V      [n, d_v]            one new vector per token
+```
+
+The output has as many tokens as the input; each vector has simply absorbed its context.
+
+<Note title="That n × n matrix is where O(n²) comes from" type="tip">
+
+`Q·Kᵀ` scores every token against every token, so n tokens means n² scores. That matrix is the starting point for long-context cost, FlashAttention, and the KV cache — see Level 3.
+
+</Note>
+
+### Why divide by √d_k?
+
+**Without it, larger dimensions push softmax into saturation — nearly one-hot, with gradients close to zero, so training stalls.**
+
+Two steps to see why:
+
+**1. Dot products grow with dimension.** If each component of q and k is random with mean 0 and variance 1, then `q·k = q₁k₁ + … + q_d k_d` adds d terms of variance 1, giving variance d and standard deviation √d. At d_k = 128 a typical dot product lands around ±11, not ±1.
+
+**2. Softmax is very sensitive to scale.** Keep the relative gaps the same, just scale everything up, and the output changes completely:
+
+```
+softmax([1,  2,  3])  = [0.090, 0.245, 0.665]      ← gradients flow, every position learns
+softmax([10, 20, 30]) = [0.000, 0.000045, 0.99996] ← almost one-hot
+softmax([30, 60, 90]) = [0.0,   0.0,      1.0]     ← fully saturated
+```
+
+Once saturated, the top weight is already 1 and the rest are 0; nudging parameters doesn't change the output, so the gradient vanishes.
+
+**Dividing by √d_k brings the variance from d_k back to 1**, keeping scores in softmax's sensitive range regardless of dimension. Typical head dimensions are 64 or 128, i.e. dividing by 8 or about 11.3.
+
+<Note title="Divide by √d_k, not by d_k">
+
+The goal is to normalize the **standard deviation** to 1. The variance is d_k, so the standard deviation is √d_k. If you're asked "why the square root," the answer is "the variance is d_k; we divide by the standard deviation."
+
+</Note>
+
+### What does the causal mask do, and how is it implemented?
+
+**It lets token i see only tokens 1 through i — nothing after it.**
+
+The reason: during training the whole sentence goes in at once, and the model simultaneously learns "predict token 2 from token 1," "predict token 3 from tokens 1–2," and so on. If position 2 could see token 3, it would just copy the answer and learn nothing. At inference the later tokens don't exist yet, so training has to match that condition.
+
+**Implementation is simple: before softmax, set the scores for future positions to negative infinity.** Since `e^(-∞) = 0`, those positions get exactly zero weight after softmax.
+
+Four tokens, raw scores all zero, with the mask applied:
+
+```
+              sees t₁  sees t₂  sees t₃  sees t₄
+t₁ scores    [  0      -∞       -∞       -∞  ]  → softmax → [1.00, 0,    0,    0   ]
+t₂ scores    [  0       0       -∞       -∞  ]  → softmax → [0.50, 0.50, 0,    0   ]
+t₃ scores    [  0       0        0       -∞  ]  → softmax → [0.33, 0.33, 0.33, 0   ]
+t₄ scores    [  0       0        0        0  ]  → softmax → [0.25, 0.25, 0.25, 0.25]
+```
+
+The weight matrix becomes lower-triangular. **One matrix operation lets all n positions compute simultaneously while each looks only at the past** — exactly why Transformer training parallelizes and RNN training doesn't.
+
+<Note title="The padding mask is a different thing">
+
+Sentences in a batch have different lengths, so short ones get padded with `<pad>`. The padding mask uses the same -∞ trick to block attention to those meaningless positions. **The causal mask hides the future; the padding mask hides filler.** Decoder-only training often uses both at once.
+
+</Note>
+
+<Note title="The causal mask is what makes the KV cache possible" type="tip">
+
+Because token i never sees anything after it, its K and V never change once computed, no matter how many tokens follow. That's what makes them safe to cache and reuse. With bidirectional attention like BERT's, adding one token changes every earlier representation, so this kind of caching doesn't work. See Level 3.
+
+</Note>
+
+### Why multi-head attention? How are the dimensions split?
+
+**A single head gives each token one weight distribution, but a sentence contains many kinds of relationships at once.**
+
+Take `"it"` in `"The animal didn't cross the street because it was too tired."`:
+
+- a coreference relation: `it` → `animal`
+- a syntactic relation: `it` → `was` (subject–verb)
+- a proximity relation: `it` → `because`
+
+One set of weights can only average these, and the average blurs all of them. Multi-head attention **runs h independent attentions in parallel, each with its own W_Q, W_K, W_V**, so each can learn a different relationship before they're concatenated.
+
+**How dimensions are split (each head does not get the full width):**
+
+```
+d_model = 4096, h = 32 heads          (LLaMA 2 7B's actual config)
+per-head dimension d_head = 4096 / 32 = 128
+
+X            [n, 4096]
+× W_Q        [n, 4096]  → reshape →  [32, n, 128]    32 heads, 128 dims each
+each head runs attention independently   [32, n, 128]
+concatenate                              [n, 4096]
+× W_O (output projection)                [n, 4096]
+```
+
+**Total compute is about the same as one 4096-dim head**: one large space is cut into 32 small ones computed in parallel, not multiplied by 32. The final W_O mixes what the heads learned back into one vector.
+
+<Note title="“Each head learns one relationship” is intuition, not a guarantee">
+
+Research does find heads that attend to the previous token or track coreference, but most heads learn things that don't map to human-readable roles, and many can be pruned with little loss. "Multiple subspaces capture different kinds of dependencies" is a fine interview answer; "head 3 handles grammar" is not.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 工程影响
+
+### 为什么 attention 是 O(n²)？计算和显存分别怎么涨？
+
+来源就是 Level 2 那个 `Q·Kᵀ`：n 个 token 两两打分，得到 n × n 个数。
+
+- **计算量**：每个分数是一次 d_k 维的点积，总共 `O(n² · d)`。上下文翻倍，这一项翻 4 倍
+- **显存（朴素实现）**：要把整个 n × n 的权重矩阵存下来做 softmax 和反向传播
+
+朴素实现下，**单个头、单层**的注意力矩阵用 fp16（每个数 2 字节）存要多大：
+
+```
+n = 4,096      1,677 万个数    ≈ 0.03 GiB
+n = 32,000     10.2 亿个数     ≈ 1.91 GiB
+n = 128,000    163.8 亿个数    ≈ 30.5 GiB
+```
+
+这还只是一个头、一层。一个 32 层、32 头的模型乘上去，128K 上下文根本放不进任何 GPU。所以长上下文模型**全部**依赖 FlashAttention 这类实现：它把计算切成小块在 GPU 高速缓存（SRAM）里算完，**从不把完整的 n × n 矩阵放进显存**，显存降到随 n 线性增长，结果和朴素实现完全一样。细节见 [Inference](/docs/llm/inference)。
+
+<Note title="FlashAttention 省的是显存和读写，不是 O(n²) 计算" type="warning">
+
+它仍然要算完所有 n² 个分数，只是不存那个矩阵、减少显存和 SRAM 之间的数据搬运。所以它让长上下文**放得下、跑得快**，但 128K 的 prefill 依然比 8K 贵得多。说「FlashAttention 把 attention 变成线性复杂度」是错的。
+
+</Note>
+
+### KV cache 省了什么？要占多少显存？
+
+**先看没有 KV cache 会发生什么。** 生成是一次一个 token（原因见 [Tokenization](/docs/llm/tokenization) 里的问答）。生成第 101 个 token 时，它的 query 要和前面 100 个 token 的 K、V 做 attention。如果不缓存，就得把前 100 个 token 重新过一遍所有层，把 K、V 再算一次——而它们和上一步算出来的**一模一样**（causal mask 保证前面的 token 看不到新 token）。
+
+```
+没有 cache：第 t 步重算 t 个 token 的全部层        → 生成 N 个 token 总计 O(N²) 次 token 计算
+有 cache：  第 t 步只算 1 个新 token，K/V 从缓存读 → 每步只多算 1 个 token
+```
+
+**KV cache 缓存的是每一层、每个 KV 头的 K 向量和 V 向量。** 大小公式：
+
+```
+KV cache 字节数 = 2 × 层数 × KV头数 × 每头维度 × token 数 × 每个数的字节数
+                  ↑
+                  K 和 V 各一份
+```
+
+用真实配置算（fp16，每个数 2 字节）：
+
+```
+LLaMA 2 7B   32 层 × 32 个 KV 头 × 128 维
+             每个 token：2 × 32 × 32 × 128 × 2 = 524,288 字节 ≈ 0.5 MiB
+             4,096 token 的上下文 ≈ 2 GiB
+
+LLaMA 3 8B   32 层 × 8 个 KV 头 × 128 维（GQA，见下一节）
+             每个 token：2 × 32 × 8 × 128 × 2 = 131,072 字节 = 128 KiB
+             128,000 token ≈ 15.6 GiB
+```
+
+**这是单个请求的量。** 8B 模型 fp16 权重本身约 16 GB，一张 80 GB 的卡除去权重，满 128K 的请求只能同时放下三四个。KV cache 占满显存 → batch 开不大 → 吞吐上不去 → 每个请求更贵。这就是 [Tokenization](/docs/llm/tokenization) Level 3 那条「token 数 → 显存 → 并发 → 成本」传导链的具体数字。
+
+<Note title="KV cache 为什么让 decode 受「显存带宽」而不是算力限制" type="tip">
+
+decode 每一步只算 1 个新 token，GPU 的计算单元大部分时间在等数据：要把全部模型权重和不断变长的 KV cache 从显存读出来。所以 decode 速度主要受显存读写速度限制，不是算力。这也是为什么「减少 KV cache 大小」（GQA、KV cache 量化）能直接提升 tokens/sec。
+
+</Note>
+
+### MHA、MQA、GQA 有什么区别？
+
+**区别只在「几个 query 头共用一组 K、V」。** Q 的头数都不变。
+
+```
+MHA（多头）         每个 Q 头有自己的 K、V        Q:32  K/V:32
+GQA（分组查询）     每组 Q 头共用一组 K、V        Q:32  K/V:8   （每 4 个 Q 头共用 1 组）
+MQA（多查询）       所有 Q 头共用同一组 K、V      Q:32  K/V:1
+```
+
+同样按 LLaMA 3 8B 的层数和维度（32 层、每头 128 维）、128K 上下文、fp16，只换 KV 头数：
+
+| | KV 头数 | 128K 上下文的 KV cache | 质量 | 谁在用 |
+| --- | --- | --- | --- | --- |
+| MHA | 32 | 62.5 GiB | 最好 | 原始 Transformer、GPT-3、LLaMA 2 7B / 13B |
+| **GQA** | 8 | **15.6 GiB** | 接近 MHA | LLaMA 2 70B、LLaMA 3 全系、Mistral |
+| MQA | 1 | 1.95 GiB | 有可见下降 | PaLM、Falcon 7B |
+
+**取舍很直接**：KV 头越少，KV cache 越小、decode 越快、batch 能开越大；但 K、V 的表达能力被压缩，质量会掉。GQA 是目前的主流折中——KV cache 缩到 1/4，质量几乎不掉。
+
+<Note title="GQA 省的主要是推理显存，不是训练计算" type="warning">
+
+Q 的头数没变，prefill 的 n × n 打分计算基本照旧。GQA 的核心收益在 decode：KV cache 小了 → 每步要读的数据少了 → 同一张卡能服务更多并发。被问「GQA 为什么能加速」时，要答到 KV cache 和显存带宽，而不是「计算量少了」。
+
+</Note>
+
+### 为什么长上下文会让成本和延迟一起涨？
+
+把上面几节串起来，同一个 n 从三个方向同时施压：
+
+| 阶段 | 随 n 怎么涨 | 表现为 |
+| --- | --- | --- |
+| Prefill 的 attention | O(n²) 计算 | TTFT（首 token 延迟）变长 |
+| KV cache | O(n) 显存 | 单卡并发数下降 → 单请求成本上升 |
+| Decode 每一步 | 每步要和 n 个缓存的 K 做 attention，读 O(n) 数据 | 越往后生成越慢 |
+
+工程上对应的手段也就三类：
+
+- **少放 token**：RAG 只取相关片段、对话历史压缩（见 [Context Engineering](/docs/context)）
+- **不重复算**：prompt caching 把不变的前缀的 KV cache 存下来复用（见 [Caching](/docs/context/caching)）
+- **让同样的 token 更便宜**：GQA、FlashAttention、KV cache 量化、continuous batching（见 [Inference](/docs/llm/inference)）
+
+<Note title="上下文能放下，不代表模型能用好" type="warning">
+
+128K 窗口是「能处理」，不是「处理得好」。长上下文里，softmax 的权重要分给更多 token，相关信息更容易被稀释；很多评测也发现模型对放在上下文中间的信息利用得更差。所以「把所有文档塞进长上下文」通常不能替代好的检索，面试里要能主动说出这一点。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Engineering impact
+
+### Why is attention O(n²), and how do compute and memory grow?
+
+It comes straight from the `Q·Kᵀ` in Level 2: n tokens scored pairwise gives n × n numbers.
+
+- **Compute**: each score is a d_k-dimensional dot product, so `O(n² · d)` overall. Double the context and this term quadruples
+- **Memory (naive implementation)**: the whole n × n weight matrix is stored for softmax and backprop
+
+Here's how large that matrix is in fp16 (2 bytes per number) for **one head in one layer** under a naive implementation:
+
+```
+n = 4,096      16.8 million numbers    ≈ 0.03 GiB
+n = 32,000     1.02 billion numbers    ≈ 1.91 GiB
+n = 128,000    16.4 billion numbers    ≈ 30.5 GiB
+```
+
+That's a single head in a single layer. Multiply by 32 layers and 32 heads and 128K context doesn't fit on any GPU. That's why **every** long-context model relies on implementations like FlashAttention: it computes in small blocks inside the GPU's fast on-chip memory (SRAM) and **never materializes the full n × n matrix**, so memory grows linearly with n while the result is exactly the same as the naive version. Details on [Inference](/docs/llm/inference).
+
+<Note title="FlashAttention saves memory and data movement, not the O(n²) compute" type="warning">
+
+It still computes all n² scores; it just avoids storing the matrix and cuts the shuffling of data between GPU memory and SRAM. So it makes long context **fit and run faster**, but a 128K prefill is still far more expensive than an 8K one. Saying "FlashAttention makes attention linear" is wrong.
+
+</Note>
+
+### What does the KV cache save, and how much memory does it take?
+
+**Start with what happens without it.** Generation produces one token at a time (why is covered in a question on [Tokenization](/docs/llm/tokenization)). To generate token 101, its query attends over the K and V of the previous 100 tokens. Without a cache, you'd rerun those 100 tokens through every layer to recompute K and V — and they'd come out **identical** to last step, because the causal mask means earlier tokens never see new ones.
+
+```
+no cache:   step t recomputes all layers for t tokens    → O(N²) token computations to generate N tokens
+with cache: step t computes only the 1 new token, reads K/V from cache → one extra token per step
+```
+
+**The KV cache stores the K and V vectors for every layer and every KV head.** Its size:
+
+```
+KV cache bytes = 2 × layers × KV heads × head dim × tokens × bytes per number
+                 ↑
+                 one copy each for K and V
+```
+
+With real configs (fp16, 2 bytes per number):
+
+```
+LLaMA 2 7B   32 layers × 32 KV heads × 128 dims
+             per token: 2 × 32 × 32 × 128 × 2 = 524,288 bytes ≈ 0.5 MiB
+             4,096-token context ≈ 2 GiB
+
+LLaMA 3 8B   32 layers × 8 KV heads × 128 dims (GQA, next section)
+             per token: 2 × 32 × 8 × 128 × 2 = 131,072 bytes = 128 KiB
+             128,000 tokens ≈ 15.6 GiB
+```
+
+**That's per request.** An 8B model's fp16 weights take about 16 GB on their own, so an 80 GB GPU fits only three or four full-128K requests at once. KV cache fills memory → batch size can't grow → throughput stalls → each request costs more. That's the "token count → memory → concurrency → cost" chain from [Tokenization](/docs/llm/tokenization) Level 3, with real numbers.
+
+<Note title="Why the KV cache makes decode memory-bandwidth-bound, not compute-bound" type="tip">
+
+Each decode step computes just one new token, so the GPU's compute cores mostly wait on data: all model weights plus an ever-growing KV cache have to be read out of memory. Decode speed is therefore limited mainly by memory read speed, not raw compute. That's why shrinking the KV cache (GQA, KV cache quantization) directly raises tokens/sec.
+
+</Note>
+
+### How do MHA, MQA, and GQA differ?
+
+**The only difference is how many query heads share one set of K and V.** The number of Q heads doesn't change.
+
+```
+MHA (multi-head)      every Q head has its own K, V        Q:32  K/V:32
+GQA (grouped-query)   each group of Q heads shares K, V    Q:32  K/V:8   (every 4 Q heads share 1)
+MQA (multi-query)     all Q heads share a single K, V      Q:32  K/V:1
+```
+
+Using LLaMA 3 8B's layer count and head size (32 layers, 128 dims per head), 128K context, fp16, and changing only the KV head count:
+
+| | KV heads | KV cache at 128K | Quality | Used by |
+| --- | --- | --- | --- | --- |
+| MHA | 32 | 62.5 GiB | best | original Transformer, GPT-3, LLaMA 2 7B / 13B |
+| **GQA** | 8 | **15.6 GiB** | close to MHA | LLaMA 2 70B, all of LLaMA 3, Mistral |
+| MQA | 1 | 1.95 GiB | noticeable drop | PaLM, Falcon 7B |
+
+**The trade-off is direct**: fewer KV heads means a smaller KV cache, faster decode, and bigger batches, but K and V lose expressiveness and quality drops. GQA is today's standard compromise — a 4x smaller KV cache with almost no quality loss.
+
+<Note title="GQA mainly saves inference memory, not training compute" type="warning">
+
+The number of Q heads is unchanged, so the n × n scoring in prefill is basically the same. GQA's real payoff is in decode: a smaller KV cache means less data to read each step, so one GPU serves more concurrent requests. When asked "why does GQA speed things up," the answer should reach the KV cache and memory bandwidth, not "less compute."
+
+</Note>
+
+### Why does long context raise cost and latency together?
+
+Put the sections together and the same n pushes from three directions at once:
+
+| Phase | How it grows with n | Shows up as |
+| --- | --- | --- |
+| Prefill attention | O(n²) compute | longer TTFT (time to first token) |
+| KV cache | O(n) memory | fewer concurrent requests per GPU → higher cost per request |
+| Each decode step | attends over n cached keys, reading O(n) data | generation slows down as it goes |
+
+The engineering levers fall into three groups:
+
+- **Send fewer tokens**: RAG retrieves only relevant chunks; conversation history gets compressed (see [Context Engineering](/docs/context))
+- **Don't recompute**: prompt caching stores and reuses the KV cache for an unchanged prefix (see [Caching](/docs/context/caching))
+- **Make each token cheaper**: GQA, FlashAttention, KV cache quantization, continuous batching (see [Inference](/docs/llm/inference))
+
+<Note title="Fitting in the window doesn't mean the model uses it well" type="warning">
+
+A 128K window means the model can process that much, not that it processes it well. With long context, softmax spreads its weight over more tokens and relevant information gets diluted; many evaluations also find models make worse use of information placed in the middle of the context. So "stuff every document into a long context" usually doesn't replace good retrieval — worth saying unprompted in an interview.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note title="O(n²) 不等于「attention 是模型里最贵的部分」" type="warning">
+
+n × n 这一项只在上下文足够长时才占主导。几千 token 以内，每个 token 都要过的 FFN 和各种线性投影（都是 O(n · d²)）往往才是计算大头。说「Transformer 慢是因为 attention 是 O(n²)」要加上「在长上下文下」。
+
+</Note>
+
+<Note title="别说「KV cache 缓存的是 attention 权重」或「缓存的是隐藏状态」" type="danger">
+
+缓存的是**每一层、每个 KV 头的 K 向量和 V 向量**。attention 权重每一步都要用新 token 的 Q 重新算，没法缓存；隐藏状态也不需要存。说错这一点，后面的显存公式也会跟着错。
+
+</Note>
+
+<Note title="别说「FlashAttention 是近似 attention」" type="danger">
+
+FlashAttention 算出的结果和朴素实现**完全一致**，它改的是计算和存储的方式（分块计算、不存 n × n 矩阵）。真正的近似方法是稀疏注意力、线性注意力、滑动窗口这一类，会改变结果。
+
+</Note>
+
+<Note title="Attention 权重不能直接当成「模型的解释」" type="warning">
+
+「权重大 = 模型因为这个词做出了判断」不成立：每层每头都有一套权重，后面还有 FFN 和残差把信息再混一遍，研究也发现改动权重分布未必改变输出。可视化 attention 可以用来观察，但不能当作可靠的因果解释。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Traps
+
+<Note title="O(n²) doesn't mean attention is the most expensive part of the model" type="warning">
+
+The n × n term only dominates once context is long enough. Within a few thousand tokens, the FFN and linear projections that every token passes through (all O(n · d²)) are often the bigger compute cost. "Transformers are slow because attention is O(n²)" needs the qualifier "at long context."
+
+</Note>
+
+<Note title="Don't say the KV cache stores attention weights or hidden states" type="danger">
+
+It stores **the K and V vectors for every layer and every KV head**. Attention weights have to be recomputed each step with the new token's Q, so they can't be cached, and hidden states don't need to be stored. Get this wrong and the memory formula that follows will be wrong too.
+
+</Note>
+
+<Note title="Don't call FlashAttention an approximation" type="danger">
+
+FlashAttention produces **exactly the same result** as the naive implementation; it changes how the work is computed and stored (block-wise computation, no n × n matrix). The actual approximations — sparse attention, linear attention, sliding windows — do change the output.
+
+</Note>
+
+<Note title="Attention weights aren't a direct explanation of the model" type="warning">
+
+"High weight = the model decided because of this word" doesn't hold: every layer and head has its own weights, the FFN and residual path remix the information afterward, and research has found that altering the weight distribution doesn't necessarily change the output. Visualizing attention is useful for exploration, not as a reliable causal explanation.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 连接
+
+</Locale>
+
+<Locale lang="en">
+
+## Connections
 
 </Locale>
 
 ```
-Q = X Wq
-K = X Wk
-V = X Wv
-scores = Q Kᵀ / √d     →  O(n²)
-weights = softmax(scores + causal mask)
-output = weights V
+Tokenization → Embedding → Q / K / V projections
+                                   ↓
+                      Q·Kᵀ  (n × n)  →  O(n²)  →  FlashAttention
+                                   ↓
+                      causal mask  →  past K/V never change  →  KV cache
+                                                                   ↓
+                                   GQA / MQA  →  smaller cache  →  bigger batch  →  lower cost
 ```
 
 <Locale lang="zh">
 
-## 三级回答
-
-### Level 1 — 定义
-
-Attention 让每个 token 按相关性去聚合其他 token 的信息。
-
-### Level 2 — 机制
-
-Q 负责提问，K 负责被匹配，V 是被加权取出的内容。Causal mask 禁止看到未来的 token。多个头在不同子空间里并行做这件事。
-
-### Level 3 — 工程
-
-序列长度为 n 时，QKᵀ 是 n×n 的矩阵。长上下文之所以贵，是因为计算量和 KV cache 都随 n 增长。MQA / GQA 减少 K/V 的头数，用一点质量换吞吐和显存。
+- 上游：[Tokenization](/docs/llm/tokenization)（n 是 token 数） · [Transformer](/docs/llm/transformer)（attention 在 block 里的位置、位置编码 RoPE 怎么作用在 Q/K 上）
+- 下游：[Inference](/docs/llm/inference)（prefill / decode、FlashAttention、continuous batching、KV cache 量化）
+- 工程落点：[Latency](/docs/production/latency) · [Cost](/docs/production/cost) · [Caching](/docs/context/caching) · [Context Window](/docs/context/window)
 
 ## 面试问题
 
-1. 解释一下 self-attention。（Explain self-attention.）
-2. Q / K / V 分别是什么？（What are Q / K / V?）
-3. 为什么 attention 是 O(n²)？（Why is attention O(n²)?）
-4. MHA、MQA 和 GQA 有什么区别？（What is the difference between MHA, MQA and GQA?）
-5. 为什么长上下文会变贵？（Why does long context become expensive?）
-6. 为什么长上下文会增加推理成本？（Why does long context increase inference cost?）
-7. KV cache 起了什么作用？（How does KV cache help?）
-8. KV cache 要占多少内存？（How much memory does KV cache consume?）
+先自己口头答一遍，再回上面对照。
 
-## 我的答案
+**L1 — 定义**
+
+1. 用一句话解释 self-attention。（Explain self-attention in one sentence.）
+2. Q、K、V 分别是什么？从哪来？（What are Q, K, and V, and where do they come from?）
+3. self-attention 和 cross-attention 有什么区别？（How does self-attention differ from cross-attention?）
+
+**L2 — 机制**
+
+4. 手算一遍缩放点积注意力。（Walk me through scaled dot-product attention step by step.）
+5. 为什么要除以 √d_k？为什么是根号？（Why divide by √d_k, and why the square root?）
+6. causal mask 是做什么的？怎么实现？（What does the causal mask do, and how is it implemented?）
+7. 为什么用多头？head 之间怎么拆维度？（Why multi-head attention, and how are dimensions split across heads?）
+8. causal mask 和 padding mask 有什么区别？（What's the difference between a causal mask and a padding mask?）
+9. 为什么 Transformer 训练能并行，而 RNN 不能？（Why can Transformer training run in parallel when RNN training can't?）
+
+**L3 — 工程**
+
+10. 为什么 attention 是 O(n²)？计算和显存分别怎么涨？（Why is attention O(n²), and how do compute and memory scale?）
+11. KV cache 缓存了什么？一个 7B 模型 4K 上下文大概要多少显存？（What does the KV cache store, and roughly how much memory does a 7B model need at 4K context?）
+12. MHA、MQA、GQA 有什么区别？为什么现在主流用 GQA？（How do MHA, MQA, and GQA differ, and why is GQA the default now?）
+13. FlashAttention 解决了什么问题？它改变了复杂度吗？（What problem does FlashAttention solve, and does it change the complexity?）
+14. 上下文从 8K 加到 128K，TTFT、显存和吞吐分别会怎样？（If context grows from 8K to 128K, what happens to TTFT, memory, and throughput?）
+15. 既然有 128K 上下文，为什么还需要 RAG？（With a 128K context window, why do you still need RAG?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Attention lets each token pull in information from other tokens, weighted by how relevant they are.
-
-### Level 2 — Mechanism
-
-Q asks the question, K is what gets matched against, and V is what gets pulled out by weight. The causal mask stops a token from seeing the future. Multiple heads do this in parallel across different subspaces.
-
-### Level 3 — Engineering
-
-With sequence length n, QKᵀ is an n×n matrix. Long context gets expensive because both compute and the KV cache grow with n. MQA and GQA cut the number of K/V heads, trading a little quality for throughput and memory.
+- Upstream: [Tokenization](/docs/llm/tokenization) (n is the token count) · [Transformer](/docs/llm/transformer) (where attention sits in a block, and how RoPE acts on Q/K)
+- Downstream: [Inference](/docs/llm/inference) (prefill / decode, FlashAttention, continuous batching, KV cache quantization)
+- Where it lands in engineering: [Latency](/docs/production/latency) · [Cost](/docs/production/cost) · [Caching](/docs/context/caching) · [Context Window](/docs/context/window)
 
 ## Interview questions
 
-1. Explain self-attention.
-2. What are Q / K / V?
-3. Why is attention O(n²)?
-4. What is the difference between MHA, MQA and GQA?
-5. Why does long context become expensive?
-6. Why does long context increase inference cost?
-7. How does KV cache help?
-8. How much memory does KV cache consume?
+Answer out loud first, then check against the sections above.
 
-## My answer
+**L1 — Definition**
+
+1. Explain self-attention in one sentence.
+2. What are Q, K, and V, and where do they come from?
+3. How does self-attention differ from cross-attention?
+
+**L2 — Mechanism**
+
+4. Walk me through scaled dot-product attention step by step.
+5. Why divide by √d_k, and why the square root?
+6. What does the causal mask do, and how is it implemented?
+7. Why multi-head attention, and how are dimensions split across heads?
+8. What's the difference between a causal mask and a padding mask?
+9. Why can Transformer training run in parallel when RNN training can't?
+
+**L3 — Engineering**
+
+10. Why is attention O(n²), and how do compute and memory scale?
+11. What does the KV cache store, and roughly how much memory does a 7B model need at 4K context?
+12. How do MHA, MQA, and GQA differ, and why is GQA the default now?
+13. What problem does FlashAttention solve, and does it change the complexity?
+14. If context grows from 8K to 128K, what happens to TTFT, memory, and throughput?
+15. With a 128K context window, why do you still need RAG?
 
 </Locale>
 
--
+---
+
+<Locale lang="zh">
+
+## 我的答案
+
+自己写，别让 agent 代写。30s 版超过 40 秒就砍；2min 版要能从定义一路讲到 KV cache 和 GQA。
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+Write it yourself — don't let the agent draft it. Cut the 30s version if it runs past 40 seconds; the 2min version should run from the definition all the way to the KV cache and GQA.
+
+</Locale>
+
+### 30s
+
+>
+
+### 2min
+
+>
 
 <Locale lang="zh">
 
 ## 项目锚点
+
+哪个项目上你真的碰到过长上下文带来的延迟、显存或成本问题？当时怎么解决的？一句话 + 一个数字。参考 [项目深挖](/docs/projects)。
 
 </Locale>
 
@@ -128,6 +949,8 @@ With sequence length n, QKᵀ is an n×n matrix. Long context gets expensive bec
 
 ## Project anchor
 
+Which project actually ran into latency, memory, or cost problems from long context, and how did you handle it? One sentence plus one number. See [Projects](/docs/projects).
+
 </Locale>
 
--
+>
