@@ -1,11 +1,11 @@
 ---
-title: Transformer
-titleEn: Transformer
-description: Decoder-only 数据流。Embedding、位置编码、残差、Norm、FFN、logits。
-descriptionEn: "Decoder-only data flow: embedding, positions, residual, norm, FFN, logits."
-date: 2026-09-13
-keywords: ["transformer", "decoder-only", "encoder-decoder", "ffn", "positional encoding", "rope", "layernorm", "rmsnorm", "residual", "logits"]
-tier: B
+title: Attention & Transformer
+titleEn: Attention & Transformer
+description: 从 Encoder / Decoder 讲起，一步步搭出 attention、Transformer 和今天的 LLM，再落到 KV cache 和长上下文成本。
+descriptionEn: Start from encoders and decoders, build up attention, the Transformer, and today's LLMs step by step, then land on the KV cache and long-context cost.
+date: 2026-09-14
+keywords: ["attention", "transformer", "encoder", "decoder", "self-attention", "qkv", "positional encoding", "rope", "kv cache", "gqa", "decoder-only"]
+tier: A
 status: todo
 cursor: ''
 mastery: { talk: 0, probe: 0 }
@@ -13,39 +13,77 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-[Attention](/docs/llm/attention) 是 Transformer 的心脏，但光有 attention 造不出 LLM：它不知道词序、没有非线性、叠几十层还训不动。Transformer 是把 attention 和另外几个部件——位置编码、FFN、残差、归一化——拼成一个能一路堆到上百层的结构。
+今天所有 LLM 都建立在 Transformer 上，而 Transformer 的核心是 attention。面试里「长上下文为什么贵」「KV cache 存了什么」「为什么大家都用 decoder-only」这些问题，最后都会追到这两样东西。
 
-这一页的目标：**能在白板上画出一个 token 从输入到被采样出来的完整路径，并说清每个部件缺了会怎样。** Attention 内部怎么算放在 Attention 页，这里只把它当成一个黑盒。
+这一页不假设你学过深度学习。它从几块数学积木开始，先讲清楚 attention 当年是为了解决什么问题被发明出来的，再一步步把零件拼成 Transformer，最后才讲现代 LLM 的改进和工程影响。**每一节只用到前面讲过的东西**，跳着读很容易看不懂。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 基础知识 | 点积、线性层、softmax、张量形状、训练分别是什么？ | 20 min |
+| 1 · Encoder 和 Decoder | 在 attention 出现之前，模型怎么处理一句话？问题出在哪？ | 30 min |
+| 2 · Attention 的直觉 | Attention 是怎么解决「一句话压成一个向量会丢信息」的？ | 30 min |
+| 3 · Self-Attention | 怎么让一句话里的词互相看？具体怎么算？ | 45 min |
+| 4 · 三个补丁 | 多头、位置编码、mask 分别补上了什么缺口？ | 45 min |
+| 5 · 组装 Transformer | 一个 block 里有什么？原始 Transformer 怎么翻译一句话？ | 45 min |
+| 6 · 三种架构 | Encoder-only、Decoder-only、Encoder-Decoder 有什么区别？为什么 LLM 选 decoder-only？ | 30 min |
+| 7 · 现代 LLM 的改进 | LLaMA 这类模型对原始结构改了什么？为什么改？ | 45 min |
+| 8 · 工程影响 | O(n²)、KV cache、GQA、显存和长上下文成本怎么算？ | 45 min |
+
+每个 Level 末尾有几道自测题，**答不上来就先别往下读**。全页一共约 6 小时，分几次学完；`/drill` 会记住你上次学到哪。
+
+全页用同一个例子贯穿：**把「我 爱 猫」翻译成「I love cats」**。后面讲 decoder-only 时，还是这句话，只是换成「续写」。
 
 ## 需要掌握
 
-- 一次前向计算的完整数据流和每一步的张量形状
-- Encoder-only / Decoder-only / Encoder-Decoder 的区别，以及为什么 LLM 几乎都是 decoder-only
-- 为什么需要位置编码；sinusoidal、learned、RoPE 各自怎么做
-- 残差连接解决了什么
-- LayerNorm vs BatchNorm，Pre-LN vs Post-LN，RMSNorm
-- FFN 的结构、为什么要升维，GELU / SwiGLU
-- Logits 怎么变成下一个 token，temperature 做了什么
-- 参数量怎么估，以及它怎么连到显存和成本
+- 点积、线性层、softmax、张量形状 `[batch, seq_len, d_model]` 的含义
+- 什么是 Encoder、什么是 Decoder，RNN 版本的两个硬伤
+- Attention 的直觉：Q / K / V、打分 → softmax → 加权平均
+- Self-attention 的完整计算，以及为什么除以 √d_k
+- 多头注意力、位置编码、padding mask 和 causal mask
+- Transformer block 的四个零件：attention、FFN、残差、LayerNorm
+- Encoder-only / Decoder-only / Encoder-Decoder 的区别，为什么 LLM 是 decoder-only
+- 现代改进：Pre-LN、RMSNorm、SwiGLU、RoPE 与长度外推
+- 工程影响：参数量与显存、O(n²)、KV cache、MHA / MQA / GQA、长上下文成本
 
 </Locale>
 
 <Locale lang="en">
 
-[Attention](/docs/llm/attention) is the heart of a Transformer, but attention alone doesn't make an LLM: it has no sense of word order, no non-linearity, and a deep stack of it won't train. A Transformer assembles attention with a few other parts — positional encoding, FFN, residual connections, normalization — into a structure you can stack a hundred layers deep.
+Every LLM today is built on the Transformer, and the heart of the Transformer is attention. Interview questions like "why is long context expensive," "what does the KV cache store," and "why is everyone decoder-only" all trace back to these two things.
 
-The goal here: **draw the full path a token takes from input to being sampled, and explain what breaks if each part is removed.** How attention computes internally lives on the Attention page; here it's a black box.
+This page doesn't assume you've studied deep learning. It starts with a few math building blocks, explains what problem attention was invented to solve, assembles the parts into a Transformer step by step, and only then covers modern LLM improvements and engineering impact. **Every section uses only what came before it**, so skipping ahead makes things hard to follow.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Foundations | What are dot products, linear layers, softmax, tensor shapes, and training? | 20 min |
+| 1 · Encoders and decoders | Before attention, how did models handle a sentence, and what went wrong? | 30 min |
+| 2 · The intuition behind attention | How does attention fix "squeezing a sentence into one vector loses information"? | 30 min |
+| 3 · Self-attention | How do words in a sentence look at each other, and how exactly is it computed? | 45 min |
+| 4 · Three fixes | What gaps do multi-head attention, positional encoding, and masks each fill? | 45 min |
+| 5 · Assembling the Transformer | What's inside a block, and how does the original Transformer translate a sentence? | 45 min |
+| 6 · Three architectures | How do encoder-only, decoder-only, and encoder-decoder differ, and why are LLMs decoder-only? | 30 min |
+| 7 · Modern LLM upgrades | What did models like LLaMA change from the original design, and why? | 45 min |
+| 8 · Engineering impact | How do O(n²), the KV cache, GQA, memory, and long-context cost work out? | 45 min |
+
+Each Level ends with a few self-check questions — **if you can't answer them, don't move on yet**. The whole page takes about 6 hours spread over several sessions; `/drill` remembers where you stopped.
+
+One example runs through the entire page: **translating 「我 爱 猫」 into "I love cats."** When we get to decoder-only models, it's the same sentence, just continued instead of translated.
 
 ## Must know
 
-- the full data flow of one forward pass, with tensor shapes at each step
-- encoder-only vs. decoder-only vs. encoder-decoder, and why nearly every LLM is decoder-only
-- why positional encoding is needed; how sinusoidal, learned, and RoPE each work
-- what residual connections solve
-- LayerNorm vs. BatchNorm, Pre-LN vs. Post-LN, RMSNorm
-- the FFN's structure, why it expands the dimension, GELU / SwiGLU
-- how logits become the next token and what temperature does
-- how to estimate parameter count, and how that ties to memory and cost
+- what dot products, linear layers, softmax, and the tensor shape `[batch, seq_len, d_model]` mean
+- what an encoder and a decoder are, and the two weaknesses of the RNN version
+- the intuition behind attention: Q / K / V, score → softmax → weighted average
+- the full self-attention computation, and why scores are divided by √d_k
+- multi-head attention, positional encoding, the padding mask and the causal mask
+- the four parts of a Transformer block: attention, FFN, residual connections, LayerNorm
+- encoder-only vs. decoder-only vs. encoder-decoder, and why LLMs are decoder-only
+- modern upgrades: Pre-LN, RMSNorm, SwiGLU, RoPE and length extrapolation
+- engineering impact: parameters and memory, O(n²), the KV cache, MHA / MQA / GQA, long-context cost
 
 </Locale>
 
@@ -53,69 +91,168 @@ The goal here: **draw the full path a token takes from input to being sampled, a
 
 <Locale lang="zh">
 
-## Level 1 · 整体结构
+## Level 0 · 基础知识
 
-### 一个 token 从输入到被生成出来，要经过哪些步骤？
+这几块是后面每一节都会用到的积木。已经熟悉的话，可以直接做本节末尾的自测题，全答得上就跳到 Level 1。
 
-用 GPT-2 small 的真实配置走一遍（12 层、d_model = 768、词表 50,257、上下文 1,024），假设输入是一句 5 个 token 的话，batch 为 1：
+### 向量和点积：怎么用数字表示「两个东西像不像」？
+
+**向量就是一串数字。** [Tokenization](/docs/llm/tokenization) 里讲过，每个 token 最后都会变成一个向量（embedding），里面的数字编码了这个词的意思。
+
+**点积**：两个向量对应位置相乘，再全部加起来。
 
 ```
-① token ids                         [1, 5]            来自 tokenizer，整数
-② token embedding（查表）            [1, 5, 768]       每个 id 取词表矩阵的一行
-③ + 位置信息                          [1, 5, 768]       让模型知道谁在前谁在后
-④ × 12 个 Transformer block          [1, 5, 768]       形状始终不变，内容越来越「懂上下文」
-     每个 block 里：
-       x = x + Attention(Norm(x))    token 之间交换信息
-       x = x + FFN(Norm(x))          每个 token 自己加工信息
-⑤ 最后一次 Norm                       [1, 5, 768]
-⑥ LM head（线性层）                  [1, 5, 50257]     每个位置对整个词表打分 = logits
-⑦ 只取最后一个位置                    [1, 50257]        它负责预测「下一个 token」
-⑧ softmax → 采样                      1 个新 token id
-⑨ 把新 token 拼到输入末尾，回到 ①（有 KV cache 时只算新 token）
+[1, 2] · [2, 1] = 1×2 + 2×1 = 4
 ```
 
-几个值得注意的点：
+点积的直觉是**方向越接近，结果越大**：
 
-- **从 ② 到 ⑤，形状一直是 `[batch, 长度, 768]`**。每个 block 输入输出同形状，所以才能随便堆 12 层、32 层、80 层
-- **Attention 是唯一让 token 之间交流的地方**，FFN、Norm 都是每个 token 各自算
-- **第 ⑥ 步每个位置都会出 logits**。训练时每个位置都拿来算 loss（第 1 个位置预测第 2 个 token……），一句话同时产生 n 个训练信号；推理时只用最后一个
+```
+[1, 2] · [ 2,  1] =  4     方向接近 → 正数，较大
+[1, 2] · [ 2, -1] =  0     互相垂直 → 0，毫不相关
+[1, 2] · [-1, -2] = -5     方向相反 → 负数
+```
 
-<Note title="Embedding 表和 LM head 常常是同一个矩阵">
+放到词上看。假设用 2 个数表示词义（第 1 个数表示「像动物」，第 2 个数表示「像机器」）：
 
-第 ② 步的 embedding 矩阵是 `[50257, 768]`，第 ⑥ 步把 768 维变回 50,257 个分数的矩阵正好是它的转置形状。GPT-2 就让两者共用参数（weight tying），省下约 3,860 万个参数。LLaMA 等更大的模型通常不共用。
+```
+猫   = [0.9, 0.1]
+狗   = [0.8, 0.2]
+汽车 = [0.1, 0.9]
+
+猫 · 狗   = 0.9×0.8 + 0.1×0.2 = 0.74    像
+猫 · 汽车 = 0.9×0.1 + 0.1×0.9 = 0.18    不像
+```
+
+**记住这一点就够了：点积是模型用来衡量「两个向量有多相关」的工具。** 后面 attention 的「打分」就是点积。
+
+<Note title="点积也会受数值大小影响">
+
+方向不变，只要向量里的数整体变大，点积也会跟着变大。`[2, 4] · [4, 2] = 16`，是 `[1, 2] · [2, 1]` 的 4 倍，但方向完全一样。Level 3 里「除以 √d_k」就是为了处理这个问题。
 
 </Note>
 
-### Encoder-only、Decoder-only、Encoder-Decoder 有什么区别？
+### 矩阵乘法：为什么说「线性层」就是一次矩阵乘法？
 
-三者都用同样的 block，**区别在 attention 能看哪些位置，以及有没有 cross-attention**：
+**矩阵是一张数字表**，形状写作 `[行数, 列数]`。矩阵乘向量 `W · x` 的算法是：**输出的每一个数，都是 W 的一行和 x 做点积。**
 
-| | 代表模型 | Attention 能看哪 | 训练目标 | 擅长 |
-| --- | --- | --- | --- | --- |
-| Encoder-only | BERT、RoBERTa | 双向：每个 token 看整句 | 遮住一些词，让模型填回来 | 理解：分类、抽取、生成 embedding |
-| **Decoder-only** | GPT 系、LLaMA、Claude | 单向：只看前面（causal mask） | 预测下一个 token | 生成：对话、写作、代码 |
-| Encoder-Decoder | 原始 Transformer、T5 | 编码器双向；解码器单向 + cross-attention 看编码器输出 | 输入序列 → 输出序列 | 翻译、摘要这类输入输出明确分开的任务 |
+```
+W = [[1,  1],        x = [3, 1]
+     [1, -1]]
 
-用一句话记：**encoder 负责「读懂」，decoder 负责「接着写」**，encoder-decoder 是先读完原文再写译文。
+W · x = [ 第 1 行 · x,        第 2 行 · x       ]
+      = [ 1×3 + 1×1,          1×3 + (-1)×1      ]
+      = [ 4, 2 ]
+```
 
-<Note title="为什么 BERT 不能直接拿来生成文本" type="tip">
+所以一次矩阵乘法就是**一组点积**，它把一个向量变成了另一种表示。神经网络里的**线性层**做的就是这件事（通常再加一个偏置向量 b）：
 
-BERT 训练时每个词都能看到左右两边，从来没学过「只看左边、猜下一个」。让它从左往右生成，训练和使用的条件对不上。反过来，这种双向理解正是它适合做 embedding 的原因——很多 RAG 用的 embedding 模型就是 encoder-only 结构，见 [Embedding](/docs/rag/embedding)。
+```
+线性层:  y = W · x + b
+形状规则: W 是 [输出维度, 输入维度]
+          W 形状 [2, 3] → 把 3 维向量变成 2 维
+```
+
+两个关键认识：
+
+- **神经网络的「参数」基本就是这些 W 和 b 里的数**，「学习」就是调整这些数
+- **一次可以处理很多 token**：把 n 个 token 的向量排成 `[n, d]` 的矩阵，乘同一个 W，每个 token 都按同一套规则变换。Level 3 的 W_Q、W_K、W_V 就是三个这样的线性层
+
+### Softmax：怎么把一组分数变成概率？
+
+模型经常先给一堆候选打分，再需要把分数变成「加起来等于 1 的概率」。这一步就是 softmax：
+
+```
+softmax(xᵢ) = e^xᵢ / (e^x₁ + e^x₂ + … + e^xₙ)
+```
+
+手算三个分数 `[2.0, 1.0, 0.1]`：
+
+```
+e^2.0 = 7.389    e^1.0 = 2.718    e^0.1 = 1.105    合计 = 11.212
+
+softmax = [7.389 / 11.212,  2.718 / 11.212,  1.105 / 11.212]
+        = [0.659, 0.242, 0.099]
+```
+
+三个性质：
+
+1. **全部是正数**（e 的任何次方都大于 0）
+2. **加起来等于 1**，可以当概率或权重用
+3. **大小顺序不变，但差距被放大**：原始分数 2.0 只是 1.0 的 2 倍，softmax 后 0.659 是 0.242 的 2.7 倍
+
+后面有两个地方用到它：attention 里把打分变成权重（Level 2、3），以及模型最后预测下一个 token 的概率（Level 6）。
+
+### 张量形状怎么读？`[batch, seq_len, d_model]` 是什么意思？
+
+**张量就是多维数组**，形状写出每一维有多长：
+
+```
+标量     5                    形状 []
+向量     [0.2, 0.7, 0.1]      形状 [3]
+矩阵     3 个 token × 每个 4 维   形状 [3, 4]
+三维张量  2 句话 × 5 个 token × 每个 768 维   形状 [2, 5, 768]
+```
+
+LLM 里最常见的就是最后这种 `[batch, seq_len, d_model]`：
+
+| 维度 | 例子里的值 | 含义 |
+| --- | --- | --- |
+| batch | 2 | 一次同时喂进去几句话。一起算是为了让 GPU 并行，句子之间互不影响 |
+| seq_len | 5 | 每句话有几个 token |
+| d_model | 768 | 每个 token 的向量有多少个数（模型的「宽度」） |
+
+一句话经过前几步，形状是这样变的：
+
+```
+token ids        [2, 5]         整数，tokenizer 的输出，还没变成向量
+查 embedding 后   [2, 5, 768]    每个 id 变成一个 768 维向量
+```
+
+两句话长短不一怎么办？把短的补上 `<pad>` 凑成一样长，才能排进同一个张量。Level 4 的 padding mask 就是专门处理这些补位的。
+
+<Note title="面试画图时把每一步的形状写出来" type="tip">
+
+讲 Transformer 时，能在每个箭头旁边标出 `[batch, seq_len, d_model]` 怎么变，是最直接证明你真懂数据流的方式。后面每一节都会标形状，边读边跟着写。
 
 </Note>
 
-### 为什么现在的 LLM 几乎都是 decoder-only？
+### 「训练」到底在做什么？loss 和梯度是什么？
 
-不是因为另外两种「做不到」，而是 decoder-only 在「做大、做通用」这件事上最省事：
+参数（所有 W 里的数）一开始是随机的。训练就是反复做下面这四步：
 
-1. **训练数据不用加工。** 任意一段文本都是训练样本，每个位置都在预测下一个 token，一句 n 个 token 的话产生 n 个训练信号。Encoder-decoder 需要切出「输入 / 输出」两段
-2. **一种结构覆盖所有任务。** 翻译、问答、分类都能写成「给一段 prompt，接着往下写」，任务差异全部变成 prompt 的差异
-3. **生成时天然能用 KV cache。** Causal mask 保证前面 token 的 K、V 不会变，缓存复用（见 [Attention](/docs/llm/attention) Level 3）
-4. **结构最简单，堆大最直接。** 只有一种 block，没有编码器解码器之间的配比问题
+```
+① 前向计算   把输入喂进模型，得到预测。例：下一个词是 "cats" 的概率 = 0.2
+② 算 loss    用一个数衡量「错了多少」
+③ 算梯度     对每个参数，算出「往哪个方向调一点，loss 会变小」（反向传播）
+④ 更新参数   每个参数朝让 loss 变小的方向挪一小步
 
-<Note title="别把 decoder-only 说成「全面更强」" type="warning">
+回到 ①，重复几百万到几万亿次
+```
 
-T5、Flan-T5 这类 encoder-decoder 在同等规模下的翻译、摘要表现并不差，BERT 系在分类和 embedding 上至今仍然常用。decoder-only 胜出主要是「规模化 + 通用性」上的工程选择。面试里这样说更准确。
+**Loss 的例子**：预测下一个 token 时，常用的 loss 是「正确答案的概率取负对数」：
+
+```
+正确答案 cats 的预测概率 0.2  →  loss = -ln 0.2 = 1.609    错得多
+正确答案 cats 的预测概率 0.5  →  loss = -ln 0.5 = 0.693
+正确答案 cats 的预测概率 0.9  →  loss = -ln 0.9 = 0.105    接近正确
+```
+
+**梯度要从最后一层一层层往回传**，每经过一层都要乘上一些系数。层数很多时，如果这些系数总是小于 1，传到最前面的层时梯度已经接近 0，前面的参数几乎学不到东西。**这就是后面常说的「训不动」**，Level 5 的残差连接专门解决它。
+
+<Note title="LLM 预训练就是这四步做到极致">
+
+在海量文本上，让模型在每个位置预测下一个 token，用上面的 loss 反复更新参数。怎么训、训多少数据见 [Training](/docs/llm/training)；这一页只需要你知道「参数是训练中调出来的」「loss 衡量错多少」「梯度传不回去就训不动」。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. `[1, 0]` 和 `[0, 1]` 的点积是多少？说明什么？
+2. 一个形状为 `[64, 768]` 的 W，会把 768 维的向量变成几维？
+3. `softmax([0, 0, 0])` 等于多少？
+4. 张量 `[8, 100, 4096]` 的三个数分别表示什么？
+5. 「训不动」通常指的是什么情况？
 
 </Note>
 
@@ -123,69 +260,168 @@ T5、Flan-T5 这类 encoder-decoder 在同等规模下的翻译、摘要表现�
 
 <Locale lang="en">
 
-## Level 1 · Overall structure
+## Level 0 · Foundations
 
-### What steps does a token go through from input to being generated?
+These are the building blocks every later section relies on. If you already know them, jump to the self-check at the end; if you can answer everything, skip ahead to Level 1.
 
-Walk through it with GPT-2 small's real config (12 layers, d_model = 768, vocabulary 50,257, context 1,024), a 5-token input, batch size 1:
+### Vectors and dot products: how do numbers express "how similar are these two things"?
+
+**A vector is just a list of numbers.** As covered in [Tokenization](/docs/llm/tokenization), every token eventually becomes a vector (its embedding), and those numbers encode what the word means.
+
+**Dot product**: multiply matching positions of two vectors, then add everything up.
 
 ```
-① token ids                         [1, 5]            integers from the tokenizer
-② token embedding (lookup)          [1, 5, 768]       each id grabs one row of the embedding matrix
-③ + position information            [1, 5, 768]       so the model knows what comes before what
-④ × 12 Transformer blocks           [1, 5, 768]       shape never changes; content becomes context-aware
-     inside each block:
-       x = x + Attention(Norm(x))    tokens exchange information
-       x = x + FFN(Norm(x))          each token processes its own information
-⑤ final Norm                        [1, 5, 768]
-⑥ LM head (linear layer)            [1, 5, 50257]     every position scores the whole vocabulary = logits
-⑦ keep only the last position       [1, 50257]        it's the one predicting the next token
-⑧ softmax → sample                  one new token id
-⑨ append the new token and go back to ① (with a KV cache, only the new token is computed)
+[1, 2] · [2, 1] = 1×2 + 2×1 = 4
 ```
 
-A few things worth noticing:
+The intuition: **the closer the directions, the larger the result.**
 
-- **From ② through ⑤ the shape stays `[batch, length, 768]`.** Every block has the same input and output shape, which is exactly why you can stack 12, 32, or 80 of them
-- **Attention is the only place tokens talk to each other.** The FFN and Norm operate on each token independently
-- **Step ⑥ produces logits at every position.** In training, every position contributes to the loss (position 1 predicts token 2, and so on), so one sentence yields n training signals at once; at inference only the last position is used
+```
+[1, 2] · [ 2,  1] =  4     similar direction → positive, fairly large
+[1, 2] · [ 2, -1] =  0     perpendicular → 0, unrelated
+[1, 2] · [-1, -2] = -5     opposite direction → negative
+```
 
-<Note title="The embedding table and the LM head are often the same matrix">
+Now apply it to words. Suppose two numbers describe a word's meaning (the first means "animal-like," the second "machine-like"):
 
-The embedding matrix in step ② is `[50257, 768]`, and the matrix in step ⑥ that maps 768 dims back to 50,257 scores has exactly the transposed shape. GPT-2 shares the two (weight tying), saving about 38.6 million parameters. Larger models such as LLaMA usually don't.
+```
+cat = [0.9, 0.1]
+dog = [0.8, 0.2]
+car = [0.1, 0.9]
+
+cat · dog = 0.9×0.8 + 0.1×0.2 = 0.74    similar
+cat · car = 0.9×0.1 + 0.1×0.9 = 0.18    not similar
+```
+
+**That's all you need to remember: the dot product is how a model measures how related two vectors are.** The "scoring" step in attention is exactly a dot product.
+
+<Note title="Dot products also react to magnitude">
+
+Keep the direction the same, make the numbers bigger, and the dot product grows. `[2, 4] · [4, 2] = 16`, four times `[1, 2] · [2, 1]`, even though the directions are identical. Dividing by √d_k in Level 3 exists to deal with exactly this.
 
 </Note>
 
-### How do encoder-only, decoder-only, and encoder-decoder differ?
+### Matrix multiplication: why is a "linear layer" just one matrix multiply?
 
-All three use the same blocks. **The difference is which positions attention may look at, and whether there's cross-attention:**
+**A matrix is a table of numbers** with shape `[rows, columns]`. To compute `W · x`: **each number in the output is one row of W dotted with x.**
 
-| | Examples | What attention can see | Training objective | Good at |
-| --- | --- | --- | --- | --- |
-| Encoder-only | BERT, RoBERTa | bidirectional: every token sees the whole sentence | mask some words, have the model fill them in | understanding: classification, extraction, producing embeddings |
-| **Decoder-only** | the GPT family, LLaMA, Claude | one direction: only earlier tokens (causal mask) | predict the next token | generation: chat, writing, code |
-| Encoder-decoder | original Transformer, T5 | encoder bidirectional; decoder causal plus cross-attention to the encoder output | input sequence → output sequence | tasks with a clean input/output split, like translation and summarization |
+```
+W = [[1,  1],        x = [3, 1]
+     [1, -1]]
 
-One line to remember: **the encoder reads, the decoder keeps writing.** An encoder-decoder reads the whole source first, then writes the output.
+W · x = [ row 1 · x,          row 2 · x          ]
+      = [ 1×3 + 1×1,          1×3 + (-1)×1       ]
+      = [ 4, 2 ]
+```
 
-<Note title="Why BERT can't simply be used to generate text" type="tip">
+So one matrix multiply is **a batch of dot products** that turns a vector into a different representation. That's exactly what a **linear layer** in a neural network does (usually plus a bias vector b):
 
-During training every BERT token sees both sides; it never learned "look only left and guess the next word." Asking it to generate left to right mismatches how it was trained. That same bidirectional understanding is why it's good at embeddings — many embedding models used in RAG are encoder-only. See [Embedding](/docs/rag/embedding).
+```
+linear layer:  y = W · x + b
+shape rule:    W is [output dim, input dim]
+               a W of shape [2, 3] turns a 3-dim vector into a 2-dim one
+```
+
+Two key takeaways:
+
+- **A neural network's "parameters" are mostly the numbers inside these W and b**, and "learning" means adjusting them
+- **Many tokens can be processed at once**: stack n token vectors into an `[n, d]` matrix and multiply by the same W, so every token is transformed by the same rule. W_Q, W_K, and W_V in Level 3 are three linear layers like this
+
+### Softmax: how do you turn a set of scores into probabilities?
+
+Models often score a set of candidates and then need those scores as probabilities that add up to 1. That step is softmax:
+
+```
+softmax(xᵢ) = e^xᵢ / (e^x₁ + e^x₂ + … + e^xₙ)
+```
+
+By hand for the scores `[2.0, 1.0, 0.1]`:
+
+```
+e^2.0 = 7.389    e^1.0 = 2.718    e^0.1 = 1.105    total = 11.212
+
+softmax = [7.389 / 11.212,  2.718 / 11.212,  1.105 / 11.212]
+        = [0.659, 0.242, 0.099]
+```
+
+Three properties:
+
+1. **Every value is positive** (e raised to any power is above 0)
+2. **They add up to 1**, so they work as probabilities or weights
+3. **The order is preserved but the gaps get amplified**: a raw score of 2.0 is only twice 1.0, yet after softmax 0.659 is 2.7 times 0.242
+
+It shows up in two places later: turning attention scores into weights (Levels 2 and 3), and producing the model's probabilities for the next token (Level 6).
+
+### How do you read tensor shapes? What does `[batch, seq_len, d_model]` mean?
+
+**A tensor is a multi-dimensional array**, and its shape lists how long each dimension is:
+
+```
+scalar      5                                   shape []
+vector      [0.2, 0.7, 0.1]                     shape [3]
+matrix      3 tokens × 4 dims each              shape [3, 4]
+3D tensor   2 sentences × 5 tokens × 768 dims   shape [2, 5, 768]
+```
+
+In LLMs the most common one is that last form, `[batch, seq_len, d_model]`:
+
+| Dimension | Value in the example | Meaning |
+| --- | --- | --- |
+| batch | 2 | how many sentences go in at once; computing them together lets the GPU parallelize, and sentences don't affect each other |
+| seq_len | 5 | how many tokens each sentence has |
+| d_model | 768 | how many numbers make up each token's vector (the model's "width") |
+
+Here's how the shape changes over the first steps:
+
+```
+token ids          [2, 5]         integers from the tokenizer, not vectors yet
+after embedding    [2, 5, 768]    each id becomes a 768-dim vector
+```
+
+What if the two sentences have different lengths? Pad the shorter one with `<pad>` so both fit in one tensor. The padding mask in Level 4 exists specifically to handle those filler positions.
+
+<Note title="Write the shape at every step when you draw it in an interview" type="tip">
+
+When explaining a Transformer, labeling how `[batch, seq_len, d_model]` changes beside each arrow is the most direct proof that you really understand the data flow. Every later section marks shapes — write them down as you read.
 
 </Note>
 
-### Why is nearly every LLM today decoder-only?
+### What does "training" actually do? What are loss and gradients?
 
-Not because the other two can't do the job, but because decoder-only is the least friction when the goal is big and general-purpose:
+The parameters — all the numbers in every W — start out random. Training repeats these four steps:
 
-1. **Training data needs no preparation.** Any text is a training example, every position predicts the next token, and an n-token sentence yields n training signals. Encoder-decoder needs data split into input and output
-2. **One architecture covers every task.** Translation, QA, and classification can all be phrased as "here's a prompt, keep writing," so task differences become prompt differences
-3. **Generation gets the KV cache for free.** The causal mask guarantees earlier tokens' K and V never change, so they can be cached and reused (see [Attention](/docs/llm/attention) Level 3)
-4. **The simplest structure scales most directly.** One kind of block, no encoder/decoder balance to tune
+```
+① forward pass       feed the input through the model and get a prediction, e.g. P(next word = "cats") = 0.2
+② compute the loss   one number measuring how wrong the prediction is
+③ compute gradients  for every parameter, which direction to nudge it so the loss drops (backpropagation)
+④ update             move every parameter a small step in that direction
 
-<Note title="Don't frame decoder-only as strictly better" type="warning">
+back to ①, repeated millions to trillions of times
+```
 
-Encoder-decoder models like T5 and Flan-T5 hold up well on translation and summarization at similar scale, and BERT-style models are still widely used for classification and embeddings. Decoder-only won mainly as an engineering choice for scale and generality — the more accurate way to put it in an interview.
+**A loss example**: for next-token prediction, the usual loss is the negative log of the probability given to the correct answer:
+
+```
+P(correct answer "cats") = 0.2  →  loss = -ln 0.2 = 1.609    quite wrong
+P(correct answer "cats") = 0.5  →  loss = -ln 0.5 = 0.693
+P(correct answer "cats") = 0.9  →  loss = -ln 0.9 = 0.105    nearly right
+```
+
+**Gradients flow backward from the last layer toward the first**, getting multiplied by some factors at every layer along the way. With many layers, if those factors are usually below 1, the gradient is close to zero by the time it reaches the early layers, and those parameters barely learn. **That's what people mean when they say a deep network "won't train"** — the residual connections in Level 5 exist to fix it.
+
+<Note title="LLM pretraining is these four steps taken to the extreme">
+
+Across a huge amount of text, the model predicts the next token at every position and updates its parameters with the loss above, over and over. How it's trained and on how much data is on [Training](/docs/llm/training); for this page you only need "parameters are tuned during training," "loss measures how wrong," and "if gradients can't flow back, the network won't train."
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What's the dot product of `[1, 0]` and `[0, 1]`, and what does that tell you?
+2. A W of shape `[64, 768]` turns a 768-dim vector into how many dimensions?
+3. What is `softmax([0, 0, 0])`?
+4. In the tensor `[8, 100, 4096]`, what does each number mean?
+5. What situation does "won't train" usually describe?
 
 </Note>
 
@@ -195,254 +431,1073 @@ Encoder-decoder models like T5 and Flan-T5 hold up well on translation and summa
 
 <Locale lang="zh">
 
-## Level 2 · 部件机制
+## Level 1 · 问题从哪来：Encoder 和 Decoder
 
-### 为什么 Transformer 需要位置编码？
+Attention 不是凭空冒出来的，它是为了修补一个具体的设计缺陷。先看清这个缺陷，后面每一步改进为什么要那样做就都顺理成章了。
 
-**因为 attention 本身完全不看顺序。**
+### 什么是序列任务？为什么普通神经网络处理不了？
 
-回想 [Attention](/docs/llm/attention) 的计算：打分只取决于两个向量的内容（`q·k`），跟它们在第几个位置无关。把输入顺序打乱，每个 token 得到的结果不变，只是输出的顺序跟着换了：
+输入或输出是「一串有顺序的东西」的任务，叫序列任务：
+
+| 任务 | 输入 | 输出 | 例子 |
+| --- | --- | --- | --- |
+| 翻译 | 一串词 | 另一串词 | 「我 爱 猫」→「I love cats」 |
+| 续写 | 一串词 | 下一个词 | 「I love」→「cats」 |
+| 分类 | 一串词 | 一个标签 | 「这家店太好吃了」→ 好评 |
+
+Level 0 那种由线性层组成的普通网络处理不了，原因有两个：
+
+1. **输入大小必须固定**：W 的形状是定死的，但句子有长有短
+2. **顺序很重要**：「狗 咬 人」和「人 咬 狗」用的词一样，意思完全相反
+
+所以需要一种**能处理任意长度、按顺序读**的模型。在 Transformer 之前，主流答案是 RNN。
+
+### RNN 是怎么一个词一个词读句子的？
+
+RNN（循环神经网络）的核心是维护一个「记忆」向量，叫 **hidden state（隐藏状态）** h。每读一个词，就用「旧记忆 + 新词」算出新记忆：
 
 ```
-"狗 咬 人"  和  "人 咬 狗"
+h_t = tanh( W_h · h_(t-1)  +  W_x · x_t )
+            ↑ 旧记忆            ↑ 当前这个词的向量
 ```
 
-如果没有位置信息，这两句话在 attention 眼里是**同一组向量**，模型分不出谁咬谁。RNN 天然按顺序处理所以不需要这个；Transformer 为了并行放弃了顺序处理，就得把位置信息显式加进去。
+`tanh` 是一个函数，**把任意数压到 -1 到 1 之间**，防止数值越加越大。
 
-### 为什么不直接把位置编号 1、2、3 当成位置编码？
+手推一遍。为了能手算，把参数简化成：W_h 就是「每个数乘 0.5」，W_x 就是「原样不变」，词向量取 `我 = [1, 0]`、`爱 = [0, 1]`、`猫 = [1, 1]`，一开始的记忆 `h₀ = [0, 0]`：
 
-三个问题：
+```
+读「我」:  h₁ = tanh( 0.5 × [0, 0]         + [1, 0] ) = tanh([1.000, 0.000]) = [0.762, 0.000]
+读「爱」:  h₂ = tanh( 0.5 × [0.762, 0]     + [0, 1] ) = tanh([0.381, 1.000]) = [0.363, 0.762]
+读「猫」:  h₃ = tanh( 0.5 × [0.363, 0.762] + [1, 1] ) = tanh([1.182, 1.381]) = [0.828, 0.881]
+```
 
-1. **数值会失控。** embedding 里的数一般在 ±1 附近，位置 50,000 就是 50,000，一加上去语义信息被完全淹没
-2. **归一化也不行。** 改成「位置 / 句长」，同一个第 5 位，在 10 个词的句子里是 0.5，在 100 个词的句子里是 0.05，模型没法学到稳定的含义
-3. **没见过的长度无法处理。** 训练最长只见过 1,024，推理遇到 2,000，这个数值模型从来没见过
+读完整句话，`h₃ = [0.828, 0.881]` 就是模型对「我 爱 猫」这句话的全部「理解」。
 
-所以需要一种**数值有界、每个位置唯一、相对距离有规律**的表示。
+### 什么是 Encoder？什么是 Decoder？
+
+翻译这件事可以拆成两个角色：
+
+- **Encoder（编码器）负责「读」**：把输入句子从头读到尾，变成表示「这句话是什么意思」的向量
+- **Decoder（解码器）负责「写」**：拿着 encoder 给的表示，一个词一个词地生成输出
+
+用 RNN 实现的翻译流程：
+
+```
+Encoder 读原文
+  我  →  h₁
+  爱  →  h₂
+  猫  →  h₃   ← 读完。h₃ 作为「整句话的意思」交给 decoder，常叫 context vector（上下文向量）c
+
+Decoder 写译文（每一步都带着 c）
+  输入 <bos>   →  输出 I
+  输入 I       →  输出 love
+  输入 love    →  输出 cats
+  输入 cats    →  输出 <eos>    ← 生成结束
+```
+
+`<bos>` 和 `<eos>` 是表示「开始」和「结束」的特殊 token。
+
+注意 decoder 的一个关键特点：**每一步都把自己上一步生成的词当作这一步的输入**。这种「用自己的输出接着往下生成」的方式叫**自回归（autoregressive）**，今天的 LLM 一个一个往外吐 token，就是这个模式。
+
+打个比方：encoder-decoder 就像交替传译的译员，先把对方一整句话听完，再开口一个词一个词说出译文。
+
+<Note title="Encoder 和 Decoder 是「角色」，不是某种具体结构">
+
+这里用 RNN 实现它们，Level 5 会换成 Transformer block，但「一个负责读、一个负责写」的分工不变。所以 Level 6 讲 Encoder-only、Decoder-only 时，说的就是「只保留读的那半」和「只保留写的那半」。
+
+</Note>
+
+<Note title="别把模型的 Encoder 和 tokenizer 的 encode 搞混" type="warning">
+
+两个都叫 encode，但完全不在一个层次：
+
+```
+文本 → tokenizer.encode → token ids → embedding → Encoder → 上下文表示
+       ↑ 查表，没有神经网络               ↑ 神经网络模块
+```
+
+`tokenizer.encode` 是 [Tokenization](/docs/llm/tokenization) 讲的「文本 → 整数 id」；模型里的 Encoder 是读向量、产生上下文表示的神经网络。面试里说混了会显得概念不清。
+
+</Note>
+
+### 这种设计有什么问题？
+
+**硬伤 ①：信息瓶颈。** 不管原文是 3 个词还是 300 个词，交给 decoder 的都只有一个固定长度的向量 h₃（上面是 2 维，真实模型是几百到上千维）。句子越长，越早读到的词越容易被冲淡。
+
+用上面的玩具 RNN 做个实验：把第一个词「我」换成「你」（向量 `[-1, 0]`），后面的词不变，看读完之后的最终 h 差多少：
+
+```
+句子长 3 个词     最终 h 相差 0.154
+句子长 5 个词     最终 h 相差 0.011
+句子长 10 个词    保留 4 位小数已经完全一样
+```
+
+读到第 10 个词时，模型已经「忘了」第一个词是「我」还是「你」。原因很直接：每读一个新词，旧记忆都要乘 0.5 再压一次 tanh，第一个词的影响被一层层稀释。真实 RNN 的参数是学出来的，LSTM、GRU 也加了「门」来缓解遗忘，但**「整句话必须压进一个向量」这个瓶颈一直在**。
+
+**硬伤 ②：无法并行。** 算 h₃ 必须等 h₂，算 h₂ 必须等 h₁。一句 1,000 个 token 的话就是 1,000 步串行计算。GPU 最擅长同时算大量东西，在这里却只能一步一步等，训练很慢，模型也就很难做大。
+
+<Note title="带着这两个问题往下读" type="tip">
+
+后面两个 Level 分别解决它们：**Level 2 的 attention 解决 ①**（decoder 不再只靠一个向量），**Level 3 的 self-attention 解决 ②**（彻底去掉 RNN 的逐步计算）。两个解决方案合在一起，就是 Transformer。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. RNN 的 hidden state 是什么？为什么说它是「记忆」？
+2. 翻译任务里，encoder 和 decoder 各负责什么？
+3. 什么叫自回归？今天的 LLM 哪里体现了它？
+4. tokenizer 的 encode 和模型里的 Encoder 有什么区别？
+5. RNN encoder-decoder 的两个硬伤是什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Where the problem comes from: encoders and decoders
+
+Attention didn't appear out of nowhere — it was invented to patch a specific design flaw. Once you see that flaw clearly, every later improvement makes sense.
+
+### What is a sequence task, and why can't an ordinary neural network handle it?
+
+A sequence task is one where the input or output is an ordered series of items:
+
+| Task | Input | Output | Example |
+| --- | --- | --- | --- |
+| Translation | a series of words | another series of words | 「我 爱 猫」→ "I love cats" |
+| Continuation | a series of words | the next word | "I love" → "cats" |
+| Classification | a series of words | one label | "This place is amazing" → positive |
+
+An ordinary network built from the linear layers in Level 0 can't handle this, for two reasons:
+
+1. **The input size has to be fixed**: W's shape is set in stone, but sentences vary in length
+2. **Order matters**: "dog bites man" and "man bites dog" use the same words with opposite meanings
+
+So we need a model that **handles any length and reads in order**. Before Transformers, the standard answer was the RNN.
+
+### How does an RNN read a sentence one word at a time?
+
+The core of an RNN (recurrent neural network) is a "memory" vector called the **hidden state** h. Each time it reads a word, it combines the old memory with the new word to produce a new memory:
+
+```
+h_t = tanh( W_h · h_(t-1)  +  W_x · x_t )
+            ↑ old memory        ↑ vector for the current word
+```
+
+`tanh` is a function that **squashes any number into the range -1 to 1**, so values don't keep growing.
+
+Let's work it through. To keep it hand-computable, simplify the parameters: W_h means "multiply each number by 0.5," W_x means "leave it unchanged," the word vectors are `我 = [1, 0]`, `爱 = [0, 1]`, `猫 = [1, 1]`, and the starting memory is `h₀ = [0, 0]`:
+
+```
+read 我:  h₁ = tanh( 0.5 × [0, 0]         + [1, 0] ) = tanh([1.000, 0.000]) = [0.762, 0.000]
+read 爱:  h₂ = tanh( 0.5 × [0.762, 0]     + [0, 1] ) = tanh([0.381, 1.000]) = [0.363, 0.762]
+read 猫:  h₃ = tanh( 0.5 × [0.363, 0.762] + [1, 1] ) = tanh([1.182, 1.381]) = [0.828, 0.881]
+```
+
+After the whole sentence, `h₃ = [0.828, 0.881]` is everything the model "understands" about 「我 爱 猫」.
+
+### What is an encoder, and what is a decoder?
+
+Translation splits naturally into two roles:
+
+- **The encoder reads**: it goes through the input sentence start to finish and turns it into vectors that capture what the sentence means
+- **The decoder writes**: it takes the encoder's representation and generates the output one word at a time
+
+Translation with RNNs looks like this:
+
+```
+Encoder reads the source
+  我  →  h₁
+  爱  →  h₂
+  猫  →  h₃   ← done. h₃ goes to the decoder as "the meaning of the sentence," often called the context vector c
+
+Decoder writes the translation (carrying c at every step)
+  input <bos>   →  output I
+  input I       →  output love
+  input love    →  output cats
+  input cats    →  output <eos>    ← generation ends
+```
+
+`<bos>` and `<eos>` are special tokens marking the beginning and end.
+
+Notice one key property of the decoder: **at every step, the word it generated last becomes this step's input**. Generating by feeding your own output back in is called **autoregressive** generation — and it's exactly how today's LLMs emit tokens one at a time.
+
+An analogy: an encoder-decoder works like a consecutive interpreter who listens to the whole sentence first, then speaks the translation word by word.
+
+<Note title="Encoder and decoder are roles, not specific structures">
+
+Here they're built with RNNs; in Level 5 they'll be built from Transformer blocks, but the split — one reads, one writes — stays the same. So when Level 6 talks about encoder-only and decoder-only models, it means "keep only the reading half" and "keep only the writing half."
+
+</Note>
+
+<Note title="Don't confuse the model's encoder with the tokenizer's encode" type="warning">
+
+Both are called "encode," but they live at completely different levels:
+
+```
+text → tokenizer.encode → token ids → embedding → Encoder → contextual representation
+       ↑ a lookup, no neural network               ↑ a neural network module
+```
+
+`tokenizer.encode` is the "text → integer ids" step from [Tokenization](/docs/llm/tokenization); the Encoder inside a model is a neural network that reads vectors and produces contextual representations. Mixing them up in an interview comes across as fuzzy on the concepts.
+
+</Note>
+
+### What's wrong with this design?
+
+**Weakness ①: an information bottleneck.** Whether the source is 3 words or 300, the decoder receives one fixed-length vector, h₃ (2 dims above; hundreds to thousands in real models). The longer the sentence, the more the earliest words get washed out.
+
+Try an experiment with the toy RNN above: swap the first word 我 for 你 (vector `[-1, 0]`), keep everything else the same, and see how much the final h changes:
+
+```
+3-word sentence     final h differs by 0.154
+5-word sentence     final h differs by 0.011
+10-word sentence    identical to 4 decimal places
+```
+
+By the 10th word the model has "forgotten" whether the first word was 我 or 你. The reason is simple: every new word multiplies the old memory by 0.5 and squashes it through tanh again, so the first word's influence gets diluted layer after layer. Real RNNs learn their parameters, and LSTMs and GRUs add "gates" to reduce forgetting, but **the bottleneck of squeezing the whole sentence into one vector never goes away**.
+
+**Weakness ②: no parallelism.** Computing h₃ has to wait for h₂, which has to wait for h₁. A 1,000-token sentence means 1,000 sequential steps. GPUs are built to compute huge amounts at once, yet here they sit waiting step by step, so training is slow and models are hard to scale.
+
+<Note title="Keep these two problems in mind as you read on" type="tip">
+
+The next two Levels fix them one at a time: **attention in Level 2 fixes ①** (the decoder no longer depends on a single vector), and **self-attention in Level 3 fixes ②** (the RNN's step-by-step computation goes away entirely). Put the two fixes together and you have the Transformer.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What is an RNN's hidden state, and why is it called "memory"?
+2. In translation, what is the encoder responsible for, and what is the decoder responsible for?
+3. What does autoregressive mean, and where does it show up in today's LLMs?
+4. How is the tokenizer's encode different from the Encoder inside a model?
+5. What are the two weaknesses of an RNN encoder-decoder?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · Attention 的直觉
+
+### 翻译每个词时，模型应该看原文的哪里？
+
+人翻译「I love cats」时，写到 love 眼睛自然会回到原文的「爱」，写到 cats 会回到「猫」：
+
+```
+I     ↔  我
+love  ↔  爱
+cats  ↔  猫
+```
+
+Level 1 的设计做不到这一点：decoder 手里只有一个 h₃，原文每个词具体在哪、是什么，早就混成一团了。
+
+Attention 的想法很简单：**别只把最后一个 h₃ 交给 decoder，把 encoder 每一步的 h₁、h₂、h₃ 全都留着。** decoder 每生成一个词，都回头从这三个里「按需取」——和当前最相关的多取，不相关的少取。
+
+这个想法 2014 年为翻译模型提出（常叫 Bahdanau attention），它就是后来所有 attention 的起点。
+
+### Q、K、V 是什么？怎么理解「按需取」？
+
+先想想普通的查字典。Python 里的 dict：
+
+```python
+d = {"我": 内容1, "爱": 内容2, "猫": 内容3}
+d["爱"]   # key 必须完全一样才找得到，而且只返回一条
+```
+
+Attention 是**模糊查询**：拿着一个问题去和**每个** key 比相似度，然后按相似度把**所有** value 混在一起返回。三个角色：
+
+| 角色 | 查字典里是 | 在翻译里是 |
+| --- | --- | --- |
+| **Query（查询，Q）** | 你拿着去查的问题 | decoder 当前的状态：「我现在要写下一个词，需要什么信息？」 |
+| **Key（键，K）** | 每条记录的标签，用来被匹配 | 原文每个位置的「标签」：「我这里有什么」 |
+| **Value（值，V）** | 每条记录的实际内容 | 原文每个位置被取走的「内容」 |
+
+在这个最早的翻译版本里，**K 和 V 都是 encoder 的 h₁、h₂、h₃**（同一样东西两个用途），Q 是 decoder 的当前状态。相似度用 Level 0 的点积来算。
+
+<Note title="为什么要把「标签」和「内容」分开？">
+
+「用来判断相不相关的信息」和「真正要取走的信息」不一定是同一种东西。就像图书馆里，你靠书名和分类号（key）找书，真正带走的是书的内容（value）。这里暂时让它们相同；Level 3 会给 K 和 V 各配一个线性层，让模型自己学怎么分开。
+
+</Note>
+
+### 完整走一遍：生成 love 时，attention 怎么算？
+
+为了好算，key 取 3 维、value 取 2 维：
+
+```
+原文位置   Key（标签）       Value（内容）
+我         k = [1, 0, 0]     v = [1.0, 0.0]
+爱         k = [0, 1, 0]     v = [0.0, 1.0]
+猫         k = [0, 0, 1]     v = [0.5, 0.5]
+
+decoder 准备生成 love 时的 query：q = [0.1, 2.0, 0.3]
+```
+
+**第 1 步：打分**——q 和每个 key 做点积
+
+```
+q · k我 = 0.1×1 + 2.0×0 + 0.3×0 = 0.1
+q · k爱 = 0.1×0 + 2.0×1 + 0.3×0 = 2.0
+q · k猫 = 0.1×0 + 2.0×0 + 0.3×1 = 0.3
+```
+
+**第 2 步：softmax**——把分数变成加起来为 1 的权重
+
+```
+softmax([0.1, 2.0, 0.3]) = [0.112, 0.751, 0.137]
+```
+
+**第 3 步：加权平均**——按权重把 value 混在一起
+
+```
+0.112 × [1.0, 0.0] + 0.751 × [0.0, 1.0] + 0.137 × [0.5, 0.5]
+= [0.112 + 0.069,  0.751 + 0.069]
+= [0.181, 0.819]
+```
+
+结果 `[0.181, 0.819]` 叫 **context vector（上下文向量）**，75% 的内容来自「爱」。decoder 把它和自己的状态一起用，决定这一步输出 love。
+
+**每生成一个词，query 都不一样，权重也跟着变。** 三步全部算出来：
+
+```
+正在生成    看「我」   看「爱」   看「猫」
+I           0.761     0.126     0.114
+love        0.112     0.751     0.137
+cats        0.126     0.114     0.761
+```
+
+这张表叫**对齐矩阵**，每一行加起来是 1，最大的权重正好落在对角线上——模型「对齐」了原文和译文。
+
+<Note title="真实模型里 query 和 key 不是人设的">
+
+上面的数字是为了好算故意设计的。真实模型里，q 和 k 都是神经网络算出来的，参数靠训练学。训练时模型发现「生成 love 时多看『爱』，预测就更准、loss 更低」，于是自己学会了让它们的点积最大。另外，Bahdanau 原版用一个小神经网络来打分（叫加性注意力），Transformer 换成了算得更快的点积。
+
+</Note>
+
+### Attention 解决了什么？还剩什么没解决？
+
+**解决了硬伤 ①（信息瓶颈）。** decoder 不再只靠一个 h₃，每一步都能直接看到原文的每一个位置。原文就算有 300 个词，也不用硬塞进一个向量，第一个词和最后一个词离 decoder 一样「近」。
+
+**没解决硬伤 ②（无法并行）。** encoder 和 decoder 本身还是 RNN，h₃ 还是得等 h₂ 算完。
+
+这种 **Q 来自 decoder、K 和 V 来自 encoder** 的 attention，叫做 **cross-attention（交叉注意力）**：两个不同的序列之间互相看。记住这个名字，Level 5 组装原始 Transformer 时它会再出现。
+
+<Note title="下一步的关键想法" type="tip">
+
+既然 attention 能让 decoder 去看 encoder 的每个位置，**能不能让一句话里的词直接互相看，完全不用 RNN？** 这样既能让每个词拿到整句的上下文，又不用一步步等。这就是 Level 3 的 self-attention，也是 2017 年 Transformer 论文标题「Attention Is All You Need」的意思。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么要保留 encoder 每一步的 hidden state，而不是只交出最后一个？
+2. 用查字典的类比说说 Q、K、V 各是什么。
+3. Attention 的三步计算是什么？
+4. 生成不同的词时，attention 权重为什么会不一样？
+5. Cross-attention 的 Q 和 K、V 分别来自哪里？它解决了 RNN 的哪个硬伤，没解决哪个？
+
+</Note>
+
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · The intuition behind attention
+
+### When translating each word, where in the source should the model look?
+
+When a person translates into "I love cats," writing "love" sends their eyes back to 爱 in the source, and writing "cats" sends them back to 猫:
+
+```
+I     ↔  我
+love  ↔  爱
+cats  ↔  猫
+```
+
+The Level 1 design can't do this: the decoder holds only h₃, and where each source word was and what it said have long since blurred together.
+
+Attention's idea is simple: **don't hand the decoder only the final h₃ — keep every encoder step, h₁, h₂, and h₃.** Each time the decoder generates a word, it looks back and takes what it needs from all three: more from whatever is most relevant right now, less from the rest.
+
+The idea was proposed for translation models in 2014 (often called Bahdanau attention), and it's the starting point for every form of attention since.
+
+### What are Q, K, and V, and what does "take what it needs" mean?
+
+Start with an ordinary dictionary lookup. A Python dict:
+
+```python
+d = {"我": content1, "爱": content2, "猫": content3}
+d["爱"]   # the key must match exactly, and you get back exactly one entry
+```
+
+Attention is a **soft lookup**: take a question, compare it with **every** key, then return **all** the values blended by similarity. Three roles:
+
+| Role | In a dictionary lookup | In translation |
+| --- | --- | --- |
+| **Query (Q)** | the question you look up | the decoder's current state: "I'm about to write the next word — what do I need?" |
+| **Key (K)** | each entry's label, used for matching | each source position's label: "here's what I have" |
+| **Value (V)** | each entry's actual content | the content that gets taken from each source position |
+
+In this earliest translation version, **K and V are both the encoder's h₁, h₂, h₃** (the same thing used two ways), and Q is the decoder's current state. Similarity is the dot product from Level 0.
+
+<Note title="Why separate the label from the content?">
+
+The information used to judge relevance and the information you actually want to take aren't necessarily the same. In a library you find a book by its title and call number (the key), but what you carry away is the book's content (the value). Here they're identical for now; Level 3 gives K and V their own linear layers so the model can learn to separate them.
+
+</Note>
+
+### Walk through it: how is attention computed when generating "love"?
+
+To keep the math easy, keys are 3-dim and values are 2-dim:
+
+```
+source   Key (label)       Value (content)
+我       k = [1, 0, 0]     v = [1.0, 0.0]
+爱       k = [0, 1, 0]     v = [0.0, 1.0]
+猫       k = [0, 0, 1]     v = [0.5, 0.5]
+
+decoder's query when it's about to generate "love":  q = [0.1, 2.0, 0.3]
+```
+
+**Step 1: score** — dot the query with every key
+
+```
+q · k我 = 0.1×1 + 2.0×0 + 0.3×0 = 0.1
+q · k爱 = 0.1×0 + 2.0×1 + 0.3×0 = 2.0
+q · k猫 = 0.1×0 + 2.0×0 + 0.3×1 = 0.3
+```
+
+**Step 2: softmax** — turn the scores into weights that add up to 1
+
+```
+softmax([0.1, 2.0, 0.3]) = [0.112, 0.751, 0.137]
+```
+
+**Step 3: weighted average** — blend the values using those weights
+
+```
+0.112 × [1.0, 0.0] + 0.751 × [0.0, 1.0] + 0.137 × [0.5, 0.5]
+= [0.112 + 0.069,  0.751 + 0.069]
+= [0.181, 0.819]
+```
+
+The result, `[0.181, 0.819]`, is called the **context vector**, and 75% of it comes from 爱. The decoder combines it with its own state to decide that this step's output is "love."
+
+**Every generated word has a different query, so the weights change too.** All three steps worked out:
+
+```
+generating   looks at 我   looks at 爱   looks at 猫
+I            0.761         0.126         0.114
+love         0.112         0.751         0.137
+cats         0.126         0.114         0.761
+```
+
+This table is called the **alignment matrix**. Each row sums to 1, and the largest weights fall right on the diagonal — the model has "aligned" source and translation.
+
+<Note title="In a real model, nobody sets the queries and keys">
+
+The numbers above were chosen to be easy to compute. In a real model, q and k are computed by the network, and its parameters are learned. During training the model discovers that "looking at 爱 when generating love makes the prediction more accurate and the loss lower," so it learns on its own to make that dot product the largest. Also, Bahdanau's original version scored with a small neural network (called additive attention); the Transformer switched to the faster dot product.
+
+</Note>
+
+### What did attention fix, and what's still unfixed?
+
+**It fixed weakness ① (the information bottleneck).** The decoder no longer depends on a single h₃; at every step it sees every source position directly. Even a 300-word source doesn't have to be crammed into one vector, and the first word is just as "close" to the decoder as the last.
+
+**It didn't fix weakness ② (no parallelism).** The encoder and decoder are still RNNs, so h₃ still waits for h₂.
+
+This kind of attention, where **Q comes from the decoder and K and V come from the encoder**, is called **cross-attention**: two different sequences looking at each other. Remember the name — it comes back in Level 5 when we assemble the original Transformer.
+
+<Note title="The key idea for what comes next" type="tip">
+
+If attention lets the decoder look at every encoder position, **why not let the words in a sentence look at each other directly, with no RNN at all?** Every word would get the whole sentence's context, and nothing would have to wait. That's self-attention in Level 3 — and what the 2017 Transformer paper's title, "Attention Is All You Need," means.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why keep every encoder hidden state instead of handing over only the last one?
+2. Using the dictionary analogy, what are Q, K, and V?
+3. What are the three steps of the attention computation?
+4. Why do the attention weights differ when generating different words?
+5. In cross-attention, where do Q and K/V come from? Which RNN weakness does it fix, and which does it leave?
+
+</Note>
+
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · Self-Attention：让一句话里的词互相看
+
+### 怎么把 attention 用在一句话自己身上？
+
+Level 2 里，Q 来自 decoder，K 和 V 来自 encoder，是**两个序列之间**互相看。Self-attention 把这件事搬到**同一个序列内部**：句子里的每个词，既当提问的 Q，也当被匹配的 K 和被取走的 V。
+
+为什么需要这样？因为一个词单独的 embedding 是固定的，而词义要看上下文：
+
+```
+"I sat by the river bank."        → bank ≈ 河岸
+"I deposited money at the bank."  → bank ≈ 银行
+```
+
+Self-attention 让 bank 去看句子里的每个词：第一句里它发现 river 很相关，就多从 river 那里拉信息；第二句里多从 money 那里拉。结果同一个 bank，在两句话里得到了两个不同的新向量。
+
+放到我们的例子里：「爱」这个词去看「我」和「猫」，就知道是「谁」爱「谁」；「猫」去看「爱」，就知道自己是被爱的那个。**每个词读完整句话之后，都变成了「带着上下文的自己」**——这正是 Level 1 里 RNN 想用 hidden state 做、但做得不好的事。
+
+### Q、K、V 是怎么从同一个输入里得到的？
+
+Level 2 里 K 和 V 直接用了 encoder 的 h，是同一个东西。Self-attention 给三个角色**各配一个线性层**（Level 0 讲过的 `W · x`）：
+
+```
+Q = X · W_Q
+K = X · W_K
+V = X · W_V
+```
+
+- X：输入，形状 `[n, d_model]`，每一行是一个 token 的向量
+- W_Q、W_K、W_V：三个可学习的矩阵，训练时学出来，推理时固定不变
+- 每个 token 的向量分别乘这三个矩阵，得到自己的 q、k、v
+
+同一个词为什么要投影成三个不同的向量？因为这是三件不同的事：
+
+| 投影 | 回答的问题 | 图书馆类比 |
+| --- | --- | --- |
+| Q | 我想找什么信息？ | 你的检索需求 |
+| K | 别人要怎样才能找到我？ | 书名和分类号 |
+| V | 被找到之后我交出什么？ | 书的内容 |
+
+分成三套参数，模型就能自己学「什么算相关」和「相关之后取什么」，比直接拿 X 和 X 做点积灵活得多。**「什么算相似」不是人定义的，而是模型通过学这三个矩阵自己学会的。**
+
+### 完整手算：「我 爱 猫」的 self-attention
+
+用 Level 1 的词向量作为输入，d_model = d_k = 2：
+
+```
+X:  我 = [1, 0]    爱 = [0, 1]    猫 = [1, 1]
+
+为了好算，给三个矩阵取简单的值（W_K 取单位矩阵，也就是 K 和 X 一样）：
+W_Q = [[1, 0],     W_K = [[1, 0],     W_V = [[2, 0],
+       [1, 2]]            [0, 1]]            [0, 1]]
+```
+
+**第 0 步：投影。** 每个 token 的行向量乘三个矩阵：
+
+```
+        Q = X · W_Q     K = X · W_K     V = X · W_V
+我      [1, 0]          [1, 0]          [2, 0]
+爱      [1, 2]          [0, 1]          [0, 1]
+猫      [2, 2]          [1, 1]          [2, 1]
+```
+
+以「爱」的 Q 为例：`[0, 1] · W_Q` 取 W_Q 的第 2 行，就是 `[1, 2]`。
+
+**第 1 步：打分。** 每个词的 q 和每个词的 k 做点积，得到一个 3 × 3 的表：
+
+```
+               看「我」k=[1,0]   看「爱」k=[0,1]   看「猫」k=[1,1]
+「我」q=[1,0]        1                0                1
+「爱」q=[1,2]        1                2                3
+「猫」q=[2,2]        2                2                4
+```
+
+例如「爱」看「猫」：`[1, 2] · [1, 1] = 1 + 2 = 3`。
+
+**第 2 步：缩放。** 全部除以 √d_k = √2 ≈ 1.414：
+
+```
+「我」  [0.707, 0.000, 0.707]
+「爱」  [0.707, 1.414, 2.121]
+「猫」  [1.414, 1.414, 2.828]
+```
+
+**第 3 步：softmax。** 每一行单独做，变成加起来为 1 的权重：
+
+```
+               看「我」   看「爱」   看「猫」
+「我」          0.401     0.198     0.401
+「爱」          0.140     0.284     0.576
+「猫」          0.164     0.164     0.673
+```
+
+**第 4 步：加权求和 V。** 以「爱」为例：
+
+```
+0.140 × [2, 0] + 0.284 × [0, 1] + 0.576 × [2, 1]
+= [0.280 + 1.152,  0.284 + 0.576]
+= [1.432, 0.860]
+```
+
+三个词全部算完：
+
+```
+「我」 → [1.604, 0.599]
+「爱」 → [1.432, 0.860]
+「猫」 → [1.673, 0.836]
+```
+
+输入 3 个向量，输出还是 3 个向量，但每一个都混进了整句话的信息。和 Level 2 对比，**计算骨架完全一样（打分 → softmax → 加权平均）**，只多了两步：开头用 W_Q、W_K、W_V 做投影，打分后除以 √d_k。
+
+### 为什么要除以 √d_k？
+
+Level 0 提到过：点积会随数值大小变大。这里的问题是**维度越大，点积越大**。
+
+如果 q 和 k 的每个数都是均值 0、方差 1 的随机数，那 `q · k = q₁k₁ + q₂k₂ + … + q_d k_d` 是 d 项相加，方差是 d，标准差是 √d。真实模型里每个头的维度常是 128，点积的典型大小是 ±11 左右，而不是 ±1。
+
+分数一大，softmax 就会「饱和」——相对差距不变，结果却完全变了：
+
+```
+softmax([1,  2,  3])  = [0.090, 0.245,    0.665]    ← 各位置都有权重
+softmax([10, 20, 30]) = [0.000, 0.000045, 0.99996]  ← 几乎只剩一个
+softmax([30, 60, 90]) = [0.0,   0.0,      1.0]      ← 完全饱和
+```
+
+饱和后，最大那项已经是 1，其他是 0，参数怎么微调输出都不变，梯度接近 0——就是 Level 0 说的「训不动」。
+
+**除以 √d_k 正好把标准差拉回 1**，不管维度多大，分数都留在 softmax 能正常学习的范围里。每头 64 维就除以 8，128 维就除以约 11.3。
+
+<Note title="是除以 √d_k，不是除以 d_k">
+
+目标是把**标准差**变成 1。方差是 d_k，标准差是 √d_k，所以除以 √d_k。被追问「为什么是根号」时，这样回答就对了。
+
+</Note>
+
+### 矩阵形式：怎么一次算完所有 token？
+
+上面是一个词一个词讲的，真实计算是所有 token 一起用矩阵算，公式就是论文里那一行：
+
+```
+Attention(Q, K, V) = softmax( Q · Kᵀ / √d_k ) · V
+```
+
+每一步的形状（n 个 token）：
+
+```
+X              [n, d_model]
+Q, K           [n, d_k]
+Q · Kᵀ         [n, n]        第 i 行第 j 列 = 第 i 个词对第 j 个词的打分（就是上面那张 3×3 表）
+softmax        [n, n]        按行做
+× V            [n, d_v]      每个 token 一个新向量
+```
+
+有 batch 时前面再加一维：打分表是 `[batch, n, n]`。
+
+<Note title="记住这个 n × n" type="tip">
+
+每个 token 都要和每个 token 打一次分，n 个 token 就是 n² 个分数。「长上下文为什么贵」「FlashAttention 省了什么」都从这张表开始，Level 8 会用真实数字算。
+
+</Note>
+
+### Self-attention 为什么能并行？它解决了 Level 1 的哪个硬伤？
+
+回看上面的计算：**算「猫」的结果时，不需要等「我」和「爱」先算完。** 所有 token 的 Q、K、V 用一次矩阵乘法同时得到，n × n 个点积也是同时算的。GPU 最擅长的就是这种大矩阵乘法。
+
+```
+RNN:             h₁ → h₂ → h₃ → …   必须一步等一步
+Self-attention:  所有位置同时算       一次矩阵乘法
+```
+
+所以 **self-attention 解决了硬伤 ②（无法并行）**。顺带还缓解了「越长越忘」：RNN 里第 1 个词要经过 n 步传递才能影响第 n 个词，self-attention 里任意两个词之间都只隔**一步**。
+
+<Note title="但它带来了一个新问题" type="tip">
+
+仔细看上面的计算：打分只取决于向量内容，**完全没有用到「谁在第几个位置」**。把句子倒过来会发生什么？Level 4 会用这组数字验证，并补上位置信息。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. Self-attention 和 Level 2 的 cross-attention 有什么不同？
+2. Q、K、V 分别怎么得到？为什么要分成三个投影？
+3. 不看笔记，说出缩放点积注意力的四步，以及每一步的形状。
+4. 为什么要除以 √d_k？为什么是根号？
+5. Self-attention 为什么能并行？它解决了 RNN 的哪个硬伤？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Self-attention: letting the words in a sentence look at each other
+
+### How do you apply attention to a sentence itself?
+
+In Level 2, Q came from the decoder and K and V came from the encoder — two sequences looking at each other. Self-attention moves this **inside a single sequence**: every word in the sentence acts as the Q that asks, the K that gets matched, and the V that gets taken.
+
+Why do that? Because a word's embedding on its own is fixed, while meaning depends on context:
+
+```
+"I sat by the river bank."        → bank ≈ riverside
+"I deposited money at the bank."  → bank ≈ financial institution
+```
+
+Self-attention lets "bank" look at every word in the sentence. In the first one it finds "river" highly relevant and pulls in more from it; in the second it pulls more from "money." The same word ends up with two different new vectors.
+
+In our running example, 爱 looks at 我 and 猫 to learn who loves whom, and 猫 looks at 爱 to learn it's the one being loved. **After reading the whole sentence, every word becomes a context-aware version of itself** — exactly what the RNN in Level 1 tried to do with its hidden state and did poorly.
+
+### Where do Q, K, and V come from when they all start from the same input?
+
+In Level 2, K and V were simply the encoder's h — the same thing. Self-attention gives each of the three roles **its own linear layer** (the `W · x` from Level 0):
+
+```
+Q = X · W_Q
+K = X · W_K
+V = X · W_V
+```
+
+- X: the input, shape `[n, d_model]`, one row per token
+- W_Q, W_K, W_V: three learnable matrices, trained once and fixed at inference
+- each token's vector is multiplied by all three to get its own q, k, and v
+
+Why project the same word into three different vectors? Because they're three different jobs:
+
+| Projection | Question it answers | Library analogy |
+| --- | --- | --- |
+| Q | What information am I looking for? | your search request |
+| K | How can others find me? | the title and call number |
+| V | What do I hand over once found? | the book's content |
+
+With three separate sets of parameters, the model learns for itself both "what counts as relevant" and "what to take once something is relevant" — far more flexible than dotting X with X directly. **"What counts as similar" isn't defined by a person; the model learns it by learning these three matrices.**
+
+### Work it by hand: self-attention on 「我 爱 猫」
+
+Use the word vectors from Level 1 as input, with d_model = d_k = 2:
+
+```
+X:  我 = [1, 0]    爱 = [0, 1]    猫 = [1, 1]
+
+Simple values to keep the math easy (W_K is the identity, so K equals X):
+W_Q = [[1, 0],     W_K = [[1, 0],     W_V = [[2, 0],
+       [1, 2]]            [0, 1]]            [0, 1]]
+```
+
+**Step 0: project.** Multiply each token's row vector by the three matrices:
+
+```
+        Q = X · W_Q     K = X · W_K     V = X · W_V
+我      [1, 0]          [1, 0]          [2, 0]
+爱      [1, 2]          [0, 1]          [0, 1]
+猫      [2, 2]          [1, 1]          [2, 1]
+```
+
+For example, 爱's Q is `[0, 1] · W_Q`, which picks out W_Q's second row: `[1, 2]`.
+
+**Step 1: score.** Dot every word's q with every word's k, giving a 3 × 3 table:
+
+```
+               looks at 我 k=[1,0]   looks at 爱 k=[0,1]   looks at 猫 k=[1,1]
+我 q=[1,0]           1                     0                     1
+爱 q=[1,2]           1                     2                     3
+猫 q=[2,2]           2                     2                     4
+```
+
+For instance, 爱 looking at 猫: `[1, 2] · [1, 1] = 1 + 2 = 3`.
+
+**Step 2: scale.** Divide everything by √d_k = √2 ≈ 1.414:
+
+```
+我  [0.707, 0.000, 0.707]
+爱  [0.707, 1.414, 2.121]
+猫  [1.414, 1.414, 2.828]
+```
+
+**Step 3: softmax.** Apply it to each row separately, so each row becomes weights summing to 1:
+
+```
+        looks at 我   looks at 爱   looks at 猫
+我         0.401         0.198         0.401
+爱         0.140         0.284         0.576
+猫         0.164         0.164         0.673
+```
+
+**Step 4: weighted sum of V.** For 爱:
+
+```
+0.140 × [2, 0] + 0.284 × [0, 1] + 0.576 × [2, 1]
+= [0.280 + 1.152,  0.284 + 0.576]
+= [1.432, 0.860]
+```
+
+All three words:
+
+```
+我 → [1.604, 0.599]
+爱 → [1.432, 0.860]
+猫 → [1.673, 0.836]
+```
+
+Three vectors in, three vectors out, but each now carries information from the whole sentence. Compared with Level 2, **the skeleton is identical (score → softmax → weighted average)**, with two additions: the W_Q, W_K, W_V projections at the start, and dividing the scores by √d_k.
+
+### Why divide by √d_k?
+
+Level 0 mentioned that dot products grow with the size of the numbers. The specific problem here is that **dot products grow with dimension**.
+
+If every component of q and k is random with mean 0 and variance 1, then `q · k = q₁k₁ + q₂k₂ + … + q_d k_d` adds d terms, giving variance d and standard deviation √d. Real models often use 128 dims per head, so a typical dot product lands around ±11, not ±1.
+
+Large scores push softmax into saturation — the relative gaps stay the same, but the result changes completely:
+
+```
+softmax([1,  2,  3])  = [0.090, 0.245,    0.665]    ← every position gets some weight
+softmax([10, 20, 30]) = [0.000, 0.000045, 0.99996]  ← almost all on one
+softmax([30, 60, 90]) = [0.0,   0.0,      1.0]      ← fully saturated
+```
+
+Once saturated, the top entry is already 1 and the rest are 0, so nudging the parameters doesn't change the output and the gradient goes to nearly zero — the "won't train" problem from Level 0.
+
+**Dividing by √d_k brings the standard deviation back to 1**, keeping scores in the range where softmax can learn, whatever the dimension. That's dividing by 8 for 64-dim heads and by about 11.3 for 128-dim heads.
+
+<Note title="Divide by √d_k, not by d_k">
+
+The goal is a **standard deviation** of 1. The variance is d_k, so the standard deviation is √d_k — hence √d_k. That's the answer when someone asks "why the square root."
+
+</Note>
+
+### Matrix form: how are all tokens computed at once?
+
+The walkthrough went word by word, but real computation handles every token together with matrices. The formula is the one line from the paper:
+
+```
+Attention(Q, K, V) = softmax( Q · Kᵀ / √d_k ) · V
+```
+
+Shapes at each step (n tokens):
+
+```
+X              [n, d_model]
+Q, K           [n, d_k]
+Q · Kᵀ         [n, n]        row i, column j = token i's score for token j (the 3×3 table above)
+softmax        [n, n]        applied per row
+× V            [n, d_v]      one new vector per token
+```
+
+With a batch, add a leading dimension: the score table becomes `[batch, n, n]`.
+
+<Note title="Remember this n × n" type="tip">
+
+Every token scores every other token, so n tokens means n² scores. "Why is long context expensive" and "what does FlashAttention save" both start from this table; Level 8 works through it with real numbers.
+
+</Note>
+
+### Why can self-attention run in parallel, and which Level 1 weakness does it fix?
+
+Look back at the computation: **computing 猫's result never waits for 我 or 爱 to finish.** Every token's Q, K, and V come out of a single matrix multiply, and all n × n dot products happen at once. Big matrix multiplies are exactly what GPUs do best.
+
+```
+RNN:             h₁ → h₂ → h₃ → …   each step waits for the last
+Self-attention:  every position at once   one matrix multiply
+```
+
+So **self-attention fixes weakness ② (no parallelism)**. It also eases "forgetting over long sentences": in an RNN the first word has to pass through n steps to affect the nth, while in self-attention any two words are just **one step** apart.
+
+<Note title="But it introduces a new problem" type="tip">
+
+Look closely at the computation: the scores depend only on the vectors' contents and **never use which position a word is in**. What happens if you reverse the sentence? Level 4 checks it with these same numbers and adds position information.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. How does self-attention differ from the cross-attention in Level 2?
+2. How are Q, K, and V produced, and why use three separate projections?
+3. Without looking, name the four steps of scaled dot-product attention and the shape at each step.
+4. Why divide by √d_k, and why the square root?
+5. Why can self-attention run in parallel, and which RNN weakness does that fix?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 4 · 让 Self-Attention 真正可用的三个补丁
+
+Level 3 的 self-attention 原理上能用，但直接拿去训练模型会碰到三个缺口：**一组权重只能表达一种关系**、**不知道词的顺序**、**会看到不该看的位置**。这一节依次补上它们。
+
+### 为什么要用多头注意力？
+
+Level 3 里每个词只得到**一组**权重。但一句话里同时存在很多种关系：
+
+`"The animal didn't cross the street because it was too tired."` 里的 `it`：
+
+- 指代关系：`it` 指的是 `animal`
+- 语法关系：`it` 是 `was` 的主语
+- 位置关系：`it` 紧挨着 `because`
+
+一组权重只能是这些关系的「平均」，平均之后哪种都表达不清。
+
+**多头注意力（multi-head attention）就是同时跑 h 组独立的 attention**，每组叫一个「头」（head），有自己的 W_Q、W_K、W_V，可以各自学一种关系，最后把结果拼起来：
+
+```
+头 1:  Q₁ K₁ V₁  → attention → 输出₁
+头 2:  Q₂ K₂ V₂  → attention → 输出₂
+…
+头 h:  Q_h K_h V_h → attention → 输出_h
+
+拼接 [输出₁, 输出₂, …, 输出_h]  → 乘一个输出矩阵 W_O  → 最终结果
+```
+
+**维度怎么分？** 不是每个头都用完整维度，而是把 d_model 平均切给 h 个头：
+
+```
+原始 Transformer:  d_model = 512,   8 个头,  每头 512 / 8   = 64 维
+LLaMA 2 7B:        d_model = 4096,  32 个头, 每头 4096 / 32 = 128 维
+```
+
+以 LLaMA 2 7B 为例，一层里的形状变化：
+
+```
+X                 [n, 4096]
+× W_Q 后切成 32 份 [32, n, 128]      每个头 128 维
+每个头各做 attention [32, n, 128]
+拼回去             [n, 4096]
+× W_O             [n, 4096]
+```
+
+**总计算量和「一个 4096 维的单头」差不多**：是把一个大空间切成 32 个小空间并行算，不是计算量乘 32。W_O 负责把各个头学到的东西重新混合成一个向量。
+
+<Note title="「每个头学一种关系」是直觉，不是保证" type="warning">
+
+研究里确实能找到专门看前一个词、专门处理指代的头，但大部分头学到的东西没法用人话描述，很多头剪掉之后效果几乎不变。面试说「多个子空间捕捉不同类型的依赖」没问题，别说成「第 3 个头负责语法」。
+
+</Note>
+
+### Self-attention 为什么需要位置信息？
+
+用 Level 3 算过的数字验证。把句子倒过来，变成「猫 爱 我」，W_Q、W_K、W_V 都不变，重新算一遍：
+
+```
+                「我 爱 猫」的输出      「猫 爱 我」的输出
+「我」           [1.604, 0.599]         [1.604, 0.599]
+「爱」           [1.432, 0.860]         [1.432, 0.860]
+「猫」           [1.673, 0.836]         [1.673, 0.836]
+```
+
+**每个词的结果一模一样**，只是排列顺序换了。原因是打分只看 q 和 k 的内容，从来没用到位置。对 self-attention 来说，「我 爱 猫」和「猫 爱 我」是同一组向量，它分不出谁爱谁。
+
+RNN 按顺序读，天然知道先后；self-attention 为了并行放弃了按顺序读，就必须**额外把位置告诉模型**。
+
+### 为什么不直接把位置编号 1、2、3 加进去？
+
+最直观的想法是给每个 token 加上它的位置编号，但有三个问题：
+
+1. **数值会失控**：embedding 里的数一般在 ±1 附近，位置 50,000 就是 50,000，加上去之后词义被完全淹没
+2. **归一化也不行**：改成「位置 / 句长」，同样是第 5 个词，在 10 个词的句子里是 0.5，在 100 个词的句子里是 0.05，模型学不到稳定的含义
+3. **没见过的长度处理不了**：训练时最长只见过 1,024，推理时遇到 2,000，这个数值模型从来没见过
+
+所以需要一种**数值有界、每个位置都不一样、而且位置之间有规律**的表示。
 
 ### Sinusoidal 位置编码怎么算？
 
-原始 Transformer 的方案，用不同频率的 sin / cos 给每个位置生成一个 d_model 维的向量，然后**直接加到 token embedding 上**：
+原始 Transformer 的方案：用不同频率的 sin 和 cos，给每个位置生成一个和 embedding 一样长（d_model 维）的向量 P，然后**直接加到 embedding 上**：
 
 ```
-PE(pos, 2i)   = sin( pos / 10000^(2i / d) )
-PE(pos, 2i+1) = cos( pos / 10000^(2i / d) )
+P(pos, 2i)   = sin( pos / 10000^(2i / d) )
+P(pos, 2i+1) = cos( pos / 10000^(2i / d) )
+
+模型的输入 = X + P      形状仍然是 [n, d_model]
 ```
 
 用 d = 4 手算前三个位置（第 0、1 维频率是 1，第 2、3 维频率是 1/100）：
 
 ```
-pos = 0   [sin 0,    cos 0,    sin 0,     cos 0   ]  = [0.000,  1.000, 0.000, 1.000]
-pos = 1   [sin 1,    cos 1,    sin 0.01,  cos 0.01]  = [0.841,  0.540, 0.010, 1.000]
-pos = 2   [sin 2,    cos 2,    sin 0.02,  cos 0.02]  = [0.909, -0.416, 0.020, 1.000]
+pos = 0   [sin 0,  cos 0,  sin 0,     cos 0   ]  = [0.000,  1.000, 0.000, 1.000]
+pos = 1   [sin 1,  cos 1,  sin 0.01,  cos 0.01]  = [0.841,  0.540, 0.010, 1.000]
+pos = 2   [sin 2,  cos 2,  sin 0.02,  cos 0.02]  = [0.909, -0.416, 0.020, 1.000]
 ```
 
-可以把它想成一个**有很多指针的钟**：
+可以把它想成**一个有很多根指针的钟**：
 
-- 低维（前两个数）转得快，像秒针，相邻位置差别很大，负责分辨「近处谁先谁后」
-- 高维（后两个数）转得慢，像时针，要隔很远才变，负责分辨「远处的大致位置」
-- 所有数都在 [-1, 1] 之间，不会淹没语义；每个位置的「指针组合」都不一样
+- 前面的维度转得快，像秒针：相邻位置差别很大，负责分清「近处谁先谁后」
+- 后面的维度转得慢，像时针：隔很远才有变化，负责分清「远处大概在哪」
+- 所有数都在 -1 到 1 之间，不会淹没词义；每个位置的「指针组合」都不同
 
-另外一个好性质：位置 pos + k 的编码可以由位置 pos 的编码经过一个**只和 k 有关的线性变换**得到，模型有机会学到相对距离。
+加上位置编码之后，「我 爱 猫」里的「我」是「[1, 0] + 位置 0 的向量」，「猫 爱 我」里的「我」是「[1, 0] + 位置 2 的向量」，两者不再相同，self-attention 就能区分顺序了。
+
+<Note title="位置向量直接加到词向量上，会不会把词义搞乱？">
+
+实践中不会。d_model 通常有几千维，空间足够大，Q、K、V 的投影矩阵在训练中会学会从「词义 + 位置」混在一起的向量里分别读出两种信息。就像左右声道混在一起的音乐，你依然听得出旋律和方位。
+
+</Note>
 
 ### Learned 位置编码是什么？
 
-更直接的做法：**像词表一样，给每个位置也建一张可学习的表**，训练时一起学。
+另一种更直接的做法：**像词表一样，给每个位置也建一张可学习的表**，训练时和其他参数一起学。
 
-GPT-2 就是这样：一张 `[1024, 768]` 的位置 embedding 表，共 786,432 个参数，第 pos 个 token 取第 pos 行加到 token embedding 上。
+GPT-2 就是这样：一张 `[1024, 768]` 的位置表，共 786,432 个参数，第 pos 个 token 取第 pos 行，加到 embedding 上。
 
-优点是灵活，模型自己决定位置怎么表示；**致命缺点是有硬上限**——表只有 1,024 行，第 1,025 个位置根本没有向量可取。这就是 GPT-2 上下文只能是 1,024 的原因之一。
+优点是灵活，由模型自己决定位置怎么表示；**缺点是有硬上限**：表只有 1,024 行，第 1,025 个位置根本没有向量可取。这就是 GPT-2 上下文只能是 1,024 的原因之一。今天的 LLM 用的 RoPE 是另一种思路，放在 Level 7 讲。
 
-### RoPE 是怎么做的？为什么现在主流用它？
+### Padding mask 是做什么的？
 
-RoPE（Rotary Position Embedding，旋转位置编码）换了一个思路：**不往 embedding 上加东西，而是在每一层 attention 里，把 Q 和 K 按位置旋转一个角度。**
+Level 0 讲过：一个 batch 里句子长短不一，短句要补 `<pad>` 凑齐。但 `<pad>` 没有任何意义，真实的词不应该去关注它。
 
-做法：把 Q、K 向量的维度两两分组，每组看成一个平面上的 2 维向量，第 pos 个 token 就把它旋转 `pos × θ` 角度（不同组的 θ 不同，和 sinusoidal 一样有快有慢）。**V 不旋转。**
+**做法：在 softmax 之前，把 `<pad>` 位置的分数改成负无穷（-∞）。** 因为 `e^(-∞) = 0`，softmax 之后这个位置的权重正好是 0。
 
-它最关键的性质：**旋转之后再做点积，结果只取决于两个 token 的位置差，和绝对位置无关。**
-
-用一个 2 维的例子验证（θ = 0.5，q = [1, 0.5]，k = [0.8, 0.2]，旋转前点积 = 0.9）：
+例子：句子「我 爱」补了一个 `<pad>`，「我」这一行缩放后的分数是 `[0.707, 0.000, 某个数]`：
 
 ```
-q 在位置 3，  k 在位置 1     位置差 2    点积 = 0.3180
-q 在位置 10， k 在位置 8     位置差 2    点积 = 0.3180
-q 在位置 100，k 在位置 98    位置差 2    点积 = 0.3180
-q 在位置 5，  k 在位置 1     位置差 4    点积 = -0.5564
+不加 mask:  softmax([0.707, 0.000, 某个数])    → <pad> 也会分走权重
+加 mask:    softmax([0.707, 0.000, -∞])        → [0.670, 0.330, 0.000]
 ```
 
-位置差相同，打分就完全相同。直觉是：两个向量各转了 mθ 和 nθ，它们之间的**夹角**只差 (m − n)θ，而点积只看夹角。
+### Causal mask 是做什么的？
 
-为什么成为主流（LLaMA 系、Mistral、Qwen 都用）：
+回忆 Level 1：decoder 是**自回归**的，一个词一个词往外写。训练 decoder 时，为了快，会把整句目标「I love cats」**一次性**喂进去，让每个位置同时学「预测下一个词」：
 
-- **直接编码相对位置**：attention 打分天然包含「离我多远」，不需要模型自己从绝对位置里推
-- **没有可学习参数、没有位置表**，不存在 learned PE 那种「第 1,025 行不存在」的硬上限
-- **只作用在 Q、K 上**，不污染 V 和残差流里的语义信息
+```
+位置 1 看到 I          → 要预测 love
+位置 2 看到 I love     → 要预测 cats
+```
 
-<Note title="RoPE 和 KV cache 能配合" type="tip">
+问题来了：self-attention 默认每个词能看到整句。如果位置 1 能直接看到后面的 love，它就会「抄答案」，什么都学不到。而且推理时后面的词本来就还没生成出来，训练和推理的条件对不上。
 
-旋转只取决于 token 自己的位置，所以一个 token 的 K 旋转一次之后就固定了，缓存起来以后不用再改。这也是 RoPE 适合 decoder-only 推理的原因之一。
+**Causal mask（因果掩码）规定：第 i 个位置只能看第 1 到第 i 个位置，看不到后面。** 实现方式和 padding mask 一样，把「未来位置」的分数设成 -∞。
+
+用 Level 3 的「我 爱 猫」验证，加 mask 前后的权重：
+
+```
+              不加 mask                     加 causal mask
+            看我    看爱    看猫           看我    看爱    看猫
+「我」      0.401   0.198   0.401          1.000   0       0
+「爱」      0.140   0.284   0.576          0.330   0.670   0
+「猫」      0.164   0.164   0.673          0.164   0.164   0.673
+```
+
+输出也跟着变：「我」变成 `[2.000, 0.000]`（只能看自己），「爱」变成 `[0.660, 0.670]`，「猫」本来就在最后，不受影响。
+
+权重矩阵变成了**下三角**。一次矩阵运算，就让所有位置同时计算、并且各自只看过去——这就是 Transformer 训练能并行、而 RNN 不能的关键。
+
+<Note title="Padding mask 和 causal mask 的区别">
+
+两个都用 -∞，但挡的东西不同：**padding mask 挡「没意义的补位」，causal mask 挡「还不该看到的未来」**。训练 decoder 时两个经常同时用。Encoder 只需要 padding mask，因为读原文时每个词本来就该看整句。
 
 </Note>
 
-### 上下文是怎么从 8K 扩到 128K 的？什么是长度外推？
+<Note title="Causal mask 是 KV cache 能成立的前提" type="tip">
 
-**长度外推**指：训练时最长见过 L 个位置，推理时能不能处理比 L 更长的输入。
-
-用 RoPE 的模型也不能直接外推：训练时最长 8K，位置 50,000 对应的旋转角度（尤其是转得慢的那些维度）模型从来没见过，效果会明显崩掉。
-
-实际扩上下文的做法是**「改 RoPE 的频率 + 用长文本继续训练一段」**：
-
-- **Position Interpolation**：把新的长位置按比例「压缩」回训练见过的范围，比如 32K 的位置除以 4 当成 8K 以内的位置用
-- **NTK-aware / YaRN**：不同频率区别对待——转得快的维度（管近距离）基本不动，转得慢的维度（管远距离）才拉伸，近处的分辨率不受损
-- **调大 RoPE base**：LLaMA 2 的 base 是 10,000，LLaMA 3 调到 500,000，让慢维度转得更慢、覆盖更长距离
-
-LLaMA 3.1 从 8K 扩到 128K，就是在 RoPE 上做了频率缩放，再用长文本数据继续预训练。
-
-<Note title="别说「RoPE / 相对位置编码天然支持任意长度外推」" type="danger">
-
-RoPE 的点积只依赖相对位置，但**模型从没见过的旋转角度依然是分布外的**，直接超出训练长度效果会明显下降。能扩到 128K 靠的是频率缩放加长文本继续训练，不是 RoPE 自带的。
+因为第 i 个词永远看不到后面，它的 K 和 V 一旦算出来，后面再生成多少词都**不会变**，所以可以缓存起来反复用。这就是 Level 8 的 KV cache。
 
 </Note>
 
-</Locale>
+<Note title="自测：到这里你应该能回答">
 
-<Locale lang="zh">
-
-### 残差连接解决了什么？
-
-残差连接就是 block 里那个 `x = x + F(x)`：**子层（attention 或 FFN）只负责算一个「增量」，原始输入直接绕过去加回来。**
-
-它解决的是**深层网络训不动**。反向传播时梯度要从最后一层一路乘回第一层：
-
-```
-没有残差：每层梯度乘一个系数，假设都是 0.9
-          80 层之后 = 0.9^80 ≈ 0.0002    ← 前面的层几乎收不到梯度
-
-有残差：  y = x + F(x)，对 x 求导 = 1 + F'(x)
-          那个「1」让梯度可以沿着加法这条路原样传回去，不管 F 学成什么样
-```
-
-所以残差不是锦上添花，而是 Transformer 能堆到 80 层（LLaMA 3 70B）的前提。
-
-<Note title="残差流：理解 Transformer 的另一种视角" type="tip">
-
-把那条 `x + … + …` 一路加下来的主干叫做**残差流（residual stream）**：每个 block 都是从残差流里读信息、算完再写回去，形状始终是 `[batch, 长度, d_model]`。这个视角能帮你解释为什么每层输入输出同形状，也是现在可解释性研究常用的框架。
-
-</Note>
-
-### LayerNorm 和 BatchNorm 有什么区别？为什么 Transformer 用 LayerNorm？
-
-两者都是把一堆数减均值、除标准差、再乘一个可学习的缩放 γ 加偏移 β。**区别只在「哪一堆数」**。
-
-假设输入形状 `[batch=2, 长度=5, 维度=4]`，一共 10 个 token，每个 4 维：
-
-```
-LayerNorm   对每个 token 单独归一化：用这 1 个 token 自己的 4 个数算均值和方差
-BatchNorm   对每个维度单独归一化：用这个维度上全 batch 10 个 token 的数算均值和方差
-```
-
-LayerNorm 手算一个 token，x = [2, 4, 6]：
-
-```
-均值 = 4
-方差 = ((2-4)² + (4-4)² + (6-4)²) / 3 = 2.667，标准差 = 1.633
-归一化 = [(2-4)/1.633, 0, (6-4)/1.633] = [-1.225, 0, 1.225]
-再乘 γ、加 β（训练中学出来）
-```
-
-Transformer 不用 BatchNorm 的原因：
-
-- **依赖 batch 里的其他样本**：一个 token 的结果会随同 batch 里别的句子变化；推理时 batch 常常是 1，统计量和训练时对不上
-- **变长序列和 padding**：句子长短不一，补的 `<pad>` 会混进 batch 的均值方差
-- **自回归生成**：一次只来一个新 token，没法对「整个 batch 整个序列」求统计量
-
-LayerNorm 只看 token 自己，这三个问题都不存在。
-
-### Pre-LN 和 Post-LN 有什么区别？
-
-区别就是 **Norm 放在子层前面还是残差相加之后**：
-
-```
-Post-LN（原始 Transformer、BERT）    x = Norm( x + F(x) )
-Pre-LN （GPT-2 起、LLaMA）            x = x + F( Norm(x) )
-```
-
-看出差别了吗？Post-LN 的 Norm 压在残差主干上，每一层梯度都要穿过一次 Norm；Pre-LN 的主干是干净的 `x + …`，Norm 只在支路里。
-
-| | Post-LN | Pre-LN |
-| --- | --- | --- |
-| 残差主干 | 每层被 Norm 打断 | 纯加法直通 |
-| 深层训练 | 不稳定，需要仔细的学习率 warmup | 稳定，堆深层容易 |
-| 最终效果 | 训练成功时有时略好 | 通常略差一点点，但换来稳定 |
-| 额外要求 | 无 | 最后一层之后要补一个 Norm（数据流里的第 ⑤ 步） |
-
-现在的大模型几乎都是 Pre-LN：规模大了以后，「训得稳」比那一点点效果差距重要得多。
-
-### 什么是 RMSNorm？
-
-LayerNorm 的简化版，LLaMA、Mistral 都用它：**不减均值，也不加偏移 β，只除以均方根（RMS）。**
-
-```
-RMS(x) = √( (x₁² + x₂² + … + x_d²) / d )
-RMSNorm(x) = x / RMS(x) × γ
-```
-
-同样 x = [2, 4, 6]：
-
-```
-RMS = √((4 + 16 + 36) / 3) = √18.67 = 4.320
-RMSNorm = [2/4.320, 4/4.320, 6/4.320] = [0.463, 0.926, 1.389]
-```
-
-少了求均值这一步，计算更省，实践中效果和 LayerNorm 基本一样。在要跑成千上万次 Norm 的大模型里，省下来的这点计算是值得的。
-
-### FFN 是什么结构？为什么要先升维再降维？
-
-FFN（前馈网络）是 block 里的第二个子层，**对每个 token 单独做一次两层 MLP**，所有位置共用同一套参数：
-
-```
-FFN(x) = W₂ · 激活函数( W₁ · x )
-
-GPT-2 small:  768 维 → W₁ → 3,072 维 → GELU → W₂ → 768 维
-```
-
-中间层通常是 d_model 的 4 倍。它的作用可以和 attention 对照着记：
-
-| | Attention | FFN |
-| --- | --- | --- |
-| 在哪些 token 之间 | token 之间交换信息 | 每个 token 自己算，不看别人 |
-| 做的事 | 从上下文里「取」信息 | 对取到的信息做非线性加工 |
-| 参数占比（每层） | 约 1/3（4 · d²） | 约 2/3（8 · d²） |
-
-**为什么升维：** 在更高维的空间里，非线性激活能表达的组合多得多，然后再压回 d_model 维放回残差流。有研究认为模型学到的大量「事实性知识」主要存在 FFN 的参数里。
-
-用 GPT-2 small 算一下每层的参数：FFN 约 472 万，attention 约 236 万，正好 2 : 1。
-
-### 激活函数为什么从 ReLU 换成 GELU、SwiGLU？
-
-**ReLU** `max(0, x)` 把所有负数砍成 0。问题是：一个神经元如果输入一直是负的，输出永远是 0、梯度也永远是 0，再也学不回来（「死神经元」）。
-
-**GELU**（GPT-2、BERT 用）是平滑版：大的正数基本原样通过，大的负数接近 0，**0 附近的小负数会留下一部分**：
-
-```
-x       ReLU     GELU
-1.0     1.0      0.841
--0.1    0        -0.046
--1.0    0        -0.159
-```
-
-负数区间仍有梯度，训练更平滑。
-
-**SwiGLU**（LLaMA、Mistral 用）再进一步：用三个矩阵，其中一路当「门」去控制另一路能通过多少。代价是多了一个矩阵，为了让总参数量和普通 FFN 持平，中间维度从 4 倍缩到约 8/3 倍：
-
-```
-LLaMA 2 7B:  d_model = 4096
-             标准 FFN 会是 4 × 4096 = 16,384
-             SwiGLU 取 ⅔ × 16,384 ≈ 10,923，向上取整到 11,008
-```
-
-<Note title="面试里 11008 这种「奇怪的数」值得能解释" type="tip">
-
-看到 LLaMA 的 `intermediate_size: 11008` 时能说出「SwiGLU 多一个矩阵，所以中间维度取 ⅔ × 4d 保持参数量不变，再对齐到方便硬件计算的倍数」，比背出结构图更能体现你真读过模型配置。
+1. 为什么需要多头？LLaMA 2 7B 每个头是多少维，怎么算出来的？
+2. 不加位置信息，「我 爱 猫」和「猫 爱 我」在 self-attention 里有什么区别？
+3. 为什么不直接把位置编号加到 embedding 上？
+4. Learned 位置编码的硬上限是什么？
+5. Padding mask 和 causal mask 分别挡什么？怎么实现？
 
 </Note>
 
@@ -450,91 +1505,1166 @@ LLaMA 2 7B:  d_model = 4096
 
 <Locale lang="en">
 
-## Level 2 · How the parts work
+## Level 4 · Three fixes that make self-attention usable
 
-### Why does a Transformer need positional encoding?
+The self-attention from Level 3 works in principle, but training a model with it as-is hits three gaps: **one set of weights can express only one kind of relationship**, **it has no idea of word order**, and **it can see positions it shouldn't**. This Level fills them one at a time.
 
-**Because attention itself ignores order completely.**
+### Why multi-head attention?
 
-Recall how [Attention](/docs/llm/attention) computes: a score depends only on the contents of two vectors (`q·k`), not on where they sit. Shuffle the input and each token gets the same result; the outputs just come out in shuffled order:
+In Level 3, each word got **one** set of weights. But a sentence holds many kinds of relationships at once.
+
+Take `it` in `"The animal didn't cross the street because it was too tired."`:
+
+- coreference: `it` refers to `animal`
+- syntax: `it` is the subject of `was`
+- proximity: `it` sits right after `because`
+
+One set of weights can only average these, and the average expresses none of them clearly.
+
+**Multi-head attention runs h independent attentions at once.** Each one is called a head, has its own W_Q, W_K, W_V, and can learn a different relationship; the results are then concatenated:
 
 ```
-"dog bites man"  and  "man bites dog"
+head 1:  Q₁ K₁ V₁     → attention → output₁
+head 2:  Q₂ K₂ V₂     → attention → output₂
+…
+head h:  Q_h K_h V_h  → attention → output_h
+
+concatenate [output₁, output₂, …, output_h]  → multiply by an output matrix W_O  → final result
 ```
 
-Without position information, attention sees these as **the same set of vectors** and can't tell who bit whom. An RNN processes in order, so it gets position for free; a Transformer gave up sequential processing to run in parallel, so position has to be injected explicitly.
+**How are the dimensions divided?** Each head doesn't get the full width; d_model is split evenly across h heads:
 
-### Why not just use the position index 1, 2, 3 as the encoding?
+```
+original Transformer:  d_model = 512,   8 heads,  512 / 8   = 64 dims per head
+LLaMA 2 7B:            d_model = 4096,  32 heads, 4096 / 32 = 128 dims per head
+```
 
-Three problems:
+The shapes through one layer of LLaMA 2 7B:
 
-1. **The values blow up.** Embedding values sit around ±1; position 50,000 is 50,000, and adding it drowns out the meaning entirely
-2. **Normalizing doesn't fix it.** Use "position / length" and the 5th position is 0.5 in a 10-word sentence but 0.05 in a 100-word one, so the model can't learn a stable meaning
-3. **Unseen lengths break.** If training never went past 1,024 and inference hits 2,000, that value is completely new to the model
+```
+X                          [n, 4096]
+× W_Q, then split into 32  [32, n, 128]      128 dims per head
+attention in each head     [32, n, 128]
+concatenate back           [n, 4096]
+× W_O                      [n, 4096]
+```
 
-What's needed is a representation that's **bounded, unique per position, and regular in relative distance**.
+**Total compute is about the same as a single 4096-dim head**: one big space is cut into 32 small ones computed in parallel, not multiplied by 32. W_O mixes what the heads learned back into one vector.
+
+<Note title="“Each head learns one relationship” is intuition, not a guarantee" type="warning">
+
+Research does find heads that attend to the previous word or handle coreference, but most heads learn things that don't map to human-readable roles, and many can be pruned with little loss. "Multiple subspaces capture different kinds of dependencies" is fine in an interview; "head 3 handles grammar" is not.
+
+</Note>
+
+### Why does self-attention need position information?
+
+Check with the numbers from Level 3. Reverse the sentence into 「猫 爱 我」, keep W_Q, W_K, W_V the same, and recompute:
+
+```
+          output for 「我 爱 猫」    output for 「猫 爱 我」
+我          [1.604, 0.599]            [1.604, 0.599]
+爱          [1.432, 0.860]            [1.432, 0.860]
+猫          [1.673, 0.836]            [1.673, 0.836]
+```
+
+**Every word's result is identical** — only the order they come out in changed. The scores depend only on the contents of q and k and never use position. To self-attention, 「我 爱 猫」 and 「猫 爱 我」 are the same set of vectors, so it can't tell who loves whom.
+
+An RNN reads in order and knows sequence for free; self-attention gave up reading in order to run in parallel, so **position has to be given to the model explicitly**.
+
+### Why not just add the position index 1, 2, 3?
+
+The most obvious idea is to add each token's position number, but it has three problems:
+
+1. **The values blow up**: embedding values sit around ±1, while position 50,000 is 50,000; adding it drowns out the meaning entirely
+2. **Normalizing doesn't fix it**: with "position / length," the 5th word is 0.5 in a 10-word sentence but 0.05 in a 100-word one, so the model can't learn a stable meaning
+3. **Unseen lengths break**: if training never went past 1,024 and inference hits 2,000, that value is brand new to the model
+
+What's needed is a representation that's **bounded, different for every position, and regular across positions**.
 
 ### How is sinusoidal positional encoding computed?
 
-The original Transformer's scheme: sin and cos at different frequencies produce a d_model-dimensional vector per position, which is **added directly to the token embedding**:
+The original Transformer's scheme: sin and cos at different frequencies produce a vector P for each position, the same length as the embedding (d_model), which is **added directly to the embedding**:
 
 ```
-PE(pos, 2i)   = sin( pos / 10000^(2i / d) )
-PE(pos, 2i+1) = cos( pos / 10000^(2i / d) )
+P(pos, 2i)   = sin( pos / 10000^(2i / d) )
+P(pos, 2i+1) = cos( pos / 10000^(2i / d) )
+
+model input = X + P      shape still [n, d_model]
 ```
 
-Hand-compute the first three positions with d = 4 (dims 0–1 use frequency 1, dims 2–3 use 1/100):
+By hand for the first three positions with d = 4 (dims 0–1 use frequency 1, dims 2–3 use 1/100):
 
 ```
-pos = 0   [sin 0,    cos 0,    sin 0,     cos 0   ]  = [0.000,  1.000, 0.000, 1.000]
-pos = 1   [sin 1,    cos 1,    sin 0.01,  cos 0.01]  = [0.841,  0.540, 0.010, 1.000]
-pos = 2   [sin 2,    cos 2,    sin 0.02,  cos 0.02]  = [0.909, -0.416, 0.020, 1.000]
+pos = 0   [sin 0,  cos 0,  sin 0,     cos 0   ]  = [0.000,  1.000, 0.000, 1.000]
+pos = 1   [sin 1,  cos 1,  sin 0.01,  cos 0.01]  = [0.841,  0.540, 0.010, 1.000]
+pos = 2   [sin 2,  cos 2,  sin 0.02,  cos 0.02]  = [0.909, -0.416, 0.020, 1.000]
 ```
 
 Think of it as **a clock with many hands**:
 
-- Low dimensions (the first two numbers) spin fast, like a second hand — adjacent positions differ a lot, which resolves nearby order
-- High dimensions (the last two) spin slowly, like an hour hand — they change only over long distances, which resolves rough far-away position
-- Every value stays in [-1, 1], so meaning isn't drowned out, and every position gets a unique combination of hands
+- the early dimensions spin fast, like a second hand: neighboring positions differ a lot, which resolves nearby order
+- the later dimensions spin slowly, like an hour hand: they change only over long distances, which resolves roughly where something is far away
+- every value stays between -1 and 1, so meaning isn't drowned out, and every position gets a different combination of hands
 
-One more useful property: the encoding at pos + k is a **linear transformation of the encoding at pos that depends only on k**, which gives the model a chance to learn relative distance.
+With positions added, 我 in 「我 爱 猫」 is "[1, 0] + the vector for position 0," while 我 in 「猫 爱 我」 is "[1, 0] + the vector for position 2." They're no longer the same, and self-attention can tell the orders apart.
+
+<Note title="Does adding position vectors to word vectors scramble the meaning?">
+
+Not in practice. d_model is usually thousands of dimensions, which leaves plenty of room, and the Q, K, V projections learn during training to read both kinds of information out of the combined "meaning + position" vector. It's like music with left and right channels mixed together — you can still hear both the melody and where each sound comes from.
+
+</Note>
 
 ### What is learned positional encoding?
 
-The more direct approach: **give positions their own learnable table, just like the vocabulary**, trained along with everything else.
+The more direct alternative: **give positions their own learnable table, just like the vocabulary**, trained along with everything else.
 
-That's what GPT-2 does: a `[1024, 768]` position embedding table with 786,432 parameters; token pos takes row pos and adds it to its token embedding.
+That's what GPT-2 does: a `[1024, 768]` position table with 786,432 parameters. Token pos takes row pos and adds it to its embedding.
 
-It's flexible — the model decides how to represent position — but **it has a hard ceiling**: the table has 1,024 rows, so position 1,025 has no vector at all. That's one reason GPT-2's context is capped at 1,024.
+It's flexible — the model decides how to represent position — but **it has a hard ceiling**: the table has 1,024 rows, so position 1,025 has no vector at all. That's one reason GPT-2's context is capped at 1,024. Today's LLMs use RoPE, a different approach covered in Level 7.
+
+### What does the padding mask do?
+
+Level 0 covered this: sentences in a batch differ in length, so short ones get padded with `<pad>`. But `<pad>` means nothing, and real words shouldn't attend to it.
+
+**The fix: before softmax, set the score for every `<pad>` position to negative infinity (-∞).** Since `e^(-∞) = 0`, that position gets exactly zero weight after softmax.
+
+Example: 「我 爱」 padded with one `<pad>`, where 我's row of scaled scores is `[0.707, 0.000, some number]`:
+
+```
+no mask:    softmax([0.707, 0.000, some number])   → <pad> takes some of the weight
+with mask:  softmax([0.707, 0.000, -∞])            → [0.670, 0.330, 0.000]
+```
+
+### What does the causal mask do?
+
+Recall Level 1: the decoder is **autoregressive** and writes one word at a time. To train a decoder quickly, the whole target "I love cats" goes in **at once**, and every position learns "predict the next word" simultaneously:
+
+```
+position 1 sees I          → should predict love
+position 2 sees I love     → should predict cats
+```
+
+Here's the catch: by default, self-attention lets every word see the whole sentence. If position 1 could see "love" right after it, it would just copy the answer and learn nothing. And at inference the later words don't exist yet, so training wouldn't match inference.
+
+**The causal mask says: position i can look only at positions 1 through i, never ahead.** It's implemented just like the padding mask, by setting the scores for future positions to -∞.
+
+Check it with 「我 爱 猫」 from Level 3, comparing weights before and after:
+
+```
+             no mask                            with causal mask
+          at 我   at 爱   at 猫               at 我   at 爱   at 猫
+我        0.401   0.198   0.401               1.000   0       0
+爱        0.140   0.284   0.576               0.330   0.670   0
+猫        0.164   0.164   0.673               0.164   0.164   0.673
+```
+
+The outputs change too: 我 becomes `[2.000, 0.000]` (it can only see itself), 爱 becomes `[0.660, 0.670]`, and 猫, already last, is unaffected.
+
+The weight matrix is now **lower-triangular**. One matrix operation lets every position compute at once while each looks only at the past — the key reason Transformer training parallelizes and RNN training doesn't.
+
+<Note title="Padding mask vs. causal mask">
+
+Both use -∞, but they block different things: **the padding mask blocks meaningless filler; the causal mask blocks a future that shouldn't be visible yet.** Decoder training often uses both. An encoder needs only the padding mask, because every word reading the source should see the whole sentence.
+
+</Note>
+
+<Note title="The causal mask is what makes the KV cache possible" type="tip">
+
+Because word i never sees anything after it, its K and V **never change** once computed, no matter how many words follow — so they can be cached and reused. That's the KV cache in Level 8.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why use multiple heads? How many dimensions does each LLaMA 2 7B head have, and how is that computed?
+2. Without position information, how do 「我 爱 猫」 and 「猫 爱 我」 differ inside self-attention?
+3. Why not just add the position index to the embedding?
+4. What's the hard ceiling of learned positional encoding?
+5. What do the padding mask and the causal mask each block, and how are they implemented?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 5 · 组装：Transformer Block 和原始 Transformer
+
+Level 3、4 把 attention 这个零件做好了。但光有 attention，还造不出一个能训练、能用的模型。这一节补上剩下的三个零件，再把它们拼成 2017 年论文里的原始 Transformer。
+
+### 为什么光有 attention 不够？
+
+两个原因。
+
+**原因一：attention 缺少「非线性」。** 回看 Level 3，attention 的输出是 V 的加权平均，而 V 本身是 X 乘一个矩阵得来的——本质上都是线性运算（乘矩阵、相加）。问题是：**多层线性运算叠在一起，效果等于一个矩阵。**
+
+```
+W₁ = [[1, 2],     W₂ = [[1, 0],     x = [1, 1]
+      [0, 1]]           [1, 1]]
+
+先乘 W₁ 再乘 W₂:   W₁ · x = [3, 1]，   W₂ · [3, 1] = [3, 4]
+直接乘 W₂ · W₁:    W₂ · W₁ = [[1, 2], [1, 3]]，  乘 x = [3, 4]    ← 一模一样
+```
+
+叠 100 层线性层，能力也只相当于 1 层。要打破这一点，就要在中间插一个**非线性激活函数**，最简单的是 ReLU：`ReLU(x) = max(0, x)`，把负数变成 0。
+
+```
+换 x = [1, -2]:
+先乘 W₁ 得 [-3, -2]，过 ReLU 变 [0, 0]，再乘 W₂ 得 [0, 0]
+直接乘 W₂ · W₁ 得 [-3, -5]                              ← 不再相等，没法合并成一个矩阵
+```
+
+**原因二：叠深了训不动。** Level 0 讲过，梯度要一层层往回传，层数一多，传到前面就几乎为 0。要堆几十层，就需要专门的结构保证梯度能传回去、每层的数值保持稳定。
+
+所以一个 Transformer block 除了 attention，还需要三样东西：**FFN（提供非线性）、残差连接（让梯度传得回去）、LayerNorm（让数值稳定）**。
+
+### FFN 是做什么的？
+
+FFN（Feed-Forward Network，前馈网络）是一个两层的小网络，中间夹一个激活函数：
+
+```
+FFN(x) = W₂ · ReLU( W₁ · x )
+
+原始 Transformer:  512 维 → W₁ → 2,048 维 → ReLU → W₂ → 512 维
+GPT-2 small:       768 维 → W₁ → 3,072 维 → 激活函数 → W₂ → 768 维
+```
+
+两个关键点：
+
+- **对每个 token 单独算**，所有位置共用同一套 W₁、W₂，token 之间不交流。所以它也叫 position-wise FFN
+- **中间层通常是 d_model 的 4 倍**：先升维，在更大的空间里做非线性组合，再降回原来的维度
+
+和 attention 对照着记：
+
+| | Attention | FFN |
+| --- | --- | --- |
+| 在哪些 token 之间 | token 之间交换信息 | 每个 token 自己算，不看别人 |
+| 做什么 | 从上下文里「取」信息 | 对取到的信息做非线性加工 |
+| 每层参数占比 | 约 1/3 | 约 2/3 |
+
+GPT-2 small 每层：FFN 约 472 万个参数，attention 约 236 万个，正好 2 : 1。有研究认为模型学到的大量事实性知识主要存在 FFN 的参数里。
+
+### 残差连接解决了什么？
+
+残差连接就是把子层的输入**直接加到输出上**：
+
+```
+输出 = x + 子层(x)
+```
+
+子层（attention 或 FFN）只需要学一个「在 x 基础上改多少」的增量，原始的 x 绕过它直接往下传。
+
+它解决的是**梯度传不回去**：
+
+```
+没有残差：梯度每经过一层乘一个系数，假设都是 0.9
+          经过 80 层 = 0.9^80 ≈ 0.0002        ← 前面的层几乎学不到
+
+有残差：  输出 = x + F(x)，对 x 求导 = 1 + F'(x)
+          那个「1」让梯度能沿着加法原样传回去，不管 F 学成什么样
+```
+
+所以残差连接是 Transformer 能堆到几十层、上百层的前提。
+
+<Note title="残差流：理解 Transformer 的另一种视角" type="tip">
+
+把那条 `x + … + …` 一路加下去的主干叫**残差流（residual stream）**：每个子层都从残差流里读数据、算完再加回去，形状始终不变。这个视角能解释为什么每层输入输出同形状，也是可解释性研究常用的框架。
+
+</Note>
+
+### LayerNorm 是什么？为什么 Transformer 不用 BatchNorm？
+
+**归一化**就是把一组数减去均值、除以标准差，让它们回到「均值 0、标准差 1」附近，再乘一个可学习的缩放 γ、加一个偏移 β。目的是让每层输入的数值范围保持稳定，训练更平稳。
+
+LayerNorm 手算一个 token，x = [2, 4, 6]：
+
+```
+均值   = (2 + 4 + 6) / 3 = 4
+方差   = ((2-4)² + (4-4)² + (6-4)²) / 3 = 2.667
+标准差 = 1.633
+归一化 = [(2-4)/1.633, (4-4)/1.633, (6-4)/1.633] = [-1.225, 0, 1.225]
+最后再乘 γ、加 β（训练中学出来）
+```
+
+LayerNorm 和 BatchNorm 的区别只在「对哪一组数求均值和方差」。假设输入形状 `[batch=2, seq_len=5, d_model=4]`，一共 10 个 token：
+
+```
+LayerNorm   每个 token 单独算：用这 1 个 token 自己的 4 个数
+BatchNorm   每个维度单独算：用这个维度上、整个 batch 里 10 个 token 的数
+```
+
+Transformer 不用 BatchNorm 的三个原因：
+
+- **结果依赖同 batch 的其他句子**：推理时 batch 常常只有 1，统计量和训练时对不上
+- **句子长短不一**：补的 `<pad>` 会混进 batch 的均值和方差
+- **生成时一次只来一个 token**：没法对整个 batch、整个序列求统计量
+
+LayerNorm 只看 token 自己，这三个问题都不存在。
+
+### 一个 Transformer block 长什么样？
+
+把零件拼起来，原始 Transformer 的 block 是这样：
+
+```
+x = LayerNorm( x + Attention(x) )     ← 子层 1：token 之间交流，带残差和归一化
+x = LayerNorm( x + FFN(x) )           ← 子层 2：每个 token 自己加工，带残差和归一化
+```
+
+**输入输出形状完全一样**，都是 `[batch, seq_len, d_model]`，所以可以一层层往上堆。原始 Transformer 堆了 6 层，GPT-2 small 12 层，LLaMA 3 70B 80 层。
+
+层数越多，模型能组合出越复杂的特征：大致上浅层更多处理局部和语法关系，深层更多处理抽象语义和长距离依赖。
+
+<Note title="这里把 LayerNorm 放在「相加之后」">
+
+这是原始论文的写法（叫 Post-LN）。今天的 LLM 基本都把 LayerNorm 挪到了子层前面（Pre-LN），原因放在 Level 7 讲。
+
+</Note>
+
+### Encoder block 和 Decoder block 有什么不同？
+
+回到 Level 1 的分工：encoder 负责读，decoder 负责写。换成 Transformer block 之后：
+
+| | Encoder block | Decoder block |
+| --- | --- | --- |
+| 子层 1 | Self-attention（只用 padding mask，每个词看整句原文） | **Masked** self-attention（加 causal mask，每个词只看前面的译文） |
+| 子层 2 | FFN | **Cross-attention**：Q 来自 decoder，K 和 V 来自 encoder 的输出（就是 Level 2 那个） |
+| 子层 3 | — | FFN |
+| 每个子层 | 残差 + LayerNorm | 残差 + LayerNorm |
+
+Decoder 比 encoder 多一个子层：先用 masked self-attention 看自己已经写了什么，再用 cross-attention 回头看原文，最后用 FFN 加工。
+
+### 原始 Transformer 是怎么翻译「我 爱 猫」的？
+
+原始 Transformer（base 版）的配置：d_model = 512，8 个头（每头 64 维），FFN 中间层 2,048，encoder 和 decoder 各 6 层。
+
+训练时，一句话走一遍的完整流程（batch = 1）：
+
+```
+Encoder 侧
+  「我 爱 猫」 token ids                   [1, 3]
+  embedding + 位置编码                     [1, 3, 512]
+  × 6 个 encoder block                     [1, 3, 512]    每个词都读过整句原文
+  → encoder 输出（每个位置一个向量）        [1, 3, 512]    交给 decoder 的每一层
+
+Decoder 侧
+  「<bos> I love cats」 token ids          [1, 4]
+  embedding + 位置编码                     [1, 4, 512]
+  × 6 个 decoder block                     [1, 4, 512]
+      masked self-attention   只看前面的译文
+      cross-attention         Q 来自译文，K / V 来自 encoder 输出
+      FFN
+  线性层：对词表里每个词打分（logits）      [1, 4, 词表大小]
+  softmax 变成概率，每个位置预测下一个词：
+      <bos> 位置 → I      I 位置 → love      love 位置 → cats      cats 位置 → <eos>
+```
+
+**logits** 就是模型对词表里每个词的原始打分，过 softmax（Level 0）之后变成「下一个词是它」的概率。Level 6 会细讲它怎么变成最终输出的那个词。
+
+### 训练时和推理时，Transformer 的运行方式有什么不同？
+
+这是很多人第一次读 Transformer 时最容易糊涂的地方。
+
+**训练时，正确译文是已知的。** 所以把整句「`<bos>` I love cats」**一次性**喂进 decoder，靠 causal mask 保证每个位置看不到后面。4 个位置同时算，同时和正确答案比、算 loss。**一句话一次就产生 n 个训练信号**，GPU 可以完全并行。这种「把正确答案当输入喂进去」的做法叫 **teacher forcing**。
+
+**推理时，译文还不存在。** 只能一个词一个词生成，每一步只用**最后一个位置**的预测：
+
+```
+第 1 步：decoder 输入 <bos>                 → 取最后位置的预测 → I
+第 2 步：decoder 输入 <bos> I               → 取最后位置的预测 → love
+第 3 步：decoder 输入 <bos> I love          → 取最后位置的预测 → cats
+第 4 步：decoder 输入 <bos> I love cats     → 取最后位置的预测 → <eos>，结束
+```
+
+Encoder 只需要在开始时跑一次，结果每一步都能复用。
+
+| | 训练 | 推理 |
+| --- | --- | --- |
+| 目标句 | 已知 | 未知，边生成边拼接 |
+| Decoder 怎么跑 | 整句一次喂进去，所有位置并行 | 一步一个词，串行 |
+| 用哪些位置的输出 | 每个位置都算 loss | 只用最后一个位置 |
+| Causal mask 的作用 | 防止偷看答案 | 保证和训练条件一致 |
+
+<Note title="这个不对称会一路影响到成本" type="tip">
+
+推理时只能一个词一个词地生成，这就是为什么 output token 比 input token 贵、生成长回答更慢（见 [Tokenization](/docs/llm/tokenization) Level 3）。「每一步都要重新看前面所有词」的计算怎么省，就是 Level 8 的 KV cache。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么光有 attention 不够？非线性为什么重要？
+2. FFN 和 attention 的分工是什么？
+3. 残差连接为什么能让深层网络训得动？
+4. LayerNorm 和 BatchNorm 的区别是什么？为什么 Transformer 用 LayerNorm？
+5. Decoder block 比 encoder block 多了哪个子层？它的 Q、K、V 从哪来？
+6. 训练和推理时，decoder 的运行方式有什么不同？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 5 · Assembly: the Transformer block and the original Transformer
+
+Levels 3 and 4 finished the attention part. But attention alone doesn't make a model you can train and use. This Level adds the remaining three parts, then assembles everything into the original Transformer from the 2017 paper.
+
+### Why isn't attention enough on its own?
+
+Two reasons.
+
+**Reason one: attention lacks non-linearity.** Look back at Level 3: attention outputs a weighted average of V, and V is X multiplied by a matrix — all linear operations (matrix multiplies and additions). The problem: **any stack of linear operations collapses into a single matrix.**
+
+```
+W₁ = [[1, 2],     W₂ = [[1, 0],     x = [1, 1]
+      [0, 1]]           [1, 1]]
+
+W₁ first, then W₂:   W₁ · x = [3, 1],   W₂ · [3, 1] = [3, 4]
+multiply W₂ · W₁:    W₂ · W₁ = [[1, 2], [1, 3]],   times x = [3, 4]    ← identical
+```
+
+Stack 100 linear layers and you get the power of just one. To break this, you insert a **non-linear activation function** between them. The simplest is ReLU: `ReLU(x) = max(0, x)`, which turns negatives into 0.
+
+```
+now try x = [1, -2]:
+W₁ gives [-3, -2], ReLU turns it into [0, 0], then W₂ gives [0, 0]
+W₂ · W₁ directly gives [-3, -5]                           ← no longer equal; can't merge into one matrix
+```
+
+**Reason two: deep stacks won't train.** As Level 0 explained, gradients flow back layer by layer, and with many layers they're close to zero by the time they reach the front. Stacking dozens of layers needs dedicated structure to keep gradients flowing and each layer's values stable.
+
+So beyond attention, a Transformer block needs three more things: **an FFN (for non-linearity), residual connections (so gradients flow back), and LayerNorm (so values stay stable)**.
+
+### What does the FFN do?
+
+The FFN (feed-forward network) is a small two-layer network with an activation function in the middle:
+
+```
+FFN(x) = W₂ · ReLU( W₁ · x )
+
+original Transformer:  512 dims → W₁ → 2,048 dims → ReLU → W₂ → 512 dims
+GPT-2 small:           768 dims → W₁ → 3,072 dims → activation → W₂ → 768 dims
+```
+
+Two key points:
+
+- **It runs on each token independently**, with every position sharing the same W₁ and W₂ and no communication between tokens — hence the name position-wise FFN
+- **The hidden layer is usually 4x d_model**: expand, combine non-linearly in the bigger space, then project back down
+
+It's easiest to remember next to attention:
+
+| | Attention | FFN |
+| --- | --- | --- |
+| Between which tokens | exchanges information across tokens | each token on its own, no looking at others |
+| What it does | pulls information in from context | processes that information non-linearly |
+| Share of parameters per layer | about 1/3 | about 2/3 |
+
+Per layer in GPT-2 small: about 4.72 million FFN parameters vs. 2.36 million for attention — exactly 2 : 1. Some research suggests much of the factual knowledge a model learns lives mainly in FFN parameters.
+
+### What do residual connections solve?
+
+A residual connection **adds a sublayer's input directly to its output**:
+
+```
+output = x + sublayer(x)
+```
+
+The sublayer (attention or FFN) only has to learn an increment — "how much to change x" — while the original x bypasses it and flows straight on.
+
+It solves **gradients that can't flow back**:
+
+```
+no residual:    each layer multiplies the gradient by a factor, say 0.9
+                after 80 layers = 0.9^80 ≈ 0.0002     ← early layers barely learn
+
+with residual:  output = x + F(x), derivative with respect to x = 1 + F'(x)
+                that "1" lets the gradient flow back unchanged along the addition, whatever F learns
+```
+
+That's why residual connections are what let Transformers stack dozens or even hundreds of layers.
+
+<Note title="The residual stream: another way to see a Transformer" type="tip">
+
+Call the `x + … + …` backbone that runs all the way through the **residual stream**: every sublayer reads from it, computes, and adds its result back, and its shape never changes. This view explains why every layer keeps the same shape, and it's the common framing in interpretability research.
+
+</Note>
+
+### What is LayerNorm, and why don't Transformers use BatchNorm?
+
+**Normalization** subtracts a set of numbers' mean and divides by their standard deviation, bringing them back near "mean 0, standard deviation 1," then applies a learned scale γ and shift β. The goal is to keep each layer's input in a stable range so training runs smoothly.
+
+LayerNorm by hand for one token, x = [2, 4, 6]:
+
+```
+mean      = (2 + 4 + 6) / 3 = 4
+variance  = ((2-4)² + (4-4)² + (6-4)²) / 3 = 2.667
+std       = 1.633
+normalized = [(2-4)/1.633, (4-4)/1.633, (6-4)/1.633] = [-1.225, 0, 1.225]
+then multiply by γ and add β (both learned)
+```
+
+LayerNorm and BatchNorm differ only in which set of numbers they average over. Take an input of shape `[batch=2, seq_len=5, d_model=4]` — 10 tokens in total:
+
+```
+LayerNorm   each token on its own: that one token's 4 numbers
+BatchNorm   each dimension on its own: that dimension across all 10 tokens in the batch
+```
+
+Three reasons Transformers avoid BatchNorm:
+
+- **The result depends on other sentences in the batch**: at inference the batch is often just 1, so the statistics don't match training
+- **Sentences vary in length**: `<pad>` tokens leak into the batch mean and variance
+- **Generation produces one token at a time**: there's no whole batch and whole sequence to compute statistics over
+
+LayerNorm looks only at the token itself, so none of these problems arise.
+
+### What does a Transformer block look like?
+
+Put the parts together and the original Transformer's block is:
+
+```
+x = LayerNorm( x + Attention(x) )     ← sublayer 1: tokens communicate, with residual and normalization
+x = LayerNorm( x + FFN(x) )           ← sublayer 2: each token processes itself, with residual and normalization
+```
+
+**Input and output shapes are identical** — both `[batch, seq_len, d_model]` — so blocks stack one on top of another. The original Transformer used 6, GPT-2 small uses 12, and LLaMA 3 70B uses 80.
+
+More layers let the model compose more complex features: roughly, shallower layers handle more local and syntactic relationships, and deeper layers handle more abstract meaning and long-range dependencies.
+
+<Note title="LayerNorm sits after the addition here">
+
+That's how the original paper wrote it (called Post-LN). Today's LLMs almost all move LayerNorm in front of the sublayer instead (Pre-LN); Level 7 explains why.
+
+</Note>
+
+### How do encoder blocks and decoder blocks differ?
+
+Back to the division of labor from Level 1: the encoder reads and the decoder writes. Built from Transformer blocks:
+
+| | Encoder block | Decoder block |
+| --- | --- | --- |
+| Sublayer 1 | Self-attention (padding mask only; every word sees the whole source) | **Masked** self-attention (causal mask; every word sees only the translation so far) |
+| Sublayer 2 | FFN | **Cross-attention**: Q from the decoder, K and V from the encoder's output (the one from Level 2) |
+| Sublayer 3 | — | FFN |
+| Every sublayer | residual + LayerNorm | residual + LayerNorm |
+
+The decoder has one more sublayer than the encoder: masked self-attention to see what it has written so far, cross-attention to look back at the source, then the FFN.
+
+### How does the original Transformer translate 「我 爱 猫」?
+
+The original Transformer (base version): d_model = 512, 8 heads (64 dims each), FFN hidden size 2,048, and 6 layers each for the encoder and decoder.
+
+One training pass over a sentence (batch = 1):
+
+```
+Encoder side
+  「我 爱 猫」 token ids                     [1, 3]
+  embedding + positional encoding           [1, 3, 512]
+  × 6 encoder blocks                        [1, 3, 512]    every word has read the whole source
+  → encoder output (one vector per position) [1, 3, 512]   handed to every decoder layer
+
+Decoder side
+  "<bos> I love cats" token ids             [1, 4]
+  embedding + positional encoding           [1, 4, 512]
+  × 6 decoder blocks                        [1, 4, 512]
+      masked self-attention   looks only at the translation so far
+      cross-attention         Q from the translation, K / V from the encoder output
+      FFN
+  linear layer: score every vocabulary word (logits)   [1, 4, vocab size]
+  softmax into probabilities; every position predicts the next word:
+      at <bos> → I      at I → love      at love → cats      at cats → <eos>
+```
+
+**Logits** are the model's raw scores for every word in the vocabulary; softmax (Level 0) turns them into "probability the next word is this one." Level 6 covers how they become the word that's actually output.
+
+### How does a Transformer run differently in training and at inference?
+
+This is where most people get confused on a first read.
+
+**In training, the correct translation is known.** So the whole "`<bos>` I love cats" goes into the decoder **at once**, with the causal mask keeping each position from seeing ahead. All 4 positions compute together and are compared with the right answers together to compute the loss. **One sentence yields n training signals in a single pass**, fully parallel on the GPU. Feeding the correct answer in as input like this is called **teacher forcing**.
+
+**At inference, the translation doesn't exist yet.** It has to be generated one word at a time, using only **the last position's** prediction at each step:
+
+```
+step 1: decoder input <bos>                 → take the last position's prediction → I
+step 2: decoder input <bos> I               → take the last position's prediction → love
+step 3: decoder input <bos> I love          → take the last position's prediction → cats
+step 4: decoder input <bos> I love cats     → take the last position's prediction → <eos>, stop
+```
+
+The encoder runs only once at the start, and its output is reused at every step.
+
+| | Training | Inference |
+| --- | --- | --- |
+| Target sentence | known | unknown; built up as it's generated |
+| How the decoder runs | whole sentence at once, all positions in parallel | one word per step, sequential |
+| Which positions' outputs are used | every position contributes to the loss | only the last position |
+| Role of the causal mask | stops it from peeking at the answer | keeps conditions matched to training |
+
+<Note title="This asymmetry carries all the way through to cost" type="tip">
+
+Inference generates one word at a time, which is why output tokens cost more than input tokens and long answers are slower (see [Tokenization](/docs/llm/tokenization) Level 3). How to avoid recomputing "look at every earlier word" at each step is the KV cache in Level 8.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why isn't attention enough on its own, and why does non-linearity matter?
+2. How do the FFN and attention divide the work?
+3. Why do residual connections let deep networks train?
+4. How do LayerNorm and BatchNorm differ, and why do Transformers use LayerNorm?
+5. Which sublayer does a decoder block have that an encoder block doesn't, and where do its Q, K, and V come from?
+6. How does the decoder run differently in training and at inference?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 6 · 三种架构，以及为什么 LLM 是 Decoder-only
+
+### 同一套零件，能拼出哪几种模型？
+
+Level 5 的原始 Transformer 有完整的 encoder 和 decoder。回想 Level 1 那句话——encoder 负责读、decoder 负责写——**只保留其中一半，或者两半都要**，就得到三种架构：
+
+| | Encoder-only | **Decoder-only** | Encoder-Decoder |
+| --- | --- | --- | --- |
+| 保留了什么 | 只要「读」的那半 | 只要「写」的那半 | 两半都要 |
+| 代表模型 | BERT、RoBERTa | GPT 系、LLaMA、Claude | 原始 Transformer、T5 |
+| Attention 能看哪 | 双向：每个词看整句 | 单向：只看前面（causal mask） | 编码器双向；解码器单向 + cross-attention |
+| 训练目标 | 随机遮住一些词，让模型填回来 | 预测下一个 token | 读完输入序列，生成输出序列 |
+| 擅长 | 理解：分类、信息抽取、生成 embedding | 生成：对话、写作、代码 | 输入和输出明确分开的任务：翻译、摘要 |
+
+Decoder-only 的 block 就是 Level 5 的 decoder block **去掉 cross-attention**——没有 encoder 可看了，只剩 masked self-attention + FFN，各带残差和 LayerNorm。
+
+<Note title="为什么 BERT 不能直接拿来生成文本" type="tip">
+
+BERT 训练时每个词都能看到左右两边，从来没学过「只看左边、猜下一个」，拿它从左往右生成，训练和使用的条件对不上。反过来，这种双向理解正是它适合做 embedding 的原因——很多 RAG 用的 embedding 模型就是 encoder-only 结构，见 [Embedding](/docs/rag/embedding)。
+
+</Note>
+
+### 没有 encoder，decoder-only 怎么做翻译？
+
+**把原文和译文拼进同一个序列**，让模型接着往下写：
+
+```
+输入（prompt）:  把下面的话翻译成英文：我 爱 猫 →
+模型接着生成:    I love cats
+```
+
+生成「love」时，causal self-attention 能看到它前面的所有 token，其中就包括原文「我 爱 猫」。**原来 cross-attention 做的「回头看原文」，被 self-attention 顺带做了**，所以不需要单独的 encoder。
+
+<Note title="面试时值得主动说出来" type="tip">
+
+Decoder-only 把「任务的差异」变成了「prompt 的差异」：翻译、问答、分类、写代码都是「给一段文字，接着往下写」。这就是一个模型能做所有事的结构原因。
+
+</Note>
+
+### 为什么现在的 LLM 几乎都是 decoder-only？
+
+不是另外两种「做不到」，而是 decoder-only 在「做大、做通用」这件事上最省事：
+
+1. **训练数据不用加工。** 任何一段文本都能直接当训练数据，不需要切成「输入 / 输出」两段
+2. **每个位置都是训练信号。** 一段 n 个 token 的文本，每个位置都在预测下一个 token，一次产生 n 个训练信号（Level 5 的 teacher forcing）
+3. **一种结构覆盖所有任务。** 靠 prompt 区分任务，不用为每种任务设计结构
+4. **生成时天然适合缓存。** Causal mask 保证前面 token 的 K、V 不会变，可以缓存复用（Level 8 的 KV cache）
+5. **结构最简单，堆大最直接。** 只有一种 block，没有 encoder 和 decoder 之间怎么分配层数的问题
+
+<Note title="别把 decoder-only 说成「全面更强」" type="warning">
+
+T5 这类 encoder-decoder 在同等规模下做翻译、摘要并不差；BERT 系在分类和 embedding 上至今仍然常用。Decoder-only 胜出主要是「规模化 + 通用性」上的工程选择，面试里这样说更准确。
+
+</Note>
+
+### 一个 token 在 GPT-2 里要经过哪些步骤？
+
+用 GPT-2 small 的真实配置走一遍：12 层，d_model = 768，12 个头（每头 64 维），词表 50,257，上下文 1,024。输入是 5 个 token 的一句话，batch = 1：
+
+```
+① token ids                          [1, 5]          tokenizer 输出的整数
+② token embedding（查表）             [1, 5, 768]     每个 id 取词表矩阵的一行
+③ + 位置编码（learned，Level 4）       [1, 5, 768]
+④ × 12 个 decoder-only block          [1, 5, 768]     形状始终不变，内容越来越「懂上下文」
+     每个 block：masked self-attention + FFN，各带残差和 LayerNorm
+⑤ 最后一个 LayerNorm                  [1, 5, 768]
+⑥ LM head（线性层）                   [1, 5, 50257]   每个位置对整个词表打分 = logits
+⑦ 只取最后一个位置                     [1, 50257]      它负责预测「下一个 token」
+⑧ softmax → 选出一个 token            1 个 token id
+⑨ 把新 token 拼到输入末尾，回到 ①
+```
+
+几个值得记住的点：
+
+- **从 ② 到 ⑤ 形状一直是 `[batch, seq_len, 768]`**，所以 block 能随便堆
+- **Attention 是唯一让 token 之间交流的地方**，FFN、LayerNorm 都是每个 token 各算各的
+- **第 ⑥ 步每个位置都出 logits**：训练时每个位置都算 loss，推理时只用最后一个（和 Level 5 的训练 / 推理区别一致）
+- **GPT-2 把 LayerNorm 放在子层前面**，和 Level 5 的原始写法不同，Level 7 讲为什么
+
+<Note title="Embedding 表和 LM head 常常共用一个矩阵">
+
+第 ② 步的 embedding 矩阵是 `[50257, 768]`，第 ⑥ 步把 768 维变回 50,257 个分数的矩阵形状正好反过来。GPT-2 让两者共用参数（weight tying），省下约 3,860 万个参数。LLaMA 这类更大的模型通常不共用。
+
+</Note>
+
+### Logits 怎么变成下一个 token？temperature、top-k、top-p 做了什么？
+
+LM head 给出的 logits 是对词表里每个 token 的打分，要先过 softmax 变成概率，再按某种策略选一个。
+
+假设词表只有 3 个候选，logits = [2.0, 1.0, 0.1]。
+
+**Greedy（贪心）**：永远选概率最高的那个。简单、确定，但容易重复、缺少变化。
+
+**Temperature**：softmax 之前把 logits 除以 T。
+
+```
+T = 1.0   softmax([2.0, 1.0, 0.1])   = [0.659, 0.242, 0.099]    原始分布
+T = 0.5   softmax([4.0, 2.0, 0.2])   = [0.864, 0.117, 0.019]    更尖锐，更确定
+T = 2.0   softmax([1.0, 0.5, 0.05])  = [0.502, 0.304, 0.194]    更平缓，更随机
+```
+
+T 越小越接近 greedy，T 越大越有变化、也越容易胡说。这和 Level 3「除以 √d_k 防止 softmax 太尖」是同一个原理，只是这里故意用来调节尖锐程度。
+
+**Top-k**：只保留分数最高的 k 个候选，其他的概率清零，再重新归一化后抽样。
+
+**Top-p（nucleus）**：按概率从高到低累加，保留**刚好累计到 p** 的那几个。T = 1、p = 0.9 时：
+
+```
+0.659 + 0.242 = 0.901 ≥ 0.9  → 保留前 2 个，丢掉 0.099 那个
+重新归一化 → [0.731, 0.269]，再从这两个里抽样
+```
+
+Top-p 比 top-k 灵活：模型很确定时只剩一两个候选，不确定时自动保留更多。
+
+<Note title="temperature = 0 不保证每次输出完全一样" type="warning">
+
+理论上 T = 0 就是 greedy，结果确定。但线上服务里，同一个请求可能和不同的其他请求拼进一个 batch，GPU 并行计算的浮点误差会让两个 logits 很接近的候选偶尔换位，后面生成的内容就分叉了。需要可复现时，要在评测和测试设计里考虑这一点。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. Encoder-only、decoder-only、encoder-decoder 各保留了原始 Transformer 的哪部分？各举一个模型。
+2. Decoder-only 没有 cross-attention，怎么做翻译？
+3. 为什么现在的 LLM 几乎都是 decoder-only？说出至少三个原因。
+4. 画出 GPT-2 从 token ids 到下一个 token 的数据流，标出每一步的形状。
+5. Temperature、top-k、top-p 分别做什么？T = 0 为什么还可能输出不一致？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 6 · Three architectures, and why LLMs are decoder-only
+
+### What models can you build from the same parts?
+
+The original Transformer in Level 5 has a full encoder and decoder. Recall the line from Level 1 — the encoder reads, the decoder writes — and **keep only one half, or both**, and you get three architectures:
+
+| | Encoder-only | **Decoder-only** | Encoder-decoder |
+| --- | --- | --- | --- |
+| What's kept | only the reading half | only the writing half | both halves |
+| Examples | BERT, RoBERTa | the GPT family, LLaMA, Claude | original Transformer, T5 |
+| What attention can see | bidirectional: every word sees the whole sentence | one direction: only earlier tokens (causal mask) | encoder bidirectional; decoder causal plus cross-attention |
+| Training objective | mask out some words at random and have the model fill them in | predict the next token | read an input sequence, generate an output sequence |
+| Good at | understanding: classification, information extraction, producing embeddings | generation: chat, writing, code | tasks with a clean input/output split: translation, summarization |
+
+A decoder-only block is Level 5's decoder block **with cross-attention removed** — there's no encoder to look at, so all that's left is masked self-attention plus the FFN, each with a residual connection and LayerNorm.
+
+<Note title="Why BERT can't simply be used to generate text" type="tip">
+
+During training every BERT word sees both sides; it never learned "look only left and guess the next word," so generating left to right mismatches how it was trained. That same bidirectional understanding is why it's good at embeddings — many embedding models used in RAG are encoder-only. See [Embedding](/docs/rag/embedding).
+
+</Note>
+
+### Without an encoder, how does a decoder-only model translate?
+
+**Put the source and the translation in one sequence** and let the model keep writing:
+
+```
+input (prompt):     Translate into English: 我 爱 猫 →
+model continues:    I love cats
+```
+
+When generating "love," causal self-attention can see every token before it — including the source 「我 爱 猫」. **The "look back at the source" job that cross-attention used to do now happens inside self-attention**, so no separate encoder is needed.
+
+<Note title="Worth raising unprompted in an interview" type="tip">
+
+Decoder-only turns "differences between tasks" into "differences between prompts": translation, QA, classification, and coding are all "here's some text, keep writing." That's the structural reason one model can do everything.
+
+</Note>
+
+### Why is nearly every LLM today decoder-only?
+
+Not because the other two can't do the job, but because decoder-only has the least friction when the goal is big and general:
+
+1. **Training data needs no preparation.** Any text can be used directly, with no need to split it into input and output
+2. **Every position is a training signal.** In an n-token text, every position predicts the next token, producing n training signals at once (the teacher forcing from Level 5)
+3. **One architecture covers every task.** Prompts distinguish tasks, so no task needs its own design
+4. **Generation is naturally cacheable.** The causal mask guarantees earlier tokens' K and V never change, so they can be cached and reused (the KV cache in Level 8)
+5. **The simplest structure scales most directly.** One kind of block, and no question of how to split layers between an encoder and a decoder
+
+<Note title="Don't frame decoder-only as strictly better" type="warning">
+
+Encoder-decoder models like T5 hold up well on translation and summarization at similar scale, and BERT-style models are still widely used for classification and embeddings. Decoder-only won mainly as an engineering choice for scale and generality — the more accurate way to put it in an interview.
+
+</Note>
+
+### What steps does a token go through inside GPT-2?
+
+Walk through it with GPT-2 small's real config: 12 layers, d_model = 768, 12 heads (64 dims each), vocabulary 50,257, context 1,024. The input is a 5-token sentence with batch = 1:
+
+```
+① token ids                             [1, 5]          integers from the tokenizer
+② token embedding (lookup)              [1, 5, 768]     each id grabs one row of the embedding matrix
+③ + positional encoding (learned, Level 4)  [1, 5, 768]
+④ × 12 decoder-only blocks              [1, 5, 768]     shape never changes; content becomes context-aware
+     each block: masked self-attention + FFN, each with residual and LayerNorm
+⑤ final LayerNorm                       [1, 5, 768]
+⑥ LM head (linear layer)                [1, 5, 50257]   every position scores the whole vocabulary = logits
+⑦ keep only the last position           [1, 50257]      it's the one predicting the next token
+⑧ softmax → pick one token              one token id
+⑨ append the new token and go back to ①
+```
+
+Things worth remembering:
+
+- **From ② to ⑤ the shape stays `[batch, seq_len, 768]`**, which is why blocks can be stacked freely
+- **Attention is the only place tokens communicate**; the FFN and LayerNorm work on each token separately
+- **Step ⑥ produces logits at every position**: in training every position contributes to the loss, at inference only the last is used (matching the training/inference split from Level 5)
+- **GPT-2 puts LayerNorm before each sublayer**, unlike the original layout in Level 5; Level 7 explains why
+
+<Note title="The embedding table and the LM head often share one matrix">
+
+The embedding matrix in step ② is `[50257, 768]`, and the matrix in step ⑥ that maps 768 dims back to 50,257 scores has exactly the reverse shape. GPT-2 shares the two (weight tying), saving about 38.6 million parameters. Larger models like LLaMA usually don't.
+
+</Note>
+
+### How do logits become the next token? What do temperature, top-k, and top-p do?
+
+The LM head's logits are scores for every token in the vocabulary. Softmax turns them into probabilities, and a decoding strategy picks one.
+
+Suppose the vocabulary has just 3 candidates with logits = [2.0, 1.0, 0.1].
+
+**Greedy**: always pick the most likely token. Simple and deterministic, but prone to repetition and short on variety.
+
+**Temperature**: divide the logits by T before softmax.
+
+```
+T = 1.0   softmax([2.0, 1.0, 0.1])   = [0.659, 0.242, 0.099]    the original distribution
+T = 0.5   softmax([4.0, 2.0, 0.2])   = [0.864, 0.117, 0.019]    sharper, more deterministic
+T = 2.0   softmax([1.0, 0.5, 0.05])  = [0.502, 0.304, 0.194]    flatter, more random
+```
+
+Lower T approaches greedy; higher T adds variety and also more nonsense. It's the same principle as dividing by √d_k in Level 3 to keep softmax from getting too sharp, used here deliberately to tune the sharpness.
+
+**Top-k**: keep only the k highest-scoring candidates, zero out the rest, renormalize, then sample.
+
+**Top-p (nucleus)**: add probabilities from highest to lowest and keep candidates **until the running total reaches p**. With T = 1 and p = 0.9:
+
+```
+0.659 + 0.242 = 0.901 ≥ 0.9  → keep the top 2, drop the 0.099 one
+renormalize → [0.731, 0.269], then sample from these two
+```
+
+Top-p adapts better than top-k: when the model is confident only one or two candidates survive; when it's unsure, more are kept automatically.
+
+<Note title="temperature = 0 doesn't guarantee identical outputs" type="warning">
+
+In theory T = 0 is greedy and deterministic. In a live service, though, the same request can be batched with different other requests, and floating-point differences in parallel GPU math can occasionally swap two candidates with nearly equal logits, after which the generation diverges. When reproducibility matters, account for this in evaluation and test design.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Which part of the original Transformer does each of encoder-only, decoder-only, and encoder-decoder keep? Give an example of each.
+2. Without cross-attention, how does a decoder-only model translate?
+3. Why is nearly every LLM today decoder-only? Give at least three reasons.
+4. Draw GPT-2's data flow from token ids to the next token, with the shape at each step.
+5. What do temperature, top-k, and top-p each do, and why can outputs still vary at T = 0?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 7 · 现代 LLM 对原始结构做了哪些升级
+
+从 2017 年到今天，Transformer 的骨架（attention + FFN + 残差 + 归一化）基本没变，但几乎每个零件都换了新版本，目标只有三个：**训得更稳、推理更省、上下文更长**。这一节讲前四项升级：归一化的位置、归一化的算法、激活函数、位置编码。第五项 GQA 是为了缩小 KV cache 才出现的，放在 Level 8 讲完 KV cache 之后。
+
+### Pre-LN 和 Post-LN 有什么区别？为什么现在都用 Pre-LN？
+
+区别就是 **LayerNorm 放在子层前面，还是放在残差相加之后**：
+
+```
+Post-LN（原始 Transformer、BERT，Level 5 的写法）   x = LayerNorm( x + F(x) )
+Pre-LN （GPT-2 起，LLaMA 等）                      x = x + F( LayerNorm(x) )
+```
+
+看出差别了吗？Post-LN 的 LayerNorm 压在残差主干上，梯度每经过一层都要穿过一次 LayerNorm；Pre-LN 的主干是干净的 `x + …`，LayerNorm 只在支路里。回想 Level 5：残差之所以能让梯度传回去，靠的就是那个「纯加法」。
+
+| | Post-LN | Pre-LN |
+| --- | --- | --- |
+| 残差主干 | 每层被 LayerNorm 打断 | 纯加法直通 |
+| 深层训练 | 不稳定，需要仔细调学习率预热（warmup） | 稳定，容易堆深 |
+| 最终效果 | 训练成功时有时略好 | 通常略差一点，换来稳定 |
+| 额外要求 | 无 | 最后一个 block 之后要补一个 LayerNorm（GPT-2 数据流的第 ⑤ 步） |
+
+模型规模上去之后，「训得稳」比那一点点效果差距重要得多，所以今天的大模型几乎都是 Pre-LN。
+
+### RMSNorm 是什么？
+
+LayerNorm 的简化版，LLaMA、Mistral 都用它：**不减均值，也不加偏移 β，只除以均方根（RMS）**。
+
+```
+RMS(x)     = √( (x₁² + x₂² + … + x_d²) / d )
+RMSNorm(x) = x / RMS(x) × γ
+```
+
+同样用 x = [2, 4, 6]：
+
+```
+RMS     = √( (4 + 16 + 36) / 3 ) = √18.67 = 4.320
+RMSNorm = [2 / 4.320,  4 / 4.320,  6 / 4.320] = [0.463, 0.926, 1.389]
+```
+
+少了求均值这一步，计算更省，实践中效果和 LayerNorm 基本一样。一个大模型要做非常多次归一化，省下的这点计算是值得的。
+
+### 激活函数为什么从 ReLU 换成 GELU、SwiGLU？
+
+**ReLU 的问题**：`max(0, x)` 把所有负数砍成 0。如果某个神经元的输入一直是负的，它的输出永远是 0，梯度也永远是 0，再也学不回来，叫「死神经元」。
+
+**GELU**（GPT-2、BERT 用）是平滑版：大的正数基本原样通过，大的负数接近 0，**0 附近的小负数会保留一部分**：
+
+```
+x       ReLU     GELU
+ 1.0    1.0      0.841
+-0.1    0       -0.046
+-1.0    0       -0.159
+```
+
+负数区间还有梯度，训练更平滑。
+
+**SwiGLU**（LLaMA、Mistral 用）再进一步：FFN 里用三个矩阵，其中一路算出一个「门」，控制另一路能通过多少。多了一个矩阵，为了让总参数量和普通 FFN 持平，中间维度从 4 倍缩到约 8/3 倍：
+
+```
+LLaMA 2 7B:  d_model = 4,096
+             普通 FFN 中间层是 4 × 4,096 = 16,384
+             SwiGLU 取 ⅔ × 16,384 ≈ 10,923，再向上取整到 11,008
+```
+
+<Note title="能解释 11008 这种「奇怪的数」" type="tip">
+
+看到 LLaMA 配置里的 `intermediate_size: 11008`，能说出「SwiGLU 多一个矩阵，中间维度取 ⅔ × 4d 保持参数量不变，再对齐到方便硬件计算的倍数」，比背出结构图更能说明你真读过模型配置。
+
+</Note>
+
+### 绝对位置编码和相对位置编码有什么区别？
+
+Level 4 的 sinusoidal 和 learned 都是**绝对位置编码**：每个位置有自己的向量，告诉模型「我在第几个位置」。
+
+但语言真正在乎的往往是**相对距离**：「猫」和「爱」隔了几个词，比「猫在第 3 位」重要。而且绝对位置编码有两个老问题：learned 的有硬上限；两者对训练时没见过的长度都处理得不好。
+
+**相对位置编码**直接把「两个词之间的距离」放进 attention 的打分里：
+
+| | 绝对位置编码 | 相对位置编码 |
+| --- | --- | --- |
+| 告诉模型什么 | 「我在第 5 位」 | 「你离我 3 个词」 |
+| 怎么加进去 | 加到 embedding 上，只在输入层加一次 | 作用在每一层 attention 的打分上 |
+| 例子 | 原始 Transformer（sinusoidal）、GPT-2（learned） | T5（按距离学一个偏置加到分数上）、RoPE |
+
+今天的 LLM 用得最多的是 RoPE。
+
+### RoPE 是怎么做的？为什么现在主流用它？
+
+RoPE（Rotary Position Embedding，旋转位置编码）的做法：**不往 embedding 上加东西，而是在每一层 attention 里，把 Q 和 K 按位置「旋转」一个角度。**
+
+具体来说：把 Q、K 的维度两两分组，每组看成平面上的一个 2 维向量，第 pos 个 token 就把它旋转 `pos × θ` 的角度（不同组的 θ 不同，和 sinusoidal 一样有快有慢）。**V 不旋转。**
+
+它最关键的性质：**旋转之后再做点积，结果只取决于两个 token 的位置差，和它们的绝对位置无关。**
+
+用一个 2 维的例子验证（θ = 0.5，q = [1, 0.5]，k = [0.8, 0.2]，不旋转时点积 = 0.9）：
+
+```
+q 在位置 3，   k 在位置 1      位置差 2     点积 = 0.3180
+q 在位置 10，  k 在位置 8      位置差 2     点积 = 0.3180
+q 在位置 100， k 在位置 98     位置差 2     点积 = 0.3180
+q 在位置 5，   k 在位置 1      位置差 4     点积 = -0.5564
+```
+
+**位置差相同，打分就完全相同。** 直觉是：两个向量分别转了 mθ 和 nθ，它们之间的**夹角**只变了 (m − n)θ，而点积只关心夹角。
+
+为什么成为主流（LLaMA 系、Mistral、Qwen 都用）：
+
+- **直接编码相对位置**：打分天然包含「离我多远」，不用模型自己从绝对位置里推
+- **没有位置表、没有额外参数**，没有 learned 那种「第 1,025 行不存在」的硬上限
+- **只作用在 Q、K 上**，不改动 V 和残差流里的词义信息
+
+<Note title="RoPE 和 KV cache 能配合" type="tip">
+
+旋转只取决于 token 自己的位置，所以一个 token 的 K 旋转一次之后就固定了，可以直接缓存，以后不用再改（KV cache 见 Level 8）。
+
+</Note>
+
+### 上下文是怎么从 8K 扩到 128K 的？什么是长度外推？
+
+**长度外推**指：训练时最长只见过 L 个位置，推理时能不能处理比 L 更长的输入。
+
+用 RoPE 的模型也不能直接外推。训练时最长 8K，位置 50,000 对应的旋转角度（尤其是转得慢的那些维度）模型从来没见过，效果会明显变差。
+
+实际扩上下文靠的是「**调整 RoPE 的频率 + 用长文本继续训练一段**」：
+
+- **Position Interpolation（位置插值）**：把新的长位置按比例「压缩」回训练见过的范围，比如 32K 的位置除以 4，当成 8K 以内的位置用
+- **NTK-aware / YaRN**：不同频率区别对待——转得快的维度（管近距离）基本不动，只拉伸转得慢的维度（管远距离），近处的分辨率不受损
+- **调大 RoPE 的 base**：LLaMA 2 的 base 是 10,000，LLaMA 3 调到 500,000，让慢的维度转得更慢，覆盖更长的距离
+
+LLaMA 3.1 从 8K 扩到 128K，就是在 RoPE 上做了频率缩放，再用长文本数据继续预训练。
+
+<Note title="别说「RoPE 天然支持任意长度外推」" type="danger">
+
+RoPE 的点积只依赖相对位置，但**模型没见过的旋转角度依然是训练分布之外的**，直接超出训练长度效果会明显下降。能扩到 128K 靠的是频率缩放加长文本继续训练，不是 RoPE 自带的。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. Pre-LN 和 Post-LN 差在哪？为什么大模型都用 Pre-LN？
+2. RMSNorm 比 LayerNorm 少做了什么？
+3. GELU 比 ReLU 好在哪？LLaMA 2 7B 的 FFN 中间维度为什么是 11008？
+4. 绝对位置编码和相对位置编码有什么区别？
+5. RoPE 是怎么做的？为什么旋转之后的点积只和位置差有关？
+6. 怎么把一个 8K 上下文的模型扩到 128K？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 7 · How modern LLMs upgraded the original design
+
+From 2017 to today, the Transformer's skeleton — attention + FFN + residual + normalization — has barely changed, but nearly every part has been swapped for a newer version, all for three goals: **train more stably, infer more cheaply, handle longer context**. This Level covers the first four upgrades: where normalization sits, how it's computed, the activation function, and positional encoding. The fifth, GQA, exists to shrink the KV cache, so it comes in Level 8 right after the KV cache.
+
+### How do Pre-LN and Post-LN differ, and why does everyone use Pre-LN now?
+
+The difference is **whether LayerNorm sits before the sublayer or after the residual addition**:
+
+```
+Post-LN (original Transformer, BERT; the Level 5 layout)   x = LayerNorm( x + F(x) )
+Pre-LN  (GPT-2 onward, LLaMA and others)                   x = x + F( LayerNorm(x) )
+```
+
+See it? In Post-LN the LayerNorm sits on the residual backbone, so the gradient passes through a LayerNorm at every layer. In Pre-LN the backbone is a clean `x + …`, with LayerNorm only on the branch. Recall Level 5: residuals let gradients flow back precisely because of that pure addition.
+
+| | Post-LN | Pre-LN |
+| --- | --- | --- |
+| Residual backbone | interrupted by LayerNorm every layer | a straight chain of additions |
+| Deep training | unstable; needs a carefully tuned learning-rate warmup | stable; easy to stack deep |
+| Final quality | sometimes slightly better when it trains successfully | usually a hair worse, in exchange for stability |
+| Extra requirement | none | a final LayerNorm after the last block (step ⑤ of GPT-2's data flow) |
+
+At scale, training reliably matters far more than that small quality gap, so nearly every large model today is Pre-LN.
+
+### What is RMSNorm?
+
+A simplified LayerNorm used by LLaMA and Mistral: **no mean subtraction and no shift β — just divide by the root mean square (RMS)**.
+
+```
+RMS(x)     = √( (x₁² + x₂² + … + x_d²) / d )
+RMSNorm(x) = x / RMS(x) × γ
+```
+
+Same x = [2, 4, 6]:
+
+```
+RMS     = √( (4 + 16 + 36) / 3 ) = √18.67 = 4.320
+RMSNorm = [2 / 4.320,  4 / 4.320,  6 / 4.320] = [0.463, 0.926, 1.389]
+```
+
+Skipping the mean saves compute, and in practice quality matches LayerNorm. A large model normalizes a huge number of times, so the savings are worth it.
+
+### Why move from ReLU to GELU and SwiGLU?
+
+**ReLU's problem**: `max(0, x)` cuts every negative to 0. If a neuron's input stays negative, its output and gradient are permanently 0 and it can never recover — a "dead neuron."
+
+**GELU** (used by GPT-2 and BERT) is the smooth version: large positives pass through almost unchanged, large negatives go to nearly 0, and **small negatives near 0 partly survive**:
+
+```
+x       ReLU     GELU
+ 1.0    1.0      0.841
+-0.1    0       -0.046
+-1.0    0       -0.159
+```
+
+The negative range still has a gradient, so training is smoother.
+
+**SwiGLU** (used by LLaMA and Mistral) goes further: the FFN uses three matrices, one path computing a "gate" that controls how much of the other gets through. The extra matrix costs parameters, so to match a standard FFN's total, the hidden size shrinks from 4x to about 8/3x:
+
+```
+LLaMA 2 7B:  d_model = 4,096
+             a standard FFN hidden layer would be 4 × 4,096 = 16,384
+             SwiGLU uses ⅔ × 16,384 ≈ 10,923, rounded up to 11,008
+```
+
+<Note title="Be able to explain odd numbers like 11008" type="tip">
+
+When you see `intermediate_size: 11008` in a LLaMA config, saying "SwiGLU adds a matrix, so the hidden size is ⅔ × 4d to keep parameters constant, then rounded to a hardware-friendly multiple" shows you've actually read model configs — more convincing than reciting the block diagram.
+
+</Note>
+
+### How does absolute positional encoding differ from relative positional encoding?
+
+Sinusoidal and learned encodings from Level 4 are both **absolute**: every position has its own vector telling the model "I'm at position N."
+
+But what language actually cares about is usually **relative distance**: how many words separate 猫 from 爱 matters more than "猫 is at position 3." Absolute encodings also have two old problems: learned ones hit a hard ceiling, and both handle lengths unseen in training poorly.
+
+**Relative positional encoding** puts "the distance between two words" directly into the attention score:
+
+| | Absolute | Relative |
+| --- | --- | --- |
+| What it tells the model | "I'm at position 5" | "you're 3 words away from me" |
+| How it's added | added to the embedding, once at the input | applied to the attention score in every layer |
+| Examples | original Transformer (sinusoidal), GPT-2 (learned) | T5 (a learned bias per distance added to the score), RoPE |
+
+RoPE is by far the most common in today's LLMs.
 
 ### How does RoPE work, and why is it the default now?
 
-RoPE (Rotary Position Embedding) takes a different route: **nothing is added to the embedding; instead, inside every attention layer, Q and K are rotated by an angle that depends on position.**
+RoPE (Rotary Position Embedding) works like this: **nothing gets added to the embedding; instead, inside every attention layer, Q and K are rotated by an angle that depends on position.**
 
-The mechanics: split the dimensions of Q and K into pairs, treat each pair as a 2D vector in a plane, and rotate the vector for token pos by `pos × θ` (each pair has its own θ, fast to slow, like sinusoidal). **V is not rotated.**
+Concretely: split the dimensions of Q and K into pairs, treat each pair as a 2D vector in a plane, and rotate the vector for token pos by `pos × θ` (each pair has its own θ, fast to slow, like sinusoidal). **V is not rotated.**
 
 The key property: **after rotation, the dot product depends only on the distance between the two tokens, not on their absolute positions.**
 
-Check it with a 2D example (θ = 0.5, q = [1, 0.5], k = [0.8, 0.2], dot product before rotation = 0.9):
+Check it with a 2D example (θ = 0.5, q = [1, 0.5], k = [0.8, 0.2], unrotated dot product = 0.9):
 
 ```
-q at position 3,   k at position 1     distance 2    dot = 0.3180
-q at position 10,  k at position 8     distance 2    dot = 0.3180
-q at position 100, k at position 98    distance 2    dot = 0.3180
-q at position 5,   k at position 1     distance 4    dot = -0.5564
+q at position 3,   k at position 1      distance 2     dot = 0.3180
+q at position 10,  k at position 8      distance 2     dot = 0.3180
+q at position 100, k at position 98     distance 2     dot = 0.3180
+q at position 5,   k at position 1      distance 4     dot = -0.5564
 ```
 
-Same distance, identical score. The intuition: the vectors rotate by mθ and nθ, so the **angle between them** changes by exactly (m − n)θ, and a dot product only cares about that angle.
+**Same distance, identical score.** The intuition: the two vectors rotate by mθ and nθ, so the **angle between them** changes by exactly (m − n)θ, and a dot product only cares about that angle.
 
 Why it became the default (the LLaMA family, Mistral, and Qwen all use it):
 
-- **Relative position is encoded directly** — the attention score inherently reflects "how far from me," so the model doesn't have to infer it from absolute positions
-- **No learned parameters and no position table**, so there's no "row 1,025 doesn't exist" ceiling like learned PE
-- **It only touches Q and K**, leaving V and the semantic content of the residual stream untouched
+- **Relative position is encoded directly**: the score inherently reflects "how far from me," so the model doesn't have to infer it from absolute positions
+- **No position table and no extra parameters**, so there's no "row 1,025 doesn't exist" ceiling like learned encodings
+- **It only touches Q and K**, leaving V and the meaning carried in the residual stream alone
 
 <Note title="RoPE works hand in hand with the KV cache" type="tip">
 
-A rotation depends only on a token's own position, so once a token's K is rotated it's fixed and can be cached without ever changing. That's part of why RoPE suits decoder-only inference.
+A rotation depends only on a token's own position, so once a token's K is rotated it's fixed and can be cached as-is, never needing an update (the KV cache is in Level 8).
 
 </Note>
 
@@ -542,158 +2672,30 @@ A rotation depends only on a token's own position, so once a token's K is rotate
 
 **Length extrapolation** asks: if training only saw L positions, can the model handle inputs longer than L?
 
-RoPE models can't do this out of the box either. If training stopped at 8K, the rotation angles for position 50,000 — especially in the slow-spinning dimensions — are ones the model has never seen, and quality falls apart.
+RoPE models can't do this out of the box either. If training stopped at 8K, the rotation angles for position 50,000 — especially in the slow-spinning dimensions — are ones the model has never seen, and quality drops noticeably.
 
-In practice, context gets extended by **changing RoPE's frequencies plus some continued training on long text**:
+In practice, context gets extended by **adjusting RoPE's frequencies plus some continued training on long text**:
 
 - **Position Interpolation**: scale new, longer positions back into the trained range — e.g. divide 32K positions by 4 so they look like positions within 8K
-- **NTK-aware / YaRN**: treat frequencies differently — leave the fast dimensions (near-range) mostly alone and stretch only the slow ones (long-range), so nearby resolution isn't lost
+- **NTK-aware / YaRN**: treat frequencies differently — leave the fast dimensions (near range) mostly alone and stretch only the slow ones (long range), so nearby resolution isn't lost
 - **Raise the RoPE base**: LLaMA 2 uses a base of 10,000; LLaMA 3 raised it to 500,000, making slow dimensions spin even slower and cover longer distances
 
 LLaMA 3.1 went from 8K to 128K by scaling RoPE frequencies and then continuing pretraining on long-context data.
 
-<Note title="Don't say RoPE or relative position encoding extrapolates to any length for free" type="danger">
+<Note title="Don't say RoPE extrapolates to any length for free" type="danger">
 
-RoPE's dot product depends only on relative position, but **rotation angles the model never saw are still out of distribution**; going past the training length directly causes a clear quality drop. Reaching 128K takes frequency scaling plus long-context continued training, not something RoPE provides on its own.
-
-</Note>
-
-### What do residual connections solve?
-
-A residual connection is the `x = x + F(x)` inside a block: **the sublayer (attention or FFN) computes only an increment, and the original input bypasses it and gets added back.**
-
-It solves **deep networks that won't train**. During backprop the gradient has to multiply its way from the last layer back to the first:
-
-```
-no residual:   each layer multiplies the gradient by a factor, say 0.9
-               after 80 layers = 0.9^80 ≈ 0.0002    ← early layers barely get a gradient
-
-with residual: y = x + F(x), derivative with respect to x = 1 + F'(x)
-               that "1" lets the gradient flow back unchanged along the addition, whatever F learns
-```
-
-So residual connections aren't a nice-to-have; they're what lets a Transformer stack 80 layers (LLaMA 3 70B).
-
-<Note title="The residual stream: another way to see a Transformer" type="tip">
-
-Call the `x + … + …` backbone that runs through every block the **residual stream**: each block reads from it, computes, and writes back, and its shape is always `[batch, length, d_model]`. This view explains why every layer keeps the same shape, and it's the common framing in current interpretability research.
+RoPE's dot product depends only on relative position, but **rotation angles the model never saw are still outside its training distribution**, and going past the training length directly causes a clear quality drop. Reaching 128K takes frequency scaling plus long-context continued training, not something RoPE provides on its own.
 
 </Note>
 
-### How do LayerNorm and BatchNorm differ, and why do Transformers use LayerNorm?
+<Note title="Self-check: by now you should be able to answer">
 
-Both subtract a mean, divide by a standard deviation, then apply a learned scale γ and shift β. **The only difference is which set of numbers they normalize over.**
-
-Take an input of shape `[batch=2, length=5, dims=4]` — 10 tokens, 4 dims each:
-
-```
-LayerNorm   normalizes each token on its own: mean and variance over that token's 4 numbers
-BatchNorm   normalizes each dimension on its own: mean and variance over that dimension across all 10 tokens in the batch
-```
-
-LayerNorm by hand for one token, x = [2, 4, 6]:
-
-```
-mean = 4
-variance = ((2-4)² + (4-4)² + (6-4)²) / 3 = 2.667, std = 1.633
-normalized = [(2-4)/1.633, 0, (6-4)/1.633] = [-1.225, 0, 1.225]
-then multiply by γ and add β (both learned)
-```
-
-Why Transformers avoid BatchNorm:
-
-- **It depends on other examples in the batch**: a token's output changes with whatever other sentences share its batch, and at inference the batch is often 1, so the statistics don't match training
-- **Variable length and padding**: sentences differ in length, and `<pad>` tokens leak into the batch mean and variance
-- **Autoregressive generation**: one new token arrives at a time, so there's no "whole batch, whole sequence" to compute statistics over
-
-LayerNorm only looks at the token itself, so none of these problems arise.
-
-### How do Pre-LN and Post-LN differ?
-
-The difference is **whether Norm sits before the sublayer or after the residual addition**:
-
-```
-Post-LN (original Transformer, BERT)   x = Norm( x + F(x) )
-Pre-LN  (GPT-2 onward, LLaMA)          x = x + F( Norm(x) )
-```
-
-See it? In Post-LN the Norm sits on the residual backbone, so the gradient passes through a Norm at every layer. In Pre-LN the backbone is a clean `x + …` and Norm lives only on the branch.
-
-| | Post-LN | Pre-LN |
-| --- | --- | --- |
-| Residual backbone | interrupted by Norm every layer | a straight chain of additions |
-| Deep training | unstable; needs careful learning-rate warmup | stable; easy to stack deep |
-| Final quality | sometimes slightly better when it trains successfully | usually a hair worse, in exchange for stability |
-| Extra requirement | none | a final Norm after the last block (step ⑤ in the data flow) |
-
-Nearly every large model today is Pre-LN: at scale, training reliably matters far more than that small quality gap.
-
-### What is RMSNorm?
-
-A simplified LayerNorm used by LLaMA and Mistral: **no mean subtraction and no shift β — just divide by the root mean square.**
-
-```
-RMS(x) = √( (x₁² + x₂² + … + x_d²) / d )
-RMSNorm(x) = x / RMS(x) × γ
-```
-
-Same x = [2, 4, 6]:
-
-```
-RMS = √((4 + 16 + 36) / 3) = √18.67 = 4.320
-RMSNorm = [2/4.320, 4/4.320, 6/4.320] = [0.463, 0.926, 1.389]
-```
-
-Skipping the mean saves compute, and in practice quality matches LayerNorm. In a large model that runs Norm an enormous number of times, that saving is worth it.
-
-### What's the FFN's structure, and why expand the dimension and then shrink it?
-
-The FFN (feed-forward network) is the second sublayer in a block: **a two-layer MLP applied to each token independently**, with the same parameters at every position:
-
-```
-FFN(x) = W₂ · activation( W₁ · x )
-
-GPT-2 small:  768 dims → W₁ → 3,072 dims → GELU → W₂ → 768 dims
-```
-
-The hidden layer is usually 4x d_model. It's easiest to remember next to attention:
-
-| | Attention | FFN |
-| --- | --- | --- |
-| Between which tokens | exchanges information across tokens | each token on its own, no looking at others |
-| What it does | pulls information in from context | processes that information non-linearly |
-| Share of parameters (per layer) | about 1/3 (4 · d²) | about 2/3 (8 · d²) |
-
-**Why expand:** in a higher-dimensional space the non-linearity can express far more combinations; the result is then projected back to d_model and written into the residual stream. Some research suggests much of the factual knowledge a model learns lives mainly in FFN parameters.
-
-For GPT-2 small, per layer: about 4.72 million FFN parameters vs. 2.36 million for attention — exactly 2 : 1.
-
-### Why move from ReLU to GELU and SwiGLU?
-
-**ReLU**, `max(0, x)`, cuts every negative value to 0. The problem: if a neuron's input stays negative, its output and gradient are permanently 0 and it can never recover (a "dead neuron").
-
-**GELU** (used by GPT-2 and BERT) is the smooth version: large positives pass through almost unchanged, large negatives go to nearly 0, and **small negatives near 0 partly survive**:
-
-```
-x       ReLU     GELU
-1.0     1.0      0.841
--0.1    0        -0.046
--1.0    0        -0.159
-```
-
-The negative range still has a gradient, so training is smoother.
-
-**SwiGLU** (used by LLaMA and Mistral) goes further: three matrices, one path acting as a gate that controls how much of the other gets through. The extra matrix costs parameters, so to keep the total equal to a standard FFN, the hidden size shrinks from 4x to about 8/3x:
-
-```
-LLaMA 2 7B:  d_model = 4096
-             a standard FFN would be 4 × 4096 = 16,384
-             SwiGLU uses ⅔ × 16,384 ≈ 10,923, rounded up to 11,008
-```
-
-<Note title="Be able to explain odd numbers like 11008" type="tip">
-
-When you see LLaMA's `intermediate_size: 11008`, saying "SwiGLU adds a matrix, so the hidden size is ⅔ × 4d to keep parameters constant, then rounded to a hardware-friendly multiple" shows you've actually read model configs — more convincing than reciting the block diagram.
+1. How do Pre-LN and Post-LN differ, and why do large models use Pre-LN?
+2. What does RMSNorm skip compared with LayerNorm?
+3. What's better about GELU than ReLU, and why is LLaMA 2 7B's FFN hidden size 11008?
+4. How does absolute positional encoding differ from relative positional encoding?
+5. How does RoPE work, and why does the rotated dot product depend only on the distance?
+6. How would you extend a model from 8K context to 128K?
 
 </Note>
 
@@ -703,121 +2705,221 @@ When you see LLaMA's `intermediate_size: 11008`, saying "SwiGLU adds a matrix, s
 
 <Locale lang="zh">
 
-## Level 3 · 工程影响
+## Level 8 · 工程影响：参数量、KV cache 和长上下文成本
+
+前面七个 Level 讲的是模型「怎么算」，这一节把它们换算成面试和线上最关心的三件事：**要多少显存、为什么慢、为什么贵**。
 
 ### 参数量怎么估算？
 
-一个标准 block 的参数集中在两处：attention 的 4 个投影矩阵（W_Q、W_K、W_V、W_O，各 d × d）和 FFN 的两个矩阵（d × 4d、4d × d）：
+一个标准 block 的参数集中在两处（Level 3–5）：attention 的 4 个投影矩阵（W_Q、W_K、W_V、W_O，各 d × d），FFN 的 2 个矩阵（d × 4d 和 4d × d）：
 
 ```
-每层 ≈ 4d² （attention） + 8d² （FFN） = 12d²
-总量 ≈ 12 × 层数 × d²  +  词表大小 × d （embedding）
+每层参数 ≈ 4d²（attention） + 8d²（FFN） = 12d²
+总参数   ≈ 12 × 层数 × d²  +  词表大小 × d（embedding）
 ```
 
-用 GPT-2 small 对账（12 层、d = 768、词表 50,257）：
+用 GPT-2 small 对账（12 层，d = 768，词表 50,257）：
 
 ```
-12 个 block        12 × 12 × 768²        ≈ 8,490 万
-token embedding    50,257 × 768          ≈ 3,860 万
-位置 embedding     1,024 × 768           ≈ 79 万
-合计                                      ≈ 1.24 亿      ← 官方 124M，对得上
+12 个 block          12 × 12 × 768²     ≈ 8,490 万
+token embedding      50,257 × 768       ≈ 3,860 万
+位置 embedding       1,024 × 768        ≈ 79 万
+合计                                     ≈ 1.24 亿     ← 官方 124M，对得上
 ```
 
-LLaMA 2 7B 用的是 SwiGLU（FFN 3 个矩阵，中间维度 11,008），公式要换成每层 `4d² + 3 × d × 11008`，再加上不共用的 embedding 和 LM head，算出来是 67.4 亿——就是模型卡上写的 6.74B。
+LLaMA 2 7B 用 SwiGLU（FFN 3 个矩阵，中间维度 11,008），每层换成 `4d² + 3 × d × 11008`，再加上不共用的 embedding 和 LM head，算出来是 67.4 亿——就是模型卡上写的 6.74B。
 
 <Note title="小模型里 embedding 占比惊人" type="tip">
 
-GPT-2 small 的 1.24 亿参数里，光 token embedding 就占了 31%。这也是 [Tokenization](/docs/llm/tokenization) 里「词表大小的 trade-off」在小模型上格外明显的原因；到 70B 这种规模，embedding 的占比就可以忽略了。
+GPT-2 small 的 1.24 亿参数里，token embedding 一项就占了 31%。这也是 [Tokenization](/docs/llm/tokenization) 里「词表大小的取舍」在小模型上特别明显的原因；到 70B 这种规模，embedding 占比就可以忽略了。
 
 </Note>
 
-### 参数量怎么变成显存和成本？
+### 参数量怎么变成显存？
 
-**推理时，权重显存 = 参数量 × 每个参数的字节数：**
-
-```
-              每参数字节    7B 模型权重
-fp16 / bf16   2            ≈ 14 GB
-int8          1            ≈ 7 GB
-int4          0.5          ≈ 3.5 GB
-```
-
-但这只是开始。实际要放下的是：
+**推理时，权重占的显存 = 参数量 × 每个参数的字节数：**
 
 ```
-推理显存 ≈ 权重 + KV cache + 临时激活
+              每个参数    7B 模型的权重
+fp16 / bf16   2 字节      ≈ 14 GB
+int8          1 字节      ≈ 7 GB
+int4          0.5 字节    ≈ 3.5 GB
 ```
 
-KV cache 随上下文长度和并发数增长，长上下文下可能比权重还大（算法见 [Attention](/docs/llm/attention) Level 3）。
+但实际要放下的不止权重：
 
-**训练显存大得多。** 常用混合精度 + Adam 优化器时，每个参数要存：fp16 权重 2 字节 + fp16 梯度 2 字节 + fp32 主权重 4 字节 + Adam 的两个状态 8 字节 = **16 字节**。7B 模型光这部分就要约 112 GB，还没算激活——所以全量微调 7B 需要多卡，而 LoRA / QLoRA 能在单卡上做（见 [Fine-tuning](/docs/llm/fine-tuning)）。
+```
+推理显存 ≈ 权重 + KV cache + 临时激活值
+```
 
-### 为什么参数量直接决定生成速度？
+KV cache 会随上下文长度和并发数增长，下面会算它有多大。
+
+**训练要的显存大得多。** 常见的混合精度加 Adam 优化器，每个参数要存：fp16 权重 2 字节 + fp16 梯度 2 字节 + fp32 主权重 4 字节 + Adam 的两个状态 8 字节 = **16 字节**。7B 模型光这部分就要约 112 GB，还没算激活值。所以全量微调 7B 要多张卡，而 LoRA / QLoRA 能在单卡上做（见 [Fine-tuning](/docs/llm/fine-tuning)）。
+
+### 为什么 attention 是 O(n²)？计算量和显存怎么涨？
+
+来源就是 Level 3 那张 `n × n` 的打分表：n 个 token 两两打分。
+
+- **计算量**：每个分数是一次点积，总共 `O(n² · d)`。上下文翻倍，这一项翻 4 倍
+- **显存（朴素实现）**：要把整张 n × n 的权重表存下来做 softmax 和反向传播
+
+朴素实现下，**单个头、单层**的这张表用 fp16（每个数 2 字节）存要多大：
+
+```
+n = 4,096       1,677 万个数     ≈ 0.03 GiB
+n = 32,000      10.2 亿个数      ≈ 1.91 GiB
+n = 128,000     163.8 亿个数     ≈ 30.5 GiB
+```
+
+这还只是一个头、一层。乘上几十层、几十个头，128K 上下文根本放不进任何一张 GPU。所以长上下文模型**全都**依赖 FlashAttention 这类实现：它把计算切成小块，在 GPU 芯片上容量小但速度快的缓存（SRAM）里算完，**从不把完整的 n × n 表放进显存**，显存降到随 n 线性增长，结果和朴素实现完全一样。
+
+<Note title="FlashAttention 省的是显存和数据搬运，不是 O(n²) 计算" type="warning">
+
+它仍然要算完所有 n² 个分数，只是不存那张表，并减少显存和 SRAM 之间来回搬数据。所以它让长上下文**放得下、跑得快**，但 128K 的计算依然比 8K 贵得多。说「FlashAttention 把 attention 变成线性复杂度」是错的。
+
+</Note>
+
+### Prefill 和 decode 是什么？
+
+回想 Level 5 的推理过程，它其实分两个阶段：
+
+```
+Prefill（预填充）   把整个 prompt 一次性过一遍模型，所有位置并行算     → 决定首 token 延迟（TTFT）
+Decode（解码）      一个 token 一个 token 往外生成，每步只新增 1 个      → 决定每个输出 token 的速度
+```
+
+Prefill 能并行，主要被 n × n 的计算量拖慢；decode 不能并行，每一步都要重新看前面所有 token。下面的 KV cache 就是专门给 decode 省计算的。细节见 [Inference](/docs/llm/inference)。
+
+### KV cache 是什么？为什么能缓存？
+
+**先看没有 KV cache 会怎样。** decode 生成第 101 个 token 时，它的 Q 要和前面 100 个 token 的 K、V 做 attention。如果什么都不存，就得把前 100 个 token 重新过一遍所有层，把 K、V 再算一次。
+
+**但这些 K、V 和上一步算出来的一模一样。** 原因是 Level 4 的 causal mask：前面的 token 永远看不到后面的新 token，所以新 token 的加入不会改变它们的任何计算结果。既然不变，算一次存起来就行：
+
+```
+没有 cache：第 t 步要把 t 个 token 全部重算一遍
+有 cache：  第 t 步只算 1 个新 token 的 Q、K、V；前面的 K、V 从缓存读，新的 K、V 追加进缓存
+```
+
+**KV cache 存的是：每一层、每个 KV 头的 K 向量和 V 向量。** 大小公式：
+
+```
+KV cache 字节数 = 2 × 层数 × KV 头数 × 每头维度 × token 数 × 每个数的字节数
+                  ↑
+                  K 和 V 各存一份
+```
+
+用 LLaMA 2 7B 算（32 层，32 个头，每头 128 维，fp16）：
+
+```
+每个 token:          2 × 32 × 32 × 128 × 2 = 524,288 字节 ≈ 0.5 MiB
+4,096 token 的上下文:  ≈ 2 GiB
+```
+
+**这是单个请求的量。** 并发 10 个 4K 的请求就要 20 GB，比 fp16 权重本身（14 GB）还多。KV cache 占满显存 → batch 开不大 → 吞吐上不去 → 每个请求更贵。
+
+### 为什么 decode 慢在显存带宽，而不是算力？
 
 两个粗略但很好用的规律：
 
-- **计算量**：前向计算一个 token，大约需要 **2 × 参数量** 次浮点运算。7B 模型每个 token 约 140 亿次
-- **decode 受显存带宽限制**：每生成一个 token，都要把全部权重从显存读一遍。7B fp16 就是每个 token 读约 14 GB 数据
+- **计算量**：前向算一个 token，大约需要 **2 × 参数量** 次浮点运算。7B 模型每个 token 约 140 亿次
+- **数据搬运量**：decode 每生成一个 token，都要把全部权重（7B fp16 约 14 GB）加上越来越长的 KV cache 从显存读出来一遍
 
-所以量化能直接提速：int4 权重只有 3.5 GB，每步要读的数据少了 4 倍，decode 的 tokens/sec 会明显上升（同时略微损失质量）。细节见 [Inference](/docs/llm/inference)。
+GPU 的计算核心大部分时间在等数据从显存里读出来，所以 **decode 的速度主要受显存读写速度（带宽）限制**。这直接解释了两个优化为什么有效：
 
-### Logits 怎么变成下一个 token？temperature、top-p 做了什么？
+- **量化**：int4 权重只有 3.5 GB，每步要读的数据少了 4 倍，tokens/sec 明显上升（质量略有损失）
+- **缩小 KV cache**：每步要读的 cache 更少，也更快——这就是下面 GQA 的核心收益
 
-LM head 输出的 logits 是对词表里每个 token 的原始打分，要经过 softmax 变成概率，再按某种策略选出一个。
+### MHA、MQA、GQA 有什么区别？
 
-假设词表只有 3 个候选，logits = [2.0, 1.0, 0.1]：
-
-**Temperature**：softmax 之前先把 logits 除以 T。
-
-```
-T = 1.0   softmax([2.0, 1.0, 0.1])  = [0.659, 0.242, 0.099]    原始分布
-T = 0.5   softmax([4.0, 2.0, 0.2])  = [0.864, 0.117, 0.019]    更尖锐，更确定
-T = 2.0   softmax([1.0, 0.5, 0.05]) = [0.502, 0.304, 0.194]    更平缓，更随机
-```
-
-T 越小越接近「永远选最高分」（greedy），T 越大越有创造性、也越容易胡说。和 Attention 页里「除以 √d_k 防止 softmax 饱和」是同一个原理的反向使用。
-
-**Top-k**：只保留分数最高的 k 个候选，其余概率清零后重新归一化。
-
-**Top-p（nucleus）**：按概率从高到低累加，保留**刚好累计到 p** 的那几个。T = 1、p = 0.9 时：
+Level 4 的多头注意力里，每个头都有自己的 K 和 V。KV cache 里的「KV 头数」就是这个。**MQA 和 GQA 让多个 query 头共用 K、V**，Q 的头数不变：
 
 ```
-0.659 + 0.242 = 0.901 ≥ 0.9  → 保留前 2 个，丢掉 0.099 那个
-重新归一化 → [0.731, 0.269]
+MHA（多头注意力）       每个 Q 头有自己的 K、V        Q: 32   K/V: 32
+GQA（分组查询注意力）   每组 Q 头共用一组 K、V        Q: 32   K/V: 8    （每 4 个 Q 头共用 1 组）
+MQA（多查询注意力）     所有 Q 头共用同一组 K、V      Q: 32   K/V: 1
 ```
 
-Top-p 比 top-k 灵活：模型很确定时只剩一两个候选，不确定时自动保留更多。
+用 LLaMA 3 8B 的层数和维度（32 层，每头 128 维），上下文 128K，fp16，只换 KV 头数：
 
-<Note title="temperature = 0 不保证每次输出完全一样" type="warning">
+| | KV 头数 | 128K 上下文的 KV cache | 质量 | 谁在用 |
+| --- | --- | --- | --- | --- |
+| MHA | 32 | 62.5 GiB | 最好 | 原始 Transformer、GPT-3、LLaMA 2 7B / 13B |
+| **GQA** | 8 | **15.6 GiB** | 接近 MHA | LLaMA 2 70B、LLaMA 3 全系、Mistral |
+| MQA | 1 | 1.95 GiB | 有明显下降 | PaLM、Falcon 7B |
 
-理论上 T = 0 就是 greedy，结果确定。但在线服务里，同一请求可能和不同的其他请求拼进一个 batch，GPU 并行计算的浮点误差会让两个 logits 非常接近的候选偶尔换位，后面生成的内容就分叉了。需要可复现时，要在评测和测试设计里考虑这一点，而不是假设「T = 0 就一定一致」。
+LLaMA 3 8B 实际用的就是 GQA：每个 token 的 KV cache 是 128 KiB，是 MHA 的 1/4。
+
+**取舍很直接**：KV 头越少，cache 越小、decode 越快、batch 能开越大，但 K、V 的表达能力被压缩，质量会掉。GQA 是目前主流的折中：cache 缩到 1/4，质量几乎不掉。
+
+算一笔账：8B 模型 fp16 权重约 16 GB，一张 80 GB 的 GPU 扣掉权重还剩约 64 GB。用 GQA，满 128K 的请求能同时放下三四个；如果是 MHA，一个都放不下。
+
+<Note title="GQA 省的是推理显存，不是训练计算" type="warning">
+
+Q 的头数没变，prefill 的 n × n 打分计算基本照旧。GQA 的核心收益在 decode：KV cache 小了 → 每步要读的数据少了 → 同一张卡能服务更多并发。被问「GQA 为什么能加速」时，要答到 KV cache 和显存带宽，而不是「计算量少了」。
 
 </Note>
 
-### 现代 LLM 和原始 Transformer 差在哪？
+### 长上下文为什么让成本和延迟一起涨？
 
-面试里被问「LLaMA 和原始 Transformer 有什么不同」时，按部件对比最清楚：
+把这一节串起来，同一个 n 从三个方向同时施压：
 
-| 部件 | 原始 Transformer（2017） | GPT-2（2019） | LLaMA 3（2024） |
+| 阶段 | 随 n 怎么涨 | 表现为 |
+| --- | --- | --- |
+| Prefill 的 attention | O(n²) 计算 | 首 token 延迟（TTFT）变长 |
+| KV cache | O(n) 显存 | 单卡并发数下降 → 单个请求成本上升 |
+| Decode 每一步 | 要读 n 个缓存的 K、V | 越往后生成越慢 |
+
+工程上的手段也就对应三类：
+
+- **少放 token**：RAG 只取相关片段，压缩对话历史（见 [Context Engineering](/docs/context)）
+- **不重复算**：prompt caching 把不变前缀的 KV cache 存下来复用（见 [Caching](/docs/context/caching)）
+- **让每个 token 更便宜**：GQA、FlashAttention、量化、KV cache 量化、continuous batching（见 [Inference](/docs/llm/inference)）
+
+<Note title="上下文放得下，不代表模型用得好" type="warning">
+
+128K 窗口是「能处理」，不是「处理得好」。上下文越长，softmax 的权重要分给越多的 token，相关信息更容易被稀释；很多评测也发现模型对放在上下文中间的信息利用得更差。所以「把所有文档塞进长上下文」通常替代不了好的检索，面试里值得主动说出这一点。
+
+</Note>
+
+### 现代 LLM 和原始 Transformer 到底差在哪？
+
+把 Level 5 到 Level 8 串成一张表，面试被问「LLaMA 和原始 Transformer 有什么不同」时直接用：
+
+| 零件 | 原始 Transformer（2017） | GPT-2（2019） | LLaMA 3（2024） |
 | --- | --- | --- | --- |
 | 整体结构 | Encoder-Decoder | Decoder-only | Decoder-only |
 | 位置编码 | Sinusoidal，加到 embedding | Learned，加到 embedding | RoPE，旋转 Q / K |
 | 归一化 | Post-LN，LayerNorm | Pre-LN，LayerNorm | Pre-LN，RMSNorm |
-| FFN 激活 | ReLU | GELU | SwiGLU |
+| FFN 激活函数 | ReLU | GELU | SwiGLU |
 | Attention | MHA | MHA | GQA |
 | 上下文长度 | — | 1,024 | 8K（3.1 版 128K） |
 
-一句话总结演进方向：**骨架（attention + FFN + 残差 + 归一化）八年没变，每个部件都换成了「训得更稳、推理更省、上下文更长」的版本。**
+一句话总结：**骨架八年没变，每个零件都换成了「训得更稳、推理更省、上下文更长」的版本。**
+
+<Note title="自测：到这里你应该能回答">
+
+1. 估算 GPT-2 small 的参数量，说出每一部分怎么来的。
+2. 7B 模型 fp16 推理要多少权重显存？全量训练呢？
+3. 为什么 attention 是 O(n²)？FlashAttention 改变了什么、没改变什么？
+4. KV cache 为什么能缓存？存的是什么？LLaMA 2 7B 在 4K 上下文下要多少？
+5. 为什么 decode 受显存带宽限制？量化为什么能加速 decode？
+6. MHA、MQA、GQA 有什么区别？GQA 为什么能提升吞吐？
+7. 上下文从 8K 加到 128K，TTFT、显存和吞吐分别会怎样？有了 128K 为什么还需要 RAG？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Level 3 · Engineering impact
+## Level 8 · Engineering impact: parameters, the KV cache, and long-context cost
+
+The first seven Levels covered how the model computes. This one converts all of that into the three things interviews and production care about most: **how much memory, why it's slow, why it's expensive**.
 
 ### How do you estimate parameter count?
 
-A standard block's parameters sit in two places: attention's four projections (W_Q, W_K, W_V, W_O, each d × d) and the FFN's two matrices (d × 4d and 4d × d):
+A standard block's parameters sit in two places (Levels 3–5): attention's four projection matrices (W_Q, W_K, W_V, W_O, each d × d) and the FFN's two matrices (d × 4d and 4d × d):
 
 ```
 per layer ≈ 4d² (attention) + 8d² (FFN) = 12d²
@@ -827,9 +2929,9 @@ total     ≈ 12 × layers × d²  +  vocab size × d (embedding)
 Check it against GPT-2 small (12 layers, d = 768, vocabulary 50,257):
 
 ```
-12 blocks          12 × 12 × 768²        ≈ 84.9M
-token embedding    50,257 × 768          ≈ 38.6M
-position embedding 1,024 × 768           ≈ 0.79M
+12 blocks            12 × 12 × 768²     ≈ 84.9M
+token embedding      50,257 × 768       ≈ 38.6M
+position embedding   1,024 × 768        ≈ 0.79M
 total                                    ≈ 124M      ← matches the official 124M
 ```
 
@@ -841,72 +2943,156 @@ Of GPT-2 small's 124M parameters, the token embedding alone is 31%. That's why t
 
 </Note>
 
-### How does parameter count turn into memory and cost?
+### How does parameter count turn into memory?
 
 **At inference, weight memory = parameters × bytes per parameter:**
 
 ```
-              bytes/param    7B model weights
-fp16 / bf16   2              ≈ 14 GB
-int8          1              ≈ 7 GB
-int4          0.5            ≈ 3.5 GB
+              per parameter    7B model weights
+fp16 / bf16   2 bytes          ≈ 14 GB
+int8          1 byte           ≈ 7 GB
+int4          0.5 bytes        ≈ 3.5 GB
 ```
 
-That's only the start. What actually has to fit:
+But weights aren't all that has to fit:
 
 ```
 inference memory ≈ weights + KV cache + transient activations
 ```
 
-The KV cache grows with context length and concurrency, and at long context it can exceed the weights (the math is in [Attention](/docs/llm/attention) Level 3).
+The KV cache grows with context length and concurrency; we'll size it below.
 
-**Training needs far more.** With mixed precision and the Adam optimizer, each parameter carries fp16 weights (2 bytes) + fp16 gradients (2) + fp32 master weights (4) + two Adam states (8) = **16 bytes**. A 7B model needs about 112 GB for that alone, before activations — which is why full fine-tuning a 7B takes multiple GPUs while LoRA / QLoRA fits on one (see [Fine-tuning](/docs/llm/fine-tuning)).
+**Training needs far more.** With the usual mixed precision and Adam optimizer, each parameter carries fp16 weights (2 bytes) + fp16 gradients (2) + fp32 master weights (4) + two Adam states (8) = **16 bytes**. A 7B model needs about 112 GB for that alone, before activations. That's why full fine-tuning a 7B takes multiple GPUs while LoRA / QLoRA fits on one (see [Fine-tuning](/docs/llm/fine-tuning)).
 
-### Why does parameter count directly set generation speed?
+### Why is attention O(n²), and how do compute and memory grow?
+
+It comes straight from the `n × n` score table in Level 3: n tokens scored pairwise.
+
+- **Compute**: each score is one dot product, so `O(n² · d)` overall. Double the context and this term quadruples
+- **Memory (naive implementation)**: the whole n × n weight table is stored for softmax and backprop
+
+Under a naive implementation, here's how big that table is in fp16 (2 bytes per number) for **one head in one layer**:
+
+```
+n = 4,096       16.8 million numbers    ≈ 0.03 GiB
+n = 32,000      1.02 billion numbers    ≈ 1.91 GiB
+n = 128,000     16.4 billion numbers    ≈ 30.5 GiB
+```
+
+That's one head in one layer. Multiply by dozens of layers and heads and 128K context won't fit on any GPU. So **every** long-context model relies on implementations like FlashAttention: it splits the work into small blocks computed in the GPU's small but fast on-chip memory (SRAM) and **never puts the full n × n table in GPU memory**, so memory grows only linearly with n while the result is exactly the same as the naive version.
+
+<Note title="FlashAttention saves memory and data movement, not the O(n²) compute" type="warning">
+
+It still computes all n² scores; it just avoids storing the table and cuts the back-and-forth of data between GPU memory and SRAM. So it makes long context **fit and run faster**, but 128K is still far more expensive to compute than 8K. Saying "FlashAttention makes attention linear" is wrong.
+
+</Note>
+
+### What are prefill and decode?
+
+Recall inference from Level 5 — it actually has two phases:
+
+```
+Prefill   run the whole prompt through the model at once, all positions in parallel   → sets time to first token (TTFT)
+Decode    generate one token at a time, adding just 1 per step                        → sets the speed of each output token
+```
+
+Prefill parallelizes and is slowed mainly by the n × n compute; decode can't parallelize, and every step has to look at all earlier tokens again. The KV cache below exists specifically to save decode that work. Details on [Inference](/docs/llm/inference).
+
+### What is the KV cache, and why can it be cached?
+
+**Start with what happens without it.** When decode generates token 101, its Q has to attend over the K and V of the previous 100 tokens. If nothing is stored, those 100 tokens have to go back through every layer to recompute K and V.
+
+**But those K and V are identical to what the previous step computed.** The reason is Level 4's causal mask: earlier tokens can never see the new token, so adding it doesn't change anything they computed. If it doesn't change, compute it once and store it:
+
+```
+no cache:    step t recomputes all t tokens
+with cache:  step t computes Q, K, V for just the 1 new token; earlier K, V are read from the cache, and the new K, V get appended
+```
+
+**The KV cache stores the K and V vectors for every layer and every KV head.** Its size:
+
+```
+KV cache bytes = 2 × layers × KV heads × head dim × tokens × bytes per number
+                 ↑
+                 one copy each for K and V
+```
+
+For LLaMA 2 7B (32 layers, 32 heads, 128 dims per head, fp16):
+
+```
+per token:                2 × 32 × 32 × 128 × 2 = 524,288 bytes ≈ 0.5 MiB
+a 4,096-token context:    ≈ 2 GiB
+```
+
+**That's per request.** Ten concurrent 4K requests need 20 GB — more than the fp16 weights themselves (14 GB). The KV cache fills memory → batch size can't grow → throughput stalls → each request costs more.
+
+### Why is decode limited by memory bandwidth rather than compute?
 
 Two rough but very useful rules:
 
 - **Compute**: a forward pass for one token takes roughly **2 × parameter count** floating-point operations — about 14 billion per token for a 7B model
-- **Decode is memory-bandwidth-bound**: every generated token requires reading all the weights out of memory. For 7B in fp16 that's about 14 GB of data per token
+- **Data movement**: every decoded token requires reading all the weights (about 14 GB for 7B in fp16) plus an ever-growing KV cache out of GPU memory
 
-So quantization speeds things up directly: int4 weights are 3.5 GB, a quarter of the data to read each step, so decode tokens/sec rises noticeably (at a small quality cost). Details on [Inference](/docs/llm/inference).
+The GPU's compute cores spend most of their time waiting for data to come out of memory, so **decode speed is limited mainly by memory read speed (bandwidth)**. That explains directly why two optimizations work:
 
-### How do logits become the next token? What do temperature and top-p do?
+- **Quantization**: int4 weights are just 3.5 GB, a quarter of the data to read per step, so tokens/sec rises noticeably (with a small quality cost)
+- **Shrinking the KV cache**: less cache to read each step also means faster decode — which is GQA's core payoff, below
 
-The LM head's logits are raw scores for every token in the vocabulary. Softmax turns them into probabilities, and a decoding strategy picks one.
+### How do MHA, MQA, and GQA differ?
 
-Suppose the vocabulary has just 3 candidates with logits = [2.0, 1.0, 0.1]:
-
-**Temperature**: divide the logits by T before softmax.
-
-```
-T = 1.0   softmax([2.0, 1.0, 0.1])  = [0.659, 0.242, 0.099]    the original distribution
-T = 0.5   softmax([4.0, 2.0, 0.2])  = [0.864, 0.117, 0.019]    sharper, more deterministic
-T = 2.0   softmax([1.0, 0.5, 0.05]) = [0.502, 0.304, 0.194]    flatter, more random
-```
-
-Lower T approaches "always pick the top score" (greedy); higher T is more creative and more prone to nonsense. It's the same principle as dividing by √d_k to avoid softmax saturation on the Attention page, used in reverse.
-
-**Top-k**: keep only the k highest-scoring candidates, zero out the rest, renormalize.
-
-**Top-p (nucleus)**: add probabilities from highest to lowest and keep the candidates **until the running total reaches p**. With T = 1 and p = 0.9:
+In Level 4's multi-head attention, every head has its own K and V — that's the "KV heads" count in the KV cache formula. **MQA and GQA let multiple query heads share K and V**, while the number of Q heads stays the same:
 
 ```
-0.659 + 0.242 = 0.901 ≥ 0.9  → keep the top 2, drop the 0.099 one
-renormalize → [0.731, 0.269]
+MHA (multi-head)      every Q head has its own K, V        Q: 32   K/V: 32
+GQA (grouped-query)   each group of Q heads shares K, V    Q: 32   K/V: 8    (every 4 Q heads share 1)
+MQA (multi-query)     all Q heads share a single K, V      Q: 32   K/V: 1
 ```
 
-Top-p adapts better than top-k: when the model is confident only one or two candidates survive; when it's unsure, more are kept automatically.
+Using LLaMA 3 8B's layer count and head size (32 layers, 128 dims per head), 128K context, fp16, and changing only the KV head count:
 
-<Note title="temperature = 0 doesn't guarantee identical outputs" type="warning">
+| | KV heads | KV cache at 128K | Quality | Used by |
+| --- | --- | --- | --- | --- |
+| MHA | 32 | 62.5 GiB | best | original Transformer, GPT-3, LLaMA 2 7B / 13B |
+| **GQA** | 8 | **15.6 GiB** | close to MHA | LLaMA 2 70B, all of LLaMA 3, Mistral |
+| MQA | 1 | 1.95 GiB | noticeably worse | PaLM, Falcon 7B |
 
-In theory T = 0 is greedy and deterministic. In a live service, though, the same request can be batched with different other requests, and floating-point differences in parallel GPU math can occasionally swap two candidates with nearly equal logits, after which the generation diverges. When reproducibility matters, account for this in evaluation and test design rather than assuming "T = 0 is always consistent."
+LLaMA 3 8B actually uses GQA: its KV cache is 128 KiB per token, a quarter of MHA's.
+
+**The trade-off is direct**: fewer KV heads means a smaller cache, faster decode, and bigger batches, but K and V lose expressiveness and quality drops. GQA is today's standard compromise — a 4x smaller cache with almost no quality loss.
+
+Do the math: an 8B model's fp16 weights take about 16 GB, leaving about 64 GB on an 80 GB GPU. With GQA, three or four full-128K requests fit at once; with MHA, not even one.
+
+<Note title="GQA saves inference memory, not training compute" type="warning">
+
+The number of Q heads is unchanged, so prefill's n × n scoring is basically the same. GQA's real payoff is in decode: a smaller KV cache means less data to read each step, so one GPU serves more concurrent requests. When asked "why does GQA speed things up," the answer should reach the KV cache and memory bandwidth, not "less compute."
 
 </Note>
 
-### How do modern LLMs differ from the original Transformer?
+### Why does long context raise cost and latency together?
 
-When asked "how does LLaMA differ from the original Transformer," a part-by-part comparison is clearest:
+Put this Level together and the same n pushes from three directions at once:
+
+| Phase | How it grows with n | Shows up as |
+| --- | --- | --- |
+| Prefill attention | O(n²) compute | longer time to first token (TTFT) |
+| KV cache | O(n) memory | fewer concurrent requests per GPU → higher cost per request |
+| Each decode step | reads n cached K, V | generation slows as it goes |
+
+The engineering levers map to three groups:
+
+- **Send fewer tokens**: RAG retrieves only relevant chunks; conversation history gets compressed (see [Context Engineering](/docs/context))
+- **Don't recompute**: prompt caching stores and reuses the KV cache for an unchanged prefix (see [Caching](/docs/context/caching))
+- **Make each token cheaper**: GQA, FlashAttention, quantization, KV cache quantization, continuous batching (see [Inference](/docs/llm/inference))
+
+<Note title="Fitting in the window doesn't mean the model uses it well" type="warning">
+
+A 128K window means the model can process that much, not that it processes it well. The longer the context, the more tokens softmax spreads its weight across, so relevant information gets diluted; many evaluations also find models make worse use of information in the middle of the context. So "stuff every document into a long context" usually doesn't replace good retrieval — worth raising unprompted in an interview.
+
+</Note>
+
+### So how exactly do modern LLMs differ from the original Transformer?
+
+Levels 5 through 8 in one table, ready for "how does LLaMA differ from the original Transformer":
 
 | Part | Original Transformer (2017) | GPT-2 (2019) | LLaMA 3 (2024) |
 | --- | --- | --- | --- |
@@ -917,7 +3103,19 @@ When asked "how does LLaMA differ from the original Transformer," a part-by-part
 | Attention | MHA | MHA | GQA |
 | Context length | — | 1,024 | 8K (128K in 3.1) |
 
-The direction of travel in one line: **the skeleton — attention + FFN + residual + normalization — hasn't changed in eight years; every part has been swapped for a version that trains more stably, infers more cheaply, or handles longer context.**
+In one line: **the skeleton hasn't changed in eight years; every part has been swapped for a version that trains more stably, infers more cheaply, and handles longer context.**
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Estimate GPT-2 small's parameter count and explain where each part comes from.
+2. How much weight memory does a 7B model need for fp16 inference? For full training?
+3. Why is attention O(n²)? What does FlashAttention change, and what doesn't it?
+4. Why can the KV cache be cached, what does it store, and how much does LLaMA 2 7B need at 4K context?
+5. Why is decode limited by memory bandwidth, and why does quantization speed it up?
+6. How do MHA, MQA, and GQA differ, and why does GQA raise throughput?
+7. If context grows from 8K to 128K, what happens to TTFT, memory, and throughput? With 128K, why do you still need RAG?
+
+</Note>
 
 </Locale>
 
@@ -929,7 +3127,7 @@ The direction of travel in one line: **the skeleton — attention + FFN + residu
 
 <Note title="别说「FFN 负责在 token 之间传递信息」" type="danger">
 
-FFN 是对每个 token **单独**算的，完全不看其他位置。整个 Transformer 里只有 attention 让 token 之间交流。把两者的分工说反，面试官会直接怀疑你没真正理解 block 结构。
+FFN 对每个 token **单独**算，完全不看其他位置。整个 Transformer 里只有 attention 让 token 之间交流。把两者的分工说反，面试官会直接怀疑你没真正理解 block 结构。
 
 </Note>
 
@@ -939,15 +3137,39 @@ FFN 是对每个 token **单独**算的，完全不看其他位置。整个 Tran
 
 </Note>
 
+<Note title="别说「KV cache 缓存的是 attention 权重」或「缓存的是隐藏状态」" type="danger">
+
+缓存的是**每一层、每个 KV 头的 K 向量和 V 向量**。attention 权重每一步都要用新 token 的 Q 重新算，没法缓存。说错这一点，后面的显存公式也会跟着错。
+
+</Note>
+
+<Note title="别说「FlashAttention 是近似的 attention」" type="danger">
+
+FlashAttention 算出的结果和朴素实现**完全一样**，它改的是计算和存储的方式（分块计算、不存 n × n 表）。真正会改变结果的是稀疏注意力、线性注意力、滑动窗口这一类近似方法。
+
+</Note>
+
+<Note title="O(n²) 不等于「attention 永远是模型里最贵的部分」" type="warning">
+
+n × n 那一项只在上下文足够长时才占主导。几千 token 以内，每个 token 都要经过的 FFN 和各种线性投影往往才是计算大头。说「Transformer 慢是因为 attention 是 O(n²)」时，要加上「在长上下文下」。
+
+</Note>
+
 <Note title="参数量不等于推理显存" type="warning">
 
-「7B 模型要 14 GB」只说了 fp16 权重。实际还要加上随上下文和并发增长的 KV cache、以及临时激活；换成 int4 权重又只要 3.5 GB。回答显存问题时要说清精度、上下文长度和并发数。
+「7B 模型要 14 GB」只说了 fp16 权重。实际还要加上随上下文和并发增长的 KV cache，以及临时激活值；换成 int4 权重又只要 3.5 GB。回答显存问题时要说清精度、上下文长度和并发数。
+
+</Note>
+
+<Note title="Attention 权重不能直接当成「模型的解释」" type="warning">
+
+「权重大 = 模型因为这个词做出了判断」不成立：每层每个头都有自己的权重，后面还有 FFN 和残差把信息再混一遍，研究也发现改变权重分布不一定改变输出。可视化 attention 适合观察，不能当作可靠的因果解释。
 
 </Note>
 
 <Note title="位置信息不一定只在输入层加一次" type="warning">
 
-Sinusoidal 和 learned 位置编码是在最开始加到 embedding 上，之后就不再管；RoPE 则是在**每一层**的 attention 里旋转 Q 和 K。说「位置编码就是加在输入上的一个向量」只对老方案成立。
+Sinusoidal 和 learned 位置编码是在最开始加到 embedding 上；RoPE 则是在**每一层**的 attention 里旋转 Q 和 K。说「位置编码就是加在输入上的一个向量」只对老方案成立。
 
 </Note>
 
@@ -959,7 +3181,7 @@ Sinusoidal 和 learned 位置编码是在最开始加到 embedding 上，之后�
 
 <Note title="Don't say the FFN passes information between tokens" type="danger">
 
-The FFN runs on each token **independently** and never looks at other positions. In the whole Transformer, only attention lets tokens communicate. Mixing up the two roles makes an interviewer doubt you understand the block at all.
+The FFN runs on each token **independently** and never looks at other positions. In the whole Transformer, only attention lets tokens communicate. Getting the roles backwards makes an interviewer doubt you understand the block at all.
 
 </Note>
 
@@ -969,15 +3191,39 @@ They address **deep networks that won't train or train unstably**: residuals let
 
 </Note>
 
+<Note title="Don't say the KV cache stores attention weights or hidden states" type="danger">
+
+It stores **the K and V vectors for every layer and every KV head**. Attention weights have to be recomputed each step with the new token's Q, so they can't be cached. Get this wrong and the memory formula that follows will be wrong too.
+
+</Note>
+
+<Note title="Don't call FlashAttention an approximation" type="danger">
+
+FlashAttention produces **exactly the same result** as the naive implementation; it changes how the work is computed and stored (block-wise computation, no n × n table). The methods that actually change the result are approximations like sparse attention, linear attention, and sliding windows.
+
+</Note>
+
+<Note title="O(n²) doesn't mean attention is always the most expensive part" type="warning">
+
+The n × n term only dominates once context is long enough. Within a few thousand tokens, the FFN and linear projections every token passes through are often the bigger compute cost. "Transformers are slow because attention is O(n²)" needs the qualifier "at long context."
+
+</Note>
+
 <Note title="Parameter count is not inference memory" type="warning">
 
-"A 7B model needs 14 GB" only covers fp16 weights. You still need the KV cache, which grows with context and concurrency, plus transient activations — while int4 weights take just 3.5 GB. A good memory answer states precision, context length, and concurrency.
+"A 7B model needs 14 GB" only covers fp16 weights. You still need the KV cache, which grows with context and concurrency, plus transient activations — while int4 weights need just 3.5 GB. A good memory answer states precision, context length, and concurrency.
+
+</Note>
+
+<Note title="Attention weights aren't a direct explanation of the model" type="warning">
+
+"High weight = the model decided because of this word" doesn't hold: every layer and head has its own weights, the FFN and residual path remix the information afterward, and research has found that changing the weight distribution doesn't necessarily change the output. Visualizing attention is good for exploration, not as a reliable causal explanation.
 
 </Note>
 
 <Note title="Position isn't necessarily added once at the input" type="warning">
 
-Sinusoidal and learned positional encodings are added to the embedding at the start and never touched again; RoPE rotates Q and K inside **every layer's** attention. "Positional encoding is a vector added to the input" is only true of the older schemes.
+Sinusoidal and learned encodings are added to the embedding at the start; RoPE rotates Q and K inside **every layer's** attention. "Positional encoding is a vector added to the input" is only true of the older schemes.
 
 </Note>
 
@@ -1000,85 +3246,148 @@ Sinusoidal and learned positional encodings are added to the embedding at the st
 ```
 Tokenization → token ids → Embedding (+ position)
                                  ↓
-          ┌──────────── N × Transformer block ────────────┐
-          │  x = x + Attention(Norm(x))   ← tokens mix     │
-          │  x = x + FFN(Norm(x))         ← per token      │
-          └───────────────────────────────────────────────┘
+      ┌──────────── N × Transformer block ─────────────┐
+      │  self-attention  (Q·Kᵀ, n × n)   ← tokens mix  │
+      │  FFN                             ← per token   │
+      │  residual + LayerNorm            ← trainable   │
+      └────────────────────────────────────────────────┘
                                  ↓
-                     Norm → LM head → logits → sampling
+               LM head → logits → sampling → next token
                                  ↓
-     parameter count → weight memory → decode speed → cost
+   causal mask → KV cache → GQA → memory → batch size → cost
 ```
 
 <Locale lang="zh">
 
-- 上游：[Tokenization](/docs/llm/tokenization)（token id 和词表大小怎么影响 embedding 参数）
-- 核心部件：[Attention](/docs/llm/attention)（block 里唯一让 token 交流的子层；GQA、KV cache）
-- 下游：[Training](/docs/llm/training)（每个位置都是一个训练信号） · [Inference](/docs/llm/inference)（量化、decode 为什么受显存带宽限制） · [Fine-tuning](/docs/llm/fine-tuning)（训练显存为什么是 16 字节 / 参数）
+- 上游：[Tokenization](/docs/llm/tokenization)（token id、词表大小怎么影响 embedding 参数；output token 为什么贵）
+- 下游：[Training](/docs/llm/training)（每个位置都是训练信号） · [Inference](/docs/llm/inference)（prefill / decode、FlashAttention、量化、continuous batching） · [Fine-tuning](/docs/llm/fine-tuning)（训练显存为什么是 16 字节 / 参数）
 - 相关应用：[Embedding](/docs/rag/embedding)（encoder-only 模型） · [Structured Output](/docs/application/structured-output)（在 logits 上做约束解码）
+- 工程落点：[Context Window](/docs/context/window) · [Caching](/docs/context/caching) · [Latency](/docs/production/latency) · [Cost](/docs/production/cost)
 
 ## 面试问题
 
-先自己口头答一遍，再回上面对照。
+先自己口头答一遍，再回到对应的 Level 对照。
 
-**L1 — 定义**
+**Level 1 — Encoder 和 Decoder**
 
-1. 讲一遍 decoder-only Transformer 从输入 token 到生成下一个 token 的数据流。（Walk me through the data flow of a decoder-only Transformer, from input tokens to the next token.）
-2. Encoder-only、decoder-only、encoder-decoder 有什么区别？各举一个模型。（How do encoder-only, decoder-only, and encoder-decoder differ? Give an example of each.）
-3. 为什么现在的 LLM 几乎都是 decoder-only？（Why is nearly every LLM today decoder-only?）
+1. RNN encoder-decoder 是怎么翻译一句话的？它有哪两个硬伤？（How does an RNN encoder-decoder translate a sentence, and what are its two main weaknesses?）
+2. 什么是自回归生成？（What is autoregressive generation?）
 
-**L2 — 机制**
+**Level 2 — Attention 的直觉**
 
-4. 为什么需要位置编码？为什么不直接用位置编号？（Why is positional encoding needed, and why not just use the position index?）
-5. RoPE 是怎么工作的？相比 sinusoidal 和 learned 有什么优势？（How does RoPE work, and what advantages does it have over sinusoidal and learned encodings?）
-6. 残差连接解决了什么问题？（What problem do residual connections solve?）
-7. 为什么 Transformer 用 LayerNorm 而不是 BatchNorm？Pre-LN 和 Post-LN 差在哪？（Why LayerNorm instead of BatchNorm, and how do Pre-LN and Post-LN differ?）
-8. FFN 起什么作用？为什么中间层要升维？（What does the FFN do, and why expand the hidden dimension?）
-9. LLaMA 为什么用 SwiGLU？它的 FFN 中间维度为什么是 11008？（Why does LLaMA use SwiGLU, and why is its FFN hidden size 11008?）
+3. 用你自己的话解释 attention，Q、K、V 分别是什么？（Explain attention in your own words. What are Q, K, and V?）
+4. Cross-attention 解决了 RNN encoder-decoder 的什么问题？（What problem in RNN encoder-decoders does cross-attention solve?）
 
-**L3 — 工程**
+**Level 3 — Self-Attention**
 
-10. 估算一个 7B 模型推理和全量训练分别需要多少显存。（Estimate the memory needed to serve and to fully fine-tune a 7B model.）
-11. 为什么量化能让 decode 变快？（Why does quantization make decoding faster?）
-12. temperature、top-k、top-p 分别做什么？temperature 设为 0 为什么输出还可能不一致？（What do temperature, top-k, and top-p do, and why can outputs still vary at temperature 0?）
-13. LLaMA 3 和原始 Transformer 在结构上有哪些不同？（How does LLaMA 3 differ architecturally from the original Transformer?）
-14. 怎么把一个 8K 上下文的模型扩展到 128K？（How would you extend a model's context from 8K to 128K?）
+5. 解释 self-attention。Q、K、V 是怎么得到的？（Explain self-attention. How are Q, K, and V produced?）
+6. 一步步讲一遍缩放点积注意力，并说出每一步的形状。（Walk me through scaled dot-product attention step by step, with the shape at each step.）
+7. 为什么要除以 √d_k？为什么是根号？（Why divide by √d_k, and why the square root?）
+8. 为什么 Transformer 训练能并行，而 RNN 不能？（Why can Transformer training run in parallel when RNN training can't?）
+
+**Level 4 — 三个补丁**
+
+9. 为什么要用多头注意力？head 之间怎么拆维度？（Why multi-head attention, and how are dimensions split across heads?）
+10. 为什么需要位置编码？为什么不直接用位置编号？（Why is positional encoding needed, and why not just use the position index?）
+11. Causal mask 和 padding mask 分别做什么？怎么实现？（What do the causal mask and padding mask each do, and how are they implemented?）
+
+**Level 5 — 组装 Transformer**
+
+12. 为什么光有 attention 不够？FFN、残差、LayerNorm 各起什么作用？（Why isn't attention enough on its own? What do the FFN, residual connections, and LayerNorm each contribute?）
+13. 为什么 Transformer 用 LayerNorm 而不是 BatchNorm？（Why do Transformers use LayerNorm instead of BatchNorm?）
+14. Encoder block 和 decoder block 有什么区别？（How does an encoder block differ from a decoder block?）
+15. 训练和推理时，decoder 的运行方式有什么不同？（How does the decoder run differently in training and at inference?）
+
+**Level 6 — 三种架构**
+
+16. Encoder-only、decoder-only、encoder-decoder 有什么区别？各举一个模型。（How do encoder-only, decoder-only, and encoder-decoder differ? Give an example of each.）
+17. 为什么现在的 LLM 几乎都是 decoder-only？（Why is nearly every LLM today decoder-only?）
+18. 讲一遍 decoder-only 模型从输入 token 到生成下一个 token 的数据流。（Walk me through a decoder-only model's data flow from input tokens to the next token.）
+19. Temperature、top-k、top-p 分别做什么？temperature 设为 0 为什么输出还可能不一致？（What do temperature, top-k, and top-p do, and why can outputs still vary at temperature 0?）
+
+**Level 7 — 现代 LLM 的改进**
+
+20. Pre-LN 和 Post-LN 有什么区别？为什么现在都用 Pre-LN？（How do Pre-LN and Post-LN differ, and why is Pre-LN standard now?）
+21. LLaMA 为什么用 SwiGLU？FFN 中间维度为什么是 11008？（Why does LLaMA use SwiGLU, and why is its FFN hidden size 11008?）
+22. RoPE 是怎么工作的？相比 sinusoidal 和 learned 位置编码有什么优势？（How does RoPE work, and what advantages does it have over sinusoidal and learned encodings?）
+23. 怎么把一个 8K 上下文的模型扩展到 128K？（How would you extend a model's context from 8K to 128K?）
+
+**Level 8 — 工程影响**
+
+24. 为什么 attention 是 O(n²)？FlashAttention 解决了什么，改变复杂度了吗？（Why is attention O(n²)? What does FlashAttention solve, and does it change the complexity?）
+25. KV cache 缓存了什么？一个 7B 模型 4K 上下文大概要多少显存？（What does the KV cache store, and roughly how much memory does a 7B model need at 4K context?）
+26. MHA、MQA、GQA 有什么区别？为什么现在主流用 GQA？（How do MHA, MQA, and GQA differ, and why is GQA the default now?）
+27. 估算一个 7B 模型推理和全量训练分别需要多少显存。（Estimate the memory needed to serve and to fully fine-tune a 7B model.）
+28. 上下文从 8K 加到 128K，TTFT、显存和吞吐分别会怎样？（If context grows from 8K to 128K, what happens to TTFT, memory, and throughput?）
+29. 既然有 128K 上下文，为什么还需要 RAG？（With a 128K context window, why do you still need RAG?）
+30. LLaMA 3 和原始 Transformer 在结构上有哪些不同？（How does LLaMA 3 differ architecturally from the original Transformer?）
 
 </Locale>
 
 <Locale lang="en">
 
-- Upstream: [Tokenization](/docs/llm/tokenization) (how token ids and vocabulary size affect embedding parameters)
-- Core part: [Attention](/docs/llm/attention) (the only sublayer where tokens communicate; GQA, KV cache)
-- Downstream: [Training](/docs/llm/training) (every position is a training signal) · [Inference](/docs/llm/inference) (quantization, why decode is memory-bandwidth-bound) · [Fine-tuning](/docs/llm/fine-tuning) (why training takes 16 bytes per parameter)
+- Upstream: [Tokenization](/docs/llm/tokenization) (how token ids and vocabulary size affect embedding parameters; why output tokens cost more)
+- Downstream: [Training](/docs/llm/training) (every position is a training signal) · [Inference](/docs/llm/inference) (prefill / decode, FlashAttention, quantization, continuous batching) · [Fine-tuning](/docs/llm/fine-tuning) (why training takes 16 bytes per parameter)
 - Related applications: [Embedding](/docs/rag/embedding) (encoder-only models) · [Structured Output](/docs/application/structured-output) (constrained decoding over logits)
+- Where it lands in engineering: [Context Window](/docs/context/window) · [Caching](/docs/context/caching) · [Latency](/docs/production/latency) · [Cost](/docs/production/cost)
 
 ## Interview questions
 
-Answer out loud first, then check against the sections above.
+Answer out loud first, then check against the matching Level.
 
-**L1 — Definition**
+**Level 1 — Encoders and decoders**
 
-1. Walk me through the data flow of a decoder-only Transformer, from input tokens to the next token.
-2. How do encoder-only, decoder-only, and encoder-decoder differ? Give an example of each.
-3. Why is nearly every LLM today decoder-only?
+1. How does an RNN encoder-decoder translate a sentence, and what are its two main weaknesses?
+2. What is autoregressive generation?
 
-**L2 — Mechanism**
+**Level 2 — The intuition behind attention**
 
-4. Why is positional encoding needed, and why not just use the position index?
-5. How does RoPE work, and what advantages does it have over sinusoidal and learned encodings?
-6. What problem do residual connections solve?
-7. Why LayerNorm instead of BatchNorm, and how do Pre-LN and Post-LN differ?
-8. What does the FFN do, and why expand the hidden dimension?
-9. Why does LLaMA use SwiGLU, and why is its FFN hidden size 11008?
+3. Explain attention in your own words. What are Q, K, and V?
+4. What problem in RNN encoder-decoders does cross-attention solve?
 
-**L3 — Engineering**
+**Level 3 — Self-attention**
 
-10. Estimate the memory needed to serve and to fully fine-tune a 7B model.
-11. Why does quantization make decoding faster?
-12. What do temperature, top-k, and top-p do, and why can outputs still vary at temperature 0?
-13. How does LLaMA 3 differ architecturally from the original Transformer?
-14. How would you extend a model's context from 8K to 128K?
+5. Explain self-attention. How are Q, K, and V produced?
+6. Walk me through scaled dot-product attention step by step, with the shape at each step.
+7. Why divide by √d_k, and why the square root?
+8. Why can Transformer training run in parallel when RNN training can't?
+
+**Level 4 — Three fixes**
+
+9. Why multi-head attention, and how are dimensions split across heads?
+10. Why is positional encoding needed, and why not just use the position index?
+11. What do the causal mask and padding mask each do, and how are they implemented?
+
+**Level 5 — Assembling the Transformer**
+
+12. Why isn't attention enough on its own? What do the FFN, residual connections, and LayerNorm each contribute?
+13. Why do Transformers use LayerNorm instead of BatchNorm?
+14. How does an encoder block differ from a decoder block?
+15. How does the decoder run differently in training and at inference?
+
+**Level 6 — Three architectures**
+
+16. How do encoder-only, decoder-only, and encoder-decoder differ? Give an example of each.
+17. Why is nearly every LLM today decoder-only?
+18. Walk me through a decoder-only model's data flow from input tokens to the next token.
+19. What do temperature, top-k, and top-p do, and why can outputs still vary at temperature 0?
+
+**Level 7 — Modern LLM upgrades**
+
+20. How do Pre-LN and Post-LN differ, and why is Pre-LN standard now?
+21. Why does LLaMA use SwiGLU, and why is its FFN hidden size 11008?
+22. How does RoPE work, and what advantages does it have over sinusoidal and learned encodings?
+23. How would you extend a model's context from 8K to 128K?
+
+**Level 8 — Engineering impact**
+
+24. Why is attention O(n²)? What does FlashAttention solve, and does it change the complexity?
+25. What does the KV cache store, and roughly how much memory does a 7B model need at 4K context?
+26. How do MHA, MQA, and GQA differ, and why is GQA the default now?
+27. Estimate the memory needed to serve and to fully fine-tune a 7B model.
+28. If context grows from 8K to 128K, what happens to TTFT, memory, and throughput?
+29. With a 128K context window, why do you still need RAG?
+30. How does LLaMA 3 differ architecturally from the original Transformer?
 
 </Locale>
 
@@ -1088,7 +3397,7 @@ Answer out loud first, then check against the sections above.
 
 ## 我的答案
 
-自己写，别让 agent 代写。写完念一遍，超过 40 秒就砍。
+自己写，别让 agent 代写。30s 版超过 40 秒就砍；2min 版要能从「为什么需要 attention」一路讲到 KV cache 和 GQA。
 
 </Locale>
 
@@ -1096,7 +3405,7 @@ Answer out loud first, then check against the sections above.
 
 ## My answer
 
-Write it yourself — don't let the agent draft it. Read it aloud; if it runs past 40 seconds, cut.
+Write it yourself — don't let the agent draft it. Cut the 30s version if it runs past 40 seconds; the 2min version should run from "why attention was needed" all the way to the KV cache and GQA.
 
 </Locale>
 
@@ -1104,11 +3413,15 @@ Write it yourself — don't let the agent draft it. Read it aloud; if it runs pa
 
 >
 
+### 2min
+
+>
+
 <Locale lang="zh">
 
 ## 项目锚点
 
-哪个项目里，模型大小、量化或显存真的影响过你的选型或部署决定？一句话 + 一个数字。参考 [项目深挖](/docs/projects)。
+哪个项目上，长上下文、模型大小、量化或显存真的影响过你的设计或部署决定？当时怎么处理的？一句话 + 一个数字。参考 [项目深挖](/docs/projects)。
 
 </Locale>
 
@@ -1116,7 +3429,7 @@ Write it yourself — don't let the agent draft it. Read it aloud; if it runs pa
 
 ## Project anchor
 
-In which project did model size, quantization, or memory actually shape a model choice or deployment decision? One sentence plus one number. See [Projects](/docs/projects).
+In which project did long context, model size, quantization, or memory actually shape a design or deployment decision, and how did you handle it? One sentence plus one number. See [Projects](/docs/projects).
 
 </Locale>
 

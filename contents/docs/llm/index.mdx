@@ -3,20 +3,19 @@ title: LLM Fundamentals
 titleEn: LLM Fundamentals
 description: 目标不是成为 ML Researcher。面试官问「为什么」时，能从模型机制讲到 production behavior。
 descriptionEn: Not ML research. When they ask why, go from model mechanics to production behavior.
-date: 2026-09-07
+date: 2026-09-14
 keywords: ["llm", "tokenization", "transformer", "attention", "sft", "dpo", "kv cache", "inference"]
 ---
 
 <Locale lang="zh">
 
-第一轮不要从 Transformer 论文开始。按 Token → Transformer → Attention → Training → SFT/DPO → Fine-tuning → Inference 的顺序，做成面试级知识卡。
+第一轮不要从 Transformer 论文开始。按 Token → Attention & Transformer → Training → SFT/DPO → Fine-tuning → Inference 的顺序，做成面试级知识卡。
 
 每个主题都必须做到：**能解释 + 能画图 + 能回答为什么 + 能联系到生产环境**。不要追求论文数量。
 
 <CardGrid>
   <Card title="Tokenization" description="BPE / WordPiece；token 如何决定上下文窗口、延迟和成本。" href="/docs/llm/tokenization" />
-  <Card title="Transformer" description="Decoder-only 的数据流：Token → Embedding → Block → Logits。" href="/docs/llm/transformer" />
-  <Card title="Attention" description="QKV、causal、MHA / MQA / GQA、为什么是 O(n²)。" href="/docs/llm/attention" />
+  <Card title="Attention & Transformer" description="从 Encoder / Decoder 讲起：self-attention、Transformer block、decoder-only、KV cache、GQA。" href="/docs/llm/transformer" />
   <Card title="Training" description="预训练、next-token 预测、scaling laws。不用做到论文级。" href="/docs/llm/training" />
   <Card title="Post-training" description="SFT → 偏好优化 → RLHF / DPO → 指令遵循。" href="/docs/llm/post-training" />
   <Card title="Fine-tuning" description="Full / LoRA / QLoRA / PEFT。必答：RAG、微调还是 Prompt。" href="/docs/llm/fine-tuning" />
@@ -26,7 +25,7 @@ keywords: ["llm", "tokenization", "transformer", "attention", "sft", "dpo", "kv 
 ## 本专栏计划
 
 1. Tokenization：token 数为什么比词数重要；中文和代码为什么更贵
-2. Transformer + Attention：能画出 block，能讲 MHA / MQA / GQA
+2. Attention & Transformer：从 encoder / decoder 学到 decoder-only，能画出 block，能讲 KV cache 和 MHA / MQA / GQA
 3. Training 点到为止；Post-training 必须熟
 4. Fine-tuning 对照 LLaMA + QLoRA 项目；先答清 RAG 和微调怎么选
 5. Inference 比想象中更深：TTFT、KV cache、continuous batching、tokens/sec
@@ -35,14 +34,13 @@ keywords: ["llm", "tokenization", "transformer", "attention", "sft", "dpo", "kv 
 
 <Locale lang="en">
 
-Don't start round one with the Transformer paper. Build interview-grade notes in this order: Token → Transformer → Attention → Training → SFT/DPO → Fine-tuning → Inference.
+Don't start round one with the Transformer paper. Build interview-grade notes in this order: Token → Attention & Transformer → Training → SFT/DPO → Fine-tuning → Inference.
 
 Every topic has to reach the same bar: **explain it + draw it + answer why + connect it to production**. Don't chase paper count.
 
 <CardGrid>
   <Card title="Tokenization" description="BPE / WordPiece; how tokens drive context window, latency, and cost." href="/docs/llm/tokenization" />
-  <Card title="Transformer" description="Decoder-only data flow: Token → Embedding → Block → Logits." href="/docs/llm/transformer" />
-  <Card title="Attention" description="QKV, causal attention, MHA / MQA / GQA, why O(n²)." href="/docs/llm/attention" />
+  <Card title="Attention & Transformer" description="Starting from encoders and decoders: self-attention, the Transformer block, decoder-only, KV cache, GQA." href="/docs/llm/transformer" />
   <Card title="Training" description="Pretraining, next-token prediction, scaling laws. Not paper-level." href="/docs/llm/training" />
   <Card title="Post-training" description="SFT → preference optimization → RLHF / DPO → instruction following." href="/docs/llm/post-training" />
   <Card title="Fine-tuning" description="Full / LoRA / QLoRA / PEFT. Must answer: RAG vs fine-tuning vs prompting." href="/docs/llm/fine-tuning" />
@@ -52,7 +50,7 @@ Every topic has to reach the same bar: **explain it + draw it + answer why + con
 ## Plan for this column
 
 1. Tokenization: why token count matters more than word count; why Chinese and code cost more
-2. Transformer + Attention: draw a block, explain MHA / MQA / GQA
+2. Attention & Transformer: go from encoders and decoders to decoder-only, draw a block, explain the KV cache and MHA / MQA / GQA
 3. Training only to the point you need it; Post-training has to be solid
 4. Fine-tuning anchored on the LLaMA + QLoRA project; answer RAG vs fine-tuning first
 5. Inference goes deeper than it looks: TTFT, KV cache, continuous batching, tokens/sec

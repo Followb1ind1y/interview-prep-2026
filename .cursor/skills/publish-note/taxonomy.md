@@ -22,8 +22,7 @@ System Design child pages use the 14 dimensions, not Architecture/Latency/Cost f
 | Tags / keywords | Path |
 | --- | --- |
 | tokenization, bpe, sentencepiece | `contents/docs/llm/tokenization/index.mdx` |
-| transformer, decoder-only, ffn, positional encoding | `contents/docs/llm/transformer/index.mdx` |
-| attention, qkv, mha, mqa, gqa | `contents/docs/llm/attention/index.mdx` |
+| transformer, attention, encoder, decoder, decoder-only, self-attention, qkv, mha, mqa, gqa, ffn, positional encoding, rope, layernorm | `contents/docs/llm/transformer/index.mdx` |
 | pretraining, next-token, scaling laws | `contents/docs/llm/training/index.mdx` |
 | sft, rlhf, dpo, alignment, post-training | `contents/docs/llm/post-training/index.mdx` |
 | lora, qlora, peft, adapters, rag vs fine-tuning | `contents/docs/llm/fine-tuning/index.mdx` |

@@ -1334,7 +1334,7 @@ Cost ←──────────────────────  Late
 
 <Locale lang="zh">
 
-- 下游机制：[Transformer](/docs/llm/transformer) · [Attention](/docs/llm/attention)（为什么 O(n²)） · [Inference](/docs/llm/inference)（KV cache 为什么随 n 涨）
+- 下游机制：[Attention & Transformer](/docs/llm/transformer)（为什么 O(n²)、KV cache 存了什么） · [Inference](/docs/llm/inference)（KV cache 为什么随 n 涨）
 - 工程落点：[Cost](/docs/production/cost) · [Latency](/docs/production/latency) · [Caching](/docs/context/caching)
 - RAG 里的直接后果：[Chunking](/docs/rag/chunking) 的 chunk size 按 token 定，不按字数
 
@@ -1370,7 +1370,7 @@ Cost ←──────────────────────  Late
 
 <Locale lang="en">
 
-- Downstream mechanics: [Transformer](/docs/llm/transformer) · [Attention](/docs/llm/attention) (why O(n²)) · [Inference](/docs/llm/inference) (why KV cache grows with n)
+- Downstream mechanics: [Attention & Transformer](/docs/llm/transformer) (why O(n²), what the KV cache stores) · [Inference](/docs/llm/inference) (why KV cache grows with n)
 - Where it lands in engineering: [Cost](/docs/production/cost) · [Latency](/docs/production/latency) · [Caching](/docs/context/caching)
 - Direct consequence in RAG: [Chunking](/docs/rag/chunking) sizes chunks by token, not by character
 

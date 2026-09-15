@@ -19,8 +19,10 @@ export const Documents: Paths[] = [
     href: '/llm',
     items: [
       { title: { zh: 'Tokenization', en: 'Tokenization' }, href: '/tokenization' },
-      { title: { zh: 'Transformer', en: 'Transformer' }, href: '/transformer' },
-      { title: { zh: 'Attention', en: 'Attention' }, href: '/attention' },
+      {
+        title: { zh: 'Attention & Transformer', en: 'Attention & Transformer' },
+        href: '/transformer',
+      },
       { title: { zh: 'Training', en: 'Training' }, href: '/training' },
       { title: { zh: 'Post-training', en: 'Post-training' }, href: '/post-training' },
       { title: { zh: 'Fine-tuning', en: 'Fine-tuning' }, href: '/fine-tuning' },

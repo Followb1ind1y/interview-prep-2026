@@ -2089,6 +2089,76 @@
       "updatedAt": 1789401632023
     }
   ],
+  "/docs/llm/transformer": [
+    {
+      "id": "d2a1c5b2-3b74-461b-aaf2-17a10d15c2fb",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "a deep stack of it won't train",
+        "prefix": "rd order, no non-linearity, and ",
+        "suffix": ". A Transformer assembles attent"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "堆叠很多层的attention不会有效地训练（能够收敛）",
+        "pos": "phr.",
+        "note": "it指代attention；train作不及物动词，表示模型能否有效训练/收敛，不是及物的教导某物"
+      },
+      "createdAt": 1789434853451,
+      "updatedAt": 1789434853451
+    },
+    {
+      "id": "6b9864f3-acbf-4638-8f50-58a92100616d",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "[1, 5]",
+        "prefix": "ken ids                         ",
+        "suffix": "            integers from the to"
+      },
+      "note": "[1, 5] 是 tensor shape，格式是 [batch_size, sequence_length]。1 = batch size（你这个例子只喂了 1 条句子进去，如果同时喂 4 条句子进 model，就是 [4, 5]），5 = sequence length（你的输入有 5 个 token）",
+      "createdAt": 1789435098069,
+      "updatedAt": 1789435098069
+    },
+    {
+      "id": "15f14964-d499-40c8-8570-404173d8c531",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "shape never changes",
+        "prefix": "cks           [1, 5, 768]       ",
+        "suffix": "; content becomes context-aware\n"
+      },
+      "createdAt": 1789435120867,
+      "updatedAt": 1789435120867
+    },
+    {
+      "id": "cf06cf9d-89a6-4874-ac63-9120e0197c82",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "In training, every position contributes to the loss (position 1 predicts token 2, and so on)",
+        "prefix": "duces logits at every position. ",
+        "suffix": ", so one sentence yields n train"
+      },
+      "createdAt": 1789435277027,
+      "updatedAt": 1789435277027
+    },
+    {
+      "id": "049b72f4-c348-4e40-bbd4-40659a7ec9d8",
+      "kind": "highlight",
+      "locale": "en",
+      "quote": {
+        "exact": "at inference only the last position is used",
+        "prefix": "lds n training signals at once; ",
+        "suffix": "\nThe embedding table and the LM "
+      },
+      "createdAt": 1789435280296,
+      "updatedAt": 1789435280296
+    }
+  ],
   "/docs/overview": [
     {
       "id": "df85fbdc-450d-4784-b84d-142983c8629e",
