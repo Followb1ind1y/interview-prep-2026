@@ -1,125 +1,2132 @@
 ---
 title: Inference
 titleEn: Inference
-description: Prefill / Decode、TTFT / TPOT、KV cache、batching、quantization、speculative decoding。
-descriptionEn: Prefill / decode, TTFT / TPOT, KV cache, batching, quantization, speculative decoding.
-date: 2026-09-07
-keywords: ["inference", "kv cache", "prefill", "decode", "quantization", "flashattention", "vllm"]
+description: 把模型部署成服务：TTFT / TPOT 与吞吐、continuous batching、PagedAttention、量化、投机解码、FlashAttention，以及多卡部署和每百万 token 的成本。
+descriptionEn: "Turning a model into a service: TTFT / TPOT and throughput, continuous batching, PagedAttention, quantization, speculative decoding, FlashAttention, multi-GPU serving, and cost per million tokens."
+date: 2026-09-14
+keywords: ["inference", "serving", "ttft", "tpot", "throughput", "continuous batching", "chunked prefill", "pagedattention", "vllm", "prefix caching", "quantization", "gptq", "awq", "fp8", "speculative decoding", "flashattention", "tensor parallelism"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-2026 年的 LLM Engineer 面试，已经用 KV cache、量化、batching、tokens/sec 来区分候选人的深度。
+训练一个模型是一次性的，推理却是每个请求、每个 token 都在花钱。对大多数 LLM 应用来说，**延迟和成本几乎全部发生在推理阶段**。面试里 KV cache、batching、量化、tokens/sec 这些问题，是区分「会调 API」和「懂 LLM 系统」的分水岭。
+
+这一页假设你已经学过 [Attention & Transformer](/docs/llm/transformer)，尤其是 Level 8：prefill 和 decode、KV cache 为什么能缓存、为什么 decode 受显存带宽限制、GQA、FlashAttention 的基本思路。那边讲的是**原理**，这一页讲**怎么把一个模型做成又快又便宜、能扛住并发的服务**。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 一个请求经历了什么 | 一个请求从进入服务到返回，在 GPU 上发生了哪些事？ | 20 min |
+| 1 · 怎么衡量推理服务 | TTFT、TPOT、端到端延迟、吞吐分别是什么？为什么延迟和吞吐会互相拉扯？ | 35 min |
+| 2 · 批处理 | 为什么批处理能大幅提升吞吐？static batching 哪里浪费？continuous batching 和 chunked prefill 怎么做？ | 45 min |
+| 3 · KV cache 显存管理 | 为什么预留显存会浪费大半？PagedAttention 怎么像操作系统一样管理 KV cache？前缀缓存是什么？ | 45 min |
+| 4 · 量化 | int8、int4、FP8 怎么算？离群值为什么是难点？GPTQ、AWQ 各做了什么？量化一定更快吗？ | 45 min |
+| 5 · 投机解码 | 为什么「先猜再验证」能加速，而且不改变输出？什么时候有效、什么时候没用？ | 35 min |
+| 6 · 算子与运行时优化 | FlashAttention 为什么快？kernel 融合、CUDA Graphs 解决的是什么开销？ | 25 min |
+| 7 · 部署、扩展与成本 | 放不下一张卡怎么办？怎么选推理框架？每百万 token 的成本怎么算？自建还是用 API？ | 40 min |
+
+每个 Level 末尾有几道自测题，**答不上来就先别往下读**。全页约 5 小时，分几次学完；`/drill` 会记住你上次学到哪。
+
+全页用同一个例子贯穿：**把上一页 [Fine-tuning](/docs/llm/fine-tuning) 微调好的 LLaMA 3 8B 评论抽取模型部署上线**。跟踪一个典型请求：输入是约 1,000 token 的指令加评论，输出约 200 token 的 JSON。从这个请求的延迟算起，一路算到一张 80 GB 显卡能同时服务多少个这样的请求，以及每百万 token 要花多少钱。
 
 ## 需要掌握
 
-- prefill / decode（预填充 / 解码）
-- TTFT / TPOT（首 token 延迟 / 每个输出 token 的耗时）
-- throughput / latency（吞吐 / 延迟）
-- KV cache
-- batching / continuous batching（批处理 / 连续批处理）
-- quantization（量化）
-- speculative decoding（投机解码）
-- FlashAttention
-
-## 机制
+- 一个请求的完整路径：排队、tokenize、prefill、decode、detokenize、流式返回
+- TTFT、TPOT、端到端延迟、吞吐、P50 / P99、SLO 与 goodput，延迟和吞吐的取舍
+- 批处理为什么提升 decode 吞吐；static batching 的浪费；continuous batching、chunked prefill
+- KV cache 显存预算、碎片化、PagedAttention 的分块和块表、前缀缓存
+- 量化的计算（absmax、分组、离群值）、weight-only 与 weight + activation 量化、GPTQ / AWQ / FP8、KV cache 量化，以及量化对速度的真实影响
+- 投机解码的流程、接受率与期望加速比、各种 draft 方式、适用和不适用的场景
+- FlashAttention 的 IO 感知思路、kernel 融合、CUDA Graphs
+- 张量并行部署、多副本扩展、主流推理框架、每百万 token 成本、自建与 API 的选择
 
 </Locale>
 
 <Locale lang="en">
 
-In 2026, LLM Engineer interviews use KV cache, quantization, batching, and tokens/sec to tell how deep a candidate really goes.
+Training a model is a one-time cost; inference costs money on every request and every token. For most LLM applications, **latency and cost happen almost entirely at inference time**. In interviews, questions about the KV cache, batching, quantization, and tokens/sec are what separate "can call an API" from "understands LLM systems."
+
+This page assumes you've studied [Attention & Transformer](/docs/llm/transformer), especially Level 8: prefill and decode, why the KV cache can be cached, why decode is limited by memory bandwidth, GQA, and the basic idea of FlashAttention. That page covers the **principles**; this one covers **how to turn a model into a service that's fast, cheap, and holds up under concurrency**.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · What a request goes through | From arriving at the service to returning, what happens on the GPU? | 20 min |
+| 1 · Measuring an inference service | What are TTFT, TPOT, end-to-end latency, and throughput? Why do latency and throughput pull against each other? | 35 min |
+| 2 · Batching | Why does batching raise throughput so much? What does static batching waste? How do continuous batching and chunked prefill work? | 45 min |
+| 3 · Managing KV cache memory | Why does reserving memory waste most of it? How does PagedAttention manage the KV cache like an operating system? What is prefix caching? | 45 min |
+| 4 · Quantization | How do int8, int4, and FP8 work out? Why are outliers the hard part? What do GPTQ and AWQ do? Is quantization always faster? | 45 min |
+| 5 · Speculative decoding | Why does "guess, then verify" speed things up without changing the output? When does it help and when doesn't it? | 35 min |
+| 6 · Kernel and runtime optimizations | Why is FlashAttention fast? What overhead do kernel fusion and CUDA Graphs remove? | 25 min |
+| 7 · Deployment, scaling, and cost | What if the model doesn't fit on one GPU? How do you pick a serving framework? How do you compute cost per million tokens? Self-host or use an API? | 40 min |
+
+Each Level ends with a few self-check questions — **if you can't answer them, don't move on yet**. The page takes about 5 hours over several sessions; `/drill` remembers where you stopped.
+
+One example runs through the whole page: **deploying the LLaMA 3 8B review-extraction model fine-tuned on the previous page, [Fine-tuning](/docs/llm/fine-tuning)**. We follow a typical request — about 1,000 tokens of instructions plus a review in, about 200 tokens of JSON out — starting from its latency and working all the way to how many such requests one 80 GB GPU can serve at once and what a million tokens costs.
 
 ## Must know
 
-- prefill / decode
-- TTFT / TPOT
-- throughput / latency
-- KV cache
-- batching / continuous batching
-- quantization
-- speculative decoding
-- FlashAttention
+- the full path of a request: queueing, tokenization, prefill, decode, detokenization, streaming
+- TTFT, TPOT, end-to-end latency, throughput, P50 / P99, SLOs and goodput, the latency–throughput trade-off
+- why batching raises decode throughput; what static batching wastes; continuous batching and chunked prefill
+- KV cache memory budgets, fragmentation, PagedAttention's blocks and block tables, prefix caching
+- quantization math (absmax, groups, outliers), weight-only vs. weight + activation quantization, GPTQ / AWQ / FP8, KV cache quantization, and quantization's real effect on speed
+- the speculative decoding loop, acceptance rate and expected speedup, draft options, where it helps and where it doesn't
+- FlashAttention's IO-aware idea, kernel fusion, CUDA Graphs
+- tensor-parallel serving, scaling with replicas, mainstream serving frameworks, cost per million tokens, self-hosting vs. APIs
 
-## Mechanism
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 回顾：一个请求在 GPU 上经历了什么
+
+### 先回顾：prefill、decode 和 KV cache
+
+[Attention & Transformer](/docs/llm/transformer) Level 8 讲过这几件事，这里用贯穿全页的请求快速过一遍：
+
+- **Prefill**：把整个 prompt 一次性过一遍模型，所有位置并行计算，得到第一个输出 token，同时把每个 token 的 K、V 存进 KV cache
+- **Decode**：每一步只生成 1 个新 token，要读出全部模型权重和已有的 KV cache，再把新 token 的 K、V 追加进去
+- **KV cache 的大小**：LLaMA 3 8B（32 层、8 个 KV 头、每头 128 维、fp16）每个 token 占 **128 KiB**
+- **decode 受显存带宽限制**：每步计算量很小，时间主要花在把十几 GB 的权重和 KV cache 从显存里读出来
+
+那一页讲的是「为什么」，这一页讲「怎么把它做成一个好用的服务」。
+
+### 一个请求从进入服务到返回，完整路径是什么？
+
+贯穿全页的请求：用上一页 [Fine-tuning](/docs/llm/fine-tuning) 微调好的 LLaMA 3 8B 做评论抽取，**输入约 1,000 个 token**（指令加评论），**输出约 200 个 token**（JSON）。
+
+```
+① 客户端发出 HTTP 请求
+② 进入调度队列，等待 GPU 空出位置                      ← 排队时间
+③ tokenizer 把文本变成 1,000 个 token id               （在 CPU 上）
+④ Prefill：1,000 个 token 一次前向计算
+   → 生成第 1 个输出 token
+   → 写入 1,000 个 token 的 KV cache（约 125 MiB）
+⑤ Decode：每步生成 1 个 token，追加 KV cache，共 199 步
+   → 结束时 KV cache 为 1,200 个 token（约 150 MiB）
+⑥ 边生成边 detokenize，一小段一小段地流式返回给客户端
+⑦ 生成了结束 token 或达到长度上限 → 释放这个请求的 KV cache
+```
+
+### Prefill 和 decode 的瓶颈为什么不一样？
+
+同一个请求的两个阶段，性质完全不同：
+
+| | Prefill | Decode |
+| --- | --- | --- |
+| 一次处理多少 token | 这个例子里 1,000 个 | 每步 1 个 |
+| 主要瓶颈 | **算力**：大矩阵乘法，还有 attention 的 n² | **显存带宽**：每步都要读全部权重和 KV cache |
+| GPU 计算单元的状态 | 满负荷 | 大部分时间在等数据 |
+| 决定的用户体验 | 多久看到第一个字（TTFT） | 字出来得有多快（TPOT） |
+
+这个区别直接决定了后面每一种优化**针对的是哪一段**：
+
+| 优化手段 | 主要改善 | 在本页 |
+| --- | --- | --- |
+| 批处理 | decode 的吞吐 | Level 2 |
+| Chunked prefill | 长 prompt 对其他请求 decode 的阻塞 | Level 2 |
+| PagedAttention | KV cache 显存利用率 → 并发数 | Level 3 |
+| 前缀缓存 | 跳过重复的 prefill | Level 3 |
+| 量化 | 显存和 decode 速度 | Level 4 |
+| 投机解码 | decode 速度 | Level 5 |
+| FlashAttention | prefill 和长上下文的显存与速度 | Level 6 |
+
+<Note title="面试里先把请求拆成两段，再谈优化" type="tip">
+
+被问「怎么优化 LLM 推理」时，先说「推理分 prefill 和 decode，前者受算力限制、决定 TTFT，后者受显存带宽限制、决定 TPOT」，再按两段分别讲手段。这个框架能让一个很散的问题立刻变得有条理。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. Prefill 和 decode 分别做了什么？各自的瓶颈是什么？
+2. 画出一个请求从进入服务到返回的完整路径。
+3. 这个 1,000 token 输入、200 token 输出的请求，结束时 KV cache 大约多大？
+4. 批处理、量化、投机解码主要优化的是 prefill 还是 decode？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Recap: what a request goes through on the GPU
+
+### Recap first: prefill, decode, and the KV cache
+
+[Attention & Transformer](/docs/llm/transformer) Level 8 covered these; here's a quick pass using the page's running request:
+
+- **Prefill**: run the whole prompt through the model at once, computing every position in parallel, producing the first output token and storing every token's K and V in the KV cache
+- **Decode**: each step generates just 1 new token, reading all the model weights and the existing KV cache, then appending the new token's K and V
+- **KV cache size**: LLaMA 3 8B (32 layers, 8 KV heads, 128 dims per head, fp16) takes **128 KiB per token**
+- **Decode is memory-bandwidth-bound**: each step needs little compute; the time goes into reading well over ten GB of weights and KV cache out of GPU memory
+
+That page covered the why; this one covers how to turn it into a service that works well.
+
+### What's the full path of a request, from arriving at the service to returning?
+
+The running request: review extraction with the LLaMA 3 8B model fine-tuned on the previous page, [Fine-tuning](/docs/llm/fine-tuning), with **about 1,000 input tokens** (instructions plus the review) and **about 200 output tokens** (the JSON).
+
+```
+① the client sends an HTTP request
+② it enters the scheduler queue and waits for GPU capacity       ← queueing time
+③ the tokenizer turns the text into 1,000 token ids               (on the CPU)
+④ Prefill: one forward pass over all 1,000 tokens
+   → produces output token 1
+   → writes the KV cache for 1,000 tokens (about 125 MiB)
+⑤ Decode: generate 1 token per step and append to the KV cache, 199 steps in total
+   → the KV cache ends at 1,200 tokens (about 150 MiB)
+⑥ detokenize as tokens are generated and stream chunks back to the client
+⑦ an end token or the length limit is reached → free this request's KV cache
+```
+
+### Why do prefill and decode have different bottlenecks?
+
+The two phases of the same request behave completely differently:
+
+| | Prefill | Decode |
+| --- | --- | --- |
+| Tokens processed at once | 1,000 in this example | 1 per step |
+| Main bottleneck | **compute**: big matrix multiplies, plus attention's n² | **memory bandwidth**: every step reads all the weights and the KV cache |
+| GPU compute cores | fully busy | mostly waiting for data |
+| User experience it drives | how soon the first word appears (TTFT) | how fast words keep coming (TPOT) |
+
+That difference decides **which phase** every later optimization targets:
+
+| Optimization | Mainly improves | On this page |
+| --- | --- | --- |
+| Batching | decode throughput | Level 2 |
+| Chunked prefill | long prompts blocking other requests' decode | Level 2 |
+| PagedAttention | KV cache memory utilization → concurrency | Level 3 |
+| Prefix caching | skipping repeated prefill | Level 3 |
+| Quantization | memory and decode speed | Level 4 |
+| Speculative decoding | decode speed | Level 5 |
+| FlashAttention | memory and speed for prefill and long context | Level 6 |
+
+<Note title="In interviews, split the request into its two phases before talking optimizations" type="tip">
+
+When asked "how would you optimize LLM inference," start with "inference has prefill and decode: prefill is compute-bound and sets TTFT, decode is memory-bandwidth-bound and sets TPOT," then walk through techniques for each phase. That framework instantly brings order to a sprawling question.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What do prefill and decode each do, and what's each one's bottleneck?
+2. Draw the full path of a request from arriving at the service to returning.
+3. For this request with 1,000 input tokens and 200 output tokens, roughly how big is the KV cache at the end?
+4. Do batching, quantization, and speculative decoding mainly optimize prefill or decode?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 怎么衡量一个推理服务
+
+「这个服务慢」这句话没法优化。要先说清楚是**哪个指标**慢，才知道该动 prefill、decode 还是排队。
+
+### TTFT、TPOT、端到端延迟分别是什么？
+
+| 指标 | 含义 | 主要由什么决定 |
+| --- | --- | --- |
+| **TTFT**（Time To First Token，首 token 延迟） | 从发出请求到收到第一个输出 token | 排队 + tokenize + prefill |
+| **TPOT**（Time Per Output Token，每个输出 token 的时间） | decode 阶段相邻两个 token 之间的平均间隔，也叫 ITL（inter-token latency） | decode 每一步的耗时 |
+| **端到端延迟**（E2E latency） | 从发出请求到收到完整回答 | TTFT + TPOT × 输出 token 数 |
+
+用贯穿全页的请求算一遍。假设测得 TTFT = 150 ms，TPOT = 20 ms，输出 200 个 token：
+
+```
+端到端延迟 = TTFT + TPOT × (200 − 1)
+          = 0.15 + 0.02 × 199
+          = 4.13 秒
+
+用户感受到的「打字速度」= 1 / TPOT = 1 / 0.02 = 50 token / 秒
+```
+
+注意是乘 199 而不是 200：第 1 个 token 已经算在 TTFT 里了。
+
+**不同场景关心的指标不一样：**
+
+| 场景 | 最关心 | 为什么 |
+| --- | --- | --- |
+| 聊天界面（流式输出） | TTFT 和 TPOT | 用户盯着屏幕，第一个字出来得快、后面持续地出，体验就好 |
+| 后台批量抽取（比如本页的评论抽取任务） | 吞吐和单位成本 | 没人在等屏幕，一次处理完一大批最划算 |
+| Agent 多步调用 | 每次调用的端到端延迟 × 步数 | 一个任务可能串联十几次调用，延迟会叠加 |
+
+### 吞吐是什么？它和延迟有什么关系？
+
+**吞吐（throughput）**：单位时间内整个服务处理了多少，常用「每秒输出多少 token」或「每秒完成多少个请求」来衡量。
+
+延迟是**一个用户**的视角，吞吐是**整个系统**的视角，两者经常互相拉扯：同一张卡同时服务的请求越多，每秒总共能输出的 token 越多，吞吐越高；但每个请求分到的计算越少，每个人感受到的速度会变慢。为什么会这样、能差多少，Level 2 用数字算。
+
+### P50、P99 是什么？为什么不能只看平均值？
+
+**P50**：把所有请求的延迟从小到大排，排在 50% 位置的那个值（也就是中位数）。**P99**：排在 99% 位置的值，代表「最慢的那 1% 请求」。
+
+假设测了 100 个请求的端到端延迟：
+
+```
+90 个请求  约 4 秒
+ 9 个请求  约 8 秒     （比如输出特别长，或者碰上了排队高峰）
+ 1 个请求  30 秒       （比如被抢占、重新排队）
+
+平均值 = (90 × 4 + 9 × 8 + 1 × 30) / 100 = 4.62 秒
+P50    = 4 秒
+P99    = 8 秒
+最大值 = 30 秒
+```
+
+平均值 4.62 秒看起来还行，但它既不是大多数人的体验（4 秒），也反映不出最差的情况。**线上服务的承诺一般用 P99 来定**，因为请求量一大，1% 就是很多用户。
+
+长尾延迟的常见来源：特别长的输入或输出、流量突增时的排队、显存不够时请求被抢占后重算。
+
+**SLO（Service Level Objective，服务等级目标）**就是把这些要求写成明确的数字，比如：
+
+```
+P99 TTFT < 500 ms
+P99 TPOT < 50 ms
+```
+
+### 什么是 goodput？
+
+**Goodput**：每秒完成的、**同时满足 SLO** 的请求数。
+
+```
+系统 A：每秒完成 10 个请求，但 30% 超出了 SLO   → goodput = 7
+系统 B：每秒完成 8 个请求，全部满足 SLO          → goodput = 8
+```
+
+光看吞吐，A 更好；看 goodput，B 更好。一个把 batch 开得很大、吞吐很高但延迟严重超标的系统，对用户来说其实没用。
+
+### 怎么测一个推理服务？
+
+- **用贴近线上的请求分布压测**：输入长度、输出长度都要按真实分布来，而不是全用一样的短 prompt
+- **逐步加大并发**，记录每个并发下的吞吐、P50 和 P99 延迟，画出「吞吐 - 延迟」曲线
+- **找出满足 SLO 的最大并发**，这决定了一张卡能扛多少流量，也决定了成本（Level 7）
+
+vLLM 这类框架自带压测脚本，也可以用通用的压测工具发请求。
+
+<Note title="压测时输入输出长度要贴近真实" type="warning">
+
+全用 100 token 的短 prompt、生成 50 token 去压测，吞吐会比线上高得多：prefill 很快、KV cache 很小、能开很大的 batch。用这种数字去规划机器，上线后必然不够。
+
+</Note>
+
+<Note title="被问「服务变慢了怎么查」，先问是哪个指标慢" type="tip">
+
+TTFT 变高 → 查排队、prompt 是不是变长了、prefill 有没有被别的请求挤占；TPOT 变高 → 查 batch 是不是太大、KV cache 是不是快满了、有没有长 prompt 的 prefill 在打断 decode；端到端变长但 TTFT 和 TPOT 都正常 → 输出变长了。先定位指标，再定位阶段，是排查推理性能问题的基本思路（更多见 [Latency](/docs/production/latency)）。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. TTFT、TPOT、端到端延迟分别是什么？分别由什么决定？
+2. TTFT = 200 ms、TPOT = 30 ms、输出 100 token，端到端延迟是多少？用户感受到的速度是多少 token / 秒？
+3. 聊天和后台批量任务分别最关心哪些指标？
+4. 为什么不能只看平均延迟？P99 代表什么？
+5. 什么是 goodput？为什么它比吞吐更能反映服务的真实能力？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Measuring an inference service
+
+"The service is slow" isn't something you can optimize. First pin down **which metric** is slow, and only then will you know whether to work on prefill, decode, or queueing.
+
+### What are TTFT, TPOT, and end-to-end latency?
+
+| Metric | Meaning | Mainly determined by |
+| --- | --- | --- |
+| **TTFT** (time to first token) | from sending the request to receiving the first output token | queueing + tokenization + prefill |
+| **TPOT** (time per output token) | the average gap between consecutive tokens during decode, also called ITL (inter-token latency) | how long each decode step takes |
+| **End-to-end latency** | from sending the request to receiving the complete response | TTFT + TPOT × number of output tokens |
+
+Work it out with the running request. Suppose TTFT = 150 ms, TPOT = 20 ms, and 200 output tokens:
+
+```
+end-to-end latency = TTFT + TPOT × (200 − 1)
+                   = 0.15 + 0.02 × 199
+                   = 4.13 seconds
+
+the "typing speed" users perceive = 1 / TPOT = 1 / 0.02 = 50 tokens / second
+```
+
+Note it's 199, not 200: the first token is already counted in TTFT.
+
+**Different scenarios care about different metrics:**
+
+| Scenario | Cares most about | Why |
+| --- | --- | --- |
+| Chat interface (streaming) | TTFT and TPOT | the user is watching the screen; a fast first word and a steady stream feel good |
+| Offline batch extraction (like this page's review task) | throughput and cost per unit | nobody's watching a screen, so processing a large batch at once is cheapest |
+| Multi-step agent calls | end-to-end latency per call × number of steps | one task may chain a dozen calls, and latency adds up |
+
+### What is throughput, and how does it relate to latency?
+
+**Throughput** is how much the whole service processes per unit of time, usually measured as output tokens per second or completed requests per second.
+
+Latency is **one user's** view; throughput is **the whole system's** view, and they often pull against each other: the more requests one GPU serves at once, the more tokens it outputs per second in total, so throughput rises — but each request gets less of the compute, so everyone perceives slower speed. Why that happens, and by how much, Level 2 works out with numbers.
+
+### What are P50 and P99, and why isn't the average enough?
+
+**P50**: sort every request's latency from smallest to largest and take the value at the 50% mark (the median). **P99**: the value at the 99% mark, representing the slowest 1% of requests.
+
+Suppose we measured end-to-end latency for 100 requests:
+
+```
+90 requests  about 4 seconds
+ 9 requests  about 8 seconds     (e.g. especially long outputs, or caught in a queueing spike)
+ 1 request   30 seconds          (e.g. preempted and requeued)
+
+average = (90 × 4 + 9 × 8 + 1 × 30) / 100 = 4.62 seconds
+P50     = 4 seconds
+P99     = 8 seconds
+max     = 30 seconds
+```
+
+An average of 4.62 seconds looks fine, but it's neither what most people experience (4 seconds) nor a reflection of the worst cases. **Production commitments are usually set on P99**, because at high request volumes 1% is a lot of users.
+
+Common sources of tail latency: especially long inputs or outputs, queueing during traffic spikes, and requests preempted and recomputed when memory runs short.
+
+An **SLO (service level objective)** writes those expectations down as explicit numbers, for example:
+
+```
+P99 TTFT < 500 ms
+P99 TPOT < 50 ms
+```
+
+### What is goodput?
+
+**Goodput** is the number of requests completed per second **that also meet the SLO**.
+
+```
+system A: completes 10 requests/s, but 30% exceed the SLO   → goodput = 7
+system B: completes 8 requests/s, all within the SLO        → goodput = 8
+```
+
+By throughput, A is better; by goodput, B is. A system that runs huge batches for high throughput while blowing its latency targets isn't actually useful to anyone.
+
+### How do you measure an inference service?
+
+- **Load-test with a realistic request distribution**: input and output lengths should follow production, not a single uniform short prompt
+- **Ramp up concurrency step by step**, recording throughput, P50, and P99 latency at each level, and plot the throughput–latency curve
+- **Find the highest concurrency that still meets the SLO** — that decides how much traffic one GPU can take, and therefore the cost (Level 7)
+
+Frameworks like vLLM ship with benchmarking scripts, and general-purpose load-testing tools work too.
+
+<Note title="Load tests need realistic input and output lengths" type="warning">
+
+Benchmark with 100-token prompts and 50-token outputs and throughput will look far higher than production: prefill is fast, the KV cache is small, and batches can grow huge. Plan hardware from numbers like that and you'll come up short after launch.
+
+</Note>
+
+<Note title="When asked “the service got slow, how do you investigate,” ask which metric first" type="tip">
+
+TTFT went up → check queueing, whether prompts got longer, whether prefill is being crowded out by other requests. TPOT went up → check whether the batch is too large, whether the KV cache is nearly full, whether long-prompt prefills are interrupting decode. End-to-end latency rose while TTFT and TPOT look normal → outputs got longer. Pin down the metric, then the phase — that's the basic approach to inference performance problems (more on [Latency](/docs/production/latency)).
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What are TTFT, TPOT, and end-to-end latency, and what determines each?
+2. With TTFT = 200 ms, TPOT = 30 ms, and 100 output tokens, what's the end-to-end latency, and what speed in tokens per second does the user perceive?
+3. Which metrics matter most for chat, and which for offline batch jobs?
+4. Why isn't average latency enough, and what does P99 represent?
+5. What is goodput, and why does it reflect a service's real capability better than throughput?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 批处理：一张卡同时服务很多请求
+
+### 为什么批处理能大幅提高 decode 的吞吐？
+
+回到 Level 0 的结论：**decode 每一步的时间，主要花在把权重从显存里读出来**，GPU 的计算单元大部分时间是空闲的。
+
+- **batch = 1**：读一遍全部权重（约 16 GB），只算出 1 个 token
+- **batch = 32**：同样读一遍权重，32 个请求各自那一点点计算**并行**做完，一步算出 32 个 token
+
+权重读取的开销被 32 个请求分摊了，额外增加的只是 32 个请求各自的计算和各自 KV cache 的读取，所以每一步只慢一点点。
+
+用假设的数字算一下：
+
+```
+batch = 1:   每步 20 ms → 吞吐 = 1 / 0.020  = 50 token / 秒      每人 TPOT 20 ms
+batch = 32:  每步 25 ms → 吞吐 = 32 / 0.025 = 1,280 token / 秒   每人 TPOT 25 ms
+```
+
+**总吞吐提高了约 25 倍，每个人感受到的速度只慢了 25%**。这就是 Level 1 说的「延迟和吞吐互相拉扯」：大部分情况下这笔交易非常划算。
+
+batch 继续加大，计算量迟早会追上读取开销，decode 从「受显存带宽限制」变成「受算力限制」，每步时间开始随 batch 明显增长，吞吐的增长就慢下来了。另一个上限是显存：每个请求都要自己的 KV cache，batch 开多大还取决于 KV cache 放不放得下（Level 3）。
+
+### Static batching 哪里浪费？
+
+最朴素的批处理叫 **static batching**：凑齐一批请求，一起跑，**等这一批全部生成完**，再换下一批。
+
+问题在于同一批里的请求输出长度差别很大。假设 3 个请求一批，分别要生成 10、50、200 个 token：
+
+```
+step:        1 ────── 10 ────── 50 ───────────────── 200
+请求 A:      ██████████ 完成，之后空等 190 步
+请求 B:      ██████████████████████ 完成，之后空等 150 步
+请求 C:      ██████████████████████████████████████████ 完成
+新请求 D:    在门外排队，要等到第 200 步这一批结束才能进来
+```
+
+算一下 GPU 的「座位」利用率：
+
+```
+3 个座位 × 200 步 = 600 个「座位 × 步」
+真正在用的 = 10 + 50 + 200 = 260
+利用率 = 260 / 600 = 43.3%
+```
+
+超过一半的时间，座位是空着的。而且新来的请求要一直等到整批结束，TTFT 会非常长。
+
+### Continuous batching 是怎么解决的？
+
+**Continuous batching（连续批处理）**把调度粒度从「一批」变成「每一步」：**每做完一个 decode step，调度器就检查一次**——有请求生成完了就立刻移出，队列里有新请求就立刻补进来。
+
+```
+step:        1 ────── 10 ────── 50 ───────────────── 200
+请求 A:      ██████████
+请求 D:                ███████████████████...    第 11 步就补进 A 的座位
+请求 B:      ██████████████████████
+请求 E:                            ██████████...  第 51 步补进 B 的座位
+请求 C:      ██████████████████████████████████████████
+```
+
+座位几乎一直是满的，新请求也不用等整批结束。这个做法最早由 Orca 系统提出，现在已经是 vLLM、TGI、SGLang 这些推理框架的标配，TensorRT-LLM 里叫 in-flight batching。
+
+<Note title="Continuous batching 是推理成本的第一大杠杆" type="tip">
+
+同样一张卡，调度方式从 static 换成 continuous，利用率可以从一半左右提到接近满载，意味着每个 token 的成本几乎减半。面试里被问「怎么降低推理成本」，continuous batching 应该是最先想到的答案之一（成本怎么算见 Level 7）。
+
+</Note>
+
+### 新请求的 prefill 会不会卡住正在 decode 的请求？什么是 chunked prefill？
+
+会。新请求加入时要先做 prefill。如果它的 prompt 很长，比如 8,000 个 token，这一步的计算量非常大（Level 0：prefill 受算力限制），同一步里正在 decode 的其他请求都得等它算完。结果就是：**一个长 prompt 进来，所有正在生成的用户都会卡一下，TPOT 出现尖峰**。
+
+**Chunked prefill（分块预填充）**：把长 prompt 的 prefill 切成小块，每一步只处理一块，和正在进行的 decode 混在同一步里一起算，每一步的总 token 数控制在一个预算内。
+
+```
+不分块:   一个 step 里塞进 8,000 个 prefill token → 这一步特别慢，所有 decode 请求都卡住
+分块:     每块 512 个 token → 8,000 / 512 ≈ 16 块，分 16 步做完
+          每一步 = 1 块 prefill + 正在进行的 decode token → decode 持续流畅
+```
+
+代价是这个长 prompt 请求自己的 TTFT 会稍微变长，换来的是其他所有人的 TPOT 稳定。vLLM 支持 chunked prefill。
+
+### 批处理有什么代价？怎么按场景设置？
+
+| | batch 小 | batch 大 |
+| --- | --- | --- |
+| 每个人的 TPOT | 低 | 变高 |
+| 总吞吐 | 低 | 高 |
+| 每个 token 的成本 | 高 | 低 |
+| KV cache 显存 | 占得少 | 占得多，可能成为上限（Level 3） |
+| 适合 | 交互式聊天，对速度敏感 | 离线批量任务，对成本敏感 |
+
+放到贯穿全页的例子里：
+
+- 如果评论抽取是**离线跑一整天的数据**，就尽量把 batch 开大，追求吞吐和成本
+- 如果同一个模型还要支持**在线聊天**，就要按 Level 1 的 TPOT SLO 限制最大 batch，宁可少服务几个人，也不能让每个人都卡
+
+<Note title="batch 很大时，别的优化效果会变" type="warning">
+
+batch 大到 decode 变成受算力限制之后，量化（Level 4）省下的读取开销不再是主要瓶颈，加速效果会变小；投机解码（Level 5）靠的是「GPU 算力有空闲」，batch 大时空闲少了，收益也会下降。评估任何推理优化，都要说清楚是在多大的 batch 下测的。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么批处理能让 decode 吞吐提高很多，而每个人的延迟只增加一点？
+2. Static batching 为什么浪费？手算：一批 2 个请求，分别生成 20 和 100 个 token，座位利用率是多少？
+3. Continuous batching 是怎么调度的？它解决了哪两个问题？
+4. 长 prompt 的 prefill 为什么会让其他请求卡顿？chunked prefill 怎么解决？代价是什么？
+5. 在线聊天和离线批量任务，batch 应该怎么设置？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Batching: one GPU serving many requests
+
+### Why does batching raise decode throughput so much?
+
+Back to Level 0's conclusion: **each decode step spends most of its time reading the weights out of GPU memory**, while the GPU's compute cores mostly sit idle.
+
+- **batch = 1**: read all the weights once (about 16 GB) and produce 1 token
+- **batch = 32**: read the weights once, do each of the 32 requests' small computations **in parallel**, and produce 32 tokens in one step
+
+The cost of reading the weights is shared across 32 requests; what's added is only each request's own computation and reading each request's KV cache, so each step gets only slightly slower.
+
+With assumed numbers:
+
+```
+batch = 1:   20 ms per step → throughput = 1 / 0.020  = 50 tokens / second      TPOT per user 20 ms
+batch = 32:  25 ms per step → throughput = 32 / 0.025 = 1,280 tokens / second   TPOT per user 25 ms
+```
+
+**Total throughput rises about 25x, while each user's perceived speed drops only 25%.** That's the latency–throughput tug-of-war from Level 1, and most of the time it's a very good deal.
+
+Keep growing the batch and computation eventually catches up with the read overhead: decode shifts from memory-bandwidth-bound to compute-bound, step time starts climbing noticeably with batch size, and throughput gains flatten. The other ceiling is memory: every request needs its own KV cache, so how big a batch can get also depends on whether the KV caches fit (Level 3).
+
+### What does static batching waste?
+
+The simplest form of batching is **static batching**: gather a batch of requests, run them together, **wait until the whole batch has finished generating**, then move on to the next batch.
+
+The trouble is that output lengths within a batch vary widely. Suppose a batch of 3 requests needs 10, 50, and 200 tokens:
+
+```
+step:        1 ────── 10 ────── 50 ───────────────── 200
+request A:   ██████████ done, then idles for 190 steps
+request B:   ██████████████████████ done, then idles for 150 steps
+request C:   ██████████████████████████████████████████ done
+request D:   waits outside until the batch finishes at step 200
+```
+
+Compute the utilization of the GPU's "seats":
+
+```
+3 seats × 200 steps = 600 seat-steps
+actually used = 10 + 50 + 200 = 260
+utilization = 260 / 600 = 43.3%
+```
+
+More than half the time, seats sit empty. And new requests wait until the whole batch ends, so their TTFT gets very long.
+
+### How does continuous batching fix it?
+
+**Continuous batching** moves scheduling from "per batch" to "per step": **after every decode step, the scheduler checks** — requests that have finished leave immediately, and waiting requests join immediately.
+
+```
+step:        1 ────── 10 ────── 50 ───────────────── 200
+request A:   ██████████
+request D:             ███████████████████...    takes A's seat at step 11
+request B:   ██████████████████████
+request E:                         ██████████...  takes B's seat at step 51
+request C:   ██████████████████████████████████████████
+```
+
+Seats stay almost always full, and new requests don't wait for a whole batch to end. The approach was first introduced by the Orca system and is now standard in serving frameworks like vLLM, TGI, and SGLang; TensorRT-LLM calls it in-flight batching.
+
+<Note title="Continuous batching is the biggest lever on inference cost" type="tip">
+
+On the same GPU, switching from static to continuous scheduling can take utilization from around half to nearly full — cutting the cost per token almost in half. When asked "how would you cut inference cost," continuous batching should be one of the first answers (how to compute the cost is in Level 7).
+
+</Note>
+
+### Does a new request's prefill stall requests already decoding? What is chunked prefill?
+
+Yes. A new request has to go through prefill when it joins. If its prompt is long — say 8,000 tokens — that step is very compute-heavy (Level 0: prefill is compute-bound), and every other request decoding in the same step has to wait for it. The result: **one long prompt comes in and every user currently generating stalls for a moment, producing a TPOT spike**.
+
+**Chunked prefill**: split a long prompt's prefill into small chunks, process one chunk per step alongside the ongoing decode, and keep each step's total token count within a budget.
+
+```
+unchunked:  8,000 prefill tokens packed into one step → that step is very slow and every decode request stalls
+chunked:    512 tokens per chunk → 8,000 / 512 ≈ 16 chunks over 16 steps
+            each step = 1 prefill chunk + the ongoing decode tokens → decode keeps flowing smoothly
+```
+
+The cost is a slightly longer TTFT for the long-prompt request itself, in exchange for steady TPOT for everyone else. vLLM supports chunked prefill.
+
+### What does batching cost, and how do you set it per scenario?
+
+| | Small batch | Large batch |
+| --- | --- | --- |
+| TPOT per user | low | higher |
+| Total throughput | low | high |
+| Cost per token | high | low |
+| KV cache memory | small | large, possibly the limit (Level 3) |
+| Good for | interactive chat, speed-sensitive | offline batch jobs, cost-sensitive |
+
+In the running example:
+
+- if review extraction is **an offline job over a full day of data**, push the batch as large as possible for throughput and cost
+- if the same model also serves **live chat**, cap the maximum batch according to the TPOT SLO from Level 1 — better to serve fewer users than to make everyone wait
+
+<Note title="With very large batches, other optimizations behave differently" type="warning">
+
+Once the batch is large enough that decode becomes compute-bound, the read overhead quantization saves (Level 4) is no longer the main bottleneck, so its speedup shrinks; speculative decoding (Level 5) relies on idle GPU compute, which large batches use up, so its gains fall too. When evaluating any inference optimization, state the batch size it was measured at.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why does batching raise decode throughput so much while adding only a little latency per user?
+2. Why is static batching wasteful? By hand: a batch of 2 requests generating 20 and 100 tokens — what's the seat utilization?
+3. How does continuous batching schedule requests, and what two problems does it solve?
+4. Why does a long prompt's prefill stall other requests, how does chunked prefill fix it, and what does it cost?
+5. How should the batch size be set for live chat versus offline batch jobs?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · KV cache 显存管理：PagedAttention 与前缀缓存
+
+Level 2 说过，batch 能开多大，最后受限于 KV cache 放不放得下。这一节算清楚显存账，再看 vLLM 是怎么把显存利用率从一小半提到接近满载的。
+
+### 一张 80 GB 的卡，KV cache 能分到多少？
+
+```
+显卡总显存                      80 GB
+推理框架通常只用其中约 90%       约 72 GB     （vLLM 默认 gpu_memory_utilization = 0.9）
+LLaMA 3 8B 的 fp16 权重          约 16 GB
+激活值、临时缓冲区等              几 GB
+剩给 KV cache                   假设约 50 GiB
+```
+
+KV cache 的单位成本（[Attention & Transformer](/docs/llm/transformer) Level 8 算过）：
+
+```
+每个 token:  2 × 32 层 × 8 个 KV 头 × 128 维 × 2 字节 = 131,072 字节 = 128 KiB
+贯穿全页的请求（1,200 个 token）:  1,200 × 128 KiB ≈ 150 MiB
+```
+
+### 为什么「提前预留」会浪费大半显存？
+
+请求刚进来时，**谁也不知道它最后会生成多少个 token**。最朴素的做法是按最大上下文长度，给每个请求预留一整块连续的显存，比如 8,192 个 token：
+
+```
+每个请求预留:  8,192 × 128 KiB ≈ 1 GiB
+能同时服务:    50 GiB / 1 GiB = 50 个请求
+实际用到:      1,200 个 token ≈ 150 MiB
+浪费比例:      1 − 150 / 1,024 ≈ 85%
+```
+
+预留出来的 1 GiB 里，这个请求实际只用了 15%。浪费来自三个方面：
+
+| 浪费类型 | 是什么 |
+| --- | --- |
+| **内部碎片** | 预留了但一直没用上的空间（上面那 85%） |
+| **外部碎片** | 空闲显存加起来够用，但被切成了很多不连续的小段，放不下一整块新的连续预留 |
+| **无法共享** | 很多请求开头都是同样的系统提示词，却各自存了一份一模一样的 KV cache |
+
+vLLM 的论文测得，此前的推理系统里有 60% 到 80% 的 KV cache 显存被这样浪费掉。
+
+### PagedAttention 是怎么做的？
+
+思路来自操作系统的**虚拟内存分页**：
+
+- 把 KV cache 切成**固定大小的块（block）**，vLLM 默认每块放 16 个 token
+- 一个请求的块**不需要在显存里连续**，放在哪都行
+- 每个请求有一张**块表（block table）**，记录「第几个逻辑块」对应「显存里第几号物理块」
+- **用到才分配**：当前的块写满了，才去申请下一个块
+
+```
+请求 A 的块表                     显存里的物理块
+逻辑块 0  →  物理块 7            [ 0 ][ 1 ][ 2:A ][ 3 ][ 4 ][ 5 ][ 6 ][ 7:A ] ...
+逻辑块 1  →  物理块 2
+逻辑块 2  →  物理块 12           （A 的三个块散落在不同位置，照样能用）
+```
+
+attention 计算时，专门的算子按块表去各个物理块里取 K 和 V，这就是「PagedAttention」这个名字的由来。
+
+**手算浪费有多少：**
+
+```
+请求有 1,200 个 token  →  1,200 / 16 = 75 块，正好用满，没有浪费
+请求有 1,210 个 token  →  需要 76 块，最后一块只放了 10 个 token，空着 6 个位置
+```
+
+**每个请求最多只浪费不到一个块**（最多 15 个 token 的位置），而不是预留方式下的 85%。
+
+回到那张 80 GB 的卡：
+
+```
+提前预留:        50 GiB / 1 GiB    = 50 个请求
+PagedAttention:  50 GiB / 150 MiB  ≈ 341 个这样的请求
+```
+
+KV cache 能容纳的并发数提高了约 7 倍（实际并发还受 Level 1、2 讲的 TPOT SLO 限制）。vLLM 的论文报告，相比当时的推理系统，吞吐提高了 2 到 4 倍。
+
+### 显存还是不够时怎么办？
+
+生成过程中，请求的 KV cache 会不断变长。如果某一步所有块都用完了，调度器只能**抢占（preempt）**一部分请求，腾出块给其他请求：
+
+- **换出（swap）**：把被抢占请求的 KV 块暂时挪到 CPU 内存，之后再搬回来
+- **重算（recompute）**：直接释放它的 KV 块，等轮到它时重新做一遍 prefill
+
+两种都会让被抢占的请求明显变慢，这就是 Level 1 说的长尾延迟的来源之一。所以显存规划要留余量，不能按平均值卡着算。
+
+### 什么是前缀缓存？为什么很有用？
+
+很多请求的开头是一模一样的：同样的系统提示词、同样的格式说明、同样的 few-shot 示例。如果每个请求都重新做一遍这部分的 prefill、各自存一份 KV cache，既浪费计算又浪费显存。
+
+**前缀缓存（prefix caching）**：把公共前缀对应的 KV 块缓存下来，后续请求如果开头完全相同，就直接复用这些块，**跳过这部分的 prefill**。有了 PagedAttention 的块结构，多个请求共享同一批物理块很容易实现。
+
+假设贯穿全页的请求里，1,000 个输入 token 中有 600 个是每个请求都一样的系统指令和格式说明：
+
+```
+TTFT:   每个请求只需要对剩下 400 个 token 做 prefill
+
+显存:   100 个请求同时在线
+        不共享:  100 × 600 × 128 KiB ≈ 7.3 GiB
+        共享:    600 × 128 KiB = 75 MiB，只存一份
+```
+
+vLLM 支持自动前缀缓存，SGLang 用基数树（RadixAttention）来管理前缀共享。
+
+<Note title="API 厂商的 prompt caching 是同一个原理" type="tip">
+
+各家模型 API 对「命中缓存的输入 token」打折收费，背后就是前缀缓存：公共前缀的 KV cache 已经算好存着了，不需要再做 prefill。所以设计 prompt 时，**把不变的内容（系统提示词、工具定义、长文档）放在最前面**，把会变的内容放在后面，能最大化命中率（见 [Caching](/docs/context/caching)）。
+
+</Note>
+
+<Note title="前缀必须从第一个 token 开始逐字相同" type="warning">
+
+只要开头有一个 token 不一样，后面就全部无法复用。把当前时间、用户名、请求 ID 这类每次都变的内容放在 prompt 开头，会让前缀缓存完全失效。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 一张 80 GB 的卡跑 LLaMA 3 8B，KV cache 大约能分到多少显存？一个 1,200 token 的请求占多少？
+2. 为什么按最大长度预留 KV cache 会浪费大半显存？有哪三种浪费？
+3. PagedAttention 是怎么管理 KV cache 的？每个请求最多浪费多少？
+4. 显存不够时调度器怎么处理？对延迟有什么影响？
+5. 前缀缓存怎么降低 TTFT 和显存？设计 prompt 时要注意什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Managing KV cache memory: PagedAttention and prefix caching
+
+Level 2 noted that how big a batch can get is ultimately limited by whether the KV caches fit. This Level works out the memory math, then shows how vLLM pushes memory utilization from well under half to nearly full.
+
+### On an 80 GB GPU, how much memory does the KV cache get?
+
+```
+total GPU memory                                   80 GB
+serving frameworks typically use about 90%         about 72 GB     (vLLM's default gpu_memory_utilization = 0.9)
+LLaMA 3 8B fp16 weights                            about 16 GB
+activations, temporary buffers, etc.               a few GB
+left for the KV cache                              assume about 50 GiB
+```
+
+The KV cache's unit cost (worked out in [Attention & Transformer](/docs/llm/transformer) Level 8):
+
+```
+per token:  2 × 32 layers × 8 KV heads × 128 dims × 2 bytes = 131,072 bytes = 128 KiB
+the running request (1,200 tokens):  1,200 × 128 KiB ≈ 150 MiB
+```
+
+### Why does reserving memory up front waste most of it?
+
+When a request arrives, **nobody knows how many tokens it will end up generating**. The simplest approach reserves one contiguous chunk per request sized for the maximum context — say 8,192 tokens:
+
+```
+reserved per request:   8,192 × 128 KiB ≈ 1 GiB
+concurrent requests:    50 GiB / 1 GiB = 50
+actually used:          1,200 tokens ≈ 150 MiB
+wasted:                 1 − 150 / 1,024 ≈ 85%
+```
+
+Of the reserved 1 GiB, this request uses only 15%. The waste comes from three places:
+
+| Kind of waste | What it is |
+| --- | --- |
+| **Internal fragmentation** | space that was reserved but never used (the 85% above) |
+| **External fragmentation** | enough free memory in total, but split into many non-contiguous pieces that can't hold a new contiguous reservation |
+| **No sharing** | many requests start with the same system prompt, yet each stores its own identical KV cache |
+
+The vLLM paper measured that earlier serving systems wasted 60% to 80% of KV cache memory this way.
+
+### How does PagedAttention work?
+
+The idea comes from **virtual memory paging** in operating systems:
+
+- split the KV cache into **fixed-size blocks** — vLLM defaults to 16 tokens per block
+- a request's blocks **don't need to be contiguous** in GPU memory; they can live anywhere
+- each request has a **block table** mapping "logical block N" to "physical block M in GPU memory"
+- **allocate on demand**: request the next block only when the current one fills up
+
+```
+request A's block table            physical blocks in GPU memory
+logical block 0  →  physical 7     [ 0 ][ 1 ][ 2:A ][ 3 ][ 4 ][ 5 ][ 6 ][ 7:A ] ...
+logical block 1  →  physical 2
+logical block 2  →  physical 12    (A's three blocks are scattered, and that works fine)
+```
+
+During attention, a dedicated kernel follows the block table to fetch K and V from each physical block — hence the name "PagedAttention."
+
+**Work out the waste by hand:**
+
+```
+a request with 1,200 tokens  →  1,200 / 16 = 75 blocks, exactly full, no waste
+a request with 1,210 tokens  →  needs 76 blocks; the last holds only 10 tokens, leaving 6 slots empty
+```
+
+**Each request wastes less than one block** (at most 15 tokens' worth), instead of 85% under up-front reservation.
+
+Back to the 80 GB GPU:
+
+```
+up-front reservation:  50 GiB / 1 GiB    = 50 requests
+PagedAttention:        50 GiB / 150 MiB  ≈ 341 requests of this size
+```
+
+The number of concurrent requests the KV cache can hold rises about 7x (actual concurrency is still bounded by the TPOT SLO from Levels 1 and 2). The vLLM paper reported 2–4x higher throughput than the serving systems of the time.
+
+### What if memory still runs out?
+
+A request's KV cache keeps growing as it generates. If every block is used up at some step, the scheduler has to **preempt** some requests to free blocks for others:
+
+- **Swap**: move the preempted request's KV blocks to CPU memory temporarily and bring them back later
+- **Recompute**: free its KV blocks outright and redo its prefill when its turn comes again
+
+Either way the preempted request slows down noticeably — one of the sources of tail latency from Level 1. That's why memory planning needs headroom rather than cutting it close to the average.
+
+### What is prefix caching, and why is it so useful?
+
+Many requests begin identically: the same system prompt, the same format instructions, the same few-shot examples. Redoing prefill for that part on every request and storing a separate KV cache for each wastes both compute and memory.
+
+**Prefix caching**: cache the KV blocks for a shared prefix, and when a later request starts with exactly the same content, reuse those blocks and **skip that part of prefill**. PagedAttention's block structure makes sharing the same physical blocks across requests easy.
+
+Suppose that in the running request, 600 of the 1,000 input tokens are system instructions and format rules identical on every request:
+
+```
+TTFT:     each request only needs prefill for the remaining 400 tokens
+
+memory:   100 requests online at once
+          without sharing:  100 × 600 × 128 KiB ≈ 7.3 GiB
+          with sharing:     600 × 128 KiB = 75 MiB, stored once
+```
+
+vLLM supports automatic prefix caching, and SGLang manages prefix sharing with a radix tree (RadixAttention).
+
+<Note title="API providers' prompt caching works the same way" type="tip">
+
+Model APIs discount input tokens that hit the cache, and prefix caching is what's behind it: the KV cache for the shared prefix is already computed and stored, so no prefill is needed. When designing prompts, **put stable content (system prompt, tool definitions, long documents) first** and variable content after it to maximize hits (see [Caching](/docs/context/caching)).
+
+</Note>
+
+<Note title="The prefix must match token for token from the very first token" type="warning">
+
+A single differing token at the start means nothing after it can be reused. Putting the current time, a user name, or a request ID at the beginning of the prompt defeats prefix caching entirely.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Serving LLaMA 3 8B on an 80 GB GPU, roughly how much memory goes to the KV cache, and how much does a 1,200-token request take?
+2. Why does reserving KV cache for the maximum length waste most of the memory, and what are the three kinds of waste?
+3. How does PagedAttention manage the KV cache, and what's the most a request can waste?
+4. What does the scheduler do when memory runs out, and how does that affect latency?
+5. How does prefix caching reduce TTFT and memory, and what should you watch out for when designing prompts?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 4 · 量化：用更少的位数存模型
+
+[Fine-tuning](/docs/llm/fine-tuning) Level 3 讲过量化的基本算法（absmax、分组、离群值），那里是为了**训练时**省显存。这一节讲**部署时**的量化：它怎么同时影响显存、速度和质量。
+
+### 推理为什么要量化？
+
+两个好处：
+
+1. **省显存**：同一张卡能放更大的模型，或者给 KV cache 留出更多空间、服务更多并发
+2. **加快 decode**：decode 受显存带宽限制（Level 0），权重越小，每一步要读的数据越少
+
+LLaMA 3 8B 在不同精度下的权重大小：
+
+```
+fp16 / bf16    约 16.1 GB
+int8           约 8.0 GB
+int4           约 4.1 GB     （按每 128 个权重配一个 16 位 scale 算）
+```
+
+### 手算 int8 量化，误差有多大？
+
+用 Fine-tuning Level 3 里同一组权重，这次量化成 int8（取值 −127 到 127）：
+
+```
+w      = [0.12, −0.50, 0.33, 0.90]
+scale  = 0.90 / 127 = 0.00709
+q      = round(w / scale) = [17, −71, 47, 127]
+w'     = q × scale = [0.1205, −0.5031, 0.3331, 0.9000]
+误差   = [−0.0005, 0.0031, −0.0031, 0.0000]
+```
+
+对比那一页 int4 的结果，最大误差是 0.056。**int8 的最大误差只有 0.0031，小了一个数量级以上**。位数每少一半，能表示的数就少得多，误差也跟着变大。这就是为什么 int8 通常几乎无损，而 int4 需要更讲究的方法。
+
+### 只量化权重，还是连激活值一起量化？
+
+| 方式 | 常见写法 | 计算时 | 主要加速 | 要求 |
+| --- | --- | --- | --- | --- |
+| **只量化权重** | W4A16、W8A16 | 权重临时反量化回 16 位再算 | 小 batch 的 decode（读的数据少了） | 需要优化过的算子 |
+| **权重和激活值都量化** | W8A8、FP8 | 矩阵乘法直接用 8 位算 | prefill 和大 batch（计算量本身变小了） | 硬件支持，比如 FP8 需要较新的 GPU |
+
+「W4A16」的意思是权重（Weight）4 位、激活值（Activation）16 位。
+
+**激活值为什么更难量化？** 研究发现，大模型的激活值里有少数几个通道会出现比其他通道大得多的数值（离群值），而且模型越大越明显。回想 Fine-tuning Level 3 的例子：一个 8.0 的离群值能把同组其他数全挤成 0。权重可以离线慢慢处理，激活值却是每个请求实时算出来的，更难控制。
+
+SmoothQuant 这类方法的思路是**把难度从激活值挪到权重上**：给激活值的离群通道除以一个系数，同时给对应的权重乘上这个系数，数学上结果不变，但激活值变得平滑、容易量化了。
+
+### GPTQ 和 AWQ 各做了什么？
+
+最朴素的做法是把每个权重直接四舍五入到最近的 int4（叫 round-to-nearest），质量损失往往明显。更好的方法都会用一小批**校准数据**跑一遍模型，看看哪些地方更重要：
+
+- **GPTQ**：逐列量化权重。每量化一列产生的误差，都通过调整还没量化的那些权重来补偿，让这一层的整体输出尽量不变
+- **AWQ（Activation-aware Weight Quantization）**：观察到只有很小一部分权重通道真正重要，就是那些和大激活值相乘的通道。量化前先给这些通道放大保护，减少它们的误差
+
+两者通常都用来做 **weight-only int4**，是开源模型 4-bit 部署最常见的格式。
+
+<Note title="校准数据要贴近真实流量" type="tip">
+
+量化时用什么数据校准，决定了模型在哪类输入上保得最好。贯穿全页的评论抽取模型，就应该用真实的评论请求来校准，而不是随便拿一份通用文本。面试时能提到这一点，说明你真的做过量化部署。
+
+</Note>
+
+### KV cache 也能量化吗？
+
+能。把 KV cache 从 fp16 换成 FP8，每个 token 的 KV cache 直接减半：
+
+```
+fp16:  每个 token 128 KiB    →  50 GiB 能放约 341 个 1,200 token 的请求（Level 3）
+FP8:   每个 token 64 KiB     →  50 GiB 能放约 682 个
+```
+
+长上下文、高并发时，这往往比量化权重更能提升并发数。vLLM 支持 FP8 的 KV cache。质量影响通常较小，但长上下文任务上一定要实测。
+
+### 量化一定更快吗？质量会掉多少？
+
+**速度不一定。**
+
+- 小 batch 时 decode 受显存带宽限制，weight-only int4 读的数据少了 4 倍，通常明显更快
+- 大 batch 时 decode 已经变成受算力限制（Level 2），反量化本身的开销可能抵消掉收益
+- 没有专门优化过的算子时，int4 甚至可能比 fp16 更慢
+
+**质量要实测。**
+
+- int8 和 FP8 通常接近无损
+- int4 一般有小幅下降，在**小模型、数学和代码、长上下文**这类任务上往往更明显
+
+放到贯穿全页的例子里，完整流程是：
+
+```
+① 把 LoRA 适配器合并进 fp16 基座（Fine-tuning Level 6）
+② 用真实评论数据做校准，AWQ 量化成 int4
+③ 在同一份 200 条测试集上重新跑指标，和 fp16 版本对比完全正确率
+④ 在目标 batch 大小下压测，确认速度和 P99 延迟真的变好了
+```
+
+<Note title="别说「量化到 int4 就快 4 倍」" type="danger">
+
+权重小了 4 倍，不等于速度快 4 倍。实际加速取决于 batch 大小、decode 是受带宽还是受算力限制、有没有优化过的算子，大 batch 下甚至可能没有加速。报告量化收益时，要同时说清楚 batch 大小和测试环境。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 推理量化带来哪两个好处？LLaMA 3 8B 在 fp16、int8、int4 下分别约多大？
+2. 手算：w = [0.4, −0.8, 0.2] 用 absmax int8 量化，scale 和 q 是多少？
+3. W4A16 和 W8A8 分别是什么意思？各自主要加速哪种场景？为什么激活值更难量化？
+4. GPTQ 和 AWQ 分别怎么减少量化误差？校准数据要注意什么？
+5. KV cache 量化成 FP8 能带来什么？
+6. 为什么说量化不一定更快？部署前要验证哪些东西？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Quantization: storing the model in fewer bits
+
+[Fine-tuning](/docs/llm/fine-tuning) Level 3 covered the basic math of quantization (absmax, groups, outliers) to save memory **during training**. This Level covers quantization **for deployment**: how it affects memory, speed, and quality all at once.
+
+### Why quantize for inference?
+
+Two benefits:
+
+1. **Less memory**: the same GPU can hold a bigger model, or leave more room for the KV cache and more concurrent requests
+2. **Faster decode**: decode is memory-bandwidth-bound (Level 0), so smaller weights mean less data to read each step
+
+LLaMA 3 8B's weight size at different precisions:
+
+```
+fp16 / bf16    about 16.1 GB
+int8           about 8.0 GB
+int4           about 4.1 GB     (with one 16-bit scale per 128 weights)
+```
+
+### Work out int8 quantization by hand — how big is the error?
+
+Take the same weights from Fine-tuning Level 3, this time quantized to int8 (values from −127 to 127):
+
+```
+w      = [0.12, −0.50, 0.33, 0.90]
+scale  = 0.90 / 127 = 0.00709
+q      = round(w / scale) = [17, −71, 47, 127]
+w'     = q × scale = [0.1205, −0.5031, 0.3331, 0.9000]
+error  = [−0.0005, 0.0031, −0.0031, 0.0000]
+```
+
+Compare with the int4 result on that page, where the largest error was 0.056. **int8's largest error is just 0.0031 — more than an order of magnitude smaller.** Halving the bits sharply reduces how many values can be represented, and the error grows with it. That's why int8 is usually nearly lossless while int4 needs more careful methods.
+
+### Quantize only the weights, or the activations too?
+
+| Approach | Common notation | At compute time | Mainly speeds up | Requires |
+| --- | --- | --- | --- | --- |
+| **Weight-only** | W4A16, W8A16 | weights are dequantized to 16-bit on the fly | small-batch decode (less data to read) | optimized kernels |
+| **Weights and activations** | W8A8, FP8 | matrix multiplies run directly in 8-bit | prefill and large batches (the computation itself shrinks) | hardware support; FP8, for example, needs newer GPUs |
+
+"W4A16" means 4-bit weights and 16-bit activations.
+
+**Why are activations harder to quantize?** Research has found that a few channels in large models' activations take on values far larger than the rest (outliers), and the effect grows with model size. Recall the Fine-tuning Level 3 example: one outlier of 8.0 squashed every other number in its group to 0. Weights can be processed carefully offline, but activations are computed live for every request and are much harder to control.
+
+Methods like SmoothQuant **move the difficulty from activations to weights**: divide the outlier activation channels by a factor and multiply the corresponding weights by the same factor. The math comes out identical, but the activations are now smooth and easy to quantize.
+
+### What do GPTQ and AWQ each do?
+
+The simplest approach rounds every weight to the nearest int4 (round-to-nearest), which often costs noticeable quality. Better methods run a small batch of **calibration data** through the model to see what matters most:
+
+- **GPTQ**: quantizes weights column by column. The error introduced by each quantized column is compensated by adjusting the weights not yet quantized, keeping the layer's overall output as unchanged as possible
+- **AWQ (Activation-aware Weight Quantization)**: observes that only a small fraction of weight channels really matter — the ones multiplied by large activations — and scales those channels up before quantization to protect them from error
+
+Both are usually used for **weight-only int4**, the most common format for deploying open models at 4 bits.
+
+<Note title="Calibration data should look like real traffic" type="tip">
+
+The data you calibrate with determines which inputs the model holds up best on. The running review-extraction model should be calibrated with real review requests, not generic text. Mentioning this in an interview shows you've actually deployed quantized models.
+
+</Note>
+
+### Can the KV cache be quantized too?
+
+Yes. Switching the KV cache from fp16 to FP8 halves it per token:
+
+```
+fp16:  128 KiB per token    →  50 GiB holds about 341 requests of 1,200 tokens (Level 3)
+FP8:   64 KiB per token     →  50 GiB holds about 682
+```
+
+With long context and high concurrency, this often raises concurrency more than quantizing the weights does. vLLM supports an FP8 KV cache. The quality impact is usually small, but always measure it on long-context tasks.
+
+### Is quantization always faster? How much quality does it cost?
+
+**Not necessarily faster.**
+
+- at small batch, decode is memory-bandwidth-bound, and weight-only int4 reads 4x less data, so it's usually noticeably faster
+- at large batch, decode has already become compute-bound (Level 2), and the dequantization overhead can cancel out the gain
+- without optimized kernels, int4 can even be slower than fp16
+
+**Quality has to be measured.**
+
+- int8 and FP8 are usually close to lossless
+- int4 typically loses a little, and the drop is often more noticeable for **small models, math and code, and long context**
+
+For the running example, the full process is:
+
+```
+① merge the LoRA adapter into the fp16 base (Fine-tuning Level 6)
+② calibrate with real review data and quantize to int4 with AWQ
+③ rerun the metrics on the same 200-example test set and compare exact match against the fp16 version
+④ load-test at the target batch size to confirm speed and P99 latency actually improved
+```
+
+<Note title="Don't say int4 quantization makes it 4x faster" type="danger">
+
+Weights 4x smaller doesn't mean 4x faster. The real speedup depends on batch size, whether decode is bandwidth- or compute-bound, and whether optimized kernels exist — at large batch there may be no speedup at all. When reporting quantization gains, state the batch size and test setup alongside them.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What two benefits does quantization bring to inference, and roughly how big is LLaMA 3 8B in fp16, int8, and int4?
+2. By hand: quantize w = [0.4, −0.8, 0.2] with absmax int8. What are the scale and q?
+3. What do W4A16 and W8A8 mean, and which scenarios does each mainly speed up? Why are activations harder to quantize?
+4. How do GPTQ and AWQ each reduce quantization error, and what should you watch for in calibration data?
+5. What does quantizing the KV cache to FP8 buy you?
+6. Why isn't quantization always faster, and what should you verify before deploying?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 5 · 投机解码：先猜，再一次性验证
+
+### 投机解码想利用的是什么？
+
+两个前面讲过的事实，放在一起就是投机解码的全部思路：
+
+1. **decode 受显存带宽限制**（Level 0）：每一步的时间主要花在读权重，GPU 算力大量空闲
+2. **一次前向计算能同时给出每个位置的预测**（[Attention & Transformer](/docs/llm/transformer) Level 5 的 teacher forcing）：输入 k 个 token，一次就能知道模型在这 k 个位置各自会预测什么
+
+所以：如果能**便宜地先猜出接下来的 k 个 token**，大模型只需要**一次前向计算**就能把这 k 个一起检查完。读一遍权重的开销不变，却可能一次确认好几个 token。
+
+### 投机解码具体怎么做？手算一轮
+
+两个角色：
+
+- **Target 模型**：真正要用的大模型，这里是我们的 LLaMA 3 8B
+- **Draft 模型**：一个同系列、共用 tokenizer 的小模型，负责快速猜
+
+贯穿全页的例子输出的是 JSON，模型已经生成到 `{"sentiment": "`，接下来（token 的切分方式仅为示意）：
+
+```
+① Draft 模型连续猜 4 个 token:   mixed   ",   "positive   ":
+
+② Target 模型把这 4 个 token 一次性输入，一次前向计算，
+   得到它自己在每个位置的预测：
+
+   位置    draft 猜的      target 的预测     结果
+   1       mixed          mixed            ✓ 接受
+   2       ",             ",               ✓ 接受
+   3       "positive      "positive        ✓ 接受
+   4       ":             ": [             ✗ 不一致，从这里停下
+
+③ 接受前 3 个 draft token，再加上 target 在第 4 个位置自己的预测
+   → target 只算了 1 次，就产出了 4 个 token
+```
+
+如果 4 个全被接受，target 在最后一个位置的预测还能额外白送一个 token，一次就是 5 个。
+
+这里演示的是 greedy 解码（每次取最大概率）下的比对。用采样生成时，验证会用一种拒绝采样的规则来决定接受与否，**可以保证最终输出的分布和只用 target 模型逐个生成完全一样**。
+
+### 能加速多少？手算期望
+
+设每个 draft token 被接受的概率是 α（接受率），每轮猜 k 个。每次 target 前向平均能产出的 token 数是：
+
+```
+E = (1 − α^(k+1)) / (1 − α)
+```
+
+k = 4 时：
+
+| 接受率 α | 每次 target 前向平均产出 | 考虑 draft 开销后的加速比 |
+| --- | --- | --- |
+| 0.5 | 1.94 个 token | 1.38 倍 |
+| 0.8 | 3.36 个 token | 2.40 倍 |
+| 0.9 | 4.10 个 token | 2.93 倍 |
+
+最后一列假设 draft 模型生成 1 个 token 的开销是 target 一步的 0.1 倍，所以一轮的总开销是 `1 + 4 × 0.1 = 1.4`，加速比 = E / 1.4。
+
+**结论：接受率决定一切。** 接受率从 0.5 提到 0.9，加速比从 1.4 倍变成将近 3 倍；接受率太低时，draft 猜错浪费的开销甚至可能让整体变慢。
+
+<Note title="JSON 这类结构化输出特别适合投机解码" type="tip">
+
+JSON 里大量 token 是完全可预测的：括号、引号、逗号、固定的字段名。draft 模型很容易猜对，接受率很高。评论抽取、代码补全、模板化的回复，都属于投机解码收益大的场景。
+
+</Note>
+
+### 除了小模型，还有哪些「猜」的方式？
+
+| 方式 | 怎么猜 | 特点 |
+| --- | --- | --- |
+| **小 draft 模型** | 同系列的小模型先生成 | 通用；要额外占显存，还要维护它的 KV cache |
+| **Prompt lookup / n-gram** | 直接从输入里找能接上的片段照抄 | 不需要任何额外模型；输出大量引用原文的任务（改写、摘录、基于检索文档回答）效果好 |
+| **Medusa** | 在 target 模型上加几个额外的输出头，一次预测后面好几个位置 | 不需要独立的 draft 模型，但要额外训练这些头 |
+| **EAGLE** | 用一个很轻的模块，基于 target 模型内部的特征来猜 | 接受率通常比独立小模型高，同样需要训练 |
+
+### 什么时候有效，什么时候没用？
+
+| 有效 | 没用甚至变慢 |
+| --- | --- |
+| batch 小、交互式场景，GPU 算力有空闲 | batch 很大，decode 已经受算力限制，没有空闲算力可用（Level 2） |
+| 输出可预测：JSON、代码、模板文本 | 输出很难猜：高 temperature 的创意写作 |
+| draft 和 target 很像，接受率高 | draft 和 target 差距大，接受率低 |
+| 显存还有富余 | 显存吃紧，放不下 draft 模型和它的 KV cache |
+
+<Note title="别说「投机解码会降低输出质量」" type="danger">
+
+正确实现的投机解码，最终输出的分布和只用 target 模型逐个生成**完全一样**，draft 模型只影响速度、不影响结果。它是一种「无损」的加速方法。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 投机解码利用了 decode 的哪两个特点？
+2. 讲一遍 draft 和 target 的一轮交互。draft 猜 4 个、前 2 个被接受，这一轮一共产出几个 token？
+3. 接受率 α = 0.8、每轮猜 4 个时，每次 target 前向平均产出几个 token？
+4. 为什么 JSON 和代码特别适合投机解码？除了小模型，还有哪些猜的方式？
+5. 什么情况下投机解码没用？它会不会改变输出结果？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 5 · Speculative decoding: guess first, then verify in one pass
+
+### What does speculative decoding take advantage of?
+
+Put two facts from earlier together and you have the whole idea:
+
+1. **Decode is memory-bandwidth-bound** (Level 0): each step's time goes mostly to reading weights, leaving plenty of GPU compute idle
+2. **One forward pass produces predictions at every position** (teacher forcing from [Attention & Transformer](/docs/llm/transformer) Level 5): feed in k tokens and a single pass tells you what the model would predict at each of those k positions
+
+So if you can **cheaply guess the next k tokens**, the large model needs only **one forward pass** to check all k of them. The cost of reading the weights stays the same, but you may confirm several tokens at once.
+
+### How does speculative decoding work? Walk through one round
+
+Two roles:
+
+- **Target model**: the large model you actually want to use — here, our LLaMA 3 8B
+- **Draft model**: a small model from the same family that shares the tokenizer, whose job is to guess quickly
+
+The running example outputs JSON. The model has generated `{"sentiment": "` so far, and then (the token splits are illustrative):
+
+```
+① the draft model guesses 4 tokens in a row:   mixed   ",   "positive   ":
+
+② the target model takes all 4 tokens at once in one forward pass
+   and gets its own prediction at each position:
+
+   position   draft guessed   target predicts   result
+   1          mixed           mixed             ✓ accept
+   2          ",              ",                ✓ accept
+   3          "positive       "positive         ✓ accept
+   4          ":              ": [              ✗ mismatch, stop here
+
+③ accept the first 3 draft tokens, plus the target's own prediction at position 4
+   → one target pass produced 4 tokens
+```
+
+If all 4 are accepted, the target's prediction at the last position gives a bonus token too — 5 in one pass.
+
+This shows the comparison under greedy decoding (always the most likely token). When sampling, verification uses a rejection-sampling rule to decide what to accept, which **guarantees the final output distribution is exactly the same as generating one token at a time with the target model alone**.
+
+### How much faster is it? Compute the expectation
+
+Let α be the probability each draft token is accepted (the acceptance rate), with k guesses per round. The average number of tokens produced per target forward pass is:
+
+```
+E = (1 − α^(k+1)) / (1 − α)
+```
+
+With k = 4:
+
+| Acceptance rate α | Average tokens per target pass | Speedup after draft cost |
+| --- | --- | --- |
+| 0.5 | 1.94 tokens | 1.38x |
+| 0.8 | 3.36 tokens | 2.40x |
+| 0.9 | 4.10 tokens | 2.93x |
+
+The last column assumes one draft token costs 0.1x a target step, so a round costs `1 + 4 × 0.1 = 1.4` in total and the speedup is E / 1.4.
+
+**Conclusion: the acceptance rate is everything.** Raising it from 0.5 to 0.9 takes the speedup from 1.4x to nearly 3x; if it's too low, the cost of wrong guesses can even make things slower overall.
+
+<Note title="Structured output like JSON is ideal for speculative decoding" type="tip">
+
+Much of JSON is completely predictable: brackets, quotes, commas, fixed field names. A draft model guesses these easily, so acceptance rates are high. Review extraction, code completion, and templated replies are all scenarios where speculative decoding pays off well.
+
+</Note>
+
+### Besides a small model, what other ways are there to guess?
+
+| Approach | How it guesses | Characteristics |
+| --- | --- | --- |
+| **Small draft model** | a small model from the same family generates first | general-purpose; takes extra memory and its own KV cache |
+| **Prompt lookup / n-gram** | copy a matching continuation straight from the input | needs no extra model; works well when output quotes the input heavily (rewriting, extraction, answering from retrieved documents) |
+| **Medusa** | add several extra output heads to the target model that predict multiple future positions at once | no separate draft model, but the heads need training |
+| **EAGLE** | a very light module guesses using the target model's internal features | usually higher acceptance than a separate small model; also needs training |
+
+### When does it help, and when doesn't it?
+
+| Helps | Doesn't help or even slows things down |
+| --- | --- |
+| small batches and interactive use, with idle GPU compute | very large batches where decode is already compute-bound and there's no idle compute (Level 2) |
+| predictable output: JSON, code, templated text | hard-to-guess output: creative writing at high temperature |
+| draft and target are similar, so acceptance is high | draft and target differ a lot, so acceptance is low |
+| memory to spare | memory so tight the draft model and its KV cache don't fit |
+
+<Note title="Don't say speculative decoding lowers output quality" type="danger">
+
+Correctly implemented speculative decoding produces **exactly the same** output distribution as generating one token at a time with the target model; the draft model affects only speed, not results. It's a lossless speedup.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Which two properties of decode does speculative decoding exploit?
+2. Walk through one round between draft and target. If the draft guesses 4 and the first 2 are accepted, how many tokens does the round produce?
+3. With α = 0.8 and 4 guesses per round, how many tokens does each target pass produce on average?
+4. Why are JSON and code especially suited to speculative decoding, and what ways to guess exist besides a small model?
+5. When does speculative decoding not help, and does it change the output?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 6 · 算子与运行时优化：FlashAttention、kernel 融合、CUDA Graphs
+
+前面几个 Level 讲的是**调度层面**的优化：怎么排请求、怎么管显存、怎么少读数据。这一节往下走一层，看每一步计算本身是怎么被加速的。应用工程师很少自己写这些，但要知道它们**解决的是哪种开销**，才能判断该开哪个、为什么没效果。
+
+### GPU 的「慢」通常卡在哪里？
+
+GPU 上的存储分两层：
+
+| | 片上 SRAM | 显存（HBM） |
+| --- | --- | --- |
+| 容量 | 非常小 | 大（几十 GB） |
+| 读写速度 | 非常快 | 相对慢得多 |
+| 放什么 | 正在计算的一小块数据 | 模型权重、KV cache、中间结果 |
+
+GPU 的计算核心其实很快，很多操作真正慢的地方是**在显存和 SRAM 之间来回搬数据**。这和 Level 0 说 decode「受显存带宽限制」是同一个道理，只是这里放到了单个算子的尺度上看。
+
+所以算子层面的优化，核心目标都是：**少搬数据、少往显存里写大的中间结果**。
+
+### FlashAttention 为什么快？
+
+[Attention & Transformer](/docs/llm/transformer) Level 8 讲过结论：FlashAttention 不存完整的 n × n 矩阵，结果和标准实现完全一样。这里看它具体省在哪。
+
+**标准 attention 的数据流：**
+
+```
+① 算 Q · Kᵀ，得到 n × n 的打分矩阵        → 写进显存
+② 从显存读出来，加 mask、做 softmax         → 再写回显存
+③ 再读出来，和 V 相乘                       → 写回显存
+反向传播时，还要用到保存下来的这个 n × n 矩阵
+```
+
+一个 n × n 的大矩阵被反复写入、读出显存好几次。上下文越长，这个矩阵越大，搬运越慢。
+
+**FlashAttention 的做法：**
+
+- **分块计算（tiling）**：把 Q、K、V 切成能放进 SRAM 的小块，一块一块地在 SRAM 里算完 attention，不产生完整的 n × n 矩阵
+- **分块也能算出精确的 softmax**：用一种逐块累积归一化的技巧，最后得到的结果和一次算完整矩阵完全相同
+- **反向传播时重算**：不保存那个 n × n 矩阵，需要时用保存下来的少量统计量在 SRAM 里重新算一遍
+
+效果：attention 的显存从随 n² 增长降到随 n 增长，读写显存的次数大大减少，论文报告 attention 部分获得了数倍的加速。之后的 FlashAttention-2 进一步优化了并行方式，FlashAttention-3 针对 H100 这类新 GPU 和 FP8 做了优化。
+
+**它主要帮的是 prefill 和长上下文**，因为那时 n × n 矩阵最大。decode 时每一步只有 1 个新 token 的 query，瓶颈变成了读取整个 KV cache，通常由 PagedAttention 这类专门处理分块 KV cache 的算子负责（Level 3）。
+
+### 什么是 kernel 融合？
+
+GPU 上的每一个基础操作（加法、乘法、激活函数、归一化里的每一小步）都是一个单独的 **kernel**。每个 kernel 都要：从显存读输入 → 在 SRAM 里算 → 把结果写回显存。
+
+像 RMSNorm 这样的操作，拆开是好几个小步骤：
+
+```
+不融合:  读 → 平方 → 写 → 读 → 求均值 → 写 → 读 → 开根号 → 写 → 读 → 相除 → 写 → 读 → 乘 γ → 写
+融合后:  读 → 平方、求均值、开根号、相除、乘 γ 一次算完 → 写
+```
+
+**kernel 融合（kernel fusion）**就是把多个连续的逐元素操作合并成一个 kernel，数据只搬一次。`torch.compile`、TensorRT 这类工具会自动找出能融合的操作。
+
+### CUDA Graphs 解决的是什么开销？
+
+每个 kernel 都是由 CPU 上的程序（通常是 Python）一个一个「发射」到 GPU 上执行的。decode 一步要执行几百甚至上千个很小的 kernel：
+
+- 每个 kernel 在 GPU 上只算很短的时间
+- 但 CPU 每发射一个 kernel 都有固定的调度开销
+
+小 batch 的 decode 时，GPU 每个 kernel 的活很少，**CPU 发射 kernel 的开销可能占到每一步时间里相当大的比例**，GPU 反而在等 CPU。
+
+**CUDA Graphs**：对固定形状的输入，把一整步里所有 kernel 的发射顺序**录制一次**，之后每一步直接**整体重放**，一次调用就启动全部 kernel，省掉了 CPU 逐个发射的开销。
+
+限制是输入形状必须固定。所以推理框架会针对一组常见的 batch 大小分别录制，比如 vLLM 默认会为常用的 batch 大小捕获 CUDA Graph，实际 batch 落在哪个档位就用对应的那份。
+
+### 这些优化分别作用在哪？
+
+| 优化 | 解决的开销 | 主要受益的阶段 |
+| --- | --- | --- |
+| FlashAttention | n × n 矩阵的显存占用和反复搬运 | prefill、长上下文、训练 |
+| PagedAttention 算子 | 从分散的块里读取 KV cache | decode |
+| kernel 融合 | 逐元素操作的多次数据搬运 | 所有阶段 |
+| CUDA Graphs | CPU 逐个发射 kernel 的开销 | 小 batch 的 decode |
+
+<Note title="「开了 FlashAttention 为什么没变快」这类问题要先看阶段" type="tip">
+
+如果服务的主要负载是短 prompt、长输出，时间大部分花在 decode 上，FlashAttention 帮助有限；这时该看 batch 大小、量化、CUDA Graphs。如果是长文档问答，prefill 很重，FlashAttention 的收益就会很明显。先判断瓶颈在哪一段，再选优化手段。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么说很多 GPU 操作慢在「搬数据」而不是计算？
+2. 标准 attention 的数据流有什么问题？FlashAttention 用了哪三个办法解决？
+3. FlashAttention 主要加速 prefill 还是 decode？为什么？
+4. kernel 融合省掉的是什么？
+5. CUDA Graphs 解决什么开销？为什么它要求输入形状固定，推理框架怎么处理？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 6 · Kernel and runtime optimizations: FlashAttention, kernel fusion, CUDA Graphs
+
+The previous Levels covered **scheduling-level** optimizations: how to order requests, manage memory, and read less data. This one goes a layer lower, to how each computation itself gets faster. Application engineers rarely write these, but you need to know **what overhead each one removes** to judge which to enable and why one isn't helping.
+
+### Where does a GPU usually get slow?
+
+GPU storage has two tiers:
+
+| | On-chip SRAM | GPU memory (HBM) |
+| --- | --- | --- |
+| Capacity | very small | large (tens of GB) |
+| Read/write speed | very fast | much slower by comparison |
+| Holds | the small piece of data being computed right now | model weights, the KV cache, intermediate results |
+
+The GPU's compute cores are fast; for many operations, what's actually slow is **moving data back and forth between GPU memory and SRAM**. It's the same idea as decode being "memory-bandwidth-bound" in Level 0, just viewed at the scale of a single operation.
+
+So the core goal of kernel-level optimization is always: **move less data, and write fewer large intermediate results to GPU memory**.
+
+### Why is FlashAttention fast?
+
+[Attention & Transformer](/docs/llm/transformer) Level 8 gave the conclusion: FlashAttention never stores the full n × n matrix, and its results are identical to the standard implementation. Here's where the savings actually come from.
+
+**Data flow of standard attention:**
+
+```
+① compute Q · Kᵀ into an n × n score matrix         → write it to GPU memory
+② read it back, apply the mask and softmax           → write it back
+③ read it again and multiply by V                    → write the result back
+the backward pass also needs that stored n × n matrix
+```
+
+One huge n × n matrix gets written to and read from GPU memory several times. The longer the context, the bigger the matrix, and the slower all that movement.
+
+**What FlashAttention does:**
+
+- **Tiling**: split Q, K, and V into blocks small enough for SRAM and compute attention block by block inside SRAM, never producing the full n × n matrix
+- **Exact softmax, block by block**: a running normalization trick accumulates across blocks so the final result matches computing the whole matrix at once
+- **Recompute in the backward pass**: instead of storing the n × n matrix, recompute it in SRAM when needed from a small amount of saved statistics
+
+The effect: attention memory grows with n instead of n², reads and writes to GPU memory drop sharply, and the paper reported several-fold speedups for attention. FlashAttention-2 later improved parallelism, and FlashAttention-3 was optimized for newer GPUs like the H100 and for FP8.
+
+**It mainly helps prefill and long context**, where the n × n matrix is largest. During decode each step has a query for just 1 new token, and the bottleneck becomes reading the whole KV cache, usually handled by dedicated kernels like PagedAttention that work with a block-structured KV cache (Level 3).
+
+### What is kernel fusion?
+
+Every basic operation on a GPU — an addition, a multiplication, an activation function, each small step inside normalization — is a separate **kernel**. Each kernel reads its input from GPU memory → computes in SRAM → writes the result back to GPU memory.
+
+An operation like RMSNorm breaks down into several small steps:
+
+```
+unfused:  read → square → write → read → mean → write → read → sqrt → write → read → divide → write → read → scale by γ → write
+fused:    read → square, mean, sqrt, divide, scale by γ all at once → write
+```
+
+**Kernel fusion** merges several consecutive element-wise operations into one kernel so the data moves only once. Tools like `torch.compile` and TensorRT find fusible operations automatically.
+
+### What overhead do CUDA Graphs remove?
+
+Each kernel is "launched" onto the GPU one at a time by a program running on the CPU (usually Python). A single decode step runs hundreds or even thousands of tiny kernels:
+
+- each kernel runs on the GPU only briefly
+- but every launch carries a fixed scheduling overhead on the CPU
+
+For small-batch decode, where each kernel does very little GPU work, **the CPU's launch overhead can be a large share of each step's time**, and the GPU ends up waiting on the CPU.
+
+**CUDA Graphs**: for inputs of a fixed shape, **record** the launch sequence of every kernel in a step once, then **replay the whole thing** each step — a single call starts all the kernels, eliminating the CPU's one-by-one launch overhead.
+
+The catch is that input shapes must be fixed. So serving frameworks record separately for a set of common batch sizes; vLLM, for example, captures CUDA Graphs for common batch sizes by default and uses whichever matches the actual batch.
+
+### Where does each of these optimizations apply?
+
+| Optimization | Overhead it removes | Phase that benefits most |
+| --- | --- | --- |
+| FlashAttention | memory and repeated movement of the n × n matrix | prefill, long context, training |
+| PagedAttention kernels | reading the KV cache from scattered blocks | decode |
+| Kernel fusion | repeated data movement for element-wise operations | every phase |
+| CUDA Graphs | the CPU launching kernels one by one | small-batch decode |
+
+<Note title="For “we enabled FlashAttention, why isn’t it faster,” look at the phase first" type="tip">
+
+If the workload is mostly short prompts with long outputs, most time goes to decode, and FlashAttention helps little; look at batch size, quantization, and CUDA Graphs instead. For long-document QA with heavy prefill, FlashAttention's gains are obvious. Identify which phase is the bottleneck, then pick the optimization.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why are many GPU operations slow because of moving data rather than computing?
+2. What's wrong with standard attention's data flow, and what three techniques does FlashAttention use to fix it?
+3. Does FlashAttention mainly speed up prefill or decode, and why?
+4. What does kernel fusion save?
+5. What overhead do CUDA Graphs remove, why do they need fixed input shapes, and how do serving frameworks deal with that?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 7 · 部署、扩展与成本
+
+### 模型一张卡放不下怎么办？
+
+LLaMA 3 8B 的 fp16 权重约 16 GB，一张 80 GB 的卡绰绰有余。换成 70B 就不一样了：
+
+```
+70B × 2 字节（fp16） = 140 GB      > 一张 80 GB 的卡
+```
+
+三种办法：
+
+| 办法 | 怎么做 | 代价 |
+| --- | --- | --- |
+| **量化** | int4 权重约 36 GB，一张 80 GB 的卡能放下，还剩空间给 KV cache | 质量要实测（Level 4） |
+| **张量并行（Tensor Parallelism）** | 把每一层的大矩阵切到多张卡上一起算（原理见 [Training](/docs/llm/training) Level 5） | 每层都要卡间通信，需要 NVLink 这类高速互联 |
+| **流水线并行（Pipeline Parallelism）** | 按层切，前一半层放一组卡、后一半放另一组 | 各段之间要交接，增加延迟，对延迟敏感的在线服务较少单独使用 |
+
+**张量并行具体要切几份？** 算一下 70B fp16：
+
+```
+TP = 2:  每张卡分到 140 / 2 = 70 GB 权重    → 80 GB 的卡几乎没空间放 KV cache，不实用
+TP = 4:  每张卡分到 140 / 4 = 35 GB 权重    → 每张卡还剩几十 GB 给 KV cache
+```
+
+所以 70B fp16 在 80 GB 的卡上，常见配置是单机 4 卡或 8 卡张量并行。张量并行的通信非常频繁，**一般只在同一台机器内部的几张卡之间做**。
+
+### 流量上来了怎么扩展？
+
+**加副本（replica）**：部署多份完全独立的推理服务，前面放负载均衡。这是最直接的水平扩展方式，每个副本内部照常用 Level 2、3 的批处理和显存管理。
+
+扩展时要注意几件事：
+
+- **按前缀路由**：开头相同的请求尽量发到同一个副本，才能命中那个副本上的前缀缓存（Level 3）
+- **多 LoRA 的路由**：带不同适配器的请求，发到已经加载了对应适配器的副本上（见 [Fine-tuning](/docs/llm/fine-tuning) Level 6）
+- **冷启动慢**：新副本要先加载十几 GB 甚至上百 GB 的权重，扩容来不及应付突发流量，要预留一部分热备容量
+- **看什么指标扩容**：排队长度、KV cache 使用率、P99 TTFT，比 GPU 利用率更能反映推理服务的真实压力
+
+<Note title="Prefill 和 decode 分离部署">
+
+Level 0 说过，prefill 受算力限制、decode 受显存带宽限制，两者放在同一批卡上会互相干扰。一种较新的做法是把两者**拆到不同的 GPU 池**：一组卡专门做 prefill，算完把 KV cache 传给另一组专门做 decode 的卡。好处是两边可以各自按需扩容、各自优化，代价是要在卡之间传输 KV cache。
+
+</Note>
+
+### 该用哪个推理框架？
+
+| 框架 | 特点 | 适合 |
+| --- | --- | --- |
+| **vLLM** | PagedAttention、continuous batching、多 LoRA、前缀缓存，支持的模型最多 | 大多数自建服务的默认选择 |
+| **SGLang** | RadixAttention 前缀共享，对结构化生成和多轮调用优化好 | 前缀复用多、结构化输出多的场景 |
+| **TensorRT-LLM** | NVIDIA 官方，算子优化最深 | 追求 NVIDIA GPU 上的极致性能，愿意多花部署工程 |
+| **TGI** | Hugging Face 的推理服务 | 和 Hugging Face 生态集成 |
+| **llama.cpp / Ollama** | 能在 CPU、Mac 和消费级显卡上跑，常用 GGUF 量化格式 | 本地、端侧、开发调试 |
+
+贯穿全页的例子：用 **vLLM** 部署合并了 LoRA、AWQ int4 量化后的 LLaMA 3 8B，开启 continuous batching、前缀缓存和 FP8 KV cache。
+
+### 每百万 token 的成本怎么算？
+
+```
+每百万 token 成本 = 每 GPU 小时价格 ÷ (每秒 token 数 × 3600 / 1,000,000)
+```
+
+按每 GPU 小时 2 美元粗算，对比两种利用率：
+
+```
+吞吐 2,000 token / 秒:  每小时 720 万 token   →  2 ÷ 7.2  ≈ 0.28 美元 / 百万 token
+吞吐 200 token / 秒:    每小时 72 万 token    →  2 ÷ 0.72 ≈ 2.78 美元 / 百万 token
+```
+
+**同一张卡、同一个模型，成本差了 10 倍，全部来自利用率。** 这就是为什么 continuous batching（Level 2）和 PagedAttention（Level 3）对成本影响那么大：它们让同一张卡在满足 SLO 的前提下服务更多请求。
+
+这里用的是输出 token 吞吐做简化。真实负载里输入 token 也要花算力（prefill），输入很长的场景要把两部分分开测。
+
+<Note title="自建推理的成本核心是利用率" type="tip">
+
+面试里被问「自建推理的成本怎么控制」，答案的主线是：**在满足延迟 SLO 的前提下，把每张卡的吞吐做到最高**。具体手段按 Level 2 到 Level 5 依次展开：continuous batching、PagedAttention 和前缀缓存、量化、投机解码（更多见 [Cost](/docs/production/cost)）。
+
+</Note>
+
+### 自建推理还是用 API？
+
+| 考虑因素 | 倾向用 API | 倾向自建 |
+| --- | --- | --- |
+| 流量 | 小、波动大，GPU 大部分时间会闲着 | 大且稳定，能把 GPU 利用率维持在高位 |
+| 模型 | 需要最强的闭源模型 | 开源模型够用，或者需要自己微调的模型、多 LoRA |
+| 数据 | 可以发给第三方 | 合规要求数据不出域 |
+| 延迟控制 | 可以接受厂商的延迟 | 需要精细控制延迟和部署位置 |
+| 团队能力 | 没有人力维护 GPU 集群 | 有能力做容量规划、监控、值班 |
+
+<Note title="比较成本时，要算上闲置的 GPU 和工程人力" type="warning">
+
+上面算出的「0.28 美元 / 百万 token」是满负载时的数字。流量低谷时 GPU 照样按小时收费，再加上工程师的开发和运维时间，自建的真实成本往往比满负载时算出来的高得多。流量不大时，API 通常更划算。
+
+</Note>
+
+### 回顾：贯穿全页的请求，从部署到算账
+
+| 环节 | 做了什么 | 在本页 |
+| --- | --- | --- |
+| 先定目标 | 按场景定 SLO：在线接口看 P99 TTFT 和 TPOT，离线任务看吞吐和成本 | Level 1 |
+| 准备模型 | LoRA 合并进 fp16 基座 → 用评论数据校准 → AWQ int4 → 重跑测试集指标 | Level 4 |
+| 调度 | vLLM continuous batching；长 prompt 用 chunked prefill | Level 2 |
+| 显存 | PagedAttention；系统指令走前缀缓存；KV cache 用 FP8 | Level 3、4 |
+| 加速 decode | 在线接口 batch 小，JSON 输出可预测，开投机解码 | Level 5 |
+| 压测 | 用真实长度分布逐步加并发，找出满足 SLO 的最大并发 | Level 1 |
+| 算账 | 按实测吞吐算每百万 token 成本，和 API 报价对比 | Level 7 |
+
+<Note title="自测：到这里你应该能回答">
+
+1. 70B 模型在 80 GB 的卡上怎么部署？张量并行为什么通常只在单机内做？
+2. 加副本扩展时要注意哪些问题？为什么要按前缀路由？
+3. vLLM、SGLang、TensorRT-LLM、llama.cpp 各适合什么场景？
+4. 手算：每 GPU 小时 3 美元，吞吐 1,500 token / 秒，每百万 token 多少钱？
+5. 什么情况下用 API 更合适，什么情况下自建更合适？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 7 · Deployment, scaling, and cost
+
+### What if the model doesn't fit on one GPU?
+
+LLaMA 3 8B's fp16 weights are about 16 GB, which fits easily on an 80 GB GPU. A 70B model is a different story:
+
+```
+70B × 2 bytes (fp16) = 140 GB      > one 80 GB GPU
+```
+
+Three options:
+
+| Option | How | Cost |
+| --- | --- | --- |
+| **Quantization** | int4 weights are about 36 GB, fitting on one 80 GB GPU with room left for the KV cache | quality has to be measured (Level 4) |
+| **Tensor parallelism** | split each layer's large matrices across several GPUs that compute together (principle in [Training](/docs/llm/training) Level 5) | every layer communicates between GPUs, requiring fast interconnect like NVLink |
+| **Pipeline parallelism** | split by layer: the first half on one group of GPUs, the second half on another | handoffs between stages add latency, so it's rarely used alone for latency-sensitive online serving |
+
+**How many ways should tensor parallelism split?** Work it out for 70B in fp16:
+
+```
+TP = 2:  140 / 2 = 70 GB of weights per GPU    → barely any room left for the KV cache on 80 GB GPUs; impractical
+TP = 4:  140 / 4 = 35 GB of weights per GPU    → tens of GB left per GPU for the KV cache
+```
+
+So 70B in fp16 on 80 GB GPUs is commonly served with 4- or 8-GPU tensor parallelism on a single machine. Tensor parallelism communicates constantly, so **it's generally kept among the GPUs inside one machine**.
+
+### How do you scale when traffic grows?
+
+**Add replicas**: deploy multiple fully independent serving instances behind a load balancer. It's the most direct form of horizontal scaling, and each replica still uses the batching and memory management from Levels 2 and 3 internally.
+
+A few things to watch when scaling:
+
+- **Prefix-aware routing**: send requests with the same beginning to the same replica so they hit that replica's prefix cache (Level 3)
+- **Multi-LoRA routing**: send requests for a given adapter to replicas that already have it loaded (see [Fine-tuning](/docs/llm/fine-tuning) Level 6)
+- **Slow cold starts**: a new replica has to load tens or even hundreds of GB of weights first, so scaling up can't absorb sudden spikes — keep some warm spare capacity
+- **What to scale on**: queue length, KV cache utilization, and P99 TTFT reflect real pressure on an inference service better than GPU utilization does
+
+<Note title="Disaggregating prefill and decode">
+
+Level 0 noted that prefill is compute-bound and decode is memory-bandwidth-bound, so running both on the same GPUs makes them interfere. A newer approach **splits them into separate GPU pools**: one set of GPUs does prefill only and hands the KV cache to another set that does decode only. Each side can scale and be optimized independently, at the cost of transferring KV caches between GPUs.
+
+</Note>
+
+### Which serving framework should you use?
+
+| Framework | Strengths | Good for |
+| --- | --- | --- |
+| **vLLM** | PagedAttention, continuous batching, multi-LoRA, prefix caching, the broadest model support | the default choice for most self-hosted services |
+| **SGLang** | RadixAttention prefix sharing, well optimized for structured generation and multi-call programs | workloads with heavy prefix reuse and structured output |
+| **TensorRT-LLM** | NVIDIA's own, with the deepest kernel optimization | squeezing maximum performance from NVIDIA GPUs, if you'll invest more deployment engineering |
+| **TGI** | Hugging Face's inference server | integrating with the Hugging Face ecosystem |
+| **llama.cpp / Ollama** | runs on CPUs, Macs, and consumer GPUs, commonly with GGUF quantization | local, on-device, and development use |
+
+For the running example: serve the LoRA-merged, AWQ int4-quantized LLaMA 3 8B with **vLLM**, with continuous batching, prefix caching, and an FP8 KV cache turned on.
+
+### How do you compute cost per million tokens?
+
+```
+cost per million tokens = price per GPU hour ÷ (tokens per second × 3600 / 1,000,000)
+```
+
+At a rough $2 per GPU hour, compare two utilization levels:
+
+```
+2,000 tokens/s throughput:  7.2 million tokens/hour   →  2 ÷ 7.2  ≈ $0.28 per million tokens
+200 tokens/s throughput:    720,000 tokens/hour       →  2 ÷ 0.72 ≈ $2.78 per million tokens
+```
+
+**Same GPU, same model, a 10x cost difference — entirely from utilization.** That's why continuous batching (Level 2) and PagedAttention (Level 3) matter so much for cost: they let the same GPU serve more requests while still meeting the SLO.
+
+This simplifies to output-token throughput. In real workloads input tokens also consume compute (prefill), so with long inputs measure the two separately.
+
+<Note title="Utilization is the heart of self-hosted inference cost" type="tip">
+
+When asked "how do you control the cost of self-hosted inference," the through-line is: **maximize each GPU's throughput while meeting the latency SLO**. Then walk through the techniques from Levels 2 to 5 in order: continuous batching, PagedAttention and prefix caching, quantization, speculative decoding (more on [Cost](/docs/production/cost)).
+
+</Note>
+
+### Self-host or use an API?
+
+| Factor | Leans toward an API | Leans toward self-hosting |
+| --- | --- | --- |
+| Traffic | small and spiky; GPUs would sit idle much of the time | large and steady; GPU utilization can stay high |
+| Model | you need the strongest closed models | open models are good enough, or you need your own fine-tuned models and multi-LoRA |
+| Data | fine to send to a third party | compliance requires data to stay in-house |
+| Latency control | the provider's latency is acceptable | you need fine control over latency and where it runs |
+| Team | nobody to run a GPU cluster | capacity planning, monitoring, and on-call are covered |
+
+<Note title="When comparing costs, count idle GPUs and engineering time" type="warning">
+
+The "$0.28 per million tokens" above assumes full load. GPUs bill by the hour through traffic lulls too, and with engineers' development and operations time added, the real cost of self-hosting often runs far higher than the full-load figure. At modest traffic, APIs usually come out cheaper.
+
+</Note>
+
+### Recap: the running request, from deployment to the bill
+
+| Step | What was done | On this page |
+| --- | --- | --- |
+| Set targets | SLOs per scenario: P99 TTFT and TPOT for the online endpoint, throughput and cost for offline jobs | Level 1 |
+| Prepare the model | merge LoRA into the fp16 base → calibrate with review data → AWQ int4 → rerun the test-set metrics | Level 4 |
+| Scheduling | vLLM continuous batching; chunked prefill for long prompts | Level 2 |
+| Memory | PagedAttention; system instructions via prefix caching; FP8 KV cache | Levels 3 and 4 |
+| Faster decode | small batches on the online endpoint and predictable JSON, so enable speculative decoding | Level 5 |
+| Load test | ramp concurrency with realistic length distributions to find the highest concurrency within the SLO | Level 1 |
+| The bill | compute cost per million tokens from measured throughput and compare with API pricing | Level 7 |
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. How would you serve a 70B model on 80 GB GPUs, and why is tensor parallelism usually kept within one machine?
+2. What should you watch out for when scaling with replicas, and why route by prefix?
+3. What is each of vLLM, SGLang, TensorRT-LLM, and llama.cpp suited for?
+4. By hand: at $3 per GPU hour and 1,500 tokens per second, what does a million tokens cost?
+5. When is an API the better fit, and when is self-hosting?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note title="别说「PagedAttention 是一种近似的 attention」" type="danger">
+
+PagedAttention 是**显存管理方式**：把 KV cache 分块、不连续地存放，attention 的计算结果和原来完全一样。它提升的是显存利用率和并发数，不改变模型输出。
+
+</Note>
+
+<Note title="别说「量化到 int4 就快 4 倍」" type="danger">
+
+加速多少取决于 batch 大小、decode 受带宽还是算力限制、有没有优化过的算子。大 batch 下可能几乎没有加速。
+
+</Note>
+
+<Note title="别说「投机解码会降低输出质量」" type="danger">
+
+正确实现时，输出分布和只用 target 模型逐个生成完全相同。draft 模型只影响速度。
+
+</Note>
+
+<Note title="只看平均延迟或只看吞吐" type="warning">
+
+线上承诺要看 P99；吞吐很高但大量请求超出 SLO 没有意义，要看 goodput。
+
+</Note>
+
+<Note title="batch 不是越大越好" type="warning">
+
+batch 越大，每个人的 TPOT 越高，KV cache 显存越紧张；超过某个点后吞吐也不再增长。在线服务要按 TPOT SLO 限制最大 batch。
+
+</Note>
+
+<Note title="压测用固定的短 prompt" type="warning">
+
+prefill 快、KV cache 小、能开很大的 batch，测出来的吞吐会远高于线上。要用真实的输入输出长度分布。
+
+</Note>
+
+<Note title="前缀缓存要求从第一个 token 开始逐字相同" type="warning">
+
+把时间戳、用户名这类每次都变的内容放在 prompt 开头，前缀缓存会完全失效。
+
+</Note>
+
+<Note title="FlashAttention 不会让所有负载都同样变快" type="warning">
+
+它主要加速 prefill 和长上下文。短输入、长输出的负载时间主要花在 decode 上，收益有限。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Traps
+
+<Note title="Don't call PagedAttention an approximate form of attention" type="danger">
+
+PagedAttention is a **memory-management scheme**: it stores the KV cache in non-contiguous blocks, and attention's results are exactly the same as before. It raises memory utilization and concurrency without changing the model's output.
+
+</Note>
+
+<Note title="Don't say int4 quantization makes it 4x faster" type="danger">
+
+The speedup depends on batch size, whether decode is bandwidth- or compute-bound, and whether optimized kernels exist. At large batch there may be almost no speedup.
+
+</Note>
+
+<Note title="Don't say speculative decoding lowers output quality" type="danger">
+
+Correctly implemented, the output distribution is identical to generating one token at a time with the target model. The draft model only affects speed.
+
+</Note>
+
+<Note title="Looking only at average latency or only at throughput" type="warning">
+
+Production commitments need P99; high throughput with many requests missing the SLO is meaningless, so look at goodput.
+
+</Note>
+
+<Note title="Bigger batches aren't always better" type="warning">
+
+Larger batches raise every user's TPOT and squeeze KV cache memory, and past some point throughput stops growing. Online services should cap batch size by the TPOT SLO.
+
+</Note>
+
+<Note title="Load-testing with fixed short prompts" type="warning">
+
+Fast prefill, a small KV cache, and huge batches make the measured throughput far higher than production. Use realistic input and output length distributions.
+
+</Note>
+
+<Note title="Prefix caching needs a token-for-token match from the first token" type="warning">
+
+Putting timestamps, user names, or anything else that changes per request at the start of the prompt defeats prefix caching entirely.
+
+</Note>
+
+<Note title="FlashAttention doesn't speed up every workload equally" type="warning">
+
+It mainly accelerates prefill and long context. Workloads with short inputs and long outputs spend most of their time in decode, where the gains are limited.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 连接
+
+</Locale>
+
+<Locale lang="en">
+
+## Connections
 
 </Locale>
 
 ```
-Prefill
-Prompt → parallel computation → KV Cache
-
-Decode
-Token → KV Cache → Next Token → KV Cache update → Next Token
+request → queue → tokenize → prefill (compute-bound, TTFT) → decode (memory-bound, TPOT) → stream
+                                  ↓                                  ↓
+                  FlashAttention, prefix caching,       continuous batching, PagedAttention,
+                  chunked prefill                       quantization, speculative decoding, CUDA Graphs
+                                  ↓                                  ↓
+             metrics: TTFT / TPOT / P99 / goodput → highest concurrency within the SLO
+                                  ↓
+     deployment: tensor parallelism, replicas, framework → cost per 1M tokens → self-host vs. API
 ```
 
 <Locale lang="zh">
 
-## 三级回答
-
-### Level 1 — 定义
-
-推理分两段：prefill 一次性处理完整个 prompt，decode 一个一个地输出 token。
-
-### Level 2 — 机制
-
-KV cache 避免 decode 时重算历史 token 的 K/V。Batching 把多个请求拼在一起，提高 GPU 利用率；continuous batching 让请求随时进出。量化降低数值精度，换取显存和吞吐。
-
-### Level 3 — 工程
-
-TTFT 主要看 prefill；用户感受到的「打字速度」主要看 TPOT。KV cache 随 batch × 层数 × 序列长度 × 维度增长，长会话会先把显存撑爆。vLLM / PagedAttention 解决的是显存碎片化。FlashAttention 是算子层面的 IO 优化，不是另一种模型。
+- 上游：[Attention & Transformer](/docs/llm/transformer)（Level 8：prefill / decode、KV cache 为什么能缓存、GQA、FlashAttention 的基本思路） · [Tokenization](/docs/llm/tokenization)（output token 为什么更贵） · [Fine-tuning](/docs/llm/fine-tuning)（量化基础、适配器合并、多 LoRA 服务） · [Training](/docs/llm/training)（张量并行和流水线并行）
+- 相关应用：[Caching](/docs/context/caching)（API 的 prompt caching 和前缀缓存） · [Structured Output](/docs/application/structured-output)（JSON 输出为什么适合投机解码）
+- 工程落点：[Latency](/docs/production/latency) · [Cost](/docs/production/cost) · [Scaling](/docs/production/scaling)
+- 项目：[LLaMA Fine-tuning](/docs/projects/fine-tuning)（vLLM、PagedAttention）
 
 ## 面试问题
 
-1. Prefill 和 decode 有什么不同？（How do prefill and decode differ?）
-2. KV cache 是什么？它是怎么工作的？（What is KV cache? How does it work?）
-3. KV cache 什么时候会成为瓶颈？怎么解决？（When does KV cache become a bottleneck and how would you solve it?）
-4. TTFT 和 TPOT 分别受什么影响？（What drives TTFT, and what drives TPOT?）
-5. 为什么需要 continuous batching？（Why do we need continuous batching?）
-6. 4-bit 量化在质量、延迟、显存上怎么取舍？（What are the quality / latency / memory trade-offs of 4-bit quantization?）
-7. Speculative decoding 什么时候有效？（When does speculative decoding actually help?）
-8. FlashAttention 解决的是计算瓶颈还是内存带宽瓶颈？（Does FlashAttention address compute or memory bandwidth?）
+先自己口头答一遍，再回到对应的 Level 对照。
 
-## 我的答案
+**Level 0 — 一个请求经历了什么**
+
+1. Prefill 和 decode 有什么区别？各自的瓶颈是什么？（How do prefill and decode differ, and what's each one's bottleneck?）
+2. 讲一遍一个请求从进入推理服务到返回的完整路径。（Walk me through a request's full path through an inference service.）
+
+**Level 1 — 怎么衡量**
+
+3. TTFT、TPOT、端到端延迟分别受什么影响？（What drives TTFT, TPOT, and end-to-end latency?）
+4. 为什么要看 P99 和 goodput，而不是平均延迟和吞吐？（Why look at P99 and goodput instead of average latency and throughput?）
+5. 线上推理服务突然变慢了，你怎么排查？（Your inference service suddenly got slower — how would you investigate?）
+
+**Level 2 — 批处理**
+
+6. 为什么批处理能大幅提升 decode 吞吐？（Why does batching raise decode throughput so much?）
+7. Static batching 和 continuous batching 有什么区别？（How does static batching differ from continuous batching?）
+8. 什么是 chunked prefill？它解决了什么问题？（What is chunked prefill, and what problem does it solve?）
+9. 在线聊天和离线批量任务，batch 应该怎么设置？（How should batch size be set for live chat versus offline batch jobs?）
+
+**Level 3 — KV cache 显存管理**
+
+10. 一张 80 GB 的卡跑 8B 模型，大概能同时服务多少个请求？怎么估算？（Roughly how many concurrent requests can an 80 GB GPU serve for an 8B model, and how would you estimate it?）
+11. PagedAttention 解决了什么问题？是怎么做的？（What problem does PagedAttention solve, and how?）
+12. KV cache 显存不够时怎么办？（What happens when KV cache memory runs out?）
+13. 前缀缓存是什么？设计 prompt 时怎么提高命中率？（What is prefix caching, and how do you design prompts to maximize hits?）
+
+**Level 4 — 量化**
+
+14. 推理量化有什么好处？W4A16 和 W8A8 有什么区别？（What does quantization buy you at inference, and how do W4A16 and W8A8 differ?）
+15. 为什么激活值比权重更难量化？（Why are activations harder to quantize than weights?）
+16. GPTQ 和 AWQ 分别怎么减少量化误差？（How do GPTQ and AWQ each reduce quantization error?）
+17. 4-bit 量化在质量、延迟、显存上怎么取舍？一定会更快吗？（What are the quality, latency, and memory trade-offs of 4-bit quantization, and is it always faster?）
+
+**Level 5 — 投机解码**
+
+18. 投机解码是怎么工作的？为什么不会改变输出？（How does speculative decoding work, and why doesn't it change the output?）
+19. 接受率怎么影响加速比？什么情况下投机解码没用？（How does the acceptance rate affect the speedup, and when is speculative decoding useless?）
+
+**Level 6 — 算子与运行时优化**
+
+20. FlashAttention 为什么快？它加速的是 prefill 还是 decode？（Why is FlashAttention fast, and does it speed up prefill or decode?）
+21. kernel 融合和 CUDA Graphs 分别解决什么开销？（What overhead do kernel fusion and CUDA Graphs each remove?）
+
+**Level 7 — 部署、扩展与成本**
+
+22. 怎么部署一个 70B 模型？（How would you deploy a 70B model?）
+23. 推理服务怎么扩容？要注意什么？（How do you scale an inference service, and what should you watch for?）
+24. 怎么估算自建推理每百万 token 的成本？（How would you estimate the cost per million tokens of self-hosted inference?）
+25. 什么情况下自建推理，什么情况下用 API？（When would you self-host inference, and when would you use an API?）
+26. 设计一个服务：部署微调过的 8B 评论抽取模型，要满足 P99 延迟要求并控制成本。（Design a service that deploys a fine-tuned 8B review-extraction model, meeting a P99 latency target while controlling cost.）
 
 </Locale>
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Inference has two phases: prefill processes the entire prompt at once, and decode emits tokens one at a time.
-
-### Level 2 — Mechanism
-
-The KV cache avoids recomputing K/V for earlier tokens during decode. Batching packs multiple requests together to raise GPU utilization; continuous batching lets requests join and leave at any step. Quantization lowers numeric precision in exchange for memory and throughput.
-
-### Level 3 — Engineering
-
-TTFT is mostly about prefill; the typing speed users feel is mostly TPOT. The KV cache grows with batch × layers × sequence length × hidden size, so long sessions run out of GPU memory first. vLLM / PagedAttention fix memory fragmentation. FlashAttention is an IO-aware kernel optimization, not a different model.
+- Upstream: [Attention & Transformer](/docs/llm/transformer) (Level 8: prefill / decode, why the KV cache can be cached, GQA, the basic idea of FlashAttention) · [Tokenization](/docs/llm/tokenization) (why output tokens cost more) · [Fine-tuning](/docs/llm/fine-tuning) (quantization basics, merging adapters, multi-LoRA serving) · [Training](/docs/llm/training) (tensor and pipeline parallelism)
+- Related applications: [Caching](/docs/context/caching) (API prompt caching and prefix caching) · [Structured Output](/docs/application/structured-output) (why JSON output suits speculative decoding)
+- Where it lands in engineering: [Latency](/docs/production/latency) · [Cost](/docs/production/cost) · [Scaling](/docs/production/scaling)
+- Project: [LLaMA Fine-tuning](/docs/projects/fine-tuning) (vLLM, PagedAttention)
 
 ## Interview questions
 
-1. How do prefill and decode differ?
-2. What is KV cache? How does it work?
-3. When does KV cache become a bottleneck and how would you solve it?
-4. What drives TTFT, and what drives TPOT?
-5. Why do we need continuous batching?
-6. What are the quality / latency / memory trade-offs of 4-bit quantization?
-7. When does speculative decoding actually help?
-8. Does FlashAttention address compute or memory bandwidth?
+Answer out loud first, then check against the matching Level.
 
-## My answer
+**Level 0 — What a request goes through**
+
+1. How do prefill and decode differ, and what's each one's bottleneck?
+2. Walk me through a request's full path through an inference service.
+
+**Level 1 — Measurement**
+
+3. What drives TTFT, TPOT, and end-to-end latency?
+4. Why look at P99 and goodput instead of average latency and throughput?
+5. Your inference service suddenly got slower — how would you investigate?
+
+**Level 2 — Batching**
+
+6. Why does batching raise decode throughput so much?
+7. How does static batching differ from continuous batching?
+8. What is chunked prefill, and what problem does it solve?
+9. How should batch size be set for live chat versus offline batch jobs?
+
+**Level 3 — Managing KV cache memory**
+
+10. Roughly how many concurrent requests can an 80 GB GPU serve for an 8B model, and how would you estimate it?
+11. What problem does PagedAttention solve, and how?
+12. What happens when KV cache memory runs out?
+13. What is prefix caching, and how do you design prompts to maximize hits?
+
+**Level 4 — Quantization**
+
+14. What does quantization buy you at inference, and how do W4A16 and W8A8 differ?
+15. Why are activations harder to quantize than weights?
+16. How do GPTQ and AWQ each reduce quantization error?
+17. What are the quality, latency, and memory trade-offs of 4-bit quantization, and is it always faster?
+
+**Level 5 — Speculative decoding**
+
+18. How does speculative decoding work, and why doesn't it change the output?
+19. How does the acceptance rate affect the speedup, and when is speculative decoding useless?
+
+**Level 6 — Kernel and runtime optimizations**
+
+20. Why is FlashAttention fast, and does it speed up prefill or decode?
+21. What overhead do kernel fusion and CUDA Graphs each remove?
+
+**Level 7 — Deployment, scaling, and cost**
+
+22. How would you deploy a 70B model?
+23. How do you scale an inference service, and what should you watch for?
+24. How would you estimate the cost per million tokens of self-hosted inference?
+25. When would you self-host inference, and when would you use an API?
+26. Design a service that deploys a fine-tuned 8B review-extraction model, meeting a P99 latency target while controlling cost.
 
 </Locale>
 
--
+---
+
+<Locale lang="zh">
+
+## 我的答案
+
+自己写，别让 agent 代写。30s 版超过 40 秒就砍；2min 版要能从 prefill / decode 的瓶颈一路讲到批处理、KV cache 管理、量化和成本。
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+Write it yourself — don't let the agent draft it. Cut the 30s version if it runs past 40 seconds; the 2min version should run from the prefill / decode bottlenecks through batching, KV cache management, quantization, and cost.
+
+</Locale>
+
+### 30s
+
+>
+
+### 2min
+
+>
 
 <Locale lang="zh">
 
 ## 项目锚点
+
+你的项目里用 vLLM 部署时：用了哪些优化（continuous batching、PagedAttention、量化、多 LoRA）？吞吐或延迟提升了多少？一张卡能扛多少并发、每百万 token 成本是多少？一句话 + 一个数字。参考 [LLaMA Fine-tuning](/docs/projects/fine-tuning)。
 
 </Locale>
 
@@ -127,6 +2134,8 @@ TTFT is mostly about prefill; the typing speed users feel is mostly TPOT. The KV
 
 ## Project anchor
 
+When you deployed with vLLM in your project: which optimizations did you use (continuous batching, PagedAttention, quantization, multi-LoRA)? How much did throughput or latency improve? How much concurrency could one GPU handle, and what did a million tokens cost? One sentence plus one number. See [LLaMA Fine-tuning](/docs/projects/fine-tuning).
+
 </Locale>
 
--
+>

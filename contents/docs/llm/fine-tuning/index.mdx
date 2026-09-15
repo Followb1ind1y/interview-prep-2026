@@ -1,109 +1,2021 @@
 ---
 title: Fine-tuning
 titleEn: Fine-tuning
-description: Full / LoRA / QLoRA / PEFT。高频题：RAG vs Fine-tuning vs Prompt Engineering。
-descriptionEn: "Full / LoRA / QLoRA / PEFT. High-frequency: RAG vs fine-tuning vs prompting."
-date: 2026-09-07
-keywords: ["lora", "qlora", "peft", "adapters"]
+description: 什么时候该微调、为什么全量微调贵、LoRA 和 QLoRA 怎么省显存、数据和超参怎么定、怎么评估和部署，以及 RAG、Prompt、微调怎么选。
+descriptionEn: "When to fine-tune, why full fine-tuning is expensive, how LoRA and QLoRA save memory, how to set data and hyperparameters, how to evaluate and deploy, and how to choose between RAG, prompting, and fine-tuning."
+date: 2026-09-14
+keywords: ["fine-tuning", "full fine-tuning", "peft", "lora", "qlora", "nf4", "adapter", "rank", "catastrophic forgetting", "multi-lora", "rag vs fine-tuning"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-必须能在三种改变模型行为的方法之间做选择，并接到 LLaMA 项目上。
+「这个需求你会用 RAG、prompt 还是微调？」「LoRA 为什么能省显存？」「QLoRA 省了什么、牺牲了什么？」几乎是 LLM 工程师面试的必考题。更重要的是，微调是你在简历上能证明「不只会调 API」的地方，面试官一定会顺着项目往细里问。
+
+这一页假设你已经学过 [Training](/docs/llm/training)（loss、梯度下降、每个参数 16 字节、ZeRO）和 [Post-training](/docs/llm/post-training)（SFT、chat template、只在回答上算 loss）。那边讲过的内容这里只回顾并链过去，重点讲**怎么用有限的显存和数据，把一个开源模型改造成你要的样子**。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 微调要解决什么问题 | 微调是什么？什么问题 prompt 和 RAG 解决不了，才值得微调？ | 25 min |
+| 1 · 全量微调为什么贵 | 微调一个 8B 模型要多少显存？每个任务存一份模型有什么问题？ | 25 min |
+| 2 · LoRA | 为什么只训练很少的参数就够？低秩矩阵怎么算？参数量能省多少？ | 50 min |
+| 3 · QLoRA 与量化 | 4-bit 量化是怎么回事？QLoRA 怎么把 8B 模型的微调塞进一张消费级显卡？ | 45 min |
+| 4 · 数据与训练配置 | 数据要多少、长什么样？rank、alpha、学习率、epoch 怎么定？怎么判断过拟合？ | 40 min |
+| 5 · 评估与灾难性遗忘 | 怎么证明微调有效？怎么检查模型原有的能力有没有退化？ | 30 min |
+| 6 · 部署与工程选择 | 适配器合并还是不合并？一个基座怎么服务多个 LoRA？什么时候该全量微调、什么时候该用 RAG？ | 40 min |
+
+每个 Level 末尾有几道自测题，**答不上来就先别往下读**。全页约 4 小时，分几次学完；`/drill` 会记住你上次学到哪。
+
+全页用同一个例子贯穿：**把电商商品评论抽取成固定格式的 JSON**。比如把「我 爱 这款猫粮，但是物流太慢了」变成 `{"sentiment": "mixed", "positive": ["产品"], "negative": ["物流"]}`。模型用 LLaMA 3 8B Instruct，方法是 QLoRA，和你简历上的 LLaMA-3-8B + QLoRA 项目是同一套技术栈。下一页 [Inference](/docs/llm/inference) 会接着讲怎么把这个模型部署上线。
 
 ## 需要掌握
 
-- Full fine-tuning（全量微调）
-- LoRA
-- QLoRA
-- PEFT（参数高效微调）
-- adapters（适配器）
-
-## 机制
-
-```
-Prompt Engineering  →  不改权重，改输入
-RAG                 →  不改权重，改上下文
-Fine-tuning         →  改权重（或低秩适配器）
-```
-
-## 三级回答
-
-### Level 1 — 定义
-
-Fine-tuning 用领域数据继续训练，改变模型权重（或插入的 adapter）。
-
-### Level 2 — 机制
-
-LoRA 冻结基座模型，只训练低秩矩阵。QLoRA 先把基座量化，再做 LoRA，进一步降低显存。PEFT 是这类方法的总称。
-
-### Level 3 — 工程
-
-知识会变、需要引用来源 → RAG。格式 / 语气 / 工具使用习惯要稳定 → 小规模 SFT / LoRA。只是换个说法 → prompt。三者经常组合使用，不是单选题。
-
-## 面试问题
-
-1. RAG、微调和 Prompt Engineering 怎么选？（RAG vs Fine-tuning vs Prompt Engineering?）
-2. 什么时候必须全量微调，而不是 LoRA？（When do you need full fine-tuning instead of LoRA?）
-3. QLoRA 省了什么、牺牲了什么？（What does QLoRA save, and what does it give up?）
-4. 怎么避免灾难性遗忘？（How do you avoid catastrophic forgetting?）
-5. 你的 LLaMA-3-8B + QLoRA 项目里，为什么不直接用 RAG？（In your LLaMA-3-8B + QLoRA project, why not just use RAG?）
-
-## 我的答案
+- 微调和预训练、SFT、继续预训练的关系；微调主要改变行为和格式，而不是知识
+- 全量微调的显存账（每个参数 16 字节）、多任务存储问题、灾难性遗忘
+- LoRA 的原理：冻结原权重，只训练低秩矩阵 B·A；rank、alpha、初始化、作用在哪些层；参数量手算
+- 量化基础（absmax、分组量化、离群值）、NF4、双重量化；QLoRA 的显存账
+- 微调数据的格式和规模、训练 / 验证 / 测试划分、常用超参数、过拟合的信号
+- 任务指标和通用能力回归测试，灾难性遗忘的缓解
+- 适配器合并与多 LoRA 服务、全量微调 / LoRA / QLoRA 的取舍、RAG / Prompt / 微调的选择与组合
 
 </Locale>
 
 <Locale lang="en">
 
-You need to be able to choose between the three ways of changing model behavior, and tie the choice back to the LLaMA project.
+"Would you use RAG, prompting, or fine-tuning for this?" "Why does LoRA save memory?" "What does QLoRA save, and what does it give up?" These come up in nearly every LLM engineer interview. More importantly, fine-tuning is where your resume proves you do more than call APIs, so interviewers will dig into the details of your project.
+
+This page assumes you've studied [Training](/docs/llm/training) (loss, gradient descent, 16 bytes per parameter, ZeRO) and [Post-training](/docs/llm/post-training) (SFT, chat templates, loss on the response only). Those get a quick recap and a link; the focus here is **how to reshape an open model into what you need with limited memory and data**.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · What fine-tuning solves | What is fine-tuning, and which problems can't prompting or RAG solve, making it worthwhile? | 25 min |
+| 1 · Why full fine-tuning is expensive | How much memory does fine-tuning an 8B model take? What's wrong with keeping a full model copy per task? | 25 min |
+| 2 · LoRA | Why is training so few parameters enough? How do the low-rank matrices work? How many parameters does it save? | 50 min |
+| 3 · QLoRA and quantization | What is 4-bit quantization? How does QLoRA fit 8B fine-tuning onto one consumer GPU? | 45 min |
+| 4 · Data and training setup | How much data, in what shape? How do you set rank, alpha, learning rate, and epochs? How do you spot overfitting? | 40 min |
+| 5 · Evaluation and catastrophic forgetting | How do you prove fine-tuning worked, and check that existing abilities didn't degrade? | 30 min |
+| 6 · Deployment and engineering choices | Merge the adapter or not? How does one base model serve many LoRAs? When is full fine-tuning warranted, and when is RAG the answer? | 40 min |
+
+Each Level ends with a few self-check questions — **if you can't answer them, don't move on yet**. The page takes about 4 hours over several sessions; `/drill` remembers where you stopped.
+
+One example runs through the whole page: **extracting e-commerce product reviews into a fixed JSON format** — turning 「我 爱 这款猫粮，但是物流太慢了」 ("I love this cat food, but shipping was too slow") into `{"sentiment": "mixed", "positive": ["product"], "negative": ["shipping"]}`. The model is LLaMA 3 8B Instruct and the method is QLoRA — the same stack as the LLaMA-3-8B + QLoRA project on your resume. The next page, [Inference](/docs/llm/inference), picks up with deploying this model.
 
 ## Must know
 
-- full fine-tuning
-- LoRA
-- QLoRA
-- PEFT
-- adapters
-
-## Mechanism
-
-```
-Prompt Engineering  →  weights unchanged, change the input
-RAG                 →  weights unchanged, change the context
-Fine-tuning         →  change the weights (or a low-rank adapter)
-```
-
-## Three-level answers
-
-### Level 1 — Definition
-
-Fine-tuning keeps training on domain data, which changes the model's weights (or an inserted adapter).
-
-### Level 2 — Mechanism
-
-LoRA freezes the base model and trains small low-rank matrices. QLoRA quantizes the base model first and then applies LoRA, cutting memory further. PEFT is the umbrella term for this family of methods.
-
-### Level 3 — Engineering
-
-Knowledge that changes or needs citations → RAG. Format, tone, or tool-use habits that need to be consistent → small-scale SFT / LoRA. Just phrasing things differently → prompting. They're usually combined; it's not a multiple-choice question.
-
-## Interview questions
-
-1. RAG vs Fine-tuning vs Prompt Engineering?
-2. When do you need full fine-tuning instead of LoRA?
-3. What does QLoRA save, and what does it give up?
-4. How do you avoid catastrophic forgetting?
-5. In your LLaMA-3-8B + QLoRA project, why not just use RAG?
-
-## My answer
+- how fine-tuning relates to pretraining, SFT, and continued pretraining; fine-tuning mainly changes behavior and format, not knowledge
+- the memory math of full fine-tuning (16 bytes per parameter), the multi-task storage problem, catastrophic forgetting
+- how LoRA works: freeze the original weights and train only low-rank matrices B·A; rank, alpha, initialization, which layers; counting parameters by hand
+- quantization basics (absmax, group-wise quantization, outliers), NF4, double quantization; QLoRA's memory math
+- fine-tuning data format and size, train / validation / test splits, common hyperparameters, signs of overfitting
+- task metrics and general-capability regression tests, mitigating catastrophic forgetting
+- merging adapters and multi-LoRA serving, full fine-tuning vs. LoRA vs. QLoRA trade-offs, choosing and combining RAG, prompting, and fine-tuning
 
 </Locale>
 
--
+---
+
+<Locale lang="zh">
+
+## Level 0 · 微调要解决什么问题
+
+### 微调是什么？它和预训练、SFT 是什么关系？
+
+**微调（fine-tuning）**：拿一个已经训好的模型，用你自己的一小批数据继续训练，让它在你的任务上表现得更符合要求。
+
+训练方法和 [Training](/docs/llm/training) Level 0–2 讲的完全一样：前向 → 算 loss → 反向传播 → 更新参数。区别只在**从哪个模型开始、用什么数据、训多少**：
+
+| 阶段 | 起点 | 数据 | 数据量 | 目的 |
+| --- | --- | --- | --- | --- |
+| 预训练 | 随机参数 | 通用文本 | 万亿 token | 学语言和知识 |
+| 继续预训练 | base model | 领域文本 | 数十亿 token 以上 | 学领域知识 |
+| Post-training（SFT 等） | base model | 通用指令示范、偏好数据 | 数千到数十万条 | 会听指令、符合偏好 |
+| **任务微调（本页）** | **通常是 instruct 模型** | **你自己任务的示范数据** | **数百到数千条** | **在一个具体任务上稳定地做对** |
+
+日常说的「微调一下模型」，绝大多数时候指的就是最后一行：在开源的 instruct 模型上，用自己任务的「输入 → 期望输出」数据做 SFT。为什么通常从 instruct 模型开始，见 [Post-training](/docs/llm/post-training) Level 6。
+
+### 贯穿例子：只用 prompt 会遇到什么问题？
+
+任务：把电商评论抽取成固定格式的 JSON。
+
+```
+输入评论:  我 爱 这款猫粮，但是物流太慢了
+期望输出:  {"sentiment": "mixed", "positive": ["产品"], "negative": ["物流"]}
+
+规则:
+- sentiment 只能是 positive / negative / mixed
+- positive 和 negative 里的方面只能从 [产品, 价格, 物流, 客服, 包装] 里选
+```
+
+最自然的第一步是写 prompt：说明规则、给出 JSON 格式、放 3 个示例（few-shot），交给 LLaMA 3 8B Instruct。实际跑下来常见的问题（示意）：
+
+```
+问题 1：JSON 前面多一句话        「好的，以下是抽取结果：{...}」
+问题 2：方面名不在列表里          把「物流」写成「配送速度」
+问题 3：边界情况判断不一致        「价格有点贵，但是值」有时判 positive，有时判 mixed
+问题 4：黑话、口语识别不了        「物流龟速」没被识别成物流的负面评价
+问题 5：prompt 很长              规则 + 3 个示例，每个请求都要多带约 800 个 token
+```
+
+假设在 200 条人工标注的测试评论上评估（示意数字）：
+
+```
+只用 prompt:     JSON 合法 170 条（85%），完全正确 150 条（75%）
+QLoRA 微调后:     JSON 合法 197 条（98.5%），完全正确 181 条（90.5%）   ← Level 5 会讲怎么评估
+```
+
+### 什么时候应该先试 prompt 和 RAG，而不是直接微调？
+
+[Post-training](/docs/llm/post-training) Level 6 讲过选择的阶梯：**prompt → RAG → SFT（通常 LoRA）→ 偏好优化**，前一步解决不了才进入下一步。放到这个例子里逐条看：
+
+| 问题 | 先试什么 | 能不能解决 |
+| --- | --- | --- |
+| JSON 前面多一句话、格式不合法 | 结构化输出 / 约束解码（见 [Structured Output](/docs/application/structured-output)） | **能保证格式合法**，不一定要微调 |
+| 方面名不在列表里 | 约束解码限定枚举值 | 大部分能解决 |
+| 边界情况判断不一致 | 在 prompt 里补规则和示例 | 能改善，但示例越加越多，还是不稳定 |
+| 黑话、口语识别不了 | 在 prompt 里列举 | 列不完 |
+| prompt 太长、太贵 | — | prompt 本身解决不了 |
+
+结论：**格式问题优先用结构化输出解决**；剩下的「判断标准一致」「领域说法」「省掉长 prompt」，才是这个例子真正值得微调的理由。
+
+<Note title="面试里被问「为什么要微调」，要能说出前面几步为什么不够" type="tip">
+
+只说「效果更好」没有说服力。好的回答是：「格式问题我们先用约束解码解决了；剩下的是标注口径不一致和领域口语，few-shot 加到十几个例子仍然不稳定，而且每个请求多 800 token。所以用了几千条标注数据做 QLoRA。」这正好也是你项目深挖时要准备的叙事。
+
+</Note>
+
+### 微调擅长解决什么，不擅长解决什么？
+
+| 擅长 | 不擅长 |
+| --- | --- |
+| 稳定的输出格式、风格、语气 | 加入会变化的知识（产品价格、最新政策） |
+| 领域内特定的判断口径、标注规则 | 需要给出引用来源的回答 |
+| 领域术语和口语 | 只做一两次的临时任务 |
+| 把长 prompt 里的规则「训进」权重，缩短输入 | 数据只有几十条、质量没保证 |
+| 让小模型在窄任务上接近大模型 | 基座模型完全不具备的能力 |
+
+「缩短 prompt」这一条经常被忽视，但很值钱。算一笔账：
+
+```
+每个请求少带 800 个 token 的规则和示例
+每月 100 万次请求 → 每月少 8 亿个 input token
+```
+
+token 越少，费用越低，prefill 也越快（见 [Tokenization](/docs/llm/tokenization) Level 3）。
+
+<Note title="别说「把产品文档拿去微调，模型就记住了」" type="danger">
+
+用微调灌知识又慢又不可靠，文档一更新就要重训，还可能让模型更自信地编造（见 [Training](/docs/llm/training) Level 6）。会变化、需要可追溯的知识用 RAG；微调负责**怎么回答**，RAG 负责**回答的依据**。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 任务微调和预训练、继续预训练、post-training 有什么区别？
+2. 在评论抽取的例子里，只用 prompt 会遇到哪些问题？哪些问题不需要微调就能解决？
+3. 微调擅长和不擅长解决哪些问题？
+4. 为什么「缩短 prompt」是微调的一个经济理由？
+5. 为什么不应该用微调给模型灌产品文档？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · What fine-tuning is meant to solve
+
+### What is fine-tuning, and how does it relate to pretraining and SFT?
+
+**Fine-tuning**: take an already-trained model and keep training it on a small dataset of your own, so it behaves the way your task requires.
+
+The training method is exactly what [Training](/docs/llm/training) Levels 0–2 covered: forward pass → loss → backpropagation → parameter update. What changes is **which model you start from, what data you use, and how much you train**:
+
+| Stage | Starting point | Data | Data size | Goal |
+| --- | --- | --- | --- | --- |
+| Pretraining | random parameters | general text | trillions of tokens | learn language and knowledge |
+| Continued pretraining | base model | domain text | billions of tokens or more | learn domain knowledge |
+| Post-training (SFT, etc.) | base model | general instruction demonstrations, preference data | thousands to hundreds of thousands of examples | follow instructions, match preferences |
+| **Task fine-tuning (this page)** | **usually an instruct model** | **demonstrations for your own task** | **hundreds to thousands of examples** | **get one specific task right, consistently** |
+
+When people say "just fine-tune the model," they almost always mean that last row: SFT on an open instruct model using your own "input → desired output" data. Why you usually start from the instruct model is covered in [Post-training](/docs/llm/post-training) Level 6.
+
+### Running example: what goes wrong with prompting alone?
+
+The task: extract e-commerce reviews into a fixed JSON format.
+
+```
+review:           我 爱 这款猫粮，但是物流太慢了   (I love this cat food, but shipping was too slow)
+desired output:   {"sentiment": "mixed", "positive": ["product"], "negative": ["shipping"]}
+
+rules:
+- sentiment must be positive / negative / mixed
+- aspects in positive and negative must come from [product, price, shipping, service, packaging]
+```
+
+The natural first step is a prompt: explain the rules, show the JSON format, include 3 examples (few-shot), and send it to LLaMA 3 8B Instruct. Common problems in practice (illustrative):
+
+```
+problem 1: a sentence before the JSON       "Sure, here's the extraction: {...}"
+problem 2: aspect names outside the list    writes "delivery speed" instead of "shipping"
+problem 3: inconsistent edge cases          "a bit pricey, but worth it" is sometimes positive, sometimes mixed
+problem 4: slang goes unrecognized          「物流龟速」 ("shipping at a snail's pace") isn't read as negative on shipping
+problem 5: a long prompt                    rules + 3 examples add about 800 tokens to every request
+```
+
+Suppose we evaluate on 200 human-labeled test reviews (illustrative numbers):
+
+```
+prompting only:          valid JSON 170 (85%), fully correct 150 (75%)
+after QLoRA fine-tuning: valid JSON 197 (98.5%), fully correct 181 (90.5%)   ← Level 5 covers how to evaluate
+```
+
+### When should you try prompting and RAG before fine-tuning?
+
+[Post-training](/docs/llm/post-training) Level 6 laid out the ladder: **prompting → RAG → SFT (usually LoRA) → preference optimization**, moving up only when the previous step can't solve the problem. Apply it item by item to this example:
+
+| Problem | Try first | Does it solve it? |
+| --- | --- | --- |
+| Extra sentence before the JSON, invalid format | structured output / constrained decoding (see [Structured Output](/docs/application/structured-output)) | **guarantees valid format**; fine-tuning isn't required for this |
+| Aspect names outside the list | constrained decoding restricted to the allowed values | mostly |
+| Inconsistent edge cases | add rules and examples to the prompt | improves it, but the examples keep piling up and it's still unstable |
+| Slang goes unrecognized | list it in the prompt | you can never list it all |
+| Prompt too long and expensive | — | prompting can't fix its own length |
+
+Conclusion: **fix format problems with structured output first**; what remains — consistent judgment, domain language, and dropping the long prompt — are this example's real reasons to fine-tune.
+
+<Note title="When asked “why fine-tune,” explain why the earlier steps weren't enough" type="tip">
+
+"It works better" isn't convincing. A strong answer: "We solved the format problem with constrained decoding first. What was left was inconsistent labeling and domain slang — even a dozen few-shot examples stayed unstable, and every request carried 800 extra tokens. So we did QLoRA on a few thousand labeled examples." It's also exactly the story to prepare for your project deep-dive.
+
+</Note>
+
+### What is fine-tuning good at, and what isn't it good at?
+
+| Good at | Not good at |
+| --- | --- |
+| consistent output format, style, and tone | adding knowledge that changes (product prices, latest policies) |
+| domain-specific judgment and labeling rules | answers that need cited sources |
+| domain terminology and slang | one-off tasks you'll run once or twice |
+| moving rules from a long prompt into the weights, shortening the input | datasets of only a few dozen examples of uncertain quality |
+| getting a small model close to a big one on a narrow task | abilities the base model doesn't have at all |
+
+The "shorter prompt" point is often overlooked but worth a lot. Do the math:
+
+```
+each request carries 800 fewer tokens of rules and examples
+1 million requests a month → 800 million fewer input tokens a month
+```
+
+Fewer tokens means lower cost and faster prefill (see [Tokenization](/docs/llm/tokenization) Level 3).
+
+<Note title="Don't say “fine-tune on the product docs and the model will remember them”" type="danger">
+
+Loading knowledge in through fine-tuning is slow and unreliable, needs retraining every time the docs change, and can even make the model more confident when it makes things up (see [Training](/docs/llm/training) Level 6). Use RAG for knowledge that changes and needs to be traceable; fine-tuning handles **how to answer**, RAG handles **what the answer is based on**.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. How does task fine-tuning differ from pretraining, continued pretraining, and post-training?
+2. In the review-extraction example, what problems come up with prompting alone, and which ones don't need fine-tuning?
+3. What is fine-tuning good and bad at solving?
+4. Why is a shorter prompt an economic reason to fine-tune?
+5. Why shouldn't you fine-tune a model on product documentation?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 全量微调为什么贵
+
+### 全量微调一个 8B 模型要多少显存？
+
+**全量微调（full fine-tuning）**就是所有参数都参与更新，和预训练一样。显存账在 [Attention & Transformer](/docs/llm/transformer) Level 8 和 [Training](/docs/llm/training) Level 5 算过：混合精度 + AdamW，每个参数要存约 **16 字节**。
+
+LLaMA 3 8B 实际有 8,030,261,248 个参数：
+
+```
+全量微调:   8.03B × 16 字节 ≈ 128 GB        还没算激活值
+只做推理:   8.03B × 2 字节  ≈ 16 GB         fp16 权重
+一张 A100 / H100: 80 GB
+```
+
+一张 80 GB 的卡连全量微调的参数、梯度和优化器状态都放不下，更别说激活值。要做就得多卡加 ZeRO-3，比如 4 张卡平均每张分到 128 ÷ 4 = 32 GB，再加上激活值。
+
+### 显存之外，全量微调还有什么问题？
+
+**1. 每个任务存一份完整模型。** 全量微调改的是全部参数，所以每个任务都会得到一个新的完整模型：
+
+```
+1 个任务    16 GB（fp16）
+10 个任务   160 GB
+```
+
+线上要同时服务评论抽取、客服回复、摘要三个任务，就得部署三份完整模型，或者在它们之间来回加载。
+
+**2. 灾难性遗忘。** 所有参数都被推向一个很窄的任务，模型原有的通用能力可能会退化（概念见 [Training](/docs/llm/training) Level 6）。比如只拿评论抽取数据狠训之后，模型可能对任何问题都倾向于输出 JSON（示意）。
+
+**3. 小数据容易过拟合。** 几千条训练样本去调 80 亿个参数，模型很容易把训练集「背下来」，在新评论上反而表现变差。
+
+### 为什么只改很少的参数，就可能够用？
+
+回到任务本身：评论抽取不需要模型学会新语言或新知识，只需要在它已有能力的基础上，**做一个小幅度的、方向很集中的调整**：输出固定格式、统一判断口径、认得几个领域说法。
+
+研究发现，微调时权重的变化量往往是**低秩（low rank）**的。简单理解：一个 4096 × 4096 的变化矩阵虽然有 1,677 万个数，但它主要只沿着少数几个方向在变，可以用少得多的数字近似表示。
+
+打个比方：全量微调像是把一本书重写一遍；参数高效微调像是在书页边上加批注，原文不动，只记下需要改的地方。
+
+这类「只训练很少参数」的方法统称 **PEFT（Parameter-Efficient Fine-Tuning，参数高效微调）**，常见的几种：
+
+| 方法 | 怎么做 | 缺点 |
+| --- | --- | --- |
+| Adapter | 在每层里插入小的新网络层，只训练它们 | 推理时多了额外的层，增加延迟 |
+| Prefix / Prompt tuning | 在输入前面加一段可学习的「虚拟 token」 | 占用上下文长度，复杂任务效果一般 |
+| **LoRA** | 给原权重旁边加一个低秩的更新矩阵，只训练它 | 训练完可以合并回原权重，**推理不增加延迟** |
+
+LoRA 因为实现简单、效果好、推理没有额外开销，成了最主流的方法，也是下一个 Level 的主角。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 全量微调 LLaMA 3 8B 大约要多少显存？为什么一张 80 GB 的卡放不下？
+2. 除了显存，全量微调还有哪些问题？
+3. 为什么说微调时权重的变化往往是「低秩」的？这对我们有什么启发？
+4. Adapter、prefix tuning、LoRA 分别怎么做？LoRA 为什么最主流？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Why full fine-tuning is expensive
+
+### How much memory does full fine-tuning of an 8B model take?
+
+**Full fine-tuning** updates every parameter, just like pretraining. The memory math was worked out in [Attention & Transformer](/docs/llm/transformer) Level 8 and [Training](/docs/llm/training) Level 5: with mixed precision and AdamW, each parameter needs about **16 bytes**.
+
+LLaMA 3 8B actually has 8,030,261,248 parameters:
+
+```
+full fine-tuning:   8.03B × 16 bytes ≈ 128 GB     before activations
+inference only:     8.03B × 2 bytes  ≈ 16 GB      fp16 weights
+one A100 / H100:    80 GB
+```
+
+A single 80 GB GPU can't even hold the parameters, gradients, and optimizer state for full fine-tuning, let alone activations. You'd need multiple GPUs with ZeRO-3 — for example, 4 GPUs at 128 ÷ 4 = 32 GB each, plus activations.
+
+### Beyond memory, what else is wrong with full fine-tuning?
+
+**1. A full model copy per task.** Full fine-tuning changes every parameter, so each task produces a new, complete model:
+
+```
+1 task      16 GB (fp16)
+10 tasks    160 GB
+```
+
+To serve review extraction, support replies, and summarization at the same time, you'd deploy three full models or keep swapping between them.
+
+**2. Catastrophic forgetting.** Pushing every parameter toward one narrow task can degrade the model's general abilities (concept covered in [Training](/docs/llm/training) Level 6). After heavy training on review extraction alone, for example, the model might start answering everything in JSON (illustrative).
+
+**3. Small data overfits easily.** Tuning 8 billion parameters on a few thousand examples makes it easy for the model to memorize the training set and do worse on new reviews.
+
+### Why might changing very few parameters be enough?
+
+Go back to the task: review extraction doesn't require the model to learn a new language or new knowledge. It needs **a small, tightly focused adjustment** on top of what the model already does — a fixed output format, consistent judgment, a few domain expressions.
+
+Research has found that weight changes during fine-tuning tend to be **low rank**. Put simply, a 4096 × 4096 change matrix has 16.8 million numbers, but it mostly moves along a few directions and can be approximated with far fewer numbers.
+
+An analogy: full fine-tuning rewrites the whole book; parameter-efficient fine-tuning writes notes in the margins, leaving the text untouched and recording only what needs to change.
+
+Methods that train only a small number of parameters are collectively called **PEFT (parameter-efficient fine-tuning)**. The common ones:
+
+| Method | How it works | Drawback |
+| --- | --- | --- |
+| Adapters | insert small new layers into each block and train only those | extra layers at inference add latency |
+| Prefix / prompt tuning | prepend learnable "virtual tokens" to the input | uses up context length; so-so on complex tasks |
+| **LoRA** | add a low-rank update matrix alongside the original weights and train only that | can be merged back into the weights after training, so **no added inference latency** |
+
+LoRA's simplicity, strong results, and zero inference overhead made it the dominant method — and the focus of the next Level.
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Roughly how much memory does full fine-tuning of LLaMA 3 8B take, and why doesn't it fit on one 80 GB GPU?
+2. Besides memory, what other problems does full fine-tuning have?
+3. What does it mean that weight changes during fine-tuning tend to be low rank, and what does that suggest?
+4. How do adapters, prefix tuning, and LoRA each work, and why is LoRA the most popular?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · LoRA：只训练两个小矩阵
+
+### LoRA 的核心想法是什么？
+
+模型里大部分参数都在各种线性层的权重矩阵 W 里（见 [Attention & Transformer](/docs/llm/transformer) Level 0 的线性层）。**LoRA（Low-Rank Adaptation）** 对每个选中的 W 做三件事：
+
+1. **冻结 W**，训练时完全不动它
+2. 在旁边加两个小矩阵 **A** 和 **B**，让它们的乘积 **B · A** 作为 W 的变化量 ΔW
+3. **只训练 A 和 B**
+
+```
+W:  形状 [d_out, d_in]      冻结
+A:  形状 [r, d_in]          训练      先把输入压到 r 维
+B:  形状 [d_out, r]         训练      再从 r 维放大回输出维度
+
+前向计算:  y = W · x  +  (α / r) · B · (A · x)
+```
+
+这里的 **r 叫 rank（秩）**，通常取 8、16、32、64，远小于 d（几千）。α 是缩放系数，稍后讲。
+
+「秩」可以这样理解：**一个秩为 1 的矩阵，就是一列数乘以一行数**，所有行都是同一行的倍数。秩为 r 的矩阵，最多只有 r 个独立的「方向」。LoRA 就是用 B · A 这个秩最多为 r 的矩阵，去近似 Level 1 说的「低秩的权重变化」。
+
+### 手算一个 4 × 4、rank = 1 的 LoRA
+
+取 d = 4、r = 1：
+
+```
+A = [1, 2, 0, 1]          形状 [1, 4]，一行
+B = [1, 0, 2, 1]ᵀ         形状 [4, 1]，一列
+```
+
+**B · A 就是列乘行，得到一个 4 × 4 的矩阵：**
+
+```
+         A:   1    2    0    1
+B:  1  →    [ 1    2    0    1 ]
+    0  →    [ 0    0    0    0 ]
+    2  →    [ 2    4    0    2 ]
+    1  →    [ 1    2    0    1 ]
+```
+
+这个 ΔW 有 16 个数，但只用 A 和 B 的 **8 个数**就描述了它。每一行都是第一行的倍数，所以它的秩是 1。
+
+**计算时不需要真的算出这个 4 × 4 矩阵。** 输入 x = [1, 0, 1, 0]，按 `B · (A · x)` 的顺序算：
+
+```
+A · x = 1×1 + 2×0 + 0×1 + 1×0 = 1          先压成 1 个数
+B · 1 = [1, 0, 2, 1]                       再放大回 4 维
+```
+
+直接用上面的 ΔW 乘 x，结果也是 [1, 0, 2, 1]，完全一样。先算 A · x 更省：d 很大时，压到 r 维再放大，比算一个 d × d 的矩阵便宜得多。
+
+### 参数量能省多少？用 LLaMA 3 8B 算一遍
+
+一个线性层加 LoRA，新增的参数量是：
+
+```
+LoRA 参数 = r × d_in + d_out × r = r × (d_in + d_out)
+```
+
+**单个 4096 × 4096 的矩阵，r = 8：**
+
+```
+原矩阵:  4096 × 4096        = 16,777,216 个参数
+LoRA:    8 × (4096 + 4096)  = 65,536 个参数       只占 0.39%
+```
+
+**整个 LLaMA 3 8B。** 每一层 Transformer block 里有 7 个线性层（attention 的 4 个投影 + FFN 的 3 个矩阵，见 [Attention & Transformer](/docs/llm/transformer) Level 7、8）：
+
+| 线性层 | 输入维度 → 输出维度 | 说明 |
+| --- | --- | --- |
+| q_proj | 4096 → 4096 | 32 个 query 头 × 128 维 |
+| k_proj | 4096 → 1024 | GQA：8 个 KV 头 × 128 维 |
+| v_proj | 4096 → 1024 | 同上 |
+| o_proj | 4096 → 4096 | attention 输出投影 |
+| gate_proj | 4096 → 14336 | SwiGLU 的门 |
+| up_proj | 4096 → 14336 | SwiGLU 升维 |
+| down_proj | 14336 → 4096 | SwiGLU 降维 |
+
+共 32 层。不同配置下 LoRA 的参数量：
+
+| 配置 | 训练的参数量 | 占全部参数 | 适配器文件（bf16） |
+| --- | --- | --- | --- |
+| r = 8，只加在 q、v 上（LoRA 原始论文的做法） | 3,407,872 | 0.042% | 约 6.5 MiB |
+| r = 16，加在全部 7 个线性层上 | 41,943,040 | 0.52% | 约 80 MiB |
+| r = 64，加在全部 7 个线性层上 | 167,772,160 | 2.09% | 约 320 MiB |
+
+以常用的 r = 16、全部线性层为例：要训练的参数只有约 4,200 万个，按每个参数 16 字节算，梯度和优化器状态只要约 **0.62 GiB**，和全量微调的 128 GB 相比几乎可以忽略。
+
+<Note title="LoRA 省的是「训练状态」，不是基座权重" type="warning">
+
+冻结的 W 虽然不更新、没有梯度和优化器状态，但前向和反向计算都要用到它，所以 **8B 的 fp16 权重（约 16 GB）仍然要放进显存**，再加上激活值。LoRA 让 8B 微调从「必须多卡」变成「一张 40 GB 或 80 GB 的卡能做」，但想塞进 24 GB 的消费级显卡，还需要 Level 3 的 QLoRA 把基座权重也压小。
+
+</Note>
+
+### B 为什么要初始化为 0？alpha 是什么？
+
+**初始化**：A 用小的随机数，**B 全部设为 0**。这样训练开始时 B · A = 0，模型的输出和原模型**一模一样**，训练从原模型的能力出发一点点调整。
+
+如果 A 和 B 都是随机数，训练一开始 ΔW 就是一个随机扰动，等于先把原模型「搅乱」再慢慢修回来，浪费训练，也可能损害原有能力。
+
+**alpha（α）**：LoRA 的输出会乘以 α / r 这个缩放系数：
+
+```
+r = 16, α = 32  →  缩放 = 2
+r = 16, α = 16  →  缩放 = 1
+```
+
+常见设置是 α = r 或 α = 2r。把 α / r 固定下来有个好处：换 rank 时，更新量的整体大小不会跟着剧烈变化，学习率就不用每次重新调。
+
+### LoRA 应该加在哪些层？rank 选多大？
+
+**加在哪：**
+
+- LoRA 原始论文只加在 attention 的 q、v 投影上，参数最少
+- 现在更常见的做法是**加在全部线性层**（attention + FFN）。QLoRA 的论文就发现，要达到接近全量微调的效果，需要把 LoRA 加到所有线性层上
+
+**rank 选多大（经验值）：**
+
+| 任务类型 | 常用 rank |
+| --- | --- |
+| 格式、风格、语气这类「行为」调整（比如评论抽取） | 8 到 16 |
+| 需要学更多东西的领域适配 | 32 到 64 或更高 |
+
+rank 不是越大越好：rank 越大参数越多，更容易在小数据上过拟合。先用 16 起步，效果不够再往上加，是很实用的做法。
+
+### 训练完之后，LoRA 怎么用？
+
+两种方式：
+
+**1. 合并回原权重：**
+
+```
+W' = W + (α / r) · B · A
+```
+
+W' 和 W 形状完全一样，替换进去之后模型结构没有任何变化，**推理没有额外延迟**。这是 LoRA 相比 Adapter 最大的优点。
+
+**2. 保持适配器独立：** 基座模型只放一份，适配器（几十 MB）单独存放，按需加载或切换。一个基座服务多个任务就靠这种方式，Level 6 细讲。
+
+<Note title="面试里讲 LoRA，把数字说出来" type="tip">
+
+「LoRA 冻结原权重，只训练低秩矩阵 B 和 A；8B 模型用 r = 16 加在全部线性层上，只训练约 4,200 万个参数，占 0.5%，适配器文件 80 MB；B 初始化为 0 保证从原模型出发；训完可以合并回去，推理零额外延迟。」这样一段比「LoRA 就是低秩适配」有说服力得多。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. LoRA 冻结了什么、训练了什么？写出它的前向公式。
+2. 手算：A = [1, 0, 1]，B = [2, 1]ᵀ，B · A 是什么矩阵？秩是多少？
+3. 一个 4096 → 14336 的线性层，r = 16 时 LoRA 新增多少参数？
+4. 为什么 B 要初始化为 0？α / r 起什么作用？
+5. LoRA 能省训练状态的显存，为什么 8B 模型仍然难以塞进 24 GB 显卡？
+6. LoRA 训练完有哪两种用法？合并之后推理为什么没有额外延迟？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · LoRA: training just two small matrices
+
+### What's the core idea behind LoRA?
+
+Most of a model's parameters live in the weight matrices W of its linear layers (see the linear layer in [Attention & Transformer](/docs/llm/transformer) Level 0). **LoRA (Low-Rank Adaptation)** does three things to each W it targets:
+
+1. **Freeze W** — it never changes during training
+2. Add two small matrices **A** and **B** alongside it, whose product **B · A** serves as W's change ΔW
+3. **Train only A and B**
+
+```
+W:  shape [d_out, d_in]      frozen
+A:  shape [r, d_in]          trained    squeezes the input down to r dims
+B:  shape [d_out, r]         trained    expands from r dims back to the output size
+
+forward pass:  y = W · x  +  (α / r) · B · (A · x)
+```
+
+**r is called the rank**, usually 8, 16, 32, or 64 — far smaller than d (thousands). α is a scaling factor, covered shortly.
+
+One way to think about rank: **a rank-1 matrix is just one column of numbers times one row**, so every row is a multiple of the same row. A rank-r matrix has at most r independent "directions." LoRA uses B · A, which has rank at most r, to approximate the "low-rank weight change" from Level 1.
+
+### Work out a 4 × 4, rank-1 LoRA by hand
+
+Take d = 4 and r = 1:
+
+```
+A = [1, 2, 0, 1]          shape [1, 4], a row
+B = [1, 0, 2, 1]ᵀ         shape [4, 1], a column
+```
+
+**B · A is a column times a row, giving a 4 × 4 matrix:**
+
+```
+         A:   1    2    0    1
+B:  1  →    [ 1    2    0    1 ]
+    0  →    [ 0    0    0    0 ]
+    2  →    [ 2    4    0    2 ]
+    1  →    [ 1    2    0    1 ]
+```
+
+This ΔW has 16 numbers, but A and B describe it with just **8**. Every row is a multiple of the first, so its rank is 1.
+
+**Computation never needs the actual 4 × 4 matrix.** With input x = [1, 0, 1, 0], compute in the order `B · (A · x)`:
+
+```
+A · x = 1×1 + 2×0 + 0×1 + 1×0 = 1          squeeze down to 1 number
+B · 1 = [1, 0, 2, 1]                       expand back to 4 dims
+```
+
+Multiplying x by the full ΔW above also gives [1, 0, 2, 1] — identical. Computing A · x first is cheaper: when d is large, squeezing to r dims and expanding back costs far less than a d × d multiply.
+
+### How many parameters does it save? Work it out for LLaMA 3 8B
+
+Adding LoRA to one linear layer adds this many parameters:
+
+```
+LoRA parameters = r × d_in + d_out × r = r × (d_in + d_out)
+```
+
+**One 4096 × 4096 matrix, r = 8:**
+
+```
+original matrix:  4096 × 4096        = 16,777,216 parameters
+LoRA:             8 × (4096 + 4096)  = 65,536 parameters       just 0.39%
+```
+
+**All of LLaMA 3 8B.** Each Transformer block has 7 linear layers (attention's 4 projections + the FFN's 3 matrices; see [Attention & Transformer](/docs/llm/transformer) Levels 7 and 8):
+
+| Linear layer | input → output dims | Notes |
+| --- | --- | --- |
+| q_proj | 4096 → 4096 | 32 query heads × 128 dims |
+| k_proj | 4096 → 1024 | GQA: 8 KV heads × 128 dims |
+| v_proj | 4096 → 1024 | same |
+| o_proj | 4096 → 4096 | attention output projection |
+| gate_proj | 4096 → 14336 | SwiGLU gate |
+| up_proj | 4096 → 14336 | SwiGLU expansion |
+| down_proj | 14336 → 4096 | SwiGLU projection back down |
+
+There are 32 layers. LoRA parameter counts under different settings:
+
+| Setting | Trained parameters | Share of all parameters | Adapter file (bf16) |
+| --- | --- | --- | --- |
+| r = 8, on q and v only (the original LoRA paper's setup) | 3,407,872 | 0.042% | about 6.5 MiB |
+| r = 16, on all 7 linear layers | 41,943,040 | 0.52% | about 80 MiB |
+| r = 64, on all 7 linear layers | 167,772,160 | 2.09% | about 320 MiB |
+
+Take the common r = 16 on all linear layers: only about 42 million parameters are trained, and at 16 bytes per parameter their gradients and optimizer state need only about **0.62 GiB** — negligible next to the 128 GB of full fine-tuning.
+
+<Note title="LoRA saves training state, not the base weights" type="warning">
+
+The frozen W isn't updated and has no gradients or optimizer state, but both the forward and backward passes use it, so **8B of fp16 weights (about 16 GB) still has to sit in GPU memory**, plus activations. LoRA turns 8B fine-tuning from "must use multiple GPUs" into "fits on one 40 GB or 80 GB GPU," but squeezing it onto a 24 GB consumer card also requires QLoRA from Level 3 to shrink the base weights.
+
+</Note>
+
+### Why initialize B to 0? What is alpha?
+
+**Initialization**: A gets small random values and **B is set entirely to 0**. So at the start of training B · A = 0, and the model's output is **exactly** the original model's — training starts from the original model's abilities and adjusts gradually.
+
+If both A and B were random, ΔW would be a random perturbation from the first step, effectively scrambling the model before slowly fixing it — wasted training that can also damage existing abilities.
+
+**Alpha (α)**: LoRA's output is multiplied by the scaling factor α / r:
+
+```
+r = 16, α = 32  →  scale = 2
+r = 16, α = 16  →  scale = 1
+```
+
+Common settings are α = r or α = 2r. Keeping α / r fixed has a benefit: when you change the rank, the overall size of the update doesn't swing wildly, so you don't need to retune the learning rate each time.
+
+### Which layers should LoRA target, and how big should the rank be?
+
+**Where to add it:**
+
+- The original LoRA paper added it only to attention's q and v projections, for the fewest parameters
+- Today it's more common to **target all linear layers** (attention + FFN). The QLoRA paper found that matching full fine-tuning quality required LoRA on all linear layers
+
+**How big a rank (rules of thumb):**
+
+| Task type | Typical rank |
+| --- | --- |
+| behavioral adjustments like format, style, and tone (e.g. review extraction) | 8 to 16 |
+| domain adaptation that has more to learn | 32 to 64 or higher |
+
+Bigger isn't automatically better: a higher rank means more parameters and a greater risk of overfitting small data. Starting at 16 and increasing only if quality falls short is a practical approach.
+
+### After training, how is a LoRA used?
+
+Two ways:
+
+**1. Merge it back into the weights:**
+
+```
+W' = W + (α / r) · B · A
+```
+
+W' has exactly the same shape as W, so swapping it in changes nothing about the model's structure and **adds no inference latency**. That's LoRA's biggest advantage over adapters.
+
+**2. Keep the adapter separate:** load the base model once and store adapters (tens of MB) separately, loading or switching them as needed. That's how one base model serves many tasks — details in Level 6.
+
+<Note title="When you explain LoRA in an interview, say the numbers" type="tip">
+
+"LoRA freezes the original weights and trains only low-rank matrices B and A. For an 8B model with r = 16 on all linear layers, that's about 42 million trained parameters, 0.5% of the total, in an 80 MB adapter file. B starts at zero so training begins from the original model, and afterward it can be merged back in with zero added inference latency." That lands far better than "LoRA is low-rank adaptation."
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What does LoRA freeze, and what does it train? Write out its forward pass.
+2. By hand: with A = [1, 0, 1] and B = [2, 1]ᵀ, what matrix is B · A, and what's its rank?
+3. For a 4096 → 14336 linear layer with r = 16, how many parameters does LoRA add?
+4. Why is B initialized to 0, and what does α / r do?
+5. LoRA saves training-state memory, so why is an 8B model still hard to fit on a 24 GB GPU?
+6. What are the two ways to use a trained LoRA, and why does merging add no inference latency?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · QLoRA：把基座权重压到 4-bit
+
+### 为什么有了 LoRA 还需要 QLoRA？
+
+Level 2 结尾说过：LoRA 省掉了梯度和优化器状态，但冻结的基座权重仍然要以 fp16 放进显存。LLaMA 3 8B 光权重就约 16 GB，再加上激活值，24 GB 的消费级显卡就很难放下了。
+
+**QLoRA 的想法很直接：既然基座权重不用训练，就把它们压成 4-bit 存；LoRA 的 A、B 仍然用 16 位，照常训练。** QLoRA 的论文用这个方法，在一张 48 GB 的显卡上微调了 65B 的模型。
+
+要理解它，先要知道「量化」是怎么回事。
+
+### 量化是什么？手算一个 int4 的例子
+
+**量化（quantization）**：用更少的位数来存数字。fp16 每个数 16 位，int4 每个数只有 4 位，只能表示 16 个不同的整数。做法是先找一个**缩放系数（scale）**，把浮点数映射到这个小整数网格上。
+
+最简单的对称 absmax 量化，4 个权重，int4 取 −7 到 7：
+
+```
+原始权重 w  = [0.12, −0.50, 0.33, 0.90]
+
+① 缩放系数  scale = 最大绝对值 / 7 = 0.90 / 7 = 0.1286
+② 量化      q = round(w / scale) = round([0.93, −3.89, 2.57, 7.00]) = [1, −4, 3, 7]
+③ 存储      4 个 4-bit 整数 + 1 个 scale
+④ 使用时反量化  w' = q × scale = [0.129, −0.514, 0.386, 0.900]
+
+误差 = w − w' = [−0.009, 0.014, −0.056, 0.000]
+```
+
+存储从 4 × 16 位变成了 4 × 4 位（外加一个 scale），代价是每个数都有一点舍入误差。
+
+计算时，GPU 会把 4-bit 权重**临时反量化**回 16 位再做矩阵乘法，所以显存省下来了，但每次计算都多了一步反量化的开销。
+
+### 离群值为什么是难点？分组量化怎么解决？
+
+如果这组权重里有一个特别大的数：
+
+```
+w = [0.10, 0.20, −0.15, 8.00]
+
+scale = 8.00 / 7 = 1.143
+q     = round([0.09, 0.17, −0.13, 7.00]) = [0, 0, 0, 7]
+w'    = [0.00, 0.00, 0.00, 8.00]           ← 三个小权重全部变成了 0
+```
+
+一个离群值把 scale 撑得很大，其他数全被舍入成 0，信息完全丢失。
+
+**分组量化（group / block-wise quantization）**：不要整个矩阵共用一个 scale，而是每隔一小组（比如 64 个数）单独算一个 scale。上面三个小数单独成一组：
+
+```
+组内 w = [0.10, 0.20, −0.15]
+scale = 0.20 / 7 = 0.0286
+q     = [4, 7, −5]
+w'    = [0.114, 0.200, −0.143]              ← 保留住了
+```
+
+代价是要多存很多个 scale：每 64 个权重配一个 32 位的 scale，平均每个权重多出 32 / 64 = **0.5 位**。
+
+### NF4 和双重量化是什么？
+
+QLoRA 在分组量化的基础上又做了两个改进：
+
+**1. NF4（4-bit NormalFloat）**：预训练模型的权重大致呈以 0 为中心的正态分布，绝大多数数值都很接近 0，很大的数很少。上面那种均匀的整数网格，会把很多个「格子」浪费在很少出现的大数上。NF4 按正态分布来摆放这 16 个取值：**靠近 0 的地方格子密，远离 0 的地方格子疏**，同样 4 位能把常见的数表示得更准。
+
+**2. 双重量化（double quantization）**：分组量化额外多出的 0.5 位来自那些 32 位的 scale。双重量化**把 scale 本身也量化一次**（再分组压成 8 位），把这部分开销从每个权重约 0.5 位降到约 0.127 位。
+
+QLoRA 还用了**分页优化器（paged optimizer）**：显存突然吃紧时，把优化器状态临时挪到 CPU 内存，避免长序列训练时偶发的显存溢出。
+
+### QLoRA 微调 LLaMA 3 8B 要多少显存？
+
+把前面的都算上：
+
+```
+7 种线性层全部 NF4 + 双重量化    6.98B × 4.127 位 ≈ 3.60 GB
+embedding 和 LM head 保留 bf16    1.05B × 2 字节   ≈ 2.10 GB    （通常不量化这两部分）
+LoRA r = 16 的参数和训练状态       41.9M × 16 字节  ≈ 0.67 GB
+合计                                              ≈ 6.4 GB     再加激活值
+```
+
+三种方式放在一起比：
+
+| 方式 | 权重 + 训练状态 | 通常需要的硬件 |
+| --- | --- | --- |
+| 全量微调 | 约 128 GB | 多张 80 GB 卡 + ZeRO |
+| LoRA（基座 fp16） | 约 16.7 GB | 一张 40 GB 或 80 GB 的卡 |
+| **QLoRA（基座 4-bit）** | **约 6.4 GB** | **一张 24 GB 的消费级显卡** |
+
+激活值和序列长度、batch 大小成正比。配合激活重计算（见 [Training](/docs/llm/training) Level 5），8B 模型用 QLoRA 在 2K 左右的序列长度上训练，通常能放进 24 GB 的显卡。
+
+用 Hugging Face 的 `transformers` + `peft` 配置出来是这样：
+
+```python
+import torch
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+from peft import LoraConfig, get_peft_model
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_compute_dtype=torch.bfloat16,   # 反量化后用 bf16 计算
+)
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Meta-Llama-3-8B-Instruct", quantization_config=bnb_config
+)
+lora_config = LoraConfig(
+    r=16, lora_alpha=32, lora_dropout=0.05, task_type="CAUSAL_LM",
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
+                    "gate_proj", "up_proj", "down_proj"],
+)
+model = get_peft_model(model, lora_config)
+model.print_trainable_parameters()   # 可训练参数应为 41,943,040，和 Level 2 手算的一致
+```
+
+### QLoRA 牺牲了什么？
+
+| 代价 | 原因 |
+| --- | --- |
+| **训练更慢** | 每次前向和反向都要把 4-bit 权重反量化回 16 位 |
+| **可能有一点质量差距** | 基座权重有量化误差。QLoRA 论文报告在他们的评测上能接近 16 位微调的效果，但具体任务上仍建议实测对比 |
+| **合并更麻烦** | 适配器是在「量化后的基座」上训出来的。直接合并进 4-bit 权重不方便，常见做法是合并进 fp16 基座，部署时再重新量化（见 Level 6 和 [Inference](/docs/llm/inference) Level 4） |
+
+<Note title="项目深挖时，把「为什么用 QLoRA」讲成硬件约束下的取舍" type="tip">
+
+「我们只有 24 GB 的卡，8B 模型 fp16 权重就 16 GB，LoRA 也放不下；QLoRA 把基座压到约 6 GB，代价是训练慢一些。我们对比过 16 位 LoRA 在验证集上的指标，差距在可接受范围内。」这比「我用了 QLoRA」多了决策依据，也经得起追问。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. LoRA 已经省了很多显存，为什么还需要 QLoRA？
+2. 手算：w = [0.2, −0.6, 0.4]，用 absmax int4（−7 到 7）量化，scale、q、反量化结果分别是多少？
+3. 离群值为什么会破坏量化？分组量化怎么解决？代价是什么？
+4. NF4 和双重量化分别解决了什么问题？
+5. QLoRA 微调 LLaMA 3 8B，权重和训练状态大约多少 GB？分别来自哪几部分？
+6. QLoRA 牺牲了什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · QLoRA: compressing the base weights to 4 bits
+
+### LoRA already saves so much — why is QLoRA needed?
+
+Level 2 ended on this: LoRA removes gradients and optimizer state, but the frozen base weights still have to sit in GPU memory in fp16. LLaMA 3 8B's weights alone are about 16 GB, and with activations on top, a 24 GB consumer GPU struggles to fit it.
+
+**QLoRA's idea is straightforward: the base weights aren't being trained, so store them in 4 bits; LoRA's A and B stay in 16-bit and train as usual.** The QLoRA paper used this to fine-tune a 65B model on a single 48 GB GPU.
+
+To understand it, you first need to know what quantization is.
+
+### What is quantization? Work out an int4 example
+
+**Quantization** stores numbers with fewer bits. fp16 uses 16 bits per number; int4 uses 4 bits and can represent only 16 distinct integers. The trick is to find a **scale** that maps the floating-point numbers onto that small integer grid.
+
+The simplest scheme, symmetric absmax quantization, on four weights with int4 ranging from −7 to 7:
+
+```
+original weights w = [0.12, −0.50, 0.33, 0.90]
+
+① scale        = largest absolute value / 7 = 0.90 / 7 = 0.1286
+② quantize     q = round(w / scale) = round([0.93, −3.89, 2.57, 7.00]) = [1, −4, 3, 7]
+③ store        four 4-bit integers + one scale
+④ dequantize   w' = q × scale = [0.129, −0.514, 0.386, 0.900]
+
+error = w − w' = [−0.009, 0.014, −0.056, 0.000]
+```
+
+Storage drops from 4 × 16 bits to 4 × 4 bits (plus one scale), at the cost of a small rounding error in each number.
+
+At compute time the GPU **temporarily dequantizes** the 4-bit weights back to 16 bits for the matrix multiply, so memory is saved but every computation pays an extra dequantization step.
+
+### Why are outliers the hard part, and how does group-wise quantization help?
+
+Suppose one weight in the group is unusually large:
+
+```
+w = [0.10, 0.20, −0.15, 8.00]
+
+scale = 8.00 / 7 = 1.143
+q     = round([0.09, 0.17, −0.13, 7.00]) = [0, 0, 0, 7]
+w'    = [0.00, 0.00, 0.00, 8.00]           ← all three small weights became 0
+```
+
+One outlier inflates the scale so much that everything else rounds to 0 and the information is lost entirely.
+
+**Group-wise (block-wise) quantization**: instead of one scale for the whole matrix, compute a separate scale for every small group (say, every 64 numbers). Put the three small numbers in their own group:
+
+```
+group w = [0.10, 0.20, −0.15]
+scale   = 0.20 / 7 = 0.0286
+q       = [4, 7, −5]
+w'      = [0.114, 0.200, −0.143]            ← preserved
+```
+
+The cost is storing many more scales: one 32-bit scale per 64 weights adds 32 / 64 = **0.5 bits** per weight on average.
+
+### What are NF4 and double quantization?
+
+QLoRA adds two improvements on top of group-wise quantization:
+
+**1. NF4 (4-bit NormalFloat)**: pretrained weights are roughly normally distributed around 0 — most values are close to 0 and large ones are rare. A uniform integer grid like the one above wastes many of its levels on large values that hardly ever occur. NF4 places its 16 values according to the normal distribution: **levels are dense near 0 and sparse far from it**, so the same 4 bits represent common values more accurately.
+
+**2. Double quantization**: group-wise quantization's extra 0.5 bits come from those 32-bit scales. Double quantization **quantizes the scales themselves** (grouping them again and compressing to 8 bits), cutting that overhead from about 0.5 bits per weight to about 0.127.
+
+QLoRA also uses **paged optimizers**: when GPU memory suddenly runs tight, optimizer state is moved temporarily to CPU memory, avoiding the occasional out-of-memory crash when training on long sequences.
+
+### How much memory does QLoRA fine-tuning of LLaMA 3 8B take?
+
+Putting it all together:
+
+```
+all 7 linear-layer types in NF4 + double quantization   6.98B × 4.127 bits ≈ 3.60 GB
+embedding and LM head kept in bf16                      1.05B × 2 bytes    ≈ 2.10 GB    (usually not quantized)
+LoRA r = 16 parameters and training state               41.9M × 16 bytes   ≈ 0.67 GB
+total                                                                      ≈ 6.4 GB     plus activations
+```
+
+The three approaches side by side:
+
+| Approach | Weights + training state | Typical hardware |
+| --- | --- | --- |
+| Full fine-tuning | about 128 GB | several 80 GB GPUs + ZeRO |
+| LoRA (fp16 base) | about 16.7 GB | one 40 GB or 80 GB GPU |
+| **QLoRA (4-bit base)** | **about 6.4 GB** | **one 24 GB consumer GPU** |
+
+Activations scale with sequence length and batch size. With activation checkpointing (see [Training](/docs/llm/training) Level 5), QLoRA training of an 8B model at sequence lengths around 2K usually fits on a 24 GB GPU.
+
+Configured with Hugging Face `transformers` + `peft`:
+
+```python
+import torch
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+from peft import LoraConfig, get_peft_model
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_compute_dtype=torch.bfloat16,   # compute in bf16 after dequantizing
+)
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Meta-Llama-3-8B-Instruct", quantization_config=bnb_config
+)
+lora_config = LoraConfig(
+    r=16, lora_alpha=32, lora_dropout=0.05, task_type="CAUSAL_LM",
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
+                    "gate_proj", "up_proj", "down_proj"],
+)
+model = get_peft_model(model, lora_config)
+model.print_trainable_parameters()   # trainable params should be 41,943,040, matching Level 2's hand count
+```
+
+### What does QLoRA give up?
+
+| Cost | Why |
+| --- | --- |
+| **Slower training** | every forward and backward pass dequantizes the 4-bit weights back to 16 bits |
+| **Possibly a small quality gap** | the base weights carry quantization error. The QLoRA paper reported results close to 16-bit fine-tuning on its benchmarks, but it's still worth measuring on your own task |
+| **Harder merging** | the adapter was trained against the quantized base. Merging directly into 4-bit weights is awkward; the common approach is to merge into the fp16 base and re-quantize for deployment (see Level 6 and [Inference](/docs/llm/inference) Level 4) |
+
+<Note title="In a project deep-dive, frame “why QLoRA” as a trade-off under hardware limits" type="tip">
+
+"We only had 24 GB GPUs. The 8B model's fp16 weights alone are 16 GB, so even LoRA didn't fit. QLoRA brought the base down to about 6 GB at the cost of slower training, and when we compared against 16-bit LoRA on the validation set, the gap was acceptable." That gives your decision a rationale beyond "I used QLoRA," and it holds up under follow-up questions.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. LoRA already saves a lot of memory, so why is QLoRA needed?
+2. By hand: quantize w = [0.2, −0.6, 0.4] with absmax int4 (−7 to 7). What are the scale, q, and dequantized values?
+3. Why do outliers break quantization, how does group-wise quantization help, and what does it cost?
+4. What problems do NF4 and double quantization each solve?
+5. For QLoRA on LLaMA 3 8B, roughly how many GB do the weights and training state take, and which parts make that up?
+6. What does QLoRA give up?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 4 · 数据与训练配置
+
+LoRA 和 QLoRA 解决的是「放不放得下、训不训得动」。模型最后学成什么样，由数据和训练配置决定。
+
+### 训练数据长什么样？
+
+和 [Post-training](/docs/llm/post-training) Level 1 的 SFT 数据格式一样，每条都是一段对话：
+
+```json
+{"messages": [
+  {"role": "system", "content": "你是评论分析助手。只输出 JSON。"},
+  {"role": "user", "content": "我 爱 这款猫粮，但是物流太慢了"},
+  {"role": "assistant", "content": "{\"sentiment\": \"mixed\", \"positive\": [\"产品\"], \"negative\": [\"物流\"]}"}
+]}
+```
+
+训练时要做到两点（原理见 Post-training Level 1）：
+
+- 用 LLaMA 3 Instruct **原本的 chat template** 把对话拼成 token 序列
+- **只在 assistant 的回答上算 loss**，system 和 user 部分不算
+
+注意一个细节：训好之后，system prompt 里不再需要那一大段规则和 few-shot 示例，一句话就够了。这就是 Level 0 说的「把规则训进权重，缩短 prompt」。
+
+### 需要多少数据？怎么准备？
+
+格式、风格、判断口径这类任务，**几百到几千条高质量数据**通常就够了。这个例子准备 2,000 条标注好的评论。
+
+好数据要满足：
+
+| 要求 | 在这个例子里意味着什么 |
+| --- | --- |
+| **标注正确** | 每条 JSON 都要人工核对过 |
+| **口径一致** | 先写一份标注规范，比如「贵但值」判 mixed 还是 positive，写死了再标 |
+| **覆盖真实分布** | 五个方面都要有；要有纯好评、纯差评、mixed、没提任何方面的评论；长短、口语、黑话都要有 |
+| **去重** | 重复或几乎一样的评论只留一条 |
+| **测试集不泄漏** | 测试集的评论和训练集没有重叠 |
+
+数据来源一般有三种：人工从头标注（最贵）；先让更强的模型预标注、再人工审核修正（常用，性价比高）；从线上日志里收集被人工改正过的结果。
+
+<Note title="标注规范是这项工作的一半" type="tip">
+
+标注员之间口径不一致，模型就会学到不一致。「贵但值」有人标 mixed、有人标 positive，模型在这类评论上就会摇摆。所以动手标注之前，先用几十条难例把规范对齐。面试时能讲出「我们先定了标注规范，处理了哪些边界情况」，比只说「准备了 2,000 条数据」专业得多。
+
+</Note>
+
+### 训练、验证、测试集怎么划分？
+
+```
+训练集  2,000 条   用来更新参数
+验证集    200 条   训练过程中看效果、选 checkpoint、调超参数
+测试集    200 条   最后只用一次，报告最终效果；不能用来做任何调参决定
+```
+
+- **测试集要单独、仔细地标注**，它决定了你报告的数字可不可信
+- **最好按时间或商品来切分**，而不是完全随机：同一个商品下的评论往往很像，随机切分容易让测试集里出现训练集的「近亲」，指标虚高
+
+### 超参数怎么设？
+
+一套常见的 QLoRA 起步配置：
+
+| 超参数 | 常用值 | 说明 |
+| --- | --- | --- |
+| rank r | 16 | 行为类任务 8 到 16 通常够用（Level 2） |
+| alpha α | 32 | α = 2r，缩放系数为 2 |
+| LoRA dropout | 0.05 | 对 LoRA 分支加一点 dropout，防过拟合 |
+| 作用的层 | 全部线性层 | Level 2 |
+| 学习率 | 1e-4 到 2e-4 | LoRA 常用的学习率比全量微调高 |
+| epoch | 1 到 3 | 数据少时容易过拟合，不要训太多轮 |
+| 等效 batch size | 16 | 显存不够就用梯度累积凑出来（见 [Training](/docs/llm/training) Level 2） |
+| 最大序列长度 | 覆盖数据里最长的样本 | 太短会把回答截掉 |
+| 学习率调度 | 少量 warmup + cosine 衰减 | 见 Training Level 2 |
+
+算一下步数：
+
+```
+2,000 条 ÷ batch 16 = 125 步 / epoch
+训 3 个 epoch = 375 步
+```
+
+步数很少，所以 warmup 通常只设十几到二十步。
+
+### 怎么判断过拟合？
+
+同时看**训练 loss** 和**验证 loss**（示意数字）：
+
+```
+epoch    训练 loss    验证 loss
+1        0.62         0.58
+2        0.35         0.41       ← 验证 loss 最低
+3        0.18         0.47       ← 训练还在降，验证开始回升：过拟合了
+```
+
+训练 loss 一直降、验证 loss 开始回升，说明模型在「背训练集」。这时应该选**验证集表现最好的那个 checkpoint**（这里是 epoch 2），而不是最后一个。
+
+除了 loss，还要在验证集上直接看任务指标（JSON 合法率、方面抽取的准确率），因为 loss 下降不一定等于抽取变准。
+
+过拟合时常用的办法：减少 epoch、降低学习率或 rank、增加数据的多样性、加大 dropout。
+
+### 常见的坑有哪些？
+
+<Note title="Chat template 用错或少了结束 token，模型会停不下来" type="warning">
+
+训练数据里回答末尾没有正确的结束标记，模型就学不会「答完就停」，部署后会在 JSON 后面继续乱写。训练和推理必须用同一套模板（见 [Post-training](/docs/llm/post-training) Level 1）。
+
+</Note>
+
+<Note title="把 prompt 部分也算进 loss" type="warning">
+
+模型会花力气学着复述指令和评论，而且训练 loss 会被这些「容易预测」的 token 拉低，看起来很好看，实际效果却变差。
+
+</Note>
+
+<Note title="最大长度设太小，回答被截断" type="warning">
+
+超过最大长度的部分会被直接截掉。如果被截掉的恰好是 assistant 的回答，模型学到的就是「写半个 JSON」。训练前先统计一下数据的 token 长度分布。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 微调数据的格式是什么？训练时要注意哪两点？
+2. 好的微调数据要满足哪些要求？为什么标注规范很重要？
+3. 训练、验证、测试集分别用来做什么？为什么最好不要完全随机切分？
+4. 说出一套 QLoRA 的常用超参数。2,000 条数据、batch 16、3 个 epoch 一共多少步？
+5. 怎么从 loss 曲线判断过拟合？应该选哪个 checkpoint？
+6. 说出两个微调中常见的坑。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Data and training setup
+
+LoRA and QLoRA solve "does it fit, and can it train." What the model actually learns is decided by the data and the training setup.
+
+### What does the training data look like?
+
+It uses the same SFT format as [Post-training](/docs/llm/post-training) Level 1 — each example is a conversation:
+
+```json
+{"messages": [
+  {"role": "system", "content": "You analyze reviews. Output JSON only."},
+  {"role": "user", "content": "我 爱 这款猫粮，但是物流太慢了"},
+  {"role": "assistant", "content": "{\"sentiment\": \"mixed\", \"positive\": [\"product\"], \"negative\": [\"shipping\"]}"}
+]}
+```
+
+Training needs two things (reasoning in Post-training Level 1):
+
+- use LLaMA 3 Instruct's **original chat template** to turn the conversation into a token sequence
+- **compute loss only on the assistant's response**, not the system or user parts
+
+Notice one detail: once trained, the system prompt no longer needs the long block of rules and few-shot examples — one sentence is enough. That's Level 0's "train the rules into the weights and shorten the prompt."
+
+### How much data do you need, and how do you prepare it?
+
+For format, style, and judgment-consistency tasks, **a few hundred to a few thousand high-quality examples** is usually enough. This example uses 2,000 labeled reviews.
+
+Good data needs to be:
+
+| Requirement | What it means in this example |
+| --- | --- |
+| **Correctly labeled** | every JSON has been checked by a person |
+| **Consistent** | write a labeling guide first — e.g., is "pricey but worth it" mixed or positive? — and settle it before labeling |
+| **Representative** | all five aspects; purely positive, purely negative, mixed, and no-aspect reviews; short and long, colloquial, slang |
+| **Deduplicated** | keep only one of any duplicate or near-identical reviews |
+| **No test leakage** | test reviews don't overlap with training reviews |
+
+Data usually comes from one of three places: human labeling from scratch (most expensive); pre-labeling with a stronger model followed by human review and correction (common and cost-effective); or collecting human-corrected results from production logs.
+
+<Note title="The labeling guide is half the work" type="tip">
+
+If labelers disagree, the model learns the disagreement. If "pricey but worth it" is labeled mixed by some and positive by others, the model will waver on reviews like it. So before labeling at scale, align the guide on a few dozen hard examples. Saying in an interview "we wrote a labeling guide first and here are the edge cases we settled" sounds far more professional than "we prepared 2,000 examples."
+
+</Note>
+
+### How do you split training, validation, and test sets?
+
+```
+training set    2,000 examples   used to update parameters
+validation set    200 examples   used during training to check progress, pick checkpoints, tune hyperparameters
+test set          200 examples   used once at the end to report final results; never used for any tuning decision
+```
+
+- **Label the test set separately and carefully** — it decides whether the numbers you report are trustworthy
+- **Split by time or by product rather than purely at random**: reviews of the same product tend to look alike, so a random split can leave "close relatives" of training examples in the test set and inflate the metrics
+
+### How do you set the hyperparameters?
+
+A common QLoRA starting configuration:
+
+| Hyperparameter | Typical value | Notes |
+| --- | --- | --- |
+| rank r | 16 | 8 to 16 is usually enough for behavioral tasks (Level 2) |
+| alpha α | 32 | α = 2r, a scale of 2 |
+| LoRA dropout | 0.05 | a little dropout on the LoRA branch to prevent overfitting |
+| target layers | all linear layers | Level 2 |
+| learning rate | 1e-4 to 2e-4 | LoRA typically uses a higher learning rate than full fine-tuning |
+| epochs | 1 to 3 | small datasets overfit easily; don't train too many passes |
+| effective batch size | 16 | use gradient accumulation if memory is short (see [Training](/docs/llm/training) Level 2) |
+| max sequence length | long enough for the longest example | too short truncates responses |
+| learning-rate schedule | brief warmup + cosine decay | see Training Level 2 |
+
+Count the steps:
+
+```
+2,000 examples ÷ batch 16 = 125 steps per epoch
+3 epochs = 375 steps
+```
+
+With so few steps, warmup is usually just ten to twenty steps.
+
+### How do you spot overfitting?
+
+Watch **training loss** and **validation loss** together (illustrative numbers):
+
+```
+epoch    training loss    validation loss
+1        0.62             0.58
+2        0.35             0.41       ← lowest validation loss
+3        0.18             0.47       ← training still falling, validation rising: overfitting
+```
+
+When training loss keeps falling but validation loss starts rising, the model is memorizing the training set. Pick **the checkpoint with the best validation performance** (epoch 2 here), not the last one.
+
+Beyond loss, check task metrics on the validation set directly (valid-JSON rate, aspect extraction accuracy), because a lower loss doesn't necessarily mean more accurate extraction.
+
+Common fixes for overfitting: fewer epochs, a lower learning rate or rank, more diverse data, more dropout.
+
+### What are the common pitfalls?
+
+<Note title="A wrong chat template or missing end token means the model won't stop" type="warning">
+
+If responses in the training data don't end with the correct end marker, the model never learns to stop when it's done, and after deployment it keeps writing after the JSON. Training and inference must use the same template (see [Post-training](/docs/llm/post-training) Level 1).
+
+</Note>
+
+<Note title="Counting the prompt in the loss" type="warning">
+
+The model spends effort learning to repeat the instructions and reviews, and those easy-to-predict tokens drag the training loss down — it looks great while real performance gets worse.
+
+</Note>
+
+<Note title="A max length that's too short truncates responses" type="warning">
+
+Anything past the max length is simply cut off. If the part cut off is the assistant's response, the model learns to write half a JSON. Check the token-length distribution of your data before training.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What format does fine-tuning data use, and what two things must training get right?
+2. What does good fine-tuning data require, and why does the labeling guide matter so much?
+3. What are the training, validation, and test sets each for, and why avoid a purely random split?
+4. Name a common set of QLoRA hyperparameters. How many steps is 2,000 examples at batch 16 for 3 epochs?
+5. How do you spot overfitting from the loss curves, and which checkpoint should you pick?
+6. Name two common fine-tuning pitfalls.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 5 · 评估与灾难性遗忘
+
+### 怎么证明微调真的有效？
+
+先把「有效」定义成能算的指标。评论抽取任务在 200 条测试评论上可以看这几个：
+
+| 指标 | 怎么算 |
+| --- | --- |
+| JSON 合法率 | 能被解析、字段齐全的输出占比 |
+| 情感准确率 | sentiment 判断正确的占比 |
+| 方面抽取的精确率 / 召回率 / F1 | 按「方面」逐个比对（下面手算） |
+| 完全正确率 | 整个 JSON 和标准答案一模一样的占比 |
+
+**手算方面抽取的 F1。** 把 200 条评论里所有抽出来的方面加在一起：
+
+```
+模型一共抽出了 400 个方面
+标准答案里一共有 420 个方面
+两者对上的有 360 个
+
+精确率 P = 360 / 400 = 0.900     抽出来的里面有多少是对的
+召回率 R = 360 / 420 = 0.857     该抽的里面抽到了多少
+F1 = 2 × P × R / (P + R) = 0.878
+```
+
+**和几个基线放在一起比**，才能说明微调带来了什么（示意数字）：
+
+| 方案 | JSON 合法率 | 完全正确率 |
+| --- | --- | --- |
+| 只用 prompt（3 个示例） | 85.0% | 75.0% |
+| prompt + 约束解码 | 100% | 78.0% |
+| QLoRA 微调 | 98.5% | 90.5% |
+| QLoRA 微调 + 约束解码 | 100% | 91.0% |
+
+这张表能讲清楚一件很重要的事：**约束解码解决了格式问题，但正确率主要是微调带来的**。这正对应 Level 0 的分析。
+
+<Note title="剩下的错误要分类，它决定下一步收集什么数据" type="tip">
+
+微调后还错的 19 条，逐条看，按原因分类：「贵但值」这类边界情感、没见过的黑话、一条评论提到三个以上方面……哪一类最多，下一轮就重点补哪一类的数据。「看错例 → 分类 → 定向补数据」是微调迭代最有效的循环，面试时讲出来很加分。
+
+</Note>
+
+### 为什么还要检查通用能力？
+
+Level 1 讲过灾难性遗忘：只在一个窄任务上训练，模型原有的能力可能退化。只看任务指标，发现不了这个问题。
+
+所以微调之后，还要拿**原来的 instruct 模型**做对照，跑一组通用检查：
+
+- **通用能力**：常见评测的小子集，比如知识问答、数学推理、代码
+- **任务外的行为**：问它一个普通问题，看它会不会也用 JSON 回答
+- **安全行为**：有害请求它还会不会拒绝
+
+一个示意的回归检查结果：
+
+```
+                     原 instruct 模型    微调后
+通用知识问答（子集）      68.0%          66.5%     小幅下降，可以接受
+数学推理（子集）         79.0%          77.0%
+普通问题用 JSON 回答        0%           12%       ← 需要处理
+有害请求拒绝率            95%            88%       ← 需要处理
+```
+
+<Note title="即使训练数据完全无害，微调也可能削弱安全对齐" type="warning">
+
+有研究发现，用普通、无害的数据微调一个已经做过安全对齐的模型，也可能让它更容易执行有害请求。所以对外提供服务的微调模型，要把安全评测放进回归测试，不能默认「数据没问题，安全就没问题」。
+
+</Note>
+
+### 怎么缓解灾难性遗忘？
+
+| 办法 | 为什么有效 |
+| --- | --- |
+| **用 LoRA 而不是全量微调** | 只改很少的参数，原权重不动。有研究发现 LoRA「学得少，但忘得也少」 |
+| **混入一小部分通用指令数据** | 训练时不只看一个任务，模型不会被完全推向 JSON |
+| **少训几轮、降低学习率或 rank** | 改动幅度越小，遗忘越少 |
+| **每个任务一个独立的适配器** | 基座不变，不用这个任务时卸掉适配器，模型就是原来的样子（Level 6） |
+
+回到上面那个「普通问题也用 JSON 回答」的问题：最直接的解法是把适配器只用在评论抽取这个接口上，其他请求走不带适配器的原模型。
+
+### 什么时候可以用 LLM-as-judge？
+
+评论抽取这种有标准答案、可以程序比对的任务，**优先用程序算的指标**，又准又便宜。
+
+输出是开放文本（比如微调一个客服回复模型）、没法逐字比对时，才用 LLM-as-judge：让一个强模型比较微调前后的回答，算胜率。它的位置偏差、长度偏差这些坑，见 [Post-training](/docs/llm/post-training) Level 6 和 [LLM Evaluation](/docs/evaluation/llm-eval)。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 评论抽取任务可以用哪些指标评估？手算：抽出 50 个方面，标准答案 60 个，对上 45 个，P、R、F1 是多少？
+2. 为什么要和「prompt + 约束解码」这样的基线对比？
+3. 微调后为什么还要检查通用能力和安全行为？具体查什么？
+4. 缓解灾难性遗忘有哪些办法？
+5. 什么任务适合程序化指标，什么任务才需要 LLM-as-judge？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 5 · Evaluation and catastrophic forgetting
+
+### How do you prove fine-tuning actually worked?
+
+First, turn "worked" into something you can compute. For review extraction on 200 test reviews:
+
+| Metric | How it's computed |
+| --- | --- |
+| Valid-JSON rate | share of outputs that parse and have every field |
+| Sentiment accuracy | share with the correct sentiment |
+| Aspect precision / recall / F1 | compared aspect by aspect (worked out below) |
+| Exact-match rate | share where the whole JSON matches the reference exactly |
+
+**Compute aspect F1 by hand.** Add up every aspect across the 200 reviews:
+
+```
+the model extracted 400 aspects in total
+the references contain 420 aspects in total
+360 of them match
+
+precision P = 360 / 400 = 0.900     how many of the extracted aspects are right
+recall    R = 360 / 420 = 0.857     how many of the aspects that should be found were found
+F1 = 2 × P × R / (P + R) = 0.878
+```
+
+**Compare against several baselines** to show what fine-tuning actually contributed (illustrative numbers):
+
+| Approach | Valid-JSON rate | Exact-match rate |
+| --- | --- | --- |
+| Prompting only (3 examples) | 85.0% | 75.0% |
+| Prompting + constrained decoding | 100% | 78.0% |
+| QLoRA fine-tuning | 98.5% | 90.5% |
+| QLoRA fine-tuning + constrained decoding | 100% | 91.0% |
+
+This table makes one important point clear: **constrained decoding fixes the format, but the accuracy gain comes mainly from fine-tuning** — exactly the analysis from Level 0.
+
+<Note title="Categorize the remaining errors; they decide what data to collect next" type="tip">
+
+Go through the 19 reviews still wrong after fine-tuning and group them by cause: borderline sentiment like "pricey but worth it," unseen slang, reviews mentioning three or more aspects… Whichever group is largest is where the next round of data goes. "Look at errors → categorize → collect targeted data" is the most effective fine-tuning iteration loop, and describing it scores well in interviews.
+
+</Note>
+
+### Why check general abilities too?
+
+Level 1 covered catastrophic forgetting: training on one narrow task can degrade existing abilities. Task metrics alone won't reveal it.
+
+So after fine-tuning, run a set of general checks against **the original instruct model** as a control:
+
+- **General ability**: small subsets of common benchmarks, such as knowledge QA, math reasoning, and code
+- **Off-task behavior**: ask it an ordinary question and see whether it also answers in JSON
+- **Safety behavior**: does it still decline harmful requests?
+
+An illustrative regression check:
+
+```
+                                    original instruct model    after fine-tuning
+general knowledge QA (subset)            68.0%                     66.5%     small drop, acceptable
+math reasoning (subset)                  79.0%                     77.0%
+answers ordinary questions in JSON          0%                       12%     ← needs fixing
+refusal rate on harmful requests           95%                       88%     ← needs fixing
+```
+
+<Note title="Even entirely harmless training data can weaken safety alignment" type="warning">
+
+Research has found that fine-tuning a safety-aligned model on ordinary, harmless data can still make it more willing to carry out harmful requests. So any fine-tuned model served to users needs safety evaluation in its regression tests — don't assume "the data was fine, so safety is fine."
+
+</Note>
+
+### How do you mitigate catastrophic forgetting?
+
+| Approach | Why it works |
+| --- | --- |
+| **Use LoRA instead of full fine-tuning** | only a few parameters change and the original weights stay put. Research has found LoRA "learns less, but also forgets less" |
+| **Mix in a small amount of general instruction data** | training isn't about just one task, so the model isn't pushed entirely toward JSON |
+| **Fewer epochs, a lower learning rate or rank** | the smaller the change, the less forgetting |
+| **A separate adapter per task** | the base model stays unchanged; unload the adapter when the task isn't needed and you have the original model back (Level 6) |
+
+Back to the "answers ordinary questions in JSON" problem above: the most direct fix is to apply the adapter only on the review-extraction endpoint, and route every other request to the original model without the adapter.
+
+### When is LLM-as-judge appropriate?
+
+For tasks like review extraction, which have reference answers you can compare programmatically, **prefer computed metrics** — they're accurate and cheap.
+
+Use LLM-as-judge only when outputs are open-ended text that can't be compared word for word (say, fine-tuning a support-reply model): have a strong model compare responses before and after fine-tuning and compute a win rate. For its pitfalls, like position and length bias, see [Post-training](/docs/llm/post-training) Level 6 and [LLM Evaluation](/docs/evaluation/llm-eval).
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What metrics can evaluate review extraction? By hand: with 50 aspects extracted, 60 in the references, and 45 matching, what are P, R, and F1?
+2. Why compare against baselines like "prompting + constrained decoding"?
+3. After fine-tuning, why check general abilities and safety behavior, and what exactly do you check?
+4. What are the ways to mitigate catastrophic forgetting?
+5. Which tasks suit computed metrics, and which actually need LLM-as-judge?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 6 · 部署与工程选择
+
+### 训练好的适配器怎么部署？合并还是不合并？
+
+两种方式，各有适用场景：
+
+| | 合并进基座 | 保留独立的适配器 |
+| --- | --- | --- |
+| 怎么做 | W' = W + (α / r) · B · A，得到一个完整的新模型 | 基座加载一次，适配器（约 80 MiB）运行时挂上去 |
+| 推理延迟 | 和原模型完全一样 | 多了 LoRA 分支的计算，开销很小 |
+| 部署形态 | 一个任务一个完整模型（fp16 约 16 GB） | 一个基座 + 多个适配器 |
+| 适合 | 只有一个任务、追求最低延迟 | 多个任务或多个客户共用一个基座 |
+
+**QLoRA 训出来的适配器要合并时**，Level 3 讲过：不要直接合并进 4-bit 权重，而是合并进**原始的 fp16 基座**，得到一个 fp16 的完整模型，部署时再用 AWQ、GPTQ 这类方法重新量化（见 [Inference](/docs/llm/inference) Level 4）。合并完一定要在测试集上重新跑一遍指标，确认没有掉点。
+
+### 一个基座模型怎么同时服务多个 LoRA？
+
+假设同一个 LLaMA 3 8B 上训了三个适配器：评论抽取、客服回复、摘要。
+
+```
+方式 A：三个任务各自全量微调或合并，部署三份完整模型
+        3 × 16 GB ≈ 48 GB
+
+方式 B：一个基座 + 三个 LoRA 适配器（r = 16）
+        16 GB + 3 × 80 MiB ≈ 15.2 GiB
+
+如果是给 100 个客户各训一个适配器
+        16 GB + 100 × 80 MiB ≈ 15 GiB + 7.8 GiB
+```
+
+方式 B 显存省得非常多。更关键的是，**vLLM、S-LoRA 这类推理系统支持在同一个 batch 里混合使用不同适配器的请求**：评论抽取的请求和客服回复的请求可以一起算，共享基座的计算，只在 LoRA 分支上各走各的。适配器太多放不下时，还能在 GPU 显存和 CPU 内存之间换入换出。
+
+用 vLLM 挂载适配器：
+
+```python
+from vllm import LLM, SamplingParams
+from vllm.lora.request import LoRARequest
+
+llm = LLM(model="meta-llama/Meta-Llama-3-8B-Instruct",
+          enable_lora=True, max_lora_rank=16)
+outputs = llm.generate(
+    prompts,
+    SamplingParams(temperature=0),
+    lora_request=LoRARequest("review-extract", 1, "/adapters/review-extract"),
+)
+```
+
+<Note title="多 LoRA 服务让「每个客户一个定制模型」变得便宜" type="tip">
+
+如果每个客户都要一个定制模型，全量微调的成本随客户数线性增长；多 LoRA 服务下，新增一个客户只多一个几十 MB 的适配器，和其他客户共享同一张卡。面试里被问「怎么给很多租户做个性化」，这是一个很好的答案。批处理怎么混合不同请求，见 [Inference](/docs/llm/inference) Level 2。
+
+</Note>
+
+### 全量微调、LoRA、QLoRA 怎么选？
+
+| | 全量微调 | LoRA | QLoRA |
+| --- | --- | --- | --- |
+| 训练显存（8B） | 约 128 GB + 激活值 | 约 17 GB + 激活值 | 约 6.4 GB + 激活值 |
+| 训练速度 | 快（但要多卡） | 快 | 较慢（反量化开销） |
+| 效果上限 | 最高 | 大多数任务接近全量 | 通常接近 LoRA |
+| 每个任务的存储 | 完整模型 16 GB | 适配器几十到几百 MB | 同 LoRA |
+| 灾难性遗忘风险 | 较高 | 较低 | 较低 |
+
+选择思路：
+
+- **全量微调**：数据量很大（几十万条以上）、和原模型差距很大的领域或新语言、追求效果上限，而且有足够的卡
+- **LoRA**：绝大多数任务的默认选择，手上有 40 GB 或 80 GB 的卡
+- **QLoRA**：硬件受限，比如只有 24 GB 的卡，愿意用更慢的训练换显存
+
+### RAG、Prompt、微调到底怎么选？怎么组合？
+
+核心区分只有一句话：**RAG 管「回答依据的知识」，微调管「回答的方式」**，prompt 是两者都要先试的零成本起点（完整阶梯见 [Post-training](/docs/llm/post-training) Level 6）。
+
+| 需求 | 方案 | 理由 |
+| --- | --- | --- |
+| 知识经常变、需要给出引用来源 | RAG | 更新文档即可生效，可追溯 |
+| 输出格式、判断口径、领域说法要稳定 | 微调（LoRA） | 行为问题，prompt 例子加不完 |
+| **既要用内部知识，又要按固定格式回答、正确引用** | **RAG + 微调** | 用「带检索片段的问题 → 规范回答」做 SFT，教模型怎么使用检索结果、怎么引用 |
+| prompt 太长、成本和延迟压力大 | 微调 | 把规则训进权重，缩短输入 |
+| 想用小模型替代大模型做一个窄任务 | 微调（常用大模型生成训练数据） | 小模型推理便宜得多 |
+| 需求还在快速变、只有几十条样本 | Prompt | 迭代最快，没有训练成本 |
+
+<Note title="微调数据是某个时间点的知识快照" type="warning">
+
+微调数据里写死的事实（价格、政策、产品参数），在模型上线那一刻就开始过时。只要答案依赖会变的信息，就要让这部分信息通过 RAG 或工具调用在请求时获取，微调只负责格式和行为。
+
+</Note>
+
+<Note title="面试里别把它讲成单选题" type="tip">
+
+真实系统里三者经常同时存在：prompt 定义任务，RAG 提供依据，LoRA 保证格式和口径。回答「RAG 还是微调」时，先拆出需求里「知识」和「行为」两部分，再分别给方案，比直接二选一成熟得多。
+
+</Note>
+
+### 回顾：贯穿全页的例子，一路做了哪些决定？
+
+| 步骤 | 决定 | 理由 |
+| --- | --- | --- |
+| 先试 prompt | 完全正确率 75% | 建立基线，发现问题类型 |
+| 解决格式 | 加约束解码 | 格式问题不需要微调 |
+| 决定微调 | QLoRA，r = 16，全部线性层 | 剩下的是口径和黑话；只有 24 GB 的卡 |
+| 准备数据 | 先写标注规范，2,000 条训练、200 条验证、200 条测试，按商品切分 | 口径一致、防止泄漏 |
+| 训练 | 学习率 2e-4，3 个 epoch，选验证集最好的 epoch 2 | 防止过拟合 |
+| 评估 | 完全正确率 90.5%，方面 F1 0.878；回归测试发现普通问题会用 JSON 回答 | 证明有效，也发现副作用 |
+| 部署 | 适配器只挂在评论抽取接口上，vLLM 多 LoRA 服务 | 其他请求不受影响，一个基座服务多个任务 |
+
+部署之后，这个模型要怎么扛住并发、控制延迟和成本，就是下一页 [Inference](/docs/llm/inference) 的内容。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 适配器合并和保留独立各适合什么场景？QLoRA 的适配器应该怎么合并？
+2. 一个基座服务 3 个任务，相比部署 3 份完整模型能省多少显存？多 LoRA 服务还有什么好处？
+3. 全量微调、LoRA、QLoRA 分别适合什么情况？
+4. RAG 和微调分别负责什么？什么情况下要两者组合？
+5. 为什么不应该把会变化的事实写进微调数据？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 6 · Deployment and engineering choices
+
+### How do you deploy a trained adapter? Merge it or not?
+
+Two options, each with its place:
+
+| | Merge into the base | Keep a separate adapter |
+| --- | --- | --- |
+| How | W' = W + (α / r) · B · A, giving a complete new model | load the base once and attach the adapter (about 80 MiB) at runtime |
+| Inference latency | identical to the original model | the LoRA branch adds a little computation |
+| Deployment shape | one complete model per task (about 16 GB in fp16) | one base + many adapters |
+| Good for | a single task where the lowest latency matters | many tasks or many customers sharing one base |
+
+**When merging a QLoRA adapter**, as Level 3 noted, don't merge into the 4-bit weights. Merge into the **original fp16 base** to get a complete fp16 model, then re-quantize for deployment with a method like AWQ or GPTQ (see [Inference](/docs/llm/inference) Level 4). Always rerun the test-set metrics after merging to confirm nothing dropped.
+
+### How does one base model serve many LoRAs at once?
+
+Suppose three adapters were trained on the same LLaMA 3 8B: review extraction, support replies, and summarization.
+
+```
+option A: fully fine-tune (or merge) each task and deploy three complete models
+          3 × 16 GB ≈ 48 GB
+
+option B: one base + three LoRA adapters (r = 16)
+          16 GB + 3 × 80 MiB ≈ 15.2 GiB
+
+and with one adapter per customer for 100 customers
+          16 GB + 100 × 80 MiB ≈ 15 GiB + 7.8 GiB
+```
+
+Option B saves an enormous amount of memory. More importantly, **serving systems like vLLM and S-LoRA can mix requests for different adapters in the same batch**: review-extraction and support-reply requests are computed together, sharing the base model's computation and diverging only in their LoRA branches. When there are too many adapters to fit, they can be swapped between GPU memory and CPU memory.
+
+Attaching an adapter in vLLM:
+
+```python
+from vllm import LLM, SamplingParams
+from vllm.lora.request import LoRARequest
+
+llm = LLM(model="meta-llama/Meta-Llama-3-8B-Instruct",
+          enable_lora=True, max_lora_rank=16)
+outputs = llm.generate(
+    prompts,
+    SamplingParams(temperature=0),
+    lora_request=LoRARequest("review-extract", 1, "/adapters/review-extract"),
+)
+```
+
+<Note title="Multi-LoRA serving makes a custom model per customer affordable" type="tip">
+
+If every customer needs a custom model, full fine-tuning costs grow linearly with the number of customers; with multi-LoRA serving, adding a customer adds just a tens-of-MB adapter sharing the same GPU as everyone else. It's a strong answer to "how would you personalize a model for many tenants." How batches mix different requests is covered in [Inference](/docs/llm/inference) Level 2.
+
+</Note>
+
+### How do you choose between full fine-tuning, LoRA, and QLoRA?
+
+| | Full fine-tuning | LoRA | QLoRA |
+| --- | --- | --- | --- |
+| Training memory (8B) | about 128 GB + activations | about 17 GB + activations | about 6.4 GB + activations |
+| Training speed | fast (but needs many GPUs) | fast | slower (dequantization overhead) |
+| Quality ceiling | highest | close to full on most tasks | usually close to LoRA |
+| Storage per task | a complete 16 GB model | tens to hundreds of MB of adapter | same as LoRA |
+| Catastrophic forgetting risk | higher | lower | lower |
+
+How to choose:
+
+- **Full fine-tuning**: a very large dataset (hundreds of thousands of examples or more), a domain or language far from the original model, a push for the quality ceiling — and enough GPUs
+- **LoRA**: the default for the vast majority of tasks when you have a 40 GB or 80 GB GPU
+- **QLoRA**: constrained hardware, like only 24 GB GPUs, and willingness to trade slower training for memory
+
+### So how do you choose between RAG, prompting, and fine-tuning — and combine them?
+
+The core distinction fits in one sentence: **RAG handles the knowledge an answer relies on; fine-tuning handles how the answer is given**, and prompting is the zero-cost starting point to try before either (the full ladder is in [Post-training](/docs/llm/post-training) Level 6).
+
+| Need | Approach | Why |
+| --- | --- | --- |
+| Knowledge changes often and needs cited sources | RAG | updating documents takes effect immediately and stays traceable |
+| Output format, judgment, and domain language must be consistent | fine-tuning (LoRA) | a behavior problem; you can't add enough prompt examples |
+| **Must use internal knowledge *and* answer in a fixed format with correct citations** | **RAG + fine-tuning** | SFT on "question with retrieved passages → well-formed answer" teaches the model how to use retrieval results and cite them |
+| Prompts too long; cost and latency pressure | fine-tuning | train the rules into the weights and shorten the input |
+| Replace a large model with a small one on a narrow task | fine-tuning (often with training data generated by the large model) | small models are far cheaper to serve |
+| Requirements still changing fast; only a few dozen examples | prompting | fastest iteration, no training cost |
+
+<Note title="Fine-tuning data is a snapshot of knowledge at one moment" type="warning">
+
+Facts baked into fine-tuning data (prices, policies, product specs) start going stale the moment the model ships. Whenever an answer depends on information that changes, fetch that information at request time through RAG or tool calls, and let fine-tuning handle only format and behavior.
+
+</Note>
+
+<Note title="Don't treat it as a multiple-choice question in interviews" type="tip">
+
+Real systems often use all three at once: the prompt defines the task, RAG supplies the grounding, and LoRA keeps format and judgment consistent. When asked "RAG or fine-tuning," first split the requirement into its knowledge and behavior parts, then propose a solution for each — far more seasoned than picking one.
+
+</Note>
+
+### Recap: what decisions did the running example make along the way?
+
+| Step | Decision | Reason |
+| --- | --- | --- |
+| Try prompting first | 75% exact match | establish a baseline and see the types of problems |
+| Fix the format | add constrained decoding | format problems don't need fine-tuning |
+| Decide to fine-tune | QLoRA, r = 16, all linear layers | what remained was judgment and slang; only 24 GB GPUs available |
+| Prepare data | write a labeling guide; 2,000 train, 200 validation, 200 test, split by product | consistent labels, no leakage |
+| Train | learning rate 2e-4, 3 epochs, pick epoch 2 with the best validation score | avoid overfitting |
+| Evaluate | 90.5% exact match, aspect F1 0.878; regression tests found ordinary questions answered in JSON | proves it works, and surfaces the side effect |
+| Deploy | attach the adapter only on the review-extraction endpoint, with vLLM multi-LoRA serving | other requests are unaffected; one base serves many tasks |
+
+Once deployed, how this model holds up under concurrency and keeps latency and cost in check is the subject of the next page, [Inference](/docs/llm/inference).
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. When does merging an adapter make sense, and when should you keep it separate? How should a QLoRA adapter be merged?
+2. How much memory does one base serving 3 tasks save compared with 3 complete models, and what else does multi-LoRA serving buy you?
+3. When is each of full fine-tuning, LoRA, and QLoRA appropriate?
+4. What are RAG and fine-tuning each responsible for, and when should they be combined?
+5. Why shouldn't facts that change be written into fine-tuning data?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note title="别说「LoRA 微调出来的模型推理一定更慢」" type="danger">
+
+LoRA 可以合并回原权重，合并后模型结构和原来一模一样，推理没有任何额外延迟。只有保留独立适配器、做多 LoRA 服务时，才会多一点 LoRA 分支的计算。
+
+</Note>
+
+<Note title="别说「QLoRA 就是把模型量化到 4-bit 再拿去推理」" type="danger">
+
+QLoRA 是一种**微调方法**：训练时把冻结的基座压成 4-bit 来省显存，适配器仍是 16 位并参与训练。部署时怎么量化是另一件事（见 [Inference](/docs/llm/inference) Level 4）。
+
+</Note>
+
+<Note title="别说「用微调就能让模型记住最新的产品知识」" type="danger">
+
+会变化、需要引用的知识用 RAG。微调擅长的是格式、口径、风格这类行为。
+
+</Note>
+
+<Note title="LoRA 省显存，不代表 8B 模型能随便塞进 24 GB 显卡" type="warning">
+
+LoRA 省的是梯度和优化器状态，冻结的 fp16 基座权重（约 16 GB）和激活值还在。要放进 24 GB，需要 QLoRA 和激活重计算。
+
+</Note>
+
+<Note title="rank 不是越大越好" type="warning">
+
+rank 越大参数越多，小数据上更容易过拟合。行为类任务先用 8 到 16，效果不够再往上加。
+
+</Note>
+
+<Note title="只看训练 loss 判断微调效果" type="warning">
+
+训练 loss 下降可能只是在背训练集。要看验证集的任务指标，最终用单独的测试集报告，并做通用能力和安全行为的回归测试。
+
+</Note>
+
+<Note title="测试集完全随机切分，指标可能虚高" type="warning">
+
+同一商品、同一用户的评论高度相似，随机切分会让测试集里混进训练数据的「近亲」。按时间、商品或用户来切分更可靠。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Traps
+
+<Note title="Don't say a LoRA-tuned model is always slower at inference" type="danger">
+
+A LoRA can be merged back into the original weights, after which the model's structure is identical and there's no added latency at all. Only when adapters are kept separate for multi-LoRA serving is there a little extra computation in the LoRA branch.
+
+</Note>
+
+<Note title="Don't say QLoRA means quantizing a model to 4-bit for inference" type="danger">
+
+QLoRA is a **fine-tuning method**: during training the frozen base is compressed to 4-bit to save memory, while the adapters stay 16-bit and get trained. How you quantize for deployment is a separate question (see [Inference](/docs/llm/inference) Level 4).
+
+</Note>
+
+<Note title="Don't say fine-tuning will make the model remember the latest product knowledge" type="danger">
+
+Knowledge that changes and needs citations belongs in RAG. Fine-tuning is good at behavior: format, judgment, style.
+
+</Note>
+
+<Note title="LoRA saving memory doesn't mean an 8B model fits easily on a 24 GB GPU" type="warning">
+
+LoRA saves gradients and optimizer state, but the frozen fp16 base weights (about 16 GB) and activations remain. Fitting in 24 GB takes QLoRA plus activation checkpointing.
+
+</Note>
+
+<Note title="A higher rank isn't automatically better" type="warning">
+
+A higher rank means more parameters and more overfitting on small data. Start at 8 to 16 for behavioral tasks and go higher only if quality falls short.
+
+</Note>
+
+<Note title="Judging fine-tuning by training loss alone" type="warning">
+
+Falling training loss may just mean memorizing the training set. Look at task metrics on the validation set, report on a separate test set, and run regression tests on general ability and safety behavior.
+
+</Note>
+
+<Note title="A purely random test split can inflate the metrics" type="warning">
+
+Reviews of the same product or from the same user are highly similar, so a random split leaves "close relatives" of training data in the test set. Splitting by time, product, or user is more reliable.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 连接
+
+</Locale>
+
+<Locale lang="en">
+
+## Connections
+
+</Locale>
+
+```
+Prompt → not enough → RAG (knowledge) / Fine-tuning (behavior)
+                              ↓
+     full fine-tuning: 16 bytes/param → too expensive for most teams
+                              ↓
+     LoRA: freeze W, train B·A (rank r) → ~0.5% of params, mergeable
+                              ↓
+     QLoRA: NF4 base + double quantization + 16-bit adapters → one 24 GB GPU
+                              ↓
+     labeling guide → train / val / test → hyperparameters → best checkpoint
+                              ↓
+     evaluation: task metrics + regression (general, safety) → forgetting?
+                              ↓
+     deploy: merge + re-quantize, or multi-LoRA serving → Inference
+```
+
+<Locale lang="zh">
+
+- 上游：[Training](/docs/llm/training)（训练循环、每个参数 16 字节、ZeRO、为什么微调不适合灌知识） · [Post-training](/docs/llm/post-training)（SFT、chat template、只在回答上算 loss、prompt / RAG / SFT / DPO 的选择阶梯） · [Attention & Transformer](/docs/llm/transformer)（线性层、GQA 为什么让 k / v 投影更小）
+- 下游：[Inference](/docs/llm/inference)（部署时的量化、多 LoRA 服务、批处理）
+- 相关应用：[Structured Output](/docs/application/structured-output)（约束解码先解决格式） · [RAG Architecture](/docs/rag/architecture) · [LLM Evaluation](/docs/evaluation/llm-eval)
+- 项目：[LLaMA Fine-tuning](/docs/projects/fine-tuning)
+
+## 面试问题
+
+先自己口头答一遍，再回到对应的 Level 对照。
+
+**Level 0 — 微调要解决什么问题**
+
+1. 什么情况下你会选择微调，而不是 prompt 或 RAG？（When would you choose fine-tuning over prompting or RAG?）
+2. 微调擅长和不擅长解决什么问题？（What is fine-tuning good and bad at?）
+3. 为什么说用微调给模型灌知识不是好办法？（Why is fine-tuning a poor way to add knowledge to a model?）
+
+**Level 1 — 全量微调**
+
+4. 全量微调一个 8B 模型大约要多少显存？为什么？（Roughly how much memory does full fine-tuning of an 8B model take, and why?）
+5. 除了显存，全量微调还有哪些问题？（Besides memory, what other problems does full fine-tuning have?）
+6. PEFT 有哪几类方法？LoRA 为什么最流行？（What kinds of PEFT methods are there, and why is LoRA the most popular?）
+
+**Level 2 — LoRA**
+
+7. 解释 LoRA 的原理，写出它的前向公式。（Explain how LoRA works and write out its forward pass.）
+8. 估算一下 LLaMA 3 8B 用 r = 16 的 LoRA 要训练多少参数。（Estimate how many parameters r = 16 LoRA trains on LLaMA 3 8B.）
+9. LoRA 的 B 为什么初始化为 0？alpha 起什么作用？（Why is LoRA's B initialized to zero, and what does alpha do?）
+10. LoRA 应该加在哪些层？rank 怎么选？（Which layers should LoRA target, and how do you choose the rank?）
+
+**Level 3 — QLoRA**
+
+11. 量化是怎么工作的？离群值为什么是难点？（How does quantization work, and why are outliers a problem?）
+12. QLoRA 比 LoRA 多做了什么？NF4 和双重量化分别解决什么问题？（What does QLoRA add beyond LoRA, and what do NF4 and double quantization each solve?）
+13. QLoRA 微调 8B 模型大约要多少显存？牺牲了什么？（How much memory does QLoRA need for an 8B model, and what does it give up?）
+
+**Level 4 — 数据与训练配置**
+
+14. 微调数据要准备多少？怎么保证质量？（How much fine-tuning data do you need, and how do you ensure quality?）
+15. 训练、验证、测试集怎么划分？为什么不要完全随机切分？（How do you split train, validation, and test sets, and why not purely at random?）
+16. LoRA 微调的常用超参数是什么？怎么判断过拟合？（What are typical LoRA hyperparameters, and how do you spot overfitting?）
+
+**Level 5 — 评估与遗忘**
+
+17. 你怎么证明微调是有效的？和哪些基线比？（How do you prove fine-tuning worked, and what baselines do you compare against?）
+18. 什么是灾难性遗忘？怎么检测和缓解？（What is catastrophic forgetting, and how do you detect and mitigate it?）
+19. 为什么用无害数据微调也可能影响安全行为？（Why can fine-tuning on harmless data still affect safety behavior?）
+
+**Level 6 — 部署与工程选择**
+
+20. LoRA 适配器合并还是不合并？各适合什么场景？（Should you merge a LoRA adapter or keep it separate, and when?）
+21. 怎么用一个基座模型服务多个租户的定制模型？（How would you serve customized models for many tenants from one base model?）
+22. 全量微调、LoRA、QLoRA 分别在什么情况下选？（When would you choose full fine-tuning, LoRA, or QLoRA?）
+23. 一个需求既要用公司内部知识，又要固定格式输出，你怎么设计？（A requirement needs both internal company knowledge and a fixed output format — how would you design it?）
+24. 讲讲你的 LLaMA-3-8B + QLoRA 项目：为什么不直接用 RAG？（Walk me through your LLaMA-3-8B + QLoRA project: why not just use RAG?）
+
+</Locale>
+
+<Locale lang="en">
+
+- Upstream: [Training](/docs/llm/training) (the training loop, 16 bytes per parameter, ZeRO, why fine-tuning is a poor way to add knowledge) · [Post-training](/docs/llm/post-training) (SFT, chat templates, loss on the response only, the prompting / RAG / SFT / DPO ladder) · [Attention & Transformer](/docs/llm/transformer) (linear layers, why GQA makes the k / v projections smaller)
+- Downstream: [Inference](/docs/llm/inference) (quantization for deployment, multi-LoRA serving, batching)
+- Related applications: [Structured Output](/docs/application/structured-output) (constrained decoding fixes format first) · [RAG Architecture](/docs/rag/architecture) · [LLM Evaluation](/docs/evaluation/llm-eval)
+- Project: [LLaMA Fine-tuning](/docs/projects/fine-tuning)
+
+## Interview questions
+
+Answer out loud first, then check against the matching Level.
+
+**Level 0 — What fine-tuning solves**
+
+1. When would you choose fine-tuning over prompting or RAG?
+2. What is fine-tuning good and bad at?
+3. Why is fine-tuning a poor way to add knowledge to a model?
+
+**Level 1 — Full fine-tuning**
+
+4. Roughly how much memory does full fine-tuning of an 8B model take, and why?
+5. Besides memory, what other problems does full fine-tuning have?
+6. What kinds of PEFT methods are there, and why is LoRA the most popular?
+
+**Level 2 — LoRA**
+
+7. Explain how LoRA works and write out its forward pass.
+8. Estimate how many parameters r = 16 LoRA trains on LLaMA 3 8B.
+9. Why is LoRA's B initialized to zero, and what does alpha do?
+10. Which layers should LoRA target, and how do you choose the rank?
+
+**Level 3 — QLoRA**
+
+11. How does quantization work, and why are outliers a problem?
+12. What does QLoRA add beyond LoRA, and what do NF4 and double quantization each solve?
+13. How much memory does QLoRA need for an 8B model, and what does it give up?
+
+**Level 4 — Data and training setup**
+
+14. How much fine-tuning data do you need, and how do you ensure quality?
+15. How do you split train, validation, and test sets, and why not purely at random?
+16. What are typical LoRA hyperparameters, and how do you spot overfitting?
+
+**Level 5 — Evaluation and forgetting**
+
+17. How do you prove fine-tuning worked, and what baselines do you compare against?
+18. What is catastrophic forgetting, and how do you detect and mitigate it?
+19. Why can fine-tuning on harmless data still affect safety behavior?
+
+**Level 6 — Deployment and engineering choices**
+
+20. Should you merge a LoRA adapter or keep it separate, and when?
+21. How would you serve customized models for many tenants from one base model?
+22. When would you choose full fine-tuning, LoRA, or QLoRA?
+23. A requirement needs both internal company knowledge and a fixed output format — how would you design it?
+24. Walk me through your LLaMA-3-8B + QLoRA project: why not just use RAG?
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 我的答案
+
+自己写，别让 agent 代写。30s 版超过 40 秒就砍；2min 版要能从「为什么要微调」一路讲到 LoRA / QLoRA 的原理、数据、评估和部署。
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+Write it yourself — don't let the agent draft it. Cut the 30s version if it runs past 40 seconds; the 2min version should run from "why fine-tune" through how LoRA / QLoRA work, data, evaluation, and deployment.
+
+</Locale>
+
+### 30s
+
+>
+
+### 2min
+
+>
 
 <Locale lang="zh">
 
 ## 项目锚点
+
+你的 LLaMA-3-8B + QLoRA 项目：为什么选 QLoRA 而不是 RAG 或全量微调？数据有多少、怎么标注？效果提升了多少、怎么证明？怎么部署？一句话 + 一个数字。参考 [LLaMA Fine-tuning](/docs/projects/fine-tuning)。
 
 </Locale>
 
@@ -111,6 +2023,8 @@ Knowledge that changes or needs citations → RAG. Format, tone, or tool-use hab
 
 ## Project anchor
 
+Your LLaMA-3-8B + QLoRA project: why QLoRA instead of RAG or full fine-tuning? How much data, and how was it labeled? How much did quality improve, and how did you prove it? How was it deployed? One sentence plus one number. See [LLaMA Fine-tuning](/docs/projects/fine-tuning).
+
 </Locale>
 
--
+>
