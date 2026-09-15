@@ -1,115 +1,2023 @@
 ---
 title: Structured Output
 titleEn: Structured Output
-description: JSON Schema → Validation → Application。malformed output 怎么处理。
-descriptionEn: JSON Schema → validation → application. Handling malformed output.
-date: 2026-09-07
-keywords: ["structured output", "json schema", "pydantic", "json mode"]
+description: 为什么应用层需要结构化输出、JSON Schema 与 Pydantic、三种让模型输出 JSON 的方式、约束解码的原理、校验重试与修复，以及 schema 设计和评估。
+descriptionEn: "Why applications need structured output, JSON Schema and Pydantic, three ways to get JSON from a model, how constrained decoding works, validation, retries, and repair, plus schema design and evaluation."
+date: 2026-09-14
+keywords: ["structured output", "json", "json schema", "pydantic", "json mode", "constrained decoding", "grammar", "logits mask", "validation", "retry", "function calling", "schema design"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-应用层不能假设模型永远输出合法的 JSON。
+模型输出的是一段文字，而你的代码要的是数据：要知道客户的意图是什么、订单号是多少、要不要调退款接口。**只要模型的输出要交给代码继续处理，「格式对不对」就从体验问题变成了线上故障问题**。多一句「好的，以下是结果」，JSON 解析就会抛异常。
+
+这一页假设你已经学过 [Attention & Transformer](/docs/llm/transformer) Level 6（logits 怎么变成下一个 token）和 [Prompt Engineering](/docs/application/prompt-engineering)。[Fine-tuning](/docs/llm/fine-tuning) 和 [Inference](/docs/llm/inference) 两页都提到过「约束解码能保证格式」，这一页把它的原理讲清楚。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 为什么需要结构化输出 | 让模型「输出 JSON」会以哪些方式出错？为什么这些错误在生产环境里很致命？ | 20 min |
+| 1 · 先定义什么是「合法」 | JSON Schema 和 Pydantic 怎么描述期望的结构？语法合法、结构合法、语义正确有什么区别？ | 35 min |
+| 2 · 三种让模型输出 JSON 的方式 | 只靠 prompt、JSON mode、schema 约束各能保证到什么程度？工具调用和结构化输出是什么关系？ | 35 min |
+| 3 · 约束解码的原理 | 模型怎么做到「一定不输出 schema 之外的东西」？它有什么副作用？字段顺序为什么重要？ | 45 min |
+| 4 · 出错了怎么办 | 校验失败时怎么重试、修复、兜底？重试对成功率和延迟有什么影响？ | 40 min |
+| 5 · Schema 设计与评估 | 什么样的 schema 模型更容易填对？怎么衡量结构化输出的质量？什么时候该微调？ | 30 min |
+
+每个 Level 末尾有几道自测题，**答不上来就先别往下读**。全页约 3.5 小时，分几次学完；`/drill` 会记住你上次学到哪。
+
+全页继续用 [Prompt Engineering](/docs/application/prompt-engineering) 里的猫粮店智能客服。客户消息是「我上周买的猫粮到现在还没到，订单号 20240915，能退款吗？」，这一页要从中**抽出一个工单 JSON**：意图、订单号、紧急程度、一句话摘要。后面的代码会用它建工单，并决定要不要调用退款流程。
 
 ## 需要掌握
 
-- JSON mode
-- structured outputs（结构化输出）
-- schema validation（schema 校验）
-- Pydantic
-- retries（重试）
-- malformed output（格式错误的输出）
-
-## 机制
+- 自由文本输出的常见故障：多余文字、代码块包裹、字段缺失、类型或枚举值错误、截断
+- JSON Schema 的常用关键字；用 Pydantic 定义结构并生成 schema、做校验；语法、结构、语义三层合法性
+- 只靠 prompt、JSON mode、schema 约束三种方式的保证程度；工具调用的参数也是结构化输出
+- 约束解码：按语法状态屏蔽非法 token 的 logits；schema 编译成状态机；token 与字符不对齐的难点；对质量的影响；推理字段放在答案字段前面
+- 生成 → 解析 → 校验 → 重试 / 修复 / 兜底的完整流程；带错误信息重试；截断检测；重试的成功率、延迟和副作用
+- schema 设计原则、字段描述、版本管理；解析率、结构合法率、字段级准确率；约束解码与微调的分工；字段名的 token 成本
 
 </Locale>
 
 <Locale lang="en">
 
-The application layer can't assume the model will always return valid JSON.
+A model outputs text, but your code needs data: what the customer wants, what the order number is, whether to call the refund API. **The moment a model's output feeds into more code, "is the format right" stops being a UX issue and becomes a production-incident issue.** One extra "Sure, here's the result" and JSON parsing throws.
+
+This page assumes you've studied [Attention & Transformer](/docs/llm/transformer) Level 6 (how logits become the next token) and [Prompt Engineering](/docs/application/prompt-engineering). Both [Fine-tuning](/docs/llm/fine-tuning) and [Inference](/docs/llm/inference) mentioned that constrained decoding guarantees format; this page explains how it works.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Why structured output is needed | In what ways does "output JSON" go wrong, and why are those failures so damaging in production? | 20 min |
+| 1 · Define "valid" first | How do JSON Schema and Pydantic describe the expected structure? How do syntactically valid, schema-valid, and semantically correct differ? | 35 min |
+| 2 · Three ways to get JSON from a model | How much does each of prompting alone, JSON mode, and schema constraints guarantee? How does tool calling relate to structured output? | 35 min |
+| 3 · How constrained decoding works | How does a model guarantee it never outputs anything outside the schema? What are the side effects, and why does field order matter? | 45 min |
+| 4 · When things go wrong | When validation fails, how do you retry, repair, and fall back? How do retries affect success rate and latency? | 40 min |
+| 5 · Schema design and evaluation | What kind of schema is easier for a model to fill correctly? How do you measure structured-output quality, and when should you fine-tune? | 30 min |
+
+Each Level ends with a few self-check questions — **if you can't answer them, don't move on yet**. The page takes about 3.5 hours over several sessions; `/drill` remembers where you stopped.
+
+The page continues with the cat-food shop's support assistant from [Prompt Engineering](/docs/application/prompt-engineering). The customer message is 「我上周买的猫粮到现在还没到，订单号 20240915，能退款吗？」 ("The cat food I bought last week still hasn't arrived, order number 20240915 — can I get a refund?"), and here we **extract a ticket JSON** from it: intent, order number, urgency, and a one-line summary. Downstream code uses it to create a ticket and decide whether to start the refund flow.
 
 ## Must know
 
-- JSON mode
-- structured outputs
-- schema validation
-- Pydantic
-- retries
-- malformed output
+- common failures of free-text output: extra prose, code-fence wrapping, missing fields, wrong types or enum values, truncation
+- common JSON Schema keywords; defining structure with Pydantic, generating the schema, validating; the three layers of syntax, schema, and semantics
+- the guarantees of prompting alone, JSON mode, and schema constraints; tool-call arguments as structured output
+- constrained decoding: masking the logits of tokens the grammar disallows; compiling a schema into a state machine; the token–character mismatch; effects on quality; putting reasoning fields before answer fields
+- the full generate → parse → validate → retry / repair / fall back flow; retrying with the error message; detecting truncation; the success rate, latency, and side effects of retries
+- schema design principles, field descriptions, versioning; parse rate, schema-valid rate, field-level accuracy; how constrained decoding and fine-tuning divide the work; the token cost of field names
 
-## Mechanism
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 为什么需要结构化输出
+
+### 下游代码拿到模型的输出，要用它做什么？
+
+回到猫粮店客服那条消息：「我上周买的猫粮到现在还没到，订单号 20240915，能退款吗？」
+
+在 [Prompt Engineering](/docs/application/prompt-engineering) 里，我们让模型写一段给客户看的回复。但系统里还有另一件事要做：**把这条消息变成一个工单**，交给后面的代码处理。代码期望拿到这样的数据：
+
+```json
+{
+  "intents": ["物流查询", "退款"],
+  "order_id": "20240915",
+  "urgency": "high",
+  "summary": "订单发货后物流 7 天未更新，客户要求退款"
+}
+```
+
+然后代码会这样用它：
+
+```python
+ticket = json.loads(model_output)
+create_ticket(ticket)                                # 在工单系统里建单
+if "退款" in ticket["intents"]:
+    start_refund_review(ticket["order_id"])          # 发起退款审核流程
+if ticket["urgency"] == "high":
+    assign_to_human_queue(ticket)                    # 高紧急度转人工
+```
+
+给人看的回复写得稍微不规范，最多是体验不好；**给代码用的输出只要格式不对，程序就会出错**。
+
+### 只在 prompt 里要求「输出 JSON」，会以哪些方式出错？
+
+在 prompt 里写一句「请以 JSON 格式输出」，大部分时候是能用的，但线上跑久了，下面这些情况都会出现：
+
+**① 前面多一句话**
+
+```
+好的，以下是抽取结果：
+{"intents": ["物流查询", "退款"], "order_id": "20240915", ...}
+```
+
+**② 包在 markdown 代码块里**：输出开头和结尾多了代码块标记，`json.loads` 直接失败。
+
+**③ 语法错误**：末尾多一个逗号、用了单引号、summary 里客户原话的引号没有转义。
+
+```
+{"intents": ["退款",], "summary": "客户说"太慢了""}
+```
+
+**④ 缺字段**：客户没提订单号，模型就干脆不输出 `order_id` 这个字段，代码读的时候报错。
+
+**⑤ 类型或取值不对**：`"urgency": "很急"`（应该是 low、medium、high 之一）；`"intents": "退款"`（应该是列表，却给了字符串）。
+
+**⑥ 编造内容**：客户写的是 20240915，模型输出了 20240916。JSON 完全合法，但数据是错的。
+
+**⑦ 被截断**：生成到 max_tokens 上限就停了。
+
+```
+{"intents": ["物流查询", "退款"], "order_id": "2024
+```
+
+### 为什么这些错误在生产环境里特别致命？
+
+**1. 规模会把小概率变成大数字。**
+
+```
+每天 100 万次请求 × 1% 的格式错误率 = 每天 1 万个出错的工单
+```
+
+**2. 「悄悄出错」比「直接报错」更危险。** 把上面的错误分成两类：
+
+| 类型 | 例子 | 后果 |
+| --- | --- | --- |
+| **会报错的错误** | ①②③④⑦：解析失败、缺字段 | 程序抛异常，至少你知道出事了 |
+| **不报错的错误** | ⑤ 取值不对、⑥ 编造订单号 | 解析成功、流程照常往下走，但做了错误的事 |
+
+`"urgency": "很急"` 不等于 `"high"`，这个工单就不会转人工；编造的订单号可能让退款审核发到**另一个客户的订单**上。这类错误没有异常、没有报警，要等客户投诉才发现。
+
+**3. 下游操作有副作用，而且撤不回来。** 建工单、发起退款、给客户发邮件，做了就是做了。
+
+<Note title="把「输出合法」拆成三层来看" type="tip">
+
+下一个 Level 会把「合法」拆成三层：**语法合法**（能被解析成 JSON）、**结构合法**（字段、类型、取值符合约定）、**语义正确**（内容是对的）。①②③⑦ 是语法问题，④⑤ 是结构问题，⑥ 是语义问题。面试里讲结构化输出，先把这三层分开，后面每种手段能解决哪一层就很清楚了。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 给人看的输出和给代码用的输出，对格式的要求有什么不同？
+2. 只在 prompt 里要求输出 JSON，常见的出错方式有哪几种？
+3. 为什么「不报错的错误」比「会报错的错误」更危险？举一个客服场景的例子。
+4. 每天 50 万次请求、0.5% 的错误率，每天有多少个出错的结果？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Why structured output is needed
+
+### What does downstream code do with the model's output?
+
+Back to the cat-food shop's customer message: 「我上周买的猫粮到现在还没到，订单号 20240915，能退款吗？」 ("The cat food I bought last week still hasn't arrived, order number 20240915 — can I get a refund?")
+
+In [Prompt Engineering](/docs/application/prompt-engineering), the model wrote a reply for the customer to read. But the system has another job: **turning this message into a ticket** for downstream code. The code expects data like this:
+
+```json
+{
+  "intents": ["shipping_inquiry", "refund"],
+  "order_id": "20240915",
+  "urgency": "high",
+  "summary": "Order shipped but tracking hasn't updated in 7 days; customer requests a refund"
+}
+```
+
+And uses it like this:
+
+```python
+ticket = json.loads(model_output)
+create_ticket(ticket)                                # create a ticket in the ticketing system
+if "refund" in ticket["intents"]:
+    start_refund_review(ticket["order_id"])          # kick off the refund review flow
+if ticket["urgency"] == "high":
+    assign_to_human_queue(ticket)                    # route urgent tickets to a human
+```
+
+A slightly messy reply for a person is at worst a bad experience; **output for code breaks the program the moment its format is off**.
+
+### How does "output JSON" in the prompt alone go wrong?
+
+Writing "please respond in JSON" in the prompt works most of the time, but run it in production long enough and all of these show up:
+
+**① An extra sentence up front**
+
+```
+Sure, here's the extraction:
+{"intents": ["shipping_inquiry", "refund"], "order_id": "20240915", ...}
+```
+
+**② Wrapped in a markdown code block**: fence markers at the start and end, and `json.loads` fails immediately.
+
+**③ Syntax errors**: a trailing comma, single quotes, or unescaped quotes from the customer's own words in the summary.
+
+```
+{"intents": ["refund",], "summary": "Customer said "too slow""}
+```
+
+**④ Missing fields**: the customer didn't give an order number, so the model leaves out `order_id` entirely and the code errors when reading it.
+
+**⑤ Wrong types or values**: `"urgency": "very urgent"` (should be one of low, medium, high); `"intents": "refund"` (should be a list, got a string).
+
+**⑥ Invented content**: the customer wrote 20240915 and the model output 20240916. Perfectly valid JSON, wrong data.
+
+**⑦ Truncation**: generation stops at the max_tokens limit.
+
+```
+{"intents": ["shipping_inquiry", "refund"], "order_id": "2024
+```
+
+### Why are these failures so damaging in production?
+
+**1. Scale turns small probabilities into big numbers.**
+
+```
+1 million requests a day × a 1% format error rate = 10,000 broken tickets a day
+```
+
+**2. Silent failures are worse than loud ones.** Split the failures above into two kinds:
+
+| Kind | Examples | Consequence |
+| --- | --- | --- |
+| **Loud failures** | ①②③④⑦: parse errors, missing fields | the program throws, so at least you know something broke |
+| **Silent failures** | ⑤ wrong values, ⑥ an invented order number | parsing succeeds and the flow continues — doing the wrong thing |
+
+`"urgency": "very urgent"` isn't `"high"`, so the ticket never reaches a human; an invented order number can send a refund review to **another customer's order**. No exception, no alert — you find out when a customer complains.
+
+**3. Downstream actions have side effects that can't be undone.** A ticket created, a refund started, an email sent — done is done.
+
+<Note title="Split “valid output” into three layers" type="tip">
+
+The next Level splits "valid" into three layers: **syntactically valid** (parses as JSON), **schema-valid** (fields, types, and values match the contract), and **semantically correct** (the content is right). ①②③⑦ are syntax problems, ④⑤ are schema problems, and ⑥ is a semantic problem. Separating the three layers first in an interview makes it clear which layer each technique addresses.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. How do format requirements differ between output for people and output for code?
+2. What are the common ways "output JSON" in the prompt alone goes wrong?
+3. Why are silent failures more dangerous than loud ones? Give a support-scenario example.
+4. With 500,000 requests a day and a 0.5% error rate, how many broken results are there per day?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 先定义什么是「合法」
+
+### 为什么要先把「合法」定义清楚？
+
+Level 0 里的七种错误，有的是 JSON 写坏了，有的是字段不对，有的是内容编错了。要让模型输出合法的结果，**先得有一份明确的约定，写清楚合法长什么样**。这份约定会在三个地方用到：
+
+1. **告诉模型**：放进 prompt，或者传给 API 的结构化输出参数（Level 2）
+2. **校验输出**：模型输出之后，用同一份约定检查（Level 4）
+3. **给人看**：下游开发者看它就知道会拿到什么字段
+
+这份约定最常用的写法是 **JSON Schema**。
+
+### JSON Schema 是什么？
+
+**JSON Schema** 是一种用 JSON 描述「JSON 数据应该长什么样」的标准。工单的 schema 写出来是这样（简化后）：
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "intents": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["物流查询", "退款", "商品咨询", "投诉", "其他"] },
+      "minItems": 1,
+      "description": "客户消息里的所有意图"
+    },
+    "order_id": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "客户消息里出现的订单号，没有就填 null"
+    },
+    "urgency": { "type": "string", "enum": ["low", "medium", "high"] },
+    "summary": { "type": "string", "maxLength": 60, "description": "一句话摘要" }
+  },
+  "required": ["intents", "order_id", "urgency", "summary"],
+  "additionalProperties": false
+}
+```
+
+用到的关键字：
+
+| 关键字 | 意思 | 在工单里的作用 |
+| --- | --- | --- |
+| `type` | 值的类型：object、array、string、number、integer、boolean、null | `intents` 必须是数组，不能是字符串 |
+| `properties` | 对象有哪些字段，每个字段各自的规则 | 定义四个字段 |
+| `required` | 哪些字段必须出现 | 四个字段都不能省略 |
+| `enum` | 只能取列出来的这几个值 | `urgency` 只能是 low、medium、high |
+| `items` | 数组里每个元素的规则 | 每个意图都必须是五个类别之一 |
+| `anyOf` | 满足其中任意一个规则即可 | `order_id` 可以是字符串，也可以是 null |
+| `minItems`、`maxLength` | 数组最少几个元素、字符串最长多少字符 | 至少一个意图；摘要不超过 60 字 |
+| `additionalProperties` | 是否允许出现没定义的字段 | false：不许多出别的字段 |
+| `description` | 字段说明，不参与校验 | 模型能看到，帮它理解这个字段该填什么 |
+
+<Note title="「可以为 null」和「可以不出现」是两回事" type="warning">
+
+客户没提订单号时，有两种设计：字段**必须出现，值是 null**；或者字段**可以省略**。推荐前者：下游代码永远可以直接读 `ticket["order_id"]`，不用先判断字段在不在。Level 0 的错误 ④ 就是字段被省略导致的。很多 API 的严格结构化输出模式也要求所有字段都放进 `required`，可选的字段用「允许 null」来表达。
+
+</Note>
+
+### 手写 JSON Schema 太麻烦，工程上怎么写？
+
+Python 里通常用 **Pydantic**：用一个 Python 类定义结构，Pydantic 自动生成 JSON Schema，也负责校验。
+
+```python
+from typing import Literal
+from pydantic import BaseModel, Field
+
+Intent = Literal["物流查询", "退款", "商品咨询", "投诉", "其他"]
+
+class Ticket(BaseModel):
+    intents: list[Intent] = Field(min_length=1, description="客户消息里的所有意图")
+    order_id: str | None = Field(description="客户消息里出现的订单号，没有就填 null")
+    urgency: Literal["low", "medium", "high"]
+    summary: str = Field(max_length=60, description="一句话摘要")
+
+schema = Ticket.model_json_schema()   # 生成上面那份 JSON Schema，可以传给 API
+```
+
+对应关系：
+
+- `Literal[...]` → `enum`：只能取这几个值
+- `list[Intent]` → `type: array` 加 `items`
+- `str | None` → `anyOf` 字符串或 null
+- 没有默认值的字段 → 进 `required`。`order_id` 没有默认值，所以**必须出现，但可以是 null**
+- `Field(description=...)` → `description`
+
+TypeScript 里对应的库是 Zod，思路完全一样。
+
+### 模型输出之后怎么校验？
+
+用同一个类校验：
+
+```python
+from pydantic import ValidationError
+
+model_output = '{"intents": ["物流查询", "退款"], "order_id": "20240915", "urgency": "很急", "summary": "物流 7 天未更新，要求退款"}'
+
+try:
+    ticket = Ticket.model_validate_json(model_output)   # 解析 JSON + 检查结构，一步完成
+except ValidationError as e:
+    print(e)
+```
+
+输出：
+
+```
+1 validation error for Ticket
+urgency
+  Input should be 'low', 'medium' or 'high' [type=literal_error, input_value='很急', input_type=str]
+```
+
+错误信息精确到**哪个字段、期望什么、实际给了什么**。Level 4 会把这段错误信息原样发回给模型，让它改正。
+
+<Note title="Pydantic 默认会自动转换类型">
+
+Pydantic 默认是宽松模式：字段声明为 int，输入 `"5"` 也会被转换成 5 并通过校验。大部分时候这很方便；如果你需要严格区分类型，可以开启 strict 模式。
+
+</Note>
+
+### 「合法」分几层？
+
+**第一层：语法合法（syntactically valid）**。输出是一段能被解析的 JSON。`json.loads` 不报错就算通过。
+
+**第二层：结构合法（schema-valid）**。字段齐全、类型正确、枚举值在范围内、没有多余字段。Pydantic 校验通过就算通过。
+
+**第三层：语义正确（semantically correct）**。内容本身是对的：订单号确实是客户写的那个，意图判断没错，摘要没有编造。**schema 管不了这一层**，`"order_id": "20240916"` 完全符合 schema。
+
+| 层 | 检查什么 | 怎么检查 | Level 0 的哪些错误 |
+| --- | --- | --- | --- |
+| 语法 | 能不能解析 | `json.loads` | ① 多一句话 ② 代码块 ③ 语法错误 ⑦ 截断 |
+| 结构 | 符不符合 schema | Pydantic 或 jsonschema 校验 | ④ 缺字段 ⑤ 类型或取值不对 |
+| 语义 | 内容对不对 | 业务规则代码 + 评测集 | ⑥ 编造订单号 |
+
+语义层能用代码查的，尽量用代码查：
+
+```python
+def check_semantics(ticket: Ticket, customer_message: str, customer_order_ids: set[str]) -> list[str]:
+    errors = []
+    if ticket.order_id is not None:
+        if ticket.order_id not in customer_message:
+            errors.append("order_id 没有出现在客户原文里")
+        elif ticket.order_id not in customer_order_ids:
+            errors.append("order_id 不属于这个客户")
+    return errors
+```
+
+订单号必须在原文里出现过、必须属于当前客户，这两条检查能拦住编造的订单号，也能防止给别人的订单发起退款。意图判断对不对这类代码查不了的，要靠评测集统计准确率（Level 5）。
+
+<Note title="面试时先分清三层，再讲手段" type="tip">
+
+被问「怎么保证模型输出合法的 JSON」时，先说清楚「合法」有三层，再说每种手段管到哪一层：JSON mode 只管语法，schema 约束管到结构，语义只能靠业务校验和评估。这个框架能让后面所有回答都有条理，也能主动避开「用了结构化输出就不会出错」这个错误说法。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 一份结构约定会在哪三个地方用到？
+2. JSON Schema 里 `required`、`enum`、`anyOf`、`additionalProperties` 分别是什么意思？
+3. 客户没提订单号时，为什么推荐「字段必须出现、值为 null」而不是省略字段？
+4. 用 Pydantic 定义一个类之后，怎么生成 schema、怎么校验输出？
+5. 语法合法、结构合法、语义正确分别是什么？「订单号被写错一位」属于哪一层，怎么拦住？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Define "valid" first
+
+### Why pin down what "valid" means first?
+
+Of the seven failures in Level 0, some are broken JSON, some are wrong fields, and some are wrong content. To get valid output from a model, **you first need an explicit contract that says what valid looks like**. That contract gets used in three places:
+
+1. **Telling the model**: in the prompt, or passed to the API's structured-output parameter (Level 2)
+2. **Validating output**: checking what the model returned against the same contract (Level 4)
+3. **Documenting for people**: downstream developers read it to know what fields they'll get
+
+The most common way to write that contract is **JSON Schema**.
+
+### What is JSON Schema?
+
+**JSON Schema** is a standard for describing, in JSON, what a piece of JSON data should look like. Here's the ticket schema (simplified):
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "intents": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["shipping_inquiry", "refund", "product_question", "complaint", "other"] },
+      "minItems": 1,
+      "description": "Every intent in the customer's message"
+    },
+    "order_id": {
+      "anyOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "The order number from the customer's message, or null if none"
+    },
+    "urgency": { "type": "string", "enum": ["low", "medium", "high"] },
+    "summary": { "type": "string", "maxLength": 60, "description": "One-line summary" }
+  },
+  "required": ["intents", "order_id", "urgency", "summary"],
+  "additionalProperties": false
+}
+```
+
+The keywords used:
+
+| Keyword | Meaning | Role in the ticket |
+| --- | --- | --- |
+| `type` | the value's type: object, array, string, number, integer, boolean, null | `intents` must be an array, not a string |
+| `properties` | which fields an object has, and each field's rules | defines the four fields |
+| `required` | which fields must be present | none of the four can be omitted |
+| `enum` | only the listed values are allowed | `urgency` must be low, medium, or high |
+| `items` | the rule for each array element | every intent must be one of the five categories |
+| `anyOf` | the value may satisfy any one of these rules | `order_id` can be a string or null |
+| `minItems`, `maxLength` | minimum array length, maximum string length | at least one intent; summary at most 60 characters |
+| `additionalProperties` | whether undeclared fields are allowed | false: no extra fields |
+| `description` | a field explanation, not used in validation | the model sees it and learns what to put there |
+
+<Note title="“Can be null” and “can be missing” are different" type="warning">
+
+When the customer gives no order number, there are two designs: the field **must be present with a null value**, or the field **may be omitted**. Prefer the first — downstream code can always read `ticket["order_id"]` without checking whether the key exists. Failure ④ in Level 0 came from an omitted field. Many APIs' strict structured-output modes also require every field to be listed in `required`, with optional fields expressed as nullable.
+
+</Note>
+
+### Hand-writing JSON Schema is tedious — what do engineers actually use?
+
+In Python, usually **Pydantic**: you define the structure as a Python class, and Pydantic generates the JSON Schema and does the validation.
+
+```python
+from typing import Literal
+from pydantic import BaseModel, Field
+
+Intent = Literal["shipping_inquiry", "refund", "product_question", "complaint", "other"]
+
+class Ticket(BaseModel):
+    intents: list[Intent] = Field(min_length=1, description="Every intent in the customer's message")
+    order_id: str | None = Field(description="The order number from the customer's message, or null if none")
+    urgency: Literal["low", "medium", "high"]
+    summary: str = Field(max_length=60, description="One-line summary")
+
+schema = Ticket.model_json_schema()   # produces the JSON Schema above, ready to pass to an API
+```
+
+How it maps:
+
+- `Literal[...]` → `enum`: only these values
+- `list[Intent]` → `type: array` plus `items`
+- `str | None` → `anyOf` string or null
+- a field with no default → goes into `required`. `order_id` has no default, so it **must be present but may be null**
+- `Field(description=...)` → `description`
+
+In TypeScript the equivalent is Zod, with the same idea.
+
+### How do you validate the model's output?
+
+With the same class:
+
+```python
+from pydantic import ValidationError
+
+model_output = '{"intents": ["shipping_inquiry", "refund"], "order_id": "20240915", "urgency": "very urgent", "summary": "No tracking update in 7 days; wants refund"}'
+
+try:
+    ticket = Ticket.model_validate_json(model_output)   # parse the JSON and check the structure in one step
+except ValidationError as e:
+    print(e)
+```
+
+Output:
+
+```
+1 validation error for Ticket
+urgency
+  Input should be 'low', 'medium' or 'high' [type=literal_error, input_value='very urgent', input_type=str]
+```
+
+The error pinpoints **which field, what was expected, and what was actually given**. In Level 4 we send this error message back to the model verbatim so it can fix its output.
+
+<Note title="Pydantic coerces types by default">
+
+Pydantic runs in lax mode by default: if a field is declared as int, the input `"5"` is converted to 5 and passes. That's usually convenient; turn on strict mode if you need types to match exactly.
+
+</Note>
+
+### How many layers does "valid" have?
+
+**Layer 1: syntactically valid.** The output is JSON that parses. If `json.loads` doesn't throw, it passes.
+
+**Layer 2: schema-valid.** All fields present, types correct, enum values in range, no extra fields. If Pydantic validation passes, it passes.
+
+**Layer 3: semantically correct.** The content itself is right: the order number is the one the customer wrote, the intent is correct, the summary invents nothing. **A schema can't check this layer** — `"order_id": "20240916"` fits the schema perfectly.
+
+| Layer | What it checks | How | Level 0 failures |
+| --- | --- | --- | --- |
+| Syntax | does it parse | `json.loads` | ① extra prose ② code fence ③ syntax error ⑦ truncation |
+| Schema | does it match the schema | Pydantic or jsonschema validation | ④ missing field ⑤ wrong type or value |
+| Semantics | is the content right | business-rule code plus an evaluation set | ⑥ invented order number |
+
+Whatever semantic checks code can do, let code do:
+
+```python
+def check_semantics(ticket: Ticket, customer_message: str, customer_order_ids: set[str]) -> list[str]:
+    errors = []
+    if ticket.order_id is not None:
+        if ticket.order_id not in customer_message:
+            errors.append("order_id does not appear in the customer's message")
+        elif ticket.order_id not in customer_order_ids:
+            errors.append("order_id does not belong to this customer")
+    return errors
+```
+
+Requiring the order number to appear in the original message and to belong to the current customer catches invented order numbers — and stops refunds from being started on someone else's order. Things code can't check, like whether the intent is right, need accuracy measured on an evaluation set (Level 5).
+
+<Note title="In interviews, separate the three layers before naming techniques" type="tip">
+
+When asked "how do you make sure the model outputs valid JSON", first say that "valid" has three layers, then say which layer each technique covers: JSON mode covers syntax, schema constraints reach the schema layer, and semantics only business checks and evaluation can cover. That framework keeps every later answer organized, and it heads off the wrong claim that structured output means nothing can go wrong.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What are the three places a structure contract gets used?
+2. What do `required`, `enum`, `anyOf`, and `additionalProperties` mean in JSON Schema?
+3. When there's no order number, why prefer "field present, value null" over omitting the field?
+4. Once you've defined a Pydantic class, how do you generate the schema and validate output?
+5. What are syntactic validity, schema validity, and semantic correctness? Which layer is "order number off by one digit", and how do you catch it?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 三种让模型输出 JSON 的方式
+
+有了 Level 1 的 schema，下一步是让模型真的按它输出。常见的做法有三种，**保证程度一个比一个强**。
+
+### 方式一：只靠 prompt，能做到什么程度？
+
+在 prompt 里写清楚格式要求，再给一个示例：
+
+```
+从客户消息中抽取工单信息，只输出 JSON，不要输出任何其他文字，不要使用 markdown 代码块。
+
+JSON 结构：
+{"intents": [...], "order_id": "字符串或 null", "urgency": "low 或 medium 或 high", "summary": "一句话"}
+
+intents 的取值只能是：物流查询、退款、商品咨询、投诉、其他
+```
+
+这能把错误率降下来，但**没有任何保证**。模型每一步仍然是从概率分布里选 token，「很急」这种不在枚举里的词只要概率不为 0，就有可能被选中。Level 0 的七种错误都还会出现，只是少一些。
+
+常见的补救技巧：
+
+- **预填输出开头**：有的 API 允许你替模型写好回复的第一个字符 `{`，模型就没法先说「好的」
+- **从输出里提取 JSON**：用正则找第一个 `{` 到最后一个 `}`。能救回多余文字和代码块的情况，但很脆弱
+- **低 temperature**：减少随机性，但不能消除错误
+
+适合的场景：模型或 API 不支持下面两种方式时，或者输出只是给人看、偶尔格式不对也没关系的时候。
+
+### 方式二：JSON mode 保证了什么，没保证什么？
+
+**JSON mode** 是 API 的一个参数，打开后**保证输出是语法合法的 JSON**。它在生成时就排除了会让 JSON 写坏的 token（原理见 Level 3）。
+
+它只管**语法**这一层：
+
+```json
+{"intent": "退款", "orderId": 20240915, "urgency": "很急"}
+```
+
+这段 JSON 语法完全合法，JSON mode 的承诺已经兑现了。但对照 schema：字段名写成了 `intent` 和 `orderId`，订单号是数字不是字符串，`urgency` 不在枚举里，还缺了 `summary`。**结构层的错误一个都没拦住**。
+
+<Note title="JSON mode 的两个坑" type="warning">
+
+1. 有的 API 要求 prompt 里必须明确提到 JSON，否则可能报错，或者模型不停输出空白字符直到达到长度上限
+2. 输出被 max_tokens 截断时，JSON 仍然是不完整的。语法合法的保证只在模型正常结束时成立
+
+</Note>
+
+### 方式三：schema 约束是什么？
+
+直接把 Level 1 的 JSON Schema 传给 API，**保证输出符合这份 schema**：字段齐全、类型正确、枚举值在范围内。示意代码（各家 SDK 的参数名不同）：
+
+```python
+response = llm.generate(
+    messages=build_messages(customer_message),
+    response_schema=Ticket.model_json_schema(),   # 不同 API 叫 response_format、response_schema 等
+)
+ticket = Ticket.model_validate_json(response.text)   # 仍然要校验，原因见下面
+```
+
+主流平台都提供这个能力，名字和细节不同：
+
+| 平台 | 对应功能 |
+| --- | --- |
+| OpenAI | Structured Outputs（strict 模式） |
+| Google Gemini | 在生成配置里指定 response schema |
+| Anthropic Claude | 工具调用的 input schema；新版 API 也提供直接的结构化输出 |
+| 自己部署的开源模型 | vLLM、SGLang 等推理框架的 structured outputs 或 guided decoding |
+
+<Note title="API 的参数名和支持范围变化很快" type="warning">
+
+上面只列功能名，具体参数以官方文档为准。还要注意，**各家支持的 JSON Schema 关键字只是一个子集**：有的要求所有字段都在 `required` 里、必须设置 `additionalProperties: false`，有的不支持 `maxLength`、`minItems` 这类约束，递归结构、`anyOf` 的支持程度也不一样。不支持的约束，要在代码里自己校验。
+
+</Note>
+
+schema 约束的「保证」还有几个缺口，所以**拿到输出后仍然要校验**：
+
+- **截断**：达到 max_tokens 就停，JSON 不完整
+- **拒绝**：模型因为安全策略拒绝回答时，可能返回拒绝信息而不是 JSON
+- **不支持的关键字**：比如 API 忽略了 `maxLength`，摘要写了 200 字
+- **语义层**：schema 约束对订单号编错一位无能为力
+
+### 三种方式怎么比较、怎么选？
+
+| | 只靠 prompt | JSON mode | schema 约束 |
+| --- | --- | --- | --- |
+| 语法合法 | 不保证 | 保证（未截断时） | 保证（未截断时） |
+| 结构合法 | 不保证 | 不保证 | 保证（在支持的关键字范围内） |
+| 语义正确 | 不保证 | 不保证 | 不保证 |
+| 对模型/API 的要求 | 任何模型 | 需要 API 支持 | 需要 API 或推理框架支持 |
+| 还需要校验吗 | 需要 | 需要 | 需要（但失败会少很多） |
+
+选择顺序：**输出要交给代码用时，能用 schema 约束就用 schema 约束**；API 不支持时退到 JSON mode 加代码校验；都不支持再用 prompt 加提取加校验。三种方式都要配 Level 4 的校验和重试。
+
+### 工具调用和结构化输出是什么关系？
+
+**工具调用（tool calling / function calling）**：你告诉模型有哪些工具可用，模型决定要不要调用、调用哪个，并输出调用参数，由你的代码去真正执行（完整流程见 [Tool Calling](/docs/agent/tool-calling)）。
+
+从输出格式看，**工具调用就是结构化输出**：每个工具的参数都用一份 JSON Schema 描述，模型输出的参数必须符合这份 schema。
+
+```python
+tools = [{
+    "name": "create_ticket",
+    "description": "根据客户消息创建客服工单",
+    "parameters": Ticket.model_json_schema(),   # 参数就是 Level 1 的 schema
+}]
+```
+
+模型的输出（各家格式略有差异）：
+
+```json
+{"name": "create_ticket", "arguments": {"intents": ["物流查询", "退款"], "order_id": "20240915", "urgency": "high", "summary": "物流 7 天未更新，要求退款"}}
+```
+
+区别只在于：结构化输出是「一定按这一份 schema 输出」，工具调用是「**先从几份 schema 里选一个**，再按它输出」。所以在不支持直接结构化输出的 API 上，一个常见做法是**只定义一个工具，并强制模型调用它**，参数就是你要的结构化结果。
+
+<Note title="「输出了工具调用」不等于「应该执行」" type="warning">
+
+参数符合 schema 只说明格式对。`order_id` 是不是这个客户的、要不要真的发起退款，仍然要由代码按 Level 1 的语义检查和业务规则决定。高风险的工具调用尤其要这样做（见 [Agent Security](/docs/agent/security)）。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 只靠 prompt 要求输出 JSON，为什么不能保证不出错？有哪些补救技巧？
+2. JSON mode 保证了哪一层？举一个 JSON mode 下仍然会出现的错误。
+3. schema 约束比 JSON mode 多保证了什么？为什么用了它之后仍然要校验？
+4. 三种方式怎么选？
+5. 工具调用和结构化输出是什么关系？在只支持工具调用的 API 上怎么拿到结构化输出？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Three ways to get JSON from a model
+
+With the Level 1 schema in hand, the next step is getting the model to actually follow it. There are three common approaches, **each with a stronger guarantee than the last**.
+
+### Approach 1: prompting alone — how far does it get you?
+
+Spell out the format in the prompt and give an example:
+
+```
+Extract ticket information from the customer message. Output only JSON — no other text, no markdown code blocks.
+
+JSON structure:
+{"intents": [...], "order_id": "string or null", "urgency": "low, medium, or high", "summary": "one sentence"}
+
+intents may only contain: shipping_inquiry, refund, product_question, complaint, other
+```
+
+That lowers the error rate, but **guarantees nothing**. At each step the model still picks a token from a probability distribution, and as long as a word outside the enum like "very urgent" has nonzero probability, it can be chosen. All seven Level 0 failures still happen — just less often.
+
+Common patches:
+
+- **Prefill the start of the output**: some APIs let you write the first character of the reply, `{`, so the model can't open with "Sure"
+- **Extract JSON from the output**: regex from the first `{` to the last `}`. Rescues the extra-prose and code-fence cases, but it's fragile
+- **Low temperature**: less randomness, but errors don't go away
+
+When it fits: the model or API doesn't support the next two approaches, or the output is for people and an occasional format slip is fine.
+
+### Approach 2: what does JSON mode guarantee, and what doesn't it?
+
+**JSON mode** is an API parameter that, when on, **guarantees the output is syntactically valid JSON**. It rules out tokens that would break the JSON during generation (Level 3 explains how).
+
+It only covers the **syntax** layer:
+
+```json
+{"intent": "refund", "orderId": 20240915, "urgency": "very urgent"}
+```
+
+That's perfectly valid JSON — JSON mode kept its promise. But against the schema: the fields are named `intent` and `orderId`, the order number is a number rather than a string, `urgency` isn't in the enum, and `summary` is missing. **Not a single schema-level error was caught.**
+
+<Note title="Two JSON mode gotchas" type="warning">
+
+1. Some APIs require the prompt to explicitly mention JSON; otherwise you may get an error, or the model may emit whitespace endlessly until it hits the length limit
+2. If the output is cut off by max_tokens, the JSON is still incomplete. The syntax guarantee only holds when the model finishes normally
+
+</Note>
+
+### Approach 3: what are schema constraints?
+
+Pass the Level 1 JSON Schema straight to the API, and **the output is guaranteed to match it**: all fields present, types right, enum values in range. Sketch (parameter names vary by SDK):
+
+```python
+response = llm.generate(
+    messages=build_messages(customer_message),
+    response_schema=Ticket.model_json_schema(),   # called response_format, response_schema, etc. depending on the API
+)
+ticket = Ticket.model_validate_json(response.text)   # still validate — see below
+```
+
+All the major platforms offer this, under different names:
+
+| Platform | Feature |
+| --- | --- |
+| OpenAI | Structured Outputs (strict mode) |
+| Google Gemini | a response schema in the generation config |
+| Anthropic Claude | tool input schemas; newer API versions also offer structured outputs directly |
+| Self-hosted open models | structured outputs or guided decoding in serving frameworks like vLLM and SGLang |
+
+<Note title="API parameter names and supported features change fast" type="warning">
+
+Only feature names are listed above; check the official docs for exact parameters. Also note that **each provider supports only a subset of JSON Schema**: some require every field in `required` and `additionalProperties: false`, some don't support constraints like `maxLength` or `minItems`, and support for recursive structures and `anyOf` varies. Constraints the API doesn't support, you validate in code.
+
+</Note>
+
+The schema-constraint "guarantee" still has gaps, so **you still validate the output**:
+
+- **Truncation**: generation stops at max_tokens and the JSON is incomplete
+- **Refusals**: when the model declines for safety reasons, you may get a refusal message instead of JSON
+- **Unsupported keywords**: say the API ignores `maxLength` and the summary runs to 200 characters
+- **Semantics**: schema constraints can do nothing about an order number that's off by one digit
+
+### How do the three compare, and which should you pick?
+
+| | Prompting alone | JSON mode | Schema constraints |
+| --- | --- | --- | --- |
+| Syntactically valid | not guaranteed | guaranteed (if not truncated) | guaranteed (if not truncated) |
+| Schema-valid | not guaranteed | not guaranteed | guaranteed (within supported keywords) |
+| Semantically correct | not guaranteed | not guaranteed | not guaranteed |
+| Requirements | any model | API support | API or serving-framework support |
+| Still need validation? | yes | yes | yes (but far fewer failures) |
+
+The order to reach for them: **when code consumes the output, use schema constraints whenever available**; if the API doesn't support them, fall back to JSON mode plus validation in code; if neither exists, use prompting plus extraction plus validation. Every approach needs the validation and retries from Level 4.
+
+### How does tool calling relate to structured output?
+
+**Tool calling (function calling)**: you tell the model which tools exist, the model decides whether and which to call and outputs the arguments, and your code actually runs it (the full loop is in [Tool Calling](/docs/agent/tool-calling)).
+
+From an output-format point of view, **tool calling is structured output**: each tool's parameters are described by a JSON Schema, and the arguments the model outputs must match it.
+
+```python
+tools = [{
+    "name": "create_ticket",
+    "description": "Create a support ticket from the customer's message",
+    "parameters": Ticket.model_json_schema(),   # the parameters are the Level 1 schema
+}]
+```
+
+The model's output (formats differ slightly by provider):
+
+```json
+{"name": "create_ticket", "arguments": {"intents": ["shipping_inquiry", "refund"], "order_id": "20240915", "urgency": "high", "summary": "No tracking update in 7 days; wants refund"}}
+```
+
+The only difference: structured output means "follow this one schema", while tool calling means "**first pick one of several schemas**, then follow it". That's why, on APIs without direct structured output, a common trick is to **define a single tool and force the model to call it** — the arguments are your structured result.
+
+<Note title="A tool call being output doesn't mean it should run" type="warning">
+
+Arguments matching the schema only means the format is right. Whether `order_id` belongs to this customer, and whether to really start a refund, is still for code to decide using the Level 1 semantic checks and business rules — especially for high-risk tool calls (see [Agent Security](/docs/agent/security)).
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why can't prompting alone guarantee valid JSON, and what patches are there?
+2. Which layer does JSON mode guarantee? Give an error that still happens under JSON mode.
+3. What do schema constraints guarantee beyond JSON mode, and why validate anyway?
+4. How do you choose among the three approaches?
+5. How is tool calling related to structured output? How do you get structured output from an API that only supports tool calling?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 约束解码的原理
+
+### 先回忆：模型每一步是怎么选 token 的？
+
+[Attention & Transformer](/docs/llm/transformer) Level 6 讲过：模型每生成一个 token，都会给词表里的**每个 token** 打一个分数，叫 **logit**；logits 经过 softmax 变成概率，再按概率选出下一个 token。然后把这个 token 接到输入后面，重复这个过程。
+
+只靠 prompt 为什么会出错？因为**不合法的 token 概率也不是 0**。
+
+### 约束解码怎么保证输出不越界？
+
+**约束解码（constrained decoding）**：在每一步 softmax 之前，**把所有会让输出违反 schema 的 token 的 logit 设成负无穷**。负无穷经过 softmax 概率就是 0，这些 token 永远不会被选中。
+
+看工单的例子。模型已经生成到：
+
+```
+{"intents": ["物流查询", "退款"], "order_id": "20240915", "urgency": "
+```
+
+下一个 token 应该是紧急程度的取值。为了好算，假设候选只有 4 个 token：
+
+| 候选 token | logit | 不约束时的概率 | schema 允许吗 | 约束后的 logit | 约束后的概率 |
+| --- | --- | --- | --- | --- | --- |
+| high | 2.1 | 0.286 | 允许 | 2.1 | 0.675 |
+| 很急 | 2.8 | **0.576** | 不允许 | 负无穷 | 0 |
+| medium | 1.0 | 0.095 | 允许 | 1.0 | 0.225 |
+| low | 0.2 | 0.043 | 允许 | 0.2 | 0.101 |
+
+计算过程：
+
+```
+不约束：e^2.1 = 8.17，e^2.8 = 16.44，e^1.0 = 2.72，e^0.2 = 1.22，总和 28.55
+        high = 8.17 / 28.55 = 0.286，很急 = 16.44 / 28.55 = 0.576 ……
+
+约束后：很急 的 e^(负无穷) = 0，总和 = 8.17 + 2.72 + 1.22 = 12.11
+        high = 8.17 / 12.11 = 0.675，medium = 2.72 / 12.11 = 0.225，low = 1.22 / 12.11 = 0.101
+```
+
+两个观察：
+
+1. **不约束时，模型有 57.6% 的概率输出「很急」**。客户说了「到现在还没到」，模型想表达的意思没错，只是用词不在枚举里。这就是只靠 prompt 会出错的原因
+2. **约束后，合法 token 之间的相对大小不变**。high 仍然最可能，只是把「很急」的概率按比例分给了合法选项
+
+<Note title="和 causal mask 是同一个技巧" type="tip">
+
+[Attention & Transformer](/docs/llm/transformer) 里的 causal mask 也是在 softmax 之前把不允许看的位置设成负无穷。约束解码把同一个技巧用在输出端：causal mask 挡住「未来的位置」，约束解码挡住「违反 schema 的 token」。面试里把这两者连起来，说明你理解的是机制，而不是只会调 API 参数。
+
+</Note>
+
+### 怎么知道每一步哪些 token 合法？
+
+**把 schema 编译成一台状态机。**
+
+**有限状态机（FSM, finite state machine）**：一组「状态」加上「在某个状态下看到什么字符，就转到哪个状态」的规则。JSON Schema 规定了合法输出的样子，可以提前转换成这样一台状态机。生成时，状态机记录「现在写到哪了」，并告诉你「下一步允许哪些字符」。
+
+跟着 `urgency` 这个字段走一遍：
+
+| 已经生成到 | 状态机所在的状态 | 下一步允许的字符 |
+| --- | --- | --- |
+| `..., "urgency": ` | 等待取值 | 只有 `"` |
+| `..., "urgency": "` | 取值刚开始 | `l`、`m`、`h`（low、medium、high 的首字母） |
+| `..., "urgency": "hi` | 已经写了 hi，只能是 high | 只有 `g` |
+| `..., "urgency": "high` | 取值写完 | 只有 `"` |
+| `..., "urgency": "high"` | 字段结束 | `,` 或 `}`，取决于后面还有没有 required 字段 |
+
+`summary` 是最后一个字段，而 `required` 里四个字段都要出现，所以状态机在 `urgency` 之后只允许 `,`，不允许直接 `}`。字段缺失（Level 0 的错误 ④）就是这样被杜绝的。
+
+<Note title="嵌套结构需要带栈的自动机">
+
+JSON 可以任意嵌套：数组里有对象，对象里又有数组。要记住「现在在第几层、每层是数组还是对象」，普通的有限状态机不够，需要带栈的自动机（pushdown automaton），对应的是上下文无关文法。有的实现把 schema 转成正则表达式再编译成 FSM，这时嵌套深度要有上限；有的实现直接处理文法。知道有这个区别就够了。
+
+</Note>
+
+### 状态机按字符工作，模型按 token 生成，怎么对上？
+
+这是约束解码在工程上最难的地方。[Tokenization](/docs/llm/tokenization) 讲过，token 往往是好几个字符拼成的块，而且块的切分和 JSON 的语法边界不对齐。比如词表里可能有这些 token：
+
+```
+"high"        一个 token 就把整个取值和两边的引号都写完了
+igh",         跨过了取值结束、引号、逗号三个语法位置
+ "            空格加引号
+```
+
+所以每一步要判断的是：**词表里的每个 token，把它的所有字符依次喂给状态机，会不会中途走进非法状态**。词表有十几万个 token，每一步都逐个检查太慢。
+
+实际的做法是**提前算好**：对状态机的每个状态，预先算出哪些 token 合法，存成索引。生成时只需要查表，得到一个「允许的 token 集合」，再把其他 token 的 logit 设成负无穷。
+
+开源实现里常见的有 **Outlines**（把 schema 转成状态机并预建 token 索引）和 **XGrammar**（高性能的文法引擎，被 vLLM、SGLang 等推理框架采用）。
+
+<Note title="约束解码的开销在哪" type="warning">
+
+每一步查表加屏蔽 logits 的开销通常不大。开销主要在**编译新 schema** 的时候：第一次用一个复杂的 schema，可能要花明显的时间预处理。所以有的 API 第一次使用新 schema 的请求会慢一些，之后会缓存。schema 越复杂（深嵌套、很多 anyOf、很大的枚举），编译越慢。
+
+</Note>
+
+### 约束解码会不会让答案变差？
+
+**格式一定对，但内容可能被「逼」错。** 有三种典型情况：
+
+**1. 模型想说的在 schema 里没有位置。** 假设客户问的是「能开发票吗」，`intents` 的枚举里如果没有「其他」，模型只能在四个类别里选一个最像的，比如「商品咨询」。输出完全合法，但分类是错的，而且**不会报错**。解决办法是给 schema 留出口：
+
+- 枚举里加「其他」
+- 可能没有的字段允许 null
+- 必要时加一个「无法判断」的选项，让下游转人工
+
+**2. 推理的空间被挤掉了。** 这是下一节的字段顺序问题。
+
+**3. 被迫走进模型认为不太可能的路径。** 屏蔽后，模型可能被迫选择一个它原本概率很低的 token，之后的内容也跟着偏离它「自然」会写的样子。schema 设计得越贴近模型本来的输出习惯（Level 5），这种影响越小。
+
+### 字段顺序为什么会影响答案质量？
+
+模型从左往右生成，**每个 token 只能参考它前面已经生成的 token**（[Attention & Transformer](/docs/llm/transformer) 讲的 causal mask）。
+
+如果 schema 是这个顺序：
+
+```json
+{"urgency": "high", "reasoning": "物流 7 天没更新，超过了政策里的 5 天，客户明确要求退款……"}
+```
+
+生成 `urgency` 的时候，后面的推理还一个字都没写，**决定已经做完了**。reasoning 只能事后为这个决定找理由。
+
+把推理放到前面：
+
+```json
+{"reasoning": "物流 7 天没更新，超过了政策里的 5 天，客户明确要求退款……", "urgency": "high"}
+```
+
+生成 `urgency` 时，模型已经能看到自己写下的推理，判断更可靠。这和 [Prompt Engineering](/docs/application/prompt-engineering) Level 3 「推理要写在答案前面」是同一个道理。
+
+Pydantic 生成 schema 时按类里字段定义的顺序排列，大部分结构化输出实现也按 schema 里的字段顺序生成。所以**把推理字段定义在最前面**：
+
+```python
+class Ticket(BaseModel):
+    reasoning: str = Field(description="先分析客户的问题和紧急程度，再填后面的字段")
+    intents: list[Intent] = Field(min_length=1)
+    order_id: str | None
+    urgency: Literal["low", "medium", "high"]
+    summary: str = Field(max_length=60)
+```
+
+<Note title="推理字段不是免费的" type="warning">
+
+推理字段会增加 output token，也就是增加成本和延迟（数字见 Level 5）。简单的抽取任务不需要它；判断复杂、容易出错的字段才值得加。推理字段的内容也不要直接展示给客户。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 约束解码在哪一步动手？怎么让不合法的 token 永远不被选中？
+2. 用上面的数字说明：为什么不约束时模型会输出「很急」，约束后 high 的概率是怎么算出来的？
+3. schema 怎么变成「每一步允许哪些字符」？为什么缺字段的错误能被杜绝？
+4. 状态机按字符工作、模型按 token 生成，这个不匹配怎么解决？约束解码的主要开销在哪？
+5. 约束解码保证了格式，为什么内容还可能变差？怎么给 schema 留出口？
+6. 为什么推理字段要放在答案字段前面？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · How constrained decoding works
+
+### First, a refresher: how does the model pick each token?
+
+From [Attention & Transformer](/docs/llm/transformer) Level 6: at each step the model gives **every token in the vocabulary** a score called a **logit**; softmax turns the logits into probabilities, and the next token is chosen by those probabilities. That token is appended to the input and the process repeats.
+
+Why does prompting alone fail? Because **invalid tokens don't have zero probability**.
+
+### How does constrained decoding keep output in bounds?
+
+**Constrained decoding**: at every step, before softmax, **set the logit of every token that would make the output violate the schema to negative infinity**. Negative infinity becomes probability 0 after softmax, so those tokens can never be chosen.
+
+Back to the ticket. The model has generated:
+
+```
+{"intents": ["shipping_inquiry", "refund"], "order_id": "20240915", "urgency": "
+```
+
+The next token should be the urgency value. To keep the math easy, pretend there are only 4 candidate tokens:
+
+| Candidate | Logit | Unconstrained probability | Allowed by schema? | Constrained logit | Constrained probability |
+| --- | --- | --- | --- | --- | --- |
+| high | 2.1 | 0.286 | yes | 2.1 | 0.675 |
+| urgent | 2.8 | **0.576** | no | negative infinity | 0 |
+| medium | 1.0 | 0.095 | yes | 1.0 | 0.225 |
+| low | 0.2 | 0.043 | yes | 0.2 | 0.101 |
+
+The math:
+
+```
+Unconstrained: e^2.1 = 8.17, e^2.8 = 16.44, e^1.0 = 2.72, e^0.2 = 1.22, sum 28.55
+               high = 8.17 / 28.55 = 0.286, urgent = 16.44 / 28.55 = 0.576 ...
+
+Constrained:   urgent gets e^(-inf) = 0, sum = 8.17 + 2.72 + 1.22 = 12.11
+               high = 8.17 / 12.11 = 0.675, medium = 2.72 / 12.11 = 0.225, low = 1.22 / 12.11 = 0.101
+```
+
+Two observations:
+
+1. **Unconstrained, the model outputs "urgent" 57.6% of the time.** The customer said it still hasn't arrived, so the meaning is right — the word just isn't in the enum. That's exactly why prompting alone fails
+2. **After constraining, the relative order of valid tokens is unchanged.** high is still the most likely; urgent's probability is redistributed proportionally among the valid options
+
+<Note title="It's the same trick as the causal mask" type="tip">
+
+The causal mask in [Attention & Transformer](/docs/llm/transformer) also sets disallowed positions to negative infinity before softmax. Constrained decoding applies the same trick on the output side: the causal mask blocks future positions; constrained decoding blocks schema-violating tokens. Connecting the two in an interview shows you understand the mechanism, not just an API flag.
+
+</Note>
+
+### How do you know which tokens are valid at each step?
+
+**Compile the schema into a state machine.**
+
+**Finite state machine (FSM)**: a set of states plus rules of the form "in this state, seeing this character moves you to that state". A JSON Schema defines what valid output looks like, and it can be converted ahead of time into such a machine. During generation, the machine tracks where you are and tells you which characters may come next.
+
+Walk through the `urgency` field:
+
+| Generated so far | State | Allowed next characters |
+| --- | --- | --- |
+| `..., "urgency": ` | expecting a value | only `"` |
+| `..., "urgency": "` | value just started | `l`, `m`, `h` (first letters of low, medium, high) |
+| `..., "urgency": "hi` | wrote hi, must be high | only `g` |
+| `..., "urgency": "high` | value complete | only `"` |
+| `..., "urgency": "high"` | field done | `,` or `}`, depending on whether required fields remain |
+
+`summary` is the last field and all four fields are in `required`, so after `urgency` the machine allows only `,`, never `}`. That's how missing fields (Level 0 failure ④) become impossible.
+
+<Note title="Nested structures need an automaton with a stack">
+
+JSON nests arbitrarily: arrays of objects containing arrays. Tracking "how deep am I, and is each level an array or an object" is beyond a plain FSM — it takes a pushdown automaton, which corresponds to a context-free grammar. Some implementations turn the schema into a regular expression and compile that into an FSM, which caps nesting depth; others work with the grammar directly. Knowing the distinction exists is enough.
+
+</Note>
+
+### The state machine works on characters but the model emits tokens — how do they line up?
+
+This is the hardest engineering part of constrained decoding. As [Tokenization](/docs/llm/tokenization) showed, a token is often a chunk of several characters, and chunk boundaries don't line up with JSON syntax boundaries. The vocabulary might contain tokens like:
+
+```
+"high"        a single token writes the whole value plus both quotes
+igh",         crosses the end of the value, the quote, and the comma
+ "            a space plus a quote
+```
+
+So at each step the real question is: **for every token in the vocabulary, if you feed its characters to the state machine one by one, does it ever hit an invalid state?** With a vocabulary of 100k+ tokens, checking each one at every step is too slow.
+
+What implementations actually do is **precompute**: for each state, work out ahead of time which tokens are valid and store that as an index. During generation it's a lookup that yields the set of allowed tokens, and every other token's logit goes to negative infinity.
+
+Common open-source implementations include **Outlines** (converts the schema into a state machine and prebuilds the token index) and **XGrammar** (a high-performance grammar engine used by serving frameworks like vLLM and SGLang).
+
+<Note title="Where constrained decoding costs you" type="warning">
+
+The per-step lookup and logit masking is usually cheap. The cost is in **compiling a new schema**: the first time you use a complex schema, preprocessing can take noticeable time. That's why some APIs are slower on the first request with a new schema and cache it afterward. The more complex the schema (deep nesting, lots of anyOf, huge enums), the slower the compile.
+
+</Note>
+
+### Does constrained decoding make answers worse?
+
+**The format is guaranteed, but the content can be forced wrong.** Three typical cases:
+
+**1. What the model wants to say has no place in the schema.** Say the customer asks "can I get an invoice?" If `intents` has no "other", the model has to pick the closest of the four categories, like product_question. The output is perfectly valid, the classification is wrong, and **nothing errors**. The fix is to give the schema escape hatches:
+
+- add "other" to the enum
+- make fields that may not exist nullable
+- when needed, add an "unable to determine" option so downstream can hand off to a human
+
+**2. Room for reasoning gets squeezed out.** That's the field-order problem in the next section.
+
+**3. The model is forced onto paths it considered unlikely.** After masking, the model may be pushed onto a token it gave low probability, and what follows drifts from what it would naturally write. The closer the schema is to how the model would naturally express the output (Level 5), the smaller the effect.
+
+### Why does field order affect answer quality?
+
+The model generates left to right, and **each token can only attend to tokens already generated** (the causal mask from [Attention & Transformer](/docs/llm/transformer)).
+
+With the schema in this order:
+
+```json
+{"urgency": "high", "reasoning": "Tracking hasn't updated in 7 days, past the policy's 5 days, and the customer explicitly asks for a refund..."}
+```
+
+when `urgency` is generated, not a word of reasoning exists yet — **the decision has already been made**. The reasoning can only justify it after the fact.
+
+Put the reasoning first:
+
+```json
+{"reasoning": "Tracking hasn't updated in 7 days, past the policy's 5 days, and the customer explicitly asks for a refund...", "urgency": "high"}
+```
+
+Now when `urgency` is generated, the model can see the reasoning it just wrote, and the judgment is more reliable. It's the same principle as "reasoning before the answer" in [Prompt Engineering](/docs/application/prompt-engineering) Level 3.
+
+Pydantic emits schema fields in the order they're defined in the class, and most structured-output implementations generate fields in schema order. So **define the reasoning field first**:
+
+```python
+class Ticket(BaseModel):
+    reasoning: str = Field(description="Analyze the customer's issue and urgency first, then fill in the other fields")
+    intents: list[Intent] = Field(min_length=1)
+    order_id: str | None
+    urgency: Literal["low", "medium", "high"]
+    summary: str = Field(max_length=60)
+```
+
+<Note title="Reasoning fields aren't free" type="warning">
+
+A reasoning field adds output tokens, which means more cost and latency (numbers in Level 5). Simple extraction doesn't need one; only fields with hard, error-prone judgments are worth it. And don't show the reasoning text to customers directly.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. At which step does constrained decoding intervene, and how does it make invalid tokens impossible?
+2. Using the numbers above: why does the unconstrained model output "urgent", and how is high's constrained probability computed?
+3. How does a schema become "which characters are allowed at each step"? Why are missing fields impossible?
+4. The state machine works on characters and the model on tokens — how is that mismatch solved? Where is the main cost?
+5. Constrained decoding guarantees format — why can content still get worse, and how do you give a schema escape hatches?
+6. Why should reasoning fields come before answer fields?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 4 · 出错了怎么办
+
+Level 2 讲过，三种方式都不能百分之百保证结果可用。这个 Level 讲**出错之后的完整处理流程**。
+
+### 完整的处理流程长什么样？
+
+```
+模型输出
+   ↓
+① 是否被截断？ ──是──→ 调大 max_tokens 或缩短输出要求后重试
+   ↓ 否
+② 能否解析 + 是否符合 schema？ ──否──┐
+   ↓ 是                              │
+③ 语义检查是否通过？ ──否────────────┤
+   ↓ 是                              ↓
+ 交给下游                  ④ 带着错误信息重试（最多 N 次）
+                                     ↓ 仍然失败
+                           ⑤ 修复：代码修语法 / 换更强的模型
+                                     ↓ 仍然失败
+                           ⑥ 兜底：安全的默认处理 + 记录日志
+```
+
+**顺序很重要**：先便宜的检查，后昂贵的补救；所有检查都通过之前，**不做任何有副作用的操作**。
+
+### 怎么发现输出被截断了？
+
+API 的返回里会带一个**结束原因**：模型正常说完、遇到停止词，还是因为达到 max_tokens 被强制停下。不同 API 字段名不同（常见的有 finish_reason、stop_reason），但都有「因为长度上限停止」这个值。
+
+截断要**单独处理**，不能当普通错误重试：
+
+- 同样的 max_tokens 原样重试，大概率还是在同一个位置被截断
+- 正确做法是调大 max_tokens，或者收紧输出要求（比如摘要限制在 60 字以内）
+
+<Note title="先查结束原因，再解析" type="warning">
+
+截断的 JSON 解析失败时，报错只会说「JSON 格式错误」，看不出是截断。如果把这个报错发回给模型重试，就是在白花钱。所以流程的第一步永远是检查结束原因。
+
+</Note>
+
+### 重试时为什么要把错误信息带上？
+
+如果只是把原请求再发一次，而 temperature 又很低，模型大概率会犯同样的错。**把上一次的输出和校验报错一起发回去**，模型就知道错在哪：
+
+```python
+def validate(text: str, customer_message: str, customer_order_ids: set[str]) -> tuple[Ticket | None, str | None]:
+    try:
+        ticket = Ticket.model_validate_json(text)
+    except ValidationError as e:
+        return None, str(e)                                   # 语法或结构错误
+    errors = check_semantics(ticket, customer_message, customer_order_ids)   # Level 1 的语义检查
+    return (None, "\n".join(errors)) if errors else (ticket, None)
+
+def extract_ticket(messages, customer_message, customer_order_ids, max_retries=2):
+    for attempt in range(max_retries + 1):
+        response = llm.generate(messages=messages, response_schema=Ticket.model_json_schema())
+        if response.finish_reason == "length":
+            raise OutputTruncated()                           # 截断单独处理，不走普通重试
+        ticket, error = validate(response.text, customer_message, customer_order_ids)
+        if ticket is not None:
+            return ticket
+        messages = messages + [
+            {"role": "assistant", "content": response.text},
+            {"role": "user", "content": f"上面的输出没有通过校验：\n{error}\n请修正这些问题，重新输出完整的 JSON。"},
+        ]
+    return None                                               # 交给修复和兜底
+```
+
+模型收到的反馈是这样的：
+
+```
+上面的输出没有通过校验：
+1 validation error for Ticket
+urgency
+  Input should be 'low', 'medium' or 'high' [type=literal_error, input_value='很急', input_type=str]
+请修正这些问题，重新输出完整的 JSON。
+```
+
+Level 1 让报错精确到字段，在这里就派上了用场。
+
+<Note title="Instructor 这类库做的就是这件事">
+
+Python 的 Instructor 等库把「Pydantic 定义结构 → 调用模型 → 校验 → 带错误信息重试」封装好了。面试时可以提到用过这类库，但要能讲清楚它内部在做什么，也就是上面这段代码。
+
+</Note>
+
+### 重试对成功率、延迟和成本有什么影响？
+
+假设第一次输出有 5% 的概率校验失败，带着错误信息重试时，每次有 90% 的概率改对：
+
+| 最多重试次数 | 最终成功率 | 平均调用次数 |
+| --- | --- | --- |
+| 0 次 | 95% | 1 |
+| 1 次 | 95% + 5% × 90% = **99.5%** | 1 + 5% = **1.05** |
+| 2 次 | 99.5% + 0.5% × 90% = **99.95%** | 1 + 5% + 0.5% = **1.055** |
+
+**成功率**：第一次重试把失败率从 5% 降到 0.5%，第二次只再降到 0.05%。重试次数一般设 1 到 2 次就够了，边际收益递减得很快。
+
+**平均成本和平均延迟**：只多了 5% 左右，看起来很便宜。但注意两点：
+
+- 重试请求比原请求更长：带上了上一次的输出和报错，input token 更多
+- **尾部延迟变化很大**。5% 的请求要调用两次模型。P99 延迟（最慢的 1% 请求的耗时）落在这 5% 里，**P99 大约翻倍**。平均值几乎看不出来，但最慢的那批用户会明显感到变慢（延迟指标见 [Latency](/docs/production/latency)）
+
+如果失败率很高，重试就不是解决办法了：该回头改 prompt、改 schema（Level 5），或者换用 schema 约束。
+
+### 重试还是失败，怎么修复？
+
+**方法一：用代码修语法。** 适合只靠 prompt 或 JSON mode 时的语法类错误：
+
+- 去掉 JSON 前后的多余文字和代码块标记
+- 删掉多余的末尾逗号，补上缺失的右括号
+- json-repair 这类库专门做这件事
+
+**方法二：明确的取值映射。** 比如维护一张同义词表，把「很急」「紧急」映射成 high。只做**事先定义好的、确定的**映射。
+
+**方法三：换一个更强的模型再试一次。** 小模型连续失败，把这条请求交给更强的模型。这就是 [Model Routing](/docs/application/model-routing) 里的级联思路。
+
+<Note title="修复只修格式，不猜内容" type="danger">
+
+修复不能「猜」语义内容。订单号解析不出来，就填 null 然后转人工，**不能用正则从别的地方随便抓一串数字**当订单号。修出一个格式合法但内容错误的结果，比直接失败危险得多：它会变成 Level 0 里说的「不报错的错误」。
+
+</Note>
+
+### 最后都失败了，怎么兜底？
+
+兜底的原则：**选最安全的处理方式，而不是最可能正确的那个**。
+
+在客服场景里：
+
+- 工单标记为「需要人工处理」，进入人工队列
+- 不能确定的字段一律按保守方式处理：紧急程度不确定，就按 high 处理，保证有人看到
+- **绝不默认触发有副作用的操作**：抽取失败时不能默认发起退款审核
+- 回复客户「已为您转接人工客服」，而不是报错页面
+- 记录完整的原始输出、每次的报错和重试次数，用于后续分析
+
+### 重试会不会让退款被发起两次？
+
+会，如果流程设计得不好。例子：
+
+1. 模型输出工单，代码立刻发起了退款审核
+2. 接着生成回复时超时，整个请求被上游重试
+3. 第二次又抽取了一次工单，又发起了一次退款审核
+
+两个原则避免这种问题：
+
+**1. 先全部校验通过，再执行副作用。** 抽取、校验、语义检查全部完成，才调用退款接口。
+
+**2. 有副作用的操作要幂等。** **幂等（idempotent）**：同一个操作执行一次和执行多次，效果完全一样。做法是给每个操作生成一个**幂等键**，比如「退款审核 + 订单号 + 客户消息 ID」。退款服务收到重复的幂等键，直接返回第一次的结果，不会再建一次审核。
+
+超时、重试策略、熔断这些更通用的可靠性手段见 [Reliability](/docs/production/reliability)。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 完整的处理流程有哪几步？为什么所有检查通过之前不能做有副作用的操作？
+2. 为什么截断要单独处理？怎么发现输出被截断了？
+3. 重试时为什么要带上错误信息？
+4. 失败率 5%、重试成功率 90%，重试 1 次后成功率和平均调用次数是多少？为什么 P99 延迟会大约翻倍？
+5. 代码修复能修什么、不能修什么？兜底时应该怎么选默认处理？
+6. 什么是幂等？怎么避免重试导致退款审核被发起两次？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · When things go wrong
+
+As Level 2 showed, none of the three approaches guarantees a usable result 100% of the time. This Level covers **the full flow for handling failures**.
+
+### What does the full flow look like?
+
+```
+model output
+   ↓
+① truncated? ──yes──→ raise max_tokens or tighten output length, then retry
+   ↓ no
+② parses and matches schema? ──no──┐
+   ↓ yes                           │
+③ passes semantic checks? ──no─────┤
+   ↓ yes                           ↓
+ hand off downstream     ④ retry with the error message (up to N times)
+                                   ↓ still failing
+                         ⑤ repair: fix syntax in code / try a stronger model
+                                   ↓ still failing
+                         ⑥ fall back: safe default handling + logging
+```
+
+**Order matters**: cheap checks first, expensive fixes later — and **no side effects until every check passes**.
+
+### How do you detect truncated output?
+
+The API response includes a **stop reason**: the model finished normally, hit a stop sequence, or was cut off at max_tokens. Field names differ by API (finish_reason and stop_reason are common), but they all have a "stopped at the length limit" value.
+
+Truncation needs **its own handling**, not a normal retry:
+
+- retrying with the same max_tokens will most likely cut off at the same place
+- instead, raise max_tokens or tighten the output requirements (e.g., cap the summary at 60 characters)
+
+<Note title="Check the stop reason before parsing" type="warning">
+
+When truncated JSON fails to parse, the error just says "invalid JSON" — nothing about truncation. Sending that error back to the model for a retry is wasted money. So step one is always checking the stop reason.
+
+</Note>
+
+### Why include the error message when retrying?
+
+If you just resend the original request at low temperature, the model will most likely make the same mistake. **Send back its previous output together with the validation error**, and the model knows what to fix:
+
+```python
+def validate(text: str, customer_message: str, customer_order_ids: set[str]) -> tuple[Ticket | None, str | None]:
+    try:
+        ticket = Ticket.model_validate_json(text)
+    except ValidationError as e:
+        return None, str(e)                                   # syntax or schema error
+    errors = check_semantics(ticket, customer_message, customer_order_ids)   # semantic checks from Level 1
+    return (None, "\n".join(errors)) if errors else (ticket, None)
+
+def extract_ticket(messages, customer_message, customer_order_ids, max_retries=2):
+    for attempt in range(max_retries + 1):
+        response = llm.generate(messages=messages, response_schema=Ticket.model_json_schema())
+        if response.finish_reason == "length":
+            raise OutputTruncated()                           # truncation is handled separately, not retried here
+        ticket, error = validate(response.text, customer_message, customer_order_ids)
+        if ticket is not None:
+            return ticket
+        messages = messages + [
+            {"role": "assistant", "content": response.text},
+            {"role": "user", "content": f"The output above failed validation:\n{error}\nFix these problems and output the complete JSON again."},
+        ]
+    return None                                               # hand off to repair and fallback
+```
+
+The feedback the model receives:
+
+```
+The output above failed validation:
+1 validation error for Ticket
+urgency
+  Input should be 'low', 'medium' or 'high' [type=literal_error, input_value='very urgent', input_type=str]
+Fix these problems and output the complete JSON again.
+```
+
+This is where Level 1's field-level error messages pay off.
+
+<Note title="Libraries like Instructor do exactly this">
+
+Python libraries such as Instructor package up "define the structure in Pydantic → call the model → validate → retry with the error". It's fine to mention them in an interview, but be ready to explain what they do inside — which is the code above.
+
+</Note>
+
+### How do retries affect success rate, latency, and cost?
+
+Suppose the first output fails validation 5% of the time, and a retry with the error message fixes it 90% of the time:
+
+| Max retries | Final success rate | Average calls |
+| --- | --- | --- |
+| 0 | 95% | 1 |
+| 1 | 95% + 5% × 90% = **99.5%** | 1 + 5% = **1.05** |
+| 2 | 99.5% + 0.5% × 90% = **99.95%** | 1 + 5% + 0.5% = **1.055** |
+
+**Success rate**: the first retry drops failures from 5% to 0.5%; the second only gets you to 0.05%. One or two retries is usually enough — the returns diminish fast.
+
+**Average cost and latency**: only about 5% more, which looks cheap. Two caveats:
+
+- retry requests are longer than the original: they carry the previous output and the error, so more input tokens
+- **tail latency changes a lot**. 5% of requests call the model twice. P99 latency — the time taken by the slowest 1% of requests — falls inside that 5%, so **P99 roughly doubles**. The average barely moves, but your slowest users clearly feel it (latency metrics are in [Latency](/docs/production/latency))
+
+If the failure rate is high, retries aren't the fix: go back and change the prompt or schema (Level 5), or switch to schema constraints.
+
+### Retries still failing — how do you repair?
+
+**Option 1: fix syntax in code.** Suited to syntax errors when you're prompting alone or using JSON mode:
+
+- strip extra prose and code-fence markers around the JSON
+- remove trailing commas, add missing closing brackets
+- libraries like json-repair exist for exactly this
+
+**Option 2: explicit value mapping.** For example, keep a synonym table mapping "very urgent" and "ASAP" to high. Only do **predefined, deterministic** mappings.
+
+**Option 3: try once more with a stronger model.** If the small model keeps failing, hand the request to a stronger one. That's the cascade idea from [Model Routing](/docs/application/model-routing).
+
+<Note title="Repair fixes format, never guesses content" type="danger">
+
+Repair must not guess semantic content. If the order number can't be parsed, set it to null and route to a human — **don't regex some random string of digits from elsewhere** and call it the order number. A repaired result that's well-formed but wrong is far more dangerous than a failure: it becomes the silent failure from Level 0.
+
+</Note>
+
+### Everything failed — what's the fallback?
+
+The principle: **pick the safest handling, not the most likely correct one.**
+
+For customer support:
+
+- mark the ticket as needing human handling and put it in the human queue
+- treat uncertain fields conservatively: if urgency is unknown, treat it as high so someone sees it
+- **never trigger side effects by default**: a failed extraction must not default to starting a refund review
+- tell the customer "I've passed you to a human agent" instead of showing an error page
+- log the full raw output, every error, and the retry count for later analysis
+
+### Could retries start the refund review twice?
+
+Yes, if the flow is poorly designed. For example:
+
+1. the model outputs a ticket and code immediately starts a refund review
+2. generating the reply then times out, and the whole request is retried upstream
+3. the second attempt extracts the ticket again and starts another refund review
+
+Two principles prevent this:
+
+**1. Validate everything first, then perform side effects.** Call the refund API only after extraction, validation, and semantic checks have all passed.
+
+**2. Make side-effecting operations idempotent.** **Idempotent**: running an operation once or many times has exactly the same effect. Give each operation an **idempotency key**, such as "refund review + order number + customer message ID". When the refund service sees a repeated key, it returns the first result instead of creating another review.
+
+More general reliability techniques — timeouts, retry policies, circuit breakers — are in [Reliability](/docs/production/reliability).
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What are the steps of the full flow, and why no side effects before every check passes?
+2. Why does truncation need separate handling, and how do you detect it?
+3. Why include the error message when retrying?
+4. With a 5% failure rate and 90% retry success, what are the success rate and average calls after one retry? Why does P99 latency roughly double?
+5. What can code repair fix and not fix? How should you choose fallback defaults?
+6. What is idempotency, and how do you keep retries from starting a refund review twice?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 5 · Schema 设计与评估
+
+### 什么样的 schema，模型更容易填对？
+
+schema 本身也是 prompt 的一部分：字段名、描述、枚举值模型都看得到。同样的任务，schema 设计得好不好，准确率会差很多。对比两版工单 schema：
+
+```json
+{"type": "string", "info": {"no": "string", "lvl": "integer 1-10", "days": "integer"}, "txt": "string"}
+```
+
+```json
+{"reasoning": "string", "intents": ["物流查询 | 退款 | 商品咨询 | 投诉 | 其他"], "order_id": "string 或 null", "urgency": "low | medium | high", "summary": "string"}
+```
+
+（上面是示意写法，不是真正的 JSON Schema。）第一版的问题和对应的原则：
+
+| 第一版的问题 | 原则 |
+| --- | --- |
+| `type`、`txt`、`no` 看不出是什么意思 | **字段名清楚，加 description**。模型靠名字和描述理解字段该填什么 |
+| `lvl` 是 1 到 10 的整数，6 和 7 的区别谁也说不清 | **能用枚举就不用自由数值或自由文本**，每个取值的含义写进描述 |
+| `type` 只能填一个意图，但客户消息同时有物流查询和退款 | **结构要符合真实数据**，一条消息可能有多个意图就用数组 |
+| `info` 多套了一层 | **能扁平就扁平**，嵌套越深越容易出错，约束解码的编译也越慢（Level 3） |
+| `days` 让模型算物流停滞了几天 | **能用代码算的不要让模型算**。日期差、金额合计、计数交给代码 |
+| 没有「其他」、没有 null | **给 schema 留出口**（Level 3），否则模型被迫乱选 |
+
+还有一条：**一个 schema 只做一件事**。给客户看的回复和给代码用的工单分成两次输出，或者至少两个独立字段，不要让一段文字同时承担两种用途。
+
+### schema 改了，下游怎么办？
+
+schema 是模型和下游代码之间的**接口**，改它要像改 API 一样小心：
+
+- **兼容的改动**：新增一个可以为 null 的字段。旧代码不读它，不受影响
+- **不兼容的改动**：重命名字段、删除字段、改类型、**给枚举加新值**。下游如果用 if/else 判断意图，新增的「催发货」意图可能直接走进错误分支
+
+做法和 [Prompt Engineering](/docs/application/prompt-engineering) Level 5 管理 prompt 一样：schema 跟 prompt 一起加版本号，日志里记录每个请求用的是哪个版本，不兼容的改动先通知下游再上线。
+
+### 怎么衡量结构化输出的质量？
+
+用评测集。假设从线上抽了 200 条客户消息，人工标注了正确的工单，用 schema 约束跑一遍（下面是示意数字）：
+
+| 指标 | 怎么算 | 结果 |
+| --- | --- | --- |
+| 解析率 | 能被解析成 JSON 的比例 | 200 / 200 = 100% |
+| 结构合法率 | 通过 Pydantic 校验的比例 | 200 / 200 = 100% |
+| 首次通过率 | 不需要重试就通过全部检查的比例 | 192 / 200 = 96% |
+| `order_id` 准确率 | 和标注完全一致 | 196 / 200 = 98% |
+| `intents` 准确率 | 意图集合和标注完全一致 | 176 / 200 = 88% |
+| `urgency` 准确率 | 和标注一致 | 164 / 200 = 82% |
+| `summary` 质量 | 按评分标准由人或 LLM-as-judge 打分（见 [LLM Evaluation](/docs/evaluation/llm-eval)） | 平均 4.3 / 5 |
+
+怎么读这张表：
+
+1. **格式问题已经解决了**，解析率和结构合法率都是 100%。接下来的工作全在语义层
+2. **`urgency` 最弱**。下一步是在描述里写清楚 low、medium、high 各自的判断标准，或者给它加推理字段（Level 3），再在评测集上对比
+3. **不同的错误代价不一样**。把 high 判成 low，客户可能几天没人理；把 low 判成 high，只是多占了一点人工。所以除了准确率，还要看 high 被判成 low 的有多少条
+
+<Note title="只报解析率是面试里的常见扣分点" type="warning">
+
+「我们的 JSON 解析成功率 99.9%」只说明格式没问题。面试官会追问：字段填得对不对？用什么衡量？结构化输出的质量评估一定要落到**字段级准确率**，并且说明哪个字段最弱、错误的代价是什么。
+
+</Note>
+
+### 约束解码和微调怎么分工？
+
+两者解决的是不同的问题：
+
+| | 约束解码 | 微调 |
+| --- | --- | --- |
+| 解决什么 | 格式：输出一定符合 schema | 内容：判断更准，写法更贴近任务 |
+| 需要什么 | 推理框架或 API 支持，不需要数据 | 标注数据、训练和部署成本 |
+| 什么时候生效 | 生成的每一步 | 训练之后，模型本身变了 |
+
+实际项目里常常一起用：**微调一个小模型学会这个抽取任务，部署时再加约束解码保证格式**。微调后的模型本来就习惯输出这种结构，约束解码很少需要强行屏蔽它想选的 token，Level 3 讲的质量副作用也更小。
+
+什么时候值得微调：prompt 和 schema 都优化过了，字段级准确率仍然不够；请求量大，想用小模型省钱；手上有足够的标注数据（见 [Fine-tuning](/docs/llm/fine-tuning)）。
+
+### 字段名和推理字段要花多少钱？
+
+结构化输出里的字段名、引号、括号，**每次输出都要重复生成**，都是 output token。按 [Model Selection](/docs/application/model-selection) 里的示意价格（M 档输出每百万 token 1.50 美元，S 档 15.00 美元），每月 100 万次请求：
+
+```
+字段名写得啰嗦，每次多 30 个 token：
+  30 × 100 万 = 3,000 万 output token
+  M 档：30 × 1.50 = 45 美元/月        S 档：30 × 15.00 = 450 美元/月
+
+加一个推理字段，每次多 150 个 token：
+  150 × 100 万 = 1.5 亿 output token
+  M 档：150 × 1.50 = 225 美元/月      S 档：150 × 15.00 = 2,250 美元/月
+```
+
+结论：
+
+- **字段名不值得为了省 token 牺牲清晰度**。`urgency` 改成 `u` 省下的钱很少，准确率的损失可能更大
+- **推理字段才是真正的成本大头**，而且还增加延迟：如果每秒生成 50 个 token，多 150 个 token 就是多 3 秒。所以只给真正需要的字段加推理（Level 3）
+
+<Note title="自测：到这里你应该能回答">
+
+1. 设计 schema 有哪些原则？为什么「让模型算物流停滞天数」不是好设计？
+2. schema 的哪些改动是兼容的，哪些不兼容？为什么给枚举加新值也可能出问题？
+3. 衡量结构化输出质量要看哪些指标？为什么只看解析率不够？
+4. 上面的评测结果里，下一步应该优化什么？为什么除了准确率还要看错误的类型？
+5. 约束解码和微调分别解决什么问题？为什么常常一起用？
+6. 每月 100 万次请求，加一个 150 token 的推理字段，在 S 档模型上每月多花多少钱？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 5 · Schema design and evaluation
+
+### What kind of schema is easier for a model to fill correctly?
+
+The schema is part of the prompt too: the model sees field names, descriptions, and enum values. For the same task, schema design can swing accuracy a lot. Compare two ticket schemas:
+
+```json
+{"type": "string", "info": {"no": "string", "lvl": "integer 1-10", "days": "integer"}, "txt": "string"}
+```
+
+```json
+{"reasoning": "string", "intents": ["shipping_inquiry | refund | product_question | complaint | other"], "order_id": "string or null", "urgency": "low | medium | high", "summary": "string"}
+```
+
+(These are sketches, not real JSON Schema.) The first version's problems and the principles they break:
+
+| Problem in version 1 | Principle |
+| --- | --- |
+| `type`, `txt`, `no` don't say what they mean | **clear field names plus descriptions** — the model relies on them to know what goes where |
+| `lvl` is an integer from 1 to 10, and nobody can explain 6 versus 7 | **prefer enums over free numbers or free text**, with each value's meaning in the description |
+| `type` holds one intent, but the message is both a shipping inquiry and a refund request | **match the real data** — if a message can have several intents, use an array |
+| `info` adds an extra layer | **flatten where you can** — deeper nesting means more errors and slower constrained-decoding compiles (Level 3) |
+| `days` asks the model to compute how long tracking has stalled | **don't make the model compute what code can** — date differences, totals, and counts belong in code |
+| no "other", no null | **give the schema escape hatches** (Level 3), or the model is forced to pick something |
+
+One more: **one schema, one job**. Keep the customer-facing reply and the code-facing ticket as two outputs, or at least two separate fields — don't make one piece of text serve both purposes.
+
+### The schema changed — what about downstream?
+
+The schema is the **interface** between the model and downstream code; change it as carefully as you'd change an API:
+
+- **Compatible changes**: adding a nullable field. Old code doesn't read it and isn't affected
+- **Breaking changes**: renaming, removing, or retyping a field, and **adding a new enum value**. If downstream branches on intent with if/else, a new "expedite shipping" intent might fall into the wrong branch
+
+Handle it the way [Prompt Engineering](/docs/application/prompt-engineering) Level 5 handles prompts: version the schema together with the prompt, log which version each request used, and notify downstream before shipping a breaking change.
+
+### How do you measure structured-output quality?
+
+With an evaluation set. Say you sample 200 production customer messages, hand-label the correct tickets, and run them with schema constraints (illustrative numbers):
+
+| Metric | How it's computed | Result |
+| --- | --- | --- |
+| Parse rate | share that parses as JSON | 200 / 200 = 100% |
+| Schema-valid rate | share that passes Pydantic validation | 200 / 200 = 100% |
+| First-pass rate | share that passes every check without a retry | 192 / 200 = 96% |
+| `order_id` accuracy | exact match with the label | 196 / 200 = 98% |
+| `intents` accuracy | intent set exactly matches the label | 176 / 200 = 88% |
+| `urgency` accuracy | matches the label | 164 / 200 = 82% |
+| `summary` quality | scored against a rubric by people or LLM-as-judge (see [LLM Evaluation](/docs/evaluation/llm-eval)) | average 4.3 / 5 |
+
+How to read it:
+
+1. **Format is solved** — parse rate and schema-valid rate are both 100%. All remaining work is at the semantic layer
+2. **`urgency` is the weakest.** Next step: spell out the criteria for low, medium, and high in the description, or add a reasoning field (Level 3), then compare on the evaluation set
+3. **Errors don't cost the same.** Labeling high as low can leave a customer unanswered for days; labeling low as high just uses a bit more human time. So beyond accuracy, count how many highs were labeled low
+
+<Note title="Reporting only parse rate loses points in interviews" type="warning">
+
+"Our JSON parse success rate is 99.9%" only says the format is fine. The interviewer will ask: are the fields right, and how do you measure that? Structured-output evaluation has to get down to **field-level accuracy**, and you should say which field is weakest and what its errors cost.
+
+</Note>
+
+### How do constrained decoding and fine-tuning divide the work?
+
+They solve different problems:
+
+| | Constrained decoding | Fine-tuning |
+| --- | --- | --- |
+| Solves | format: output always matches the schema | content: better judgments, task-appropriate phrasing |
+| Needs | serving-framework or API support; no data | labeled data, training and deployment cost |
+| Takes effect | at every generation step | after training — the model itself changes |
+
+Real projects often combine them: **fine-tune a small model on the extraction task, then add constrained decoding at serving time to guarantee format**. The fine-tuned model already tends to produce this structure, so constrained decoding rarely has to mask tokens it wants, and the quality side effects from Level 3 shrink.
+
+When fine-tuning is worth it: you've already optimized the prompt and schema and field-level accuracy still falls short; volume is high and a small model would save money; and you have enough labeled data (see [Fine-tuning](/docs/llm/fine-tuning)).
+
+### What do field names and reasoning fields cost?
+
+Field names, quotes, and brackets in structured output **are regenerated in every response** — they're all output tokens. Using the illustrative prices from [Model Selection](/docs/application/model-selection) (tier M output at $1.50 per million tokens, tier S at $15.00), at 1 million requests a month:
+
+```
+Verbose field names, 30 extra tokens per response:
+  30 × 1M = 30M output tokens
+  Tier M: 30 × $1.50 = $45/month        Tier S: 30 × $15.00 = $450/month
+
+A reasoning field, 150 extra tokens per response:
+  150 × 1M = 150M output tokens
+  Tier M: 150 × $1.50 = $225/month      Tier S: 150 × $15.00 = $2,250/month
+```
+
+Takeaways:
+
+- **Field names aren't worth sacrificing clarity to save tokens.** Renaming `urgency` to `u` saves very little, and the accuracy hit may cost more
+- **Reasoning fields are the real cost driver**, and they add latency: at 50 tokens per second, 150 more tokens is 3 more seconds. Add reasoning only for fields that truly need it (Level 3)
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What are the principles of schema design? Why is "have the model compute how many days tracking stalled" a poor design?
+2. Which schema changes are compatible and which break? Why can adding an enum value cause problems?
+3. Which metrics measure structured-output quality, and why isn't parse rate enough?
+4. In the evaluation above, what should you optimize next, and why look at error types beyond accuracy?
+5. What do constrained decoding and fine-tuning each solve, and why are they often combined?
+6. At 1 million requests a month, how much more does a 150-token reasoning field cost per month on a tier S model?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note title="别说「用了结构化输出，模型输出就一定是对的」" type="danger">
+
+schema 约束只保证结构合法。订单号编错一位、意图判断错误，schema 都拦不住。语义层要靠业务校验和评测集（Level 1、Level 5）。
+
+</Note>
+
+<Note title="别说「JSON mode 能保证输出符合 schema」" type="danger">
+
+JSON mode 只保证语法合法。字段名写错、类型不对、枚举值越界，JSON mode 全都放行（Level 2）。
+
+</Note>
+
+<Note title="用了 schema 约束就不校验" type="warning">
+
+截断、拒绝回答、API 不支持的关键字，都会让输出不符合预期。拿到输出永远要校验。
+
+</Note>
+
+<Note title="截断当成普通错误重试" type="warning">
+
+同样的 max_tokens 重试还会在同一个位置截断。先检查结束原因，截断就调大上限或缩短输出要求。
+
+</Note>
+
+<Note title="枚举没有「其他」、字段不允许 null" type="warning">
+
+模型想表达的在 schema 里没有位置时，约束解码会逼它选一个最像的合法值。结果格式合法、内容错误，而且不报错。
+
+</Note>
+
+<Note title="推理字段放在答案字段后面" type="warning">
+
+模型从左往右生成，答案先写出来，后面的推理只是事后找理由，起不到提高准确率的作用。
+
+</Note>
+
+<Note title="修复时猜测内容，或者在校验通过前执行副作用" type="warning">
+
+修复只修格式，不猜订单号这类内容。有副作用的操作要等所有检查通过再执行，并且要幂等，否则重试可能让退款审核被发起两次。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Traps
+
+<Note title="Don't say structured output means the model's output is always correct" type="danger">
+
+Schema constraints only guarantee schema validity. An order number off by one digit or a wrong intent gets straight through. The semantic layer needs business checks and an evaluation set (Levels 1 and 5).
+
+</Note>
+
+<Note title="Don't say JSON mode guarantees the output matches the schema" type="danger">
+
+JSON mode only guarantees valid syntax. Wrong field names, wrong types, and out-of-range enum values all pass (Level 2).
+
+</Note>
+
+<Note title="Skipping validation because you used schema constraints" type="warning">
+
+Truncation, refusals, and keywords the API doesn't support can all produce unexpected output. Always validate what comes back.
+
+</Note>
+
+<Note title="Retrying truncation like any other error" type="warning">
+
+Retrying with the same max_tokens truncates at the same place. Check the stop reason first; for truncation, raise the limit or tighten the output length.
+
+</Note>
+
+<Note title="Enums without “other” and fields that can’t be null" type="warning">
+
+When what the model wants to say has no place in the schema, constrained decoding forces it onto the closest valid value. The result is well-formed, wrong, and raises no error.
+
+</Note>
+
+<Note title="Putting the reasoning field after the answer field" type="warning">
+
+The model generates left to right, so the answer is already written and the reasoning after it is just after-the-fact justification — it doesn't improve accuracy.
+
+</Note>
+
+<Note title="Guessing content during repair, or running side effects before validation" type="warning">
+
+Repair fixes format only; it doesn't guess content like order numbers. Side-effecting operations wait until every check passes and must be idempotent, or a retry can start the refund review twice.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 连接
+
+</Locale>
+
+<Locale lang="en">
+
+## Connections
 
 </Locale>
 
 ```
-LLM
- ↓
-JSON Schema
- ↓
-Validation
- ↓
-Application
+free-text output → code needs data → 7 failure types (loud vs. silent)
+                    ↓
+contract: JSON Schema / Pydantic · syntax / schema / semantics
+                    ↓
+prompt only  <  JSON mode (syntax)  <  schema constraints (schema)  · tool calling = pick a schema
+                    ↓
+constrained decoding: mask logits to -inf · schema → state machine · token index
+                    ↓
+side effects: escape hatches (other / null) · reasoning field first
+                    ↓
+stop reason → validate → retry with error → repair → safe fallback · idempotency
+                    ↓
+schema design · versioning · field-level accuracy · fine-tune + constrain · token cost
 ```
 
 <Locale lang="zh">
 
-## 三级回答
-
-### Level 1 — 定义
-
-强制模型输出可解析、可校验的结构，而不是自由文本。
-
-### Level 2 — 机制
-
-JSON mode / 约束解码能减少语法错误。但应用侧仍要用 schema（Pydantic）校验字段类型和必填项。校验失败就重试或降级。
-
-### Level 3 — 工程
-
-Schema 越严，下游越稳，但复杂的嵌套结构会提高失败率。校验失败时不要无限重试。Tool calling 的参数校验也是同一个模式。
+- 上游：[Attention & Transformer](/docs/llm/transformer)（logits、softmax、causal mask） · [Tokenization](/docs/llm/tokenization)（token 和字符不对齐、output token 成本） · [Prompt Engineering](/docs/application/prompt-engineering)（推理写在答案前、prompt 版本管理）
+- 同专栏：[Model Selection](/docs/application/model-selection)（示意价格） · [Model Routing](/docs/application/model-routing)（失败时换更强的模型）
+- 下游：[Tool Calling](/docs/agent/tool-calling)（工具参数就是结构化输出） · [Agent Security](/docs/agent/security)（参数合法不等于应该执行）
+- 工程落点：[Fine-tuning](/docs/llm/fine-tuning) · [Inference](/docs/llm/inference)（推理框架里的约束解码） · [LLM Evaluation](/docs/evaluation/llm-eval) · [Reliability](/docs/production/reliability) · [Latency](/docs/production/latency)
 
 ## 面试问题
 
-1. JSON mode 和真正的 schema 约束解码有什么区别？（How is JSON mode different from true schema-constrained decoding?）
-2. 校验失败时，你的重试策略是什么？（What's your retry strategy when validation fails?）
-3. 为什么还需要 Pydantic，而不是直接相信模型？（Why do you still need Pydantic instead of trusting the model?）
-4. 结构化输出和 function calling 是什么关系？（How do structured output and function calling relate?）
+先自己口头答一遍，再回到对应的 Level 对照。
 
-## 我的答案
+**Level 0 — 为什么需要结构化输出**
+
+1. 只在 prompt 里要求模型输出 JSON，线上会出现哪些问题？（What goes wrong in production when you only ask for JSON in the prompt?）
+2. 为什么格式合法但内容错误的输出比解析失败更危险？（Why is well-formed but wrong output more dangerous than a parse failure?）
+
+**Level 1 — 先定义什么是「合法」**
+
+3. 你怎么定义和校验模型输出的结构？（How do you define and validate the structure of model output?）
+4. 语法合法、结构合法、语义正确有什么区别？各用什么手段检查？（How do syntactic validity, schema validity, and semantic correctness differ, and how do you check each?）
+5. 字段「可以为 null」和「可以不出现」怎么选？（How do you choose between a nullable field and an optional field?）
+
+**Level 2 — 三种让模型输出 JSON 的方式**
+
+6. 只靠 prompt、JSON mode、schema 约束，各保证到什么程度？（What does each of prompting alone, JSON mode, and schema constraints guarantee?）
+7. 用了 schema 约束，为什么还要校验？（Why validate even with schema constraints?）
+8. 工具调用和结构化输出是什么关系？（How does tool calling relate to structured output?）
+
+**Level 3 — 约束解码的原理**
+
+9. 约束解码是怎么工作的？（How does constrained decoding work?）
+10. 怎么把 JSON Schema 变成每一步可以选的 token？难点在哪？（How is a JSON Schema turned into the set of allowed tokens at each step, and what's hard about it?）
+11. 约束解码会影响输出质量吗？怎么缓解？（Does constrained decoding hurt output quality, and how do you mitigate it?）
+12. 为什么结构化输出里推理字段要放在答案字段前面？（Why should the reasoning field come before the answer field in structured output?）
+
+**Level 4 — 出错了怎么办**
+
+13. 模型输出校验失败时，你的处理流程是什么？（What's your flow when model output fails validation?）
+14. 重试次数怎么定？重试对成功率和延迟有什么影响？（How do you choose the retry count, and how do retries affect success rate and latency?）
+15. 怎么处理输出被截断的情况？（How do you handle truncated output?）
+16. 如果抽取结果会触发退款这类操作，怎么避免重试导致重复执行？（If extraction triggers actions like refunds, how do you keep retries from executing them twice?）
+
+**Level 5 — Schema 设计与评估**
+
+17. 设计 schema 时有哪些原则？（What principles do you follow when designing a schema?）
+18. 怎么评估结构化输出的质量？（How do you evaluate structured-output quality?）
+19. 约束解码和微调怎么选？（How do you choose between constrained decoding and fine-tuning?）
+20. 设计一个系统：从客服消息里抽取工单，必要时发起退款审核。怎么保证它可靠？（Design a system that extracts tickets from support messages and starts refund reviews when needed. How do you make it reliable?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Forcing the model to produce a structure you can parse and validate, instead of free text.
-
-### Level 2 — Mechanism
-
-JSON mode and constrained decoding cut down on syntax errors. The application still validates field types and required fields against a schema (Pydantic). On failure, retry or fall back.
-
-### Level 3 — Engineering
-
-The stricter the schema, the more stable everything downstream — but deeply nested structures raise the failure rate. Never retry forever on validation errors. Tool-call argument validation follows exactly the same pattern.
+- Upstream: [Attention & Transformer](/docs/llm/transformer) (logits, softmax, the causal mask) · [Tokenization](/docs/llm/tokenization) (tokens vs. characters, output token cost) · [Prompt Engineering](/docs/application/prompt-engineering) (reasoning before the answer, prompt versioning)
+- Same column: [Model Selection](/docs/application/model-selection) (illustrative prices) · [Model Routing](/docs/application/model-routing) (escalating to a stronger model on failure)
+- Downstream: [Tool Calling](/docs/agent/tool-calling) (tool arguments are structured output) · [Agent Security](/docs/agent/security) (valid arguments don't mean the call should run)
+- Where it lands in engineering: [Fine-tuning](/docs/llm/fine-tuning) · [Inference](/docs/llm/inference) (constrained decoding in serving frameworks) · [LLM Evaluation](/docs/evaluation/llm-eval) · [Reliability](/docs/production/reliability) · [Latency](/docs/production/latency)
 
 ## Interview questions
 
-1. How is JSON mode different from true schema-constrained decoding?
-2. What's your retry strategy when validation fails?
-3. Why do you still need Pydantic instead of trusting the model?
-4. How do structured output and function calling relate?
+Answer out loud first, then check against the matching Level.
 
-## My answer
+**Level 0 — Why structured output is needed**
+
+1. What goes wrong in production when you only ask for JSON in the prompt?
+2. Why is well-formed but wrong output more dangerous than a parse failure?
+
+**Level 1 — Define "valid" first**
+
+3. How do you define and validate the structure of model output?
+4. How do syntactic validity, schema validity, and semantic correctness differ, and how do you check each?
+5. How do you choose between a nullable field and an optional field?
+
+**Level 2 — Three ways to get JSON from a model**
+
+6. What does each of prompting alone, JSON mode, and schema constraints guarantee?
+7. Why validate even with schema constraints?
+8. How does tool calling relate to structured output?
+
+**Level 3 — How constrained decoding works**
+
+9. How does constrained decoding work?
+10. How is a JSON Schema turned into the set of allowed tokens at each step, and what's hard about it?
+11. Does constrained decoding hurt output quality, and how do you mitigate it?
+12. Why should the reasoning field come before the answer field in structured output?
+
+**Level 4 — When things go wrong**
+
+13. What's your flow when model output fails validation?
+14. How do you choose the retry count, and how do retries affect success rate and latency?
+15. How do you handle truncated output?
+16. If extraction triggers actions like refunds, how do you keep retries from executing them twice?
+
+**Level 5 — Schema design and evaluation**
+
+17. What principles do you follow when designing a schema?
+18. How do you evaluate structured-output quality?
+19. How do you choose between constrained decoding and fine-tuning?
+20. Design a system that extracts tickets from support messages and starts refund reviews when needed. How do you make it reliable?
 
 </Locale>
 
--
+---
+
+<Locale lang="zh">
+
+## 我的答案
+
+自己写，别让 agent 代写。30s 版超过 40 秒就砍；2min 版要能从三层合法性讲到三种方式、约束解码原理、校验重试和评估。
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+Write it yourself — don't let the agent draft it. Cut the 30s version if it runs past 40 seconds; the 2min version should run from the three layers of validity through the three approaches, how constrained decoding works, validation and retries, and evaluation.
+
+</Locale>
+
+### 30s
+
+>
+
+### 2min
+
+>
 
 <Locale lang="zh">
 
 ## 项目锚点
+
+你的项目里（比如 multi-agent 系统里 agent 之间传递的数据、工具调用的参数）用的是哪种方式拿到结构化输出？出过什么格式或内容问题，怎么解决的？一句话 + 一个数字。参考 [项目深挖](/docs/projects)。
 
 </Locale>
 
@@ -117,6 +2025,8 @@ The stricter the schema, the more stable everything downstream — but deeply ne
 
 ## Project anchor
 
+In one of your projects (say, data passed between agents in a multi-agent system, or tool-call arguments), which approach did you use to get structured output? What format or content problems came up, and how did you fix them? One sentence plus one number. See [Projects](/docs/projects).
+
 </Locale>
 
--
+>

@@ -1,121 +1,1191 @@
 ---
 title: Model Selection
 titleEn: Model Selection
-description: GPT / Claude / Gemini 怎么选：质量、延迟、成本、工具、多模态。
-descriptionEn: Choosing GPT / Claude / Gemini on quality, latency, cost, tools, multimodal.
-date: 2026-09-07
-keywords: ["model selection", "gpt", "claude", "gemini"]
+description: 没有「最强模型」：按质量、延迟、成本、上下文、能力和部署约束比较模型，读懂价格表和公开榜单的局限，用自己的评测集做决定，并管理版本和供应商风险。
+descriptionEn: "There's no single best model: compare models on quality, latency, cost, context, capabilities, and deployment constraints, read price sheets and understand leaderboard limits, decide with your own evaluation set, and manage versions and vendor risk."
+date: 2026-09-14
+keywords: ["model selection", "llm comparison", "pricing", "cost per request", "benchmark", "leaderboard", "evaluation set", "latency", "open weights", "vendor lock-in", "model versioning"]
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-要能讲取舍，而不是背一个「最强模型」。
+「你们为什么选这个模型？」几乎每场讲项目的面试都会问。答「因为它最强」是减分的：最强的模型往往最贵最慢，而你的任务可能根本用不到它的能力。好的回答要说出**约束是什么、比较了哪些候选、用什么数据评估、最后在质量、延迟、成本之间怎么取舍**。
+
+这一页假设你已经学过 [Tokenization](/docs/llm/tokenization)（按 token 计费）、[Inference](/docs/llm/inference) Level 1（TTFT、TPOT、P99）和 [Prompt Engineering](/docs/application/prompt-engineering)。选好模型之后，怎么让不同请求用不同的模型，是下一页 [Model Routing](/docs/application/model-routing) 的内容。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 选模型为什么是工程问题 | 为什么没有「最强模型」？选模型要受哪些约束？ | 20 min |
+| 1 · 比较维度与成本计算 | 要从哪些维度比较模型？价格表怎么读？每个请求、每个月要花多少钱怎么算？ | 35 min |
+| 2 · 公开榜单的用处和局限 | MMLU、SWE-bench、Chatbot Arena 这些分数能告诉你什么、不能告诉你什么？ | 25 min |
+| 3 · 用自己的评测集选模型 | 评测集怎么建？质量、延迟、成本怎么一起比较？最后怎么拍板？ | 40 min |
+| 4 · 部署方式与长期风险 | 用 API 还是开源模型？怎么应对供应商锁定、模型下线和版本升级？ | 30 min |
+
+每个 Level 末尾有几道自测题，**答不上来就先别往下读**。全页约 2.5 小时，分几次学完；`/drill` 会记住你上次学到哪。
+
+全页继续用猫粮店智能客服这个例子：系统里有三类任务，**意图抽取**（量大、简单）、**回复起草**（中等）、**复杂投诉处理**（量少、难）。我们要为这三类任务分别选出合适的模型。
+
+<Note title="本页的价格都是示意值" type="warning">
+
+模型价格和型号更新很快，写死真实价格很快就会过时，面试里报错数字也很危险。本页用「强 / 中 / 小」三档**示意价格**来演示计算方法，真实价格请以各家官网为准。
+
+</Note>
 
 ## 需要掌握
 
-从下面几个维度比较：
-
-- quality（质量）
-- latency（延迟）
-- cost（成本）
-- context（上下文长度）
-- tool calling（工具调用）
-- structured output（结构化输出）
-- multimodal（多模态）
-- reliability（可靠性）
-
-## 机制
+- 选模型的约束：任务质量、延迟、成本、上下文长度、能力（工具调用、结构化输出、多模态）、部署与合规、可靠性
+- 模型分档（旗舰 / 中档 / 小模型、推理模型 / 普通模型、闭源 / 开源）；按每百万 token 计价；每请求和每月成本的计算；缓存折扣和限流
+- 公开榜单测什么、数据污染、和自身任务不匹配、对 prompt 敏感；榜单只适合用来缩小候选范围
+- 用真实流量建评测集；按任务选指标；同时测质量、延迟（P50 / P99）和成本；先用硬约束筛选，再比较质量
+- API 与自建的取舍；抽象层与可移植性；固定模型版本、模型下线、升级前的回归评测；多模型策略
 
 </Locale>
 
 <Locale lang="en">
 
-Be able to reason about trade-offs, not recite "the best model."
+"Why did you choose this model?" comes up in nearly every project interview. "Because it's the strongest" loses points: the strongest model is usually the most expensive and slowest, and your task may not need what it can do. A good answer says **what the constraints were, which candidates you compared, what data you evaluated them on, and how you traded off quality, latency, and cost**.
+
+This page assumes you've studied [Tokenization](/docs/llm/tokenization) (billing per token), [Inference](/docs/llm/inference) Level 1 (TTFT, TPOT, P99), and [Prompt Engineering](/docs/application/prompt-engineering). Once models are chosen, sending different requests to different models is the subject of the next page, [Model Routing](/docs/application/model-routing).
+
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Why choosing a model is an engineering problem | Why is there no "best model," and what constraints shape the choice? | 20 min |
+| 1 · Comparison dimensions and cost math | Which dimensions should models be compared on? How do you read a price sheet and work out cost per request and per month? | 35 min |
+| 2 · What leaderboards are and aren't good for | What can scores like MMLU, SWE-bench, and Chatbot Arena tell you, and what can't they? | 25 min |
+| 3 · Choosing with your own evaluation set | How do you build an evaluation set, compare quality, latency, and cost together, and make the final call? | 40 min |
+| 4 · Deployment and long-term risk | API or open model? How do you handle vendor lock-in, model deprecation, and version upgrades? | 30 min |
+
+Each Level ends with a few self-check questions — **if you can't answer them, don't move on yet**. The page takes about 2.5 hours over several sessions; `/drill` remembers where you stopped.
+
+The page continues with the cat-food shop's support assistant. The system has three kinds of tasks — **intent extraction** (high volume, simple), **reply drafting** (medium), and **complex complaint handling** (low volume, hard) — and we'll choose a suitable model for each.
+
+<Note title="All prices on this page are illustrative" type="warning">
+
+Model prices and lineups change quickly, so hard-coding real prices goes stale fast, and quoting wrong numbers in an interview is risky. This page uses **illustrative prices** for three tiers — strong, mid, small — to demonstrate the calculations; check each provider's official pricing for real numbers.
+
+</Note>
 
 ## Must know
 
-Compare along these dimensions:
+- the constraints on model choice: task quality, latency, cost, context length, capabilities (tool calling, structured output, multimodal), deployment and compliance, reliability
+- model tiers (flagship / mid / small, reasoning / non-reasoning, closed / open weights); pricing per million tokens; computing cost per request and per month; caching discounts and rate limits
+- what public leaderboards measure, contamination, mismatch with your task, prompt sensitivity; leaderboards are only good for narrowing candidates
+- building an evaluation set from real traffic; choosing metrics per task; measuring quality, latency (P50 / P99), and cost together; filtering by hard constraints before comparing quality
+- API vs. self-hosting trade-offs; abstraction layers and portability; pinning model versions, deprecations, regression evaluation before upgrades; multi-model strategies
 
-- quality
-- latency
-- cost
-- context
-- tool calling
-- structured output
-- multimodal
-- reliability
+</Locale>
 
-## Mechanism
+---
+
+<Locale lang="zh">
+
+## Level 0 · 选模型为什么是工程问题
+
+### 为什么没有「最强模型」可以直接选？
+
+把猫粮店客服的三类任务列出来：
+
+| 任务 | 做什么 | 量 | 难度 |
+| --- | --- | --- | --- |
+| 意图抽取 | 从客户消息里抽出工单 JSON（见 [Structured Output](/docs/application/structured-output)） | 每条消息都要跑 | 简单 |
+| 回复起草 | 按退款政策和订单信息写一段回复 | 大部分消息 | 中等 |
+| 复杂投诉处理 | 理解带情绪、多个诉求混在一起的投诉，给出处理方案 | 约 5% | 难 |
+
+如果三类任务都用最强的模型，效果一定最好吗？在意图抽取上，小模型可能已经做得足够准，强模型多出来的能力用不上。但强模型更贵，也更慢：在本页的示意价格下，强模型的**输入单价是小模型的 30 倍，输出单价是 37.5 倍**。每条消息都要跑的任务用强模型，钱花在了不需要的地方，客户还要多等。
+
+反过来，复杂投诉如果交给小模型，可能漏掉客户的某个诉求，或者没理解客户的情绪，一次处理不好，客户就流失了。
+
+所以选模型要回答的不是「哪个模型最强」，而是：**对这个任务来说，哪个模型质量够用，同时延迟和成本最合适**。质量、延迟、成本三者通常互相牵制，选模型就是在这三者之间做取舍。
+
+### 选模型要考虑哪些约束？
+
+约束分两种：
+
+- **硬约束**：必须满足，不满足的模型直接淘汰。比如「P99 延迟必须低于 3 秒」「必须支持结构化输出」「客户数据不能出境」
+- **软目标**：在满足硬约束的模型里比较，越好越好。比如质量越高越好、成本越低越好
+
+同一个系统里，不同任务的约束差别很大：
+
+| 约束 | 意图抽取 | 回复起草 | 复杂投诉处理 |
+| --- | --- | --- | --- |
+| 质量 | 意图准确率 95% 以上 | 不能错误承诺退款，语气得体 | 理解情绪、不漏掉任何诉求 |
+| 延迟 | 流程的第一步，越快越好 | 客户在等，P99 低于 3 秒 | 可以慢，方案先给人工审核 |
+| 成本 | 量最大，单价最敏感 | 量大，比较敏感 | 量小，对单价不敏感 |
+| 能力 | 结构化输出 | 中文表达好 | 长上下文（历史对话、订单记录）、推理能力 |
+
+还有一些约束对所有任务都成立：
+
+- **数据合规**：客户姓名、地址、订单都是个人信息，要确认模型服务商怎么处理数据、数据存在哪个地区
+- **限流**：服务商会限制每分钟的请求数和 token 数，高峰时段不能超
+- **可靠性**：服务出故障时有没有备用方案（见 [Model Routing](/docs/application/model-routing) Level 4）
+
+### 模型大致分哪几类？
+
+按三个角度分：
+
+**1. 按规模和价格：旗舰、中档、小模型。** 同一家服务商通常同时提供好几档。旗舰模型能力最强，最贵最慢；小模型便宜又快，擅长简单、明确的任务。本页用 S（强）、M（中）、X（小）三档代表。
+
+**2. 推理模型和普通模型。** **推理模型**在给出答案之前，会先生成一段「思考」过程（原理见 [Post-training](/docs/llm/post-training)）。它在多步推理、复杂判断上更强，但思考的内容也是 output token，**更贵，也要等更久才出答案**。很多推理模型可以设置思考的预算，简单任务少思考，复杂任务多思考。
+
+**3. 闭源 API 和开放权重模型。** 闭源模型只能通过服务商的 API 调用。**开放权重（open weights）**模型的参数可以下载，可以自己部署、自己微调。两者的取舍在 Level 4 讲。
+
+<Note title="面试里被问「为什么选这个模型」" type="tip">
+
+好的回答有固定结构：**约束是什么 → 比较了哪些候选 → 用什么数据评估 → 怎么取舍 → 结果数字**。只说「它效果最好」或「大家都在用」，面试官会继续追问你有没有比较过。Level 3 会完整走一遍这个过程。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么不应该所有任务都用最强的模型？
+2. 硬约束和软目标有什么区别？各举一个客服场景的例子。
+3. 意图抽取和复杂投诉处理，对质量、延迟、成本的要求有什么不同？
+4. 推理模型和普通模型有什么区别？推理模型的代价是什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Why choosing a model is an engineering problem
+
+### Why can't you just pick the strongest model?
+
+Lay out the cat-food shop's three support tasks:
+
+| Task | What it does | Volume | Difficulty |
+| --- | --- | --- | --- |
+| Intent extraction | pulls a ticket JSON out of each customer message (see [Structured Output](/docs/application/structured-output)) | runs on every message | simple |
+| Reply drafting | writes a reply based on the refund policy and order info | most messages | medium |
+| Complex complaint handling | understands emotional complaints with several issues mixed together and proposes a resolution | about 5% | hard |
+
+Would the strongest model on all three give the best results? For intent extraction, a small model may already be accurate enough, and the strong model's extra ability goes unused. But the strong model is pricier and slower: at this page's illustrative prices, its **input price is 30× the small model's and its output price 37.5×**. Using it on a task that runs on every message spends money where it isn't needed, and makes customers wait longer.
+
+Flip it around: hand complex complaints to a small model and it may miss one of the customer's issues or misread their frustration — handle it badly once and the customer is gone.
+
+So the question isn't "which model is strongest", it's **"for this task, which model is good enough on quality with the best latency and cost"**. Quality, latency, and cost usually pull against each other, and choosing a model means trading them off.
+
+### What constraints shape the choice?
+
+There are two kinds:
+
+- **Hard constraints**: must be met, and models that miss them are out. For example "P99 latency under 3 seconds", "must support structured output", "customer data can't leave the country"
+- **Soft goals**: compared among models that pass the hard constraints — the better, the better. For example, higher quality, lower cost
+
+Within one system, tasks differ a lot:
+
+| Constraint | Intent extraction | Reply drafting | Complex complaints |
+| --- | --- | --- | --- |
+| Quality | intent accuracy above 95% | no false refund promises, appropriate tone | reads emotion, misses no issue |
+| Latency | first step in the flow, faster is better | the customer is waiting: P99 under 3 s | can be slow; a human reviews the plan first |
+| Cost | highest volume, most price-sensitive | high volume, fairly sensitive | low volume, not very sensitive |
+| Capabilities | structured output | strong Chinese writing | long context (chat history, order records), reasoning |
+
+Some constraints apply to every task:
+
+- **Data compliance**: names, addresses, and orders are personal data — check how the provider handles data and which region it's stored in
+- **Rate limits**: providers cap requests and tokens per minute, and peak traffic can't exceed them
+- **Reliability**: is there a backup when the service goes down (see [Model Routing](/docs/application/model-routing) Level 4)
+
+### What broad kinds of models are there?
+
+Three ways to slice it:
+
+**1. By size and price: flagship, mid, small.** A provider usually offers several tiers at once. Flagships are the most capable, most expensive, and slowest; small models are cheap and fast and do well on simple, well-defined tasks. This page uses S (strong), M (mid), and X (small).
+
+**2. Reasoning versus non-reasoning models.** A **reasoning model** generates a "thinking" pass before it answers (how that's trained is in [Post-training](/docs/llm/post-training)). It's stronger at multi-step reasoning and hard judgments, but the thinking is output tokens too — **more expensive, and a longer wait for the answer**. Many reasoning models let you set a thinking budget: less for simple tasks, more for hard ones.
+
+**3. Closed APIs versus open-weights models.** Closed models are only available through the provider's API. **Open-weights** models have downloadable parameters you can host and fine-tune yourself. Level 4 covers the trade-off.
+
+<Note title="When an interviewer asks why you chose this model" type="tip">
+
+A strong answer has a fixed shape: **the constraints → the candidates you compared → the data you evaluated on → the trade-off → the resulting numbers**. "It performed best" or "everyone uses it" just invites follow-ups about whether you compared anything. Level 3 walks through the whole process.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why shouldn't every task use the strongest model?
+2. How do hard constraints differ from soft goals? Give a support-scenario example of each.
+3. How do intent extraction and complex complaint handling differ in their quality, latency, and cost needs?
+4. How do reasoning models differ from non-reasoning ones, and what do they cost you?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 比较维度与成本计算
+
+### 价格表怎么读？
+
+模型 API 一般**按 token 计费**，价格写成「每百万 token 多少美元」，输入和输出分开定价。本页的示意价格：
+
+| 档位 | 输入（每百万 token） | 输出（每百万 token） |
+| --- | --- | --- |
+| S（强） | 3.00 美元 | 15.00 美元 |
+| M（中） | 0.50 美元 | 1.50 美元 |
+| X（小） | 0.10 美元 | 0.40 美元 |
+
+读价格表时要注意几点：
+
+- **输出比输入贵**。输入在 prefill 阶段一次并行算完，输出要在 decode 阶段一个一个生成（见 [Inference](/docs/llm/inference)），所以输出的单价通常是输入的几倍
+- **缓存命中的输入更便宜**。很多服务商对命中前缀缓存的输入 token 打折（见 [Caching](/docs/context/caching)）
+- **批量接口更便宜**。不需要实时返回的任务（比如每天晚上给所有对话打标签），可以用批量接口，价格通常有明显折扣
+- **推理模型的思考 token 按输出计费**，即使你看不到思考内容
+
+<Note title="不同模型的 token 数不能直接比" type="warning">
+
+不同模型用不同的 tokenizer（见 [Tokenization](/docs/llm/tokenization)）。同一段中文客服对话，在一个模型里可能是 1,000 个 token，在另一个模型里可能是 1,600 个。**单价低的模型不一定更便宜**。比较成本要用你自己的真实数据跑一遍，看 API 返回的 token 用量。
+
+</Note>
+
+### 一个请求、一个月要花多少钱？
+
+```
+每请求成本 = 输入 token 数 × 输入单价 + 输出 token 数 × 输出单价
+```
+
+假设一次回复起草的请求是 **1,500 个输入 token**（系统提示词、退款政策、订单信息、客户消息）加 **300 个输出 token**：
+
+```
+S：1,500 × 3.00 / 100万 + 300 × 15.00 / 100万 = 0.0045 + 0.0045  = 0.009 美元
+M：1,500 × 0.50 / 100万 + 300 × 1.50  / 100万 = 0.00075 + 0.00045 = 0.0012 美元
+X：1,500 × 0.10 / 100万 + 300 × 0.40  / 100万 = 0.00015 + 0.00012 = 0.00027 美元
+```
+
+乘上每月 100 万次请求：
+
+| 档位 | 每请求 | 每月 100 万次请求 | 相对 X |
+| --- | --- | --- | --- |
+| S | 0.009 美元 | 9,000 美元 | 33 倍 |
+| M | 0.0012 美元 | 1,200 美元 | 4.4 倍 |
+| X | 0.00027 美元 | 270 美元 | 1 倍 |
+
+一个值得注意的地方：在 S 档上，**300 个输出 token 花的钱和 1,500 个输入 token 一样多**。控制输出长度，往往比压缩 prompt 更省钱。
+
+**缓存能省多少？** [Prompt Engineering](/docs/application/prompt-engineering) Level 5 把稳定内容放在前面，1,500 个输入 token 里有 800 个每次都一样。假设缓存命中的部分按原价的 1/10 计费（示意）：
+
+```
+S 的输入：700 × 3.00 / 100万 + 800 × 0.30 / 100万 = 0.0021 + 0.00024 = 0.00234 美元
+S 的总成本：0.00234 + 0.0045 = 0.00684 美元，比 0.009 美元省了 24%
+```
+
+**价格表之外，还有几个会把成本放大的因素**：
+
+- **重试**：[Structured Output](/docs/application/structured-output) Level 4 算过，5% 的请求重试一次，平均调用次数是 1.05
+- **推理 token**：S 档每次多思考 150 个 token，每请求多 150 × 15.00 / 100万 = 0.00225 美元，成本增加 25%
+- **多步调用**：一个 agent 完成一个任务要调用 5 次模型，成本就是单次的 5 倍左右
+
+### 延迟怎么比较？
+
+[Inference](/docs/llm/inference) Level 1 讲过两个指标：**TTFT**（从发出请求到收到第一个 token 的时间）和 **TPOT**（之后每生成一个 token 的平均时间）。一次请求的总时长大约是：
+
+```
+总时长 ≈ TTFT + 输出 token 数 × TPOT
+```
+
+示意数字，生成 300 个 token 的回复：
+
+| 档位 | TTFT | TPOT | 总时长 |
+| --- | --- | --- | --- |
+| S | 0.7 秒 | 6 毫秒 | 0.7 + 300 × 0.006 = 2.5 秒 |
+| M | 0.3 秒 | 3 毫秒 | 0.3 + 300 × 0.003 = 1.2 秒 |
+| X | 0.15 秒 | 1.5 毫秒 | 0.15 + 300 × 0.0015 = 0.6 秒 |
+
+比较延迟时要注意：
+
+- **看哪个指标取决于用法**。回复流式展示给客户，客户感受到的主要是 TTFT；工单 JSON 要等完整生成才能交给代码，看的是总时长
+- **看 P99，不只看平均值**。同一个模型，高峰时段的延迟可能比平时慢很多
+- **自己测**。延迟受你所在的地区、调用的时段、prompt 长度影响，服务商公布的数字只能作参考
+- **推理模型要加上思考时间**。思考的 token 生成完，才开始输出答案
+
+### 除了质量、延迟、成本，还要比较什么？
+
+| 维度 | 要问的问题 | 客服场景的例子 |
+| --- | --- | --- |
+| 上下文长度 | 窗口够不够？长内容里的信息能不能真正用上？（见 [Context Window](/docs/context/window)） | 复杂投诉要带上完整的历史对话和订单记录 |
+| 能力 | 支持工具调用、结构化输出、图片输入吗？中文好不好？ | 客户会发商品破损的照片 |
+| 限流 | 每分钟的请求数和 token 数上限够不够高峰用？ | 见下面的计算 |
+| 数据与合规 | 数据会不会被用于训练？存在哪个地区？有没有企业协议？ | 订单里有客户的姓名、电话、地址 |
+| 可靠性 | 有没有 SLA？历史上故障多不多？ | 大促当天服务商出故障怎么办 |
+
+**限流的估算**：每月 100 万次请求，平均每天约 33,333 次，平均每分钟约 23 次。假设高峰是平均的 5 倍，就是每分钟约 116 次请求，每次 1,800 个 token（输入加输出），**每分钟约 21 万 token**。这个数字要低于服务商给你的每分钟 token 上限，否则高峰时请求会被拒绝。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么输出 token 通常比输入 token 贵？为什么不同模型的每 token 单价不能直接比较？
+2. 1,500 个输入 token 加 300 个输出 token，在 M 档上每请求多少钱？每月 100 万次请求多少钱？
+3. 缓存、重试、推理 token、多步调用，分别怎么影响真实成本？
+4. 总时长怎么用 TTFT 和 TPOT 估算？流式回复和结构化输出，分别该看哪个延迟指标？
+5. 除了质量、延迟、成本，还要比较哪些维度？怎么估算高峰时每分钟需要多少 token？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Comparison dimensions and cost math
+
+### How do you read a price sheet?
+
+Model APIs usually **bill per token**, quoted as "dollars per million tokens", with separate input and output prices. This page's illustrative prices:
+
+| Tier | Input (per million tokens) | Output (per million tokens) |
+| --- | --- | --- |
+| S (strong) | $3.00 | $15.00 |
+| M (mid) | $0.50 | $1.50 |
+| X (small) | $0.10 | $0.40 |
+
+Things to watch when reading one:
+
+- **Output costs more than input.** Input is computed in one parallel prefill pass; output is generated one token at a time during decode (see [Inference](/docs/llm/inference)), so output prices are usually several times input prices
+- **Cached input is cheaper.** Many providers discount input tokens that hit the prefix cache (see [Caching](/docs/context/caching))
+- **Batch APIs are cheaper.** Work that doesn't need a real-time response — like tagging every conversation overnight — can go through a batch API, usually at a significant discount
+- **Reasoning models bill thinking tokens as output**, even when you can't see the thinking
+
+<Note title="Token counts aren't comparable across models" type="warning">
+
+Different models use different tokenizers (see [Tokenization](/docs/llm/tokenization)). The same Chinese support conversation might be 1,000 tokens in one model and 1,600 in another. **A lower per-token price doesn't mean a cheaper model.** Compare cost by running your own real data and reading the token usage the API returns.
+
+</Note>
+
+### What does one request, and one month, cost?
+
+```
+cost per request = input tokens × input price + output tokens × output price
+```
+
+Say a reply-drafting request is **1,500 input tokens** (system prompt, refund policy, order info, customer message) plus **300 output tokens**:
+
+```
+S: 1,500 × $3.00 / 1M + 300 × $15.00 / 1M = $0.0045  + $0.0045  = $0.009
+M: 1,500 × $0.50 / 1M + 300 × $1.50  / 1M = $0.00075 + $0.00045 = $0.0012
+X: 1,500 × $0.10 / 1M + 300 × $0.40  / 1M = $0.00015 + $0.00012 = $0.00027
+```
+
+At 1 million requests a month:
+
+| Tier | Per request | Per 1M requests/month | Relative to X |
+| --- | --- | --- | --- |
+| S | $0.009 | $9,000 | 33× |
+| M | $0.0012 | $1,200 | 4.4× |
+| X | $0.00027 | $270 | 1× |
+
+Worth noticing: on tier S, **300 output tokens cost as much as 1,500 input tokens**. Controlling output length often saves more than compressing the prompt.
+
+**How much does caching save?** [Prompt Engineering](/docs/application/prompt-engineering) Level 5 put stable content first, so 800 of the 1,500 input tokens are identical on every request. Suppose cache hits are billed at 1/10 of the normal price (illustrative):
+
+```
+S input: 700 × $3.00 / 1M + 800 × $0.30 / 1M = $0.0021 + $0.00024 = $0.00234
+S total: $0.00234 + $0.0045 = $0.00684 — 24% less than $0.009
+```
+
+**Beyond the price sheet, several things multiply cost**:
+
+- **Retries**: as [Structured Output](/docs/application/structured-output) Level 4 computed, retrying 5% of requests once means 1.05 calls on average
+- **Reasoning tokens**: 150 extra thinking tokens per request on tier S add 150 × $15.00 / 1M = $0.00225, a 25% increase
+- **Multi-step calls**: an agent that calls the model 5 times per task costs roughly 5× a single call
+
+### How do you compare latency?
+
+[Inference](/docs/llm/inference) Level 1 introduced two metrics: **TTFT** (time from sending the request to the first token) and **TPOT** (average time per token after that). A request's total time is roughly:
+
+```
+total time ≈ TTFT + output tokens × TPOT
+```
+
+Illustrative numbers for a 300-token reply:
+
+| Tier | TTFT | TPOT | Total |
+| --- | --- | --- | --- |
+| S | 0.7 s | 6 ms | 0.7 + 300 × 0.006 = 2.5 s |
+| M | 0.3 s | 3 ms | 0.3 + 300 × 0.003 = 1.2 s |
+| X | 0.15 s | 1.5 ms | 0.15 + 300 × 0.0015 = 0.6 s |
+
+When comparing latency:
+
+- **The right metric depends on usage.** For a reply streamed to the customer, they mostly feel TTFT; a ticket JSON has to finish before code can use it, so total time is what counts
+- **Look at P99, not just the average.** The same model can be much slower at peak hours
+- **Measure it yourself.** Latency depends on your region, time of day, and prompt length; provider numbers are only a reference
+- **Add thinking time for reasoning models.** The answer only starts after the thinking tokens are generated
+
+### Besides quality, latency, and cost, what else should you compare?
+
+| Dimension | Question to ask | Support-scenario example |
+| --- | --- | --- |
+| Context length | Is the window big enough, and can the model actually use information deep in long inputs? (see [Context Window](/docs/context/window)) | complex complaints carry the full chat history and order records |
+| Capabilities | Tool calling, structured output, image input? How good is its Chinese? | customers send photos of damaged products |
+| Rate limits | Are the per-minute request and token caps high enough for peak traffic? | see the calculation below |
+| Data and compliance | Is data used for training? Where is it stored? Is there an enterprise agreement? | orders contain names, phone numbers, addresses |
+| Reliability | Is there an SLA? How often has it gone down? | what if the provider fails on a big sale day |
+
+**Estimating rate limits**: 1 million requests a month is about 33,333 a day, or about 23 a minute on average. If peak is 5× average, that's about 116 requests a minute at 1,800 tokens each (input plus output) — **about 210,000 tokens a minute**. That has to stay under your provider's tokens-per-minute cap, or requests get rejected at peak.
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why do output tokens usually cost more than input tokens, and why can't per-token prices be compared directly across models?
+2. With 1,500 input and 300 output tokens, what does one request cost on tier M, and what do 1 million requests a month cost?
+3. How do caching, retries, reasoning tokens, and multi-step calls each affect real cost?
+4. How do you estimate total time from TTFT and TPOT? Which latency metric matters for a streamed reply versus structured output?
+5. Beyond quality, latency, and cost, what else should you compare? How do you estimate tokens per minute at peak?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 公开榜单的用处和局限
+
+### 常见的榜单都在测什么？
+
+新模型发布时，通常会附上一张跑分表。常见的几个：
+
+| 榜单 | 测什么 | 怎么判分 |
+| --- | --- | --- |
+| MMLU | 57 个学科的知识，从数学到法律 | 选择题，看选对没有 |
+| GPQA | 研究生水平、很难靠搜索找到答案的科学题 | 选择题 |
+| HumanEval | 根据函数说明写出 Python 函数 | 跑单元测试 |
+| SWE-bench | 修复真实 GitHub 项目里的 issue | 跑项目自带的测试 |
+| IFEval | 能不能遵守可以用程序检查的指令，比如「不超过 100 个词」「不要用逗号」 | 程序检查 |
+| τ-bench | 在模拟的零售、航空客服场景里，和模拟用户对话并调用工具完成任务 | 检查任务结束时数据库的状态 |
+| Chatbot Arena（LMArena） | 用户输入问题，给两个匿名模型的回答投票 | 根据大量投票算出排名 |
+
+前六个是**固定题目、自动判分**；Chatbot Arena 是**真人偏好**。
+
+### 为什么不能直接按榜单选模型？
+
+**1. 测的不是你的任务。** MMLU 考的是学科知识，猫粮店客服需要的是「按退款政策回答、不乱承诺、中文语气得体」。两个模型 MMLU 差 0.5 分，完全说明不了谁更适合你的客服。
+
+**2. 数据污染。** 榜单的题目公开在网上，可能被爬进了模型的预训练数据。模型可能是「背过答案」，而不是真的会做，分数被高估。一些新榜单会保留不公开的测试题，或者定期换题，就是为了应对这个问题。
+
+**3. 分数已经饱和。** 顶级模型在老榜单上都接近满分，差一两分可能只是随机波动，没有区分度。
+
+**4. 分数受测试设置影响。** 用几个示例、要不要思维链、用什么 prompt，都会改变分数。SWE-bench 这类 agent 任务，分数很大程度上取决于**配套的 agent 框架**，而不只是模型本身。不同厂商报出来的分数，设置可能并不相同。
+
+**5. 真人偏好有偏差。** Chatbot Arena 的投票者会偏爱更长、排版更丰富的回答，但你的客服要求「不超过 3 句话、不用 markdown」。榜单后来也加入了控制回答风格影响的排名。
+
+**6. 榜单不管成本和延迟。** 排第一的模型可能比第五名贵十倍、慢三倍。
+
+### 那榜单有什么用？
+
+**用来缩小候选范围**：
+
+- 先用硬约束（价格区间、上下文长度、是否支持结构化输出、数据合规）筛掉一批
+- 再挑和你的任务**最接近**的榜单看：客服加工具调用看 τ-bench，写代码看 SWE-bench，指令遵循看 IFEval
+- 留下 3 到 4 个候选，交给 Level 3 用你自己的评测集做决定
+
+<Note title="面试时这样说榜单" type="tip">
+
+「我们用公开榜单和价格先把候选缩到三个，然后在从线上日志里抽的 300 条样本上评测，最后按规则遵守率和 P99 延迟选的。」这句话既说明你知道榜单的用处，也说明你知道它的局限。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. MMLU、SWE-bench、Chatbot Arena 分别测什么？
+2. 什么是数据污染？它为什么会让榜单分数失真？
+3. 为什么 SWE-bench 的分数不完全代表模型本身的能力？
+4. 为什么不能直接选榜单第一的模型？榜单在选模型时应该起什么作用？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · What leaderboards are and aren't good for
+
+### What do the common leaderboards measure?
+
+New model launches usually come with a benchmark table. Some common ones:
+
+| Benchmark | What it tests | How it's scored |
+| --- | --- | --- |
+| MMLU | knowledge across 57 subjects, from math to law | multiple choice |
+| GPQA | graduate-level science questions that are hard to answer by searching | multiple choice |
+| HumanEval | writing a Python function from its docstring | unit tests |
+| SWE-bench | fixing real issues in GitHub projects | the project's own tests |
+| IFEval | following instructions a program can check, like "under 100 words" or "no commas" | programmatic checks |
+| τ-bench | talking to a simulated user and calling tools to finish tasks in simulated retail and airline support | the database state at the end of the task |
+| Chatbot Arena (LMArena) | users ask a question and vote between two anonymous models' answers | rankings computed from many votes |
+
+The first six are **fixed questions with automatic scoring**; Chatbot Arena is **human preference**.
+
+### Why not just choose by leaderboard?
+
+**1. It's not your task.** MMLU tests subject knowledge; the cat-food shop needs "answer by the refund policy, promise nothing it can't, sound right in Chinese". A 0.5-point MMLU gap says nothing about which model fits your support bot.
+
+**2. Contamination.** Benchmark questions are public and may have been crawled into pretraining data. The model may have memorized answers rather than learned to solve them, inflating the score. Some newer benchmarks keep private test questions or rotate them for exactly this reason.
+
+**3. Saturation.** Top models score near the ceiling on older benchmarks, so a one- or two-point gap may be noise.
+
+**4. Scores depend on the test setup.** How many examples, whether chain of thought is used, which prompt — all move the score. For agent tasks like SWE-bench, the score depends heavily on **the agent scaffold** around the model, not just the model. Numbers reported by different vendors may not use the same setup.
+
+**5. Human preference has biases.** Arena voters favor longer, more richly formatted answers, while your support bot must stay under 3 sentences with no markdown. The leaderboard later added rankings that control for answer style.
+
+**6. Leaderboards ignore cost and latency.** The top model may be 10× the price and 3× slower than the fifth.
+
+### So what are leaderboards good for?
+
+**Narrowing the candidate list**:
+
+- first drop models that fail hard constraints (price range, context length, structured output support, data compliance)
+- then look at the benchmarks **closest** to your task: τ-bench for support with tool calling, SWE-bench for coding, IFEval for instruction following
+- keep 3 or 4 candidates and let your own evaluation set decide (Level 3)
+
+<Note title="How to talk about leaderboards in an interview" type="tip">
+
+"We used public benchmarks and pricing to narrow it to three candidates, evaluated them on 300 samples drawn from production logs, and chose based on rule-compliance rate and P99 latency." That one sentence shows you know both what leaderboards are for and where they fall short.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What do MMLU, SWE-bench, and Chatbot Arena each measure?
+2. What is contamination, and why does it distort benchmark scores?
+3. Why doesn't a SWE-bench score fully reflect the model's own ability?
+4. Why not just pick the top model on a leaderboard? What role should leaderboards play in model selection?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 用自己的评测集选模型
+
+### 评测集怎么建？
+
+**从真实流量里抽样**，而不是自己编几条：
+
+1. **从线上日志里抽**：自己编的问题往往太规整，真实客户会打错字、一次问好几件事、带情绪
+2. **按任务类型和难度分层**：保证每类任务都有足够的样本，复杂投诉虽然只占 5%，也要单独抽够
+3. **专门加入难例**：过去出过错的对话、边界情况（没提订单号、订单号不存在、客户要求违反政策）
+4. **标注期望结果**：意图抽取标出正确的工单；回复类任务写**评分标准**（有没有遵守政策、有没有乱承诺、语气如何），而不是标一个标准答案
+5. **单独留出，不用来调 prompt**（见 [Prompt Engineering](/docs/application/prompt-engineering) Level 5）
+
+规模上，每类任务先有**几百条**就能开始比较。评测方法的完整讲解见 [Evaluation Fundamentals](/docs/evaluation/fundamentals)，用模型给回复打分见 [LLM Evaluation](/docs/evaluation/llm-eval)。
+
+### 怎么把质量、延迟、成本放在一起比？
+
+评测时**一次把三件事都记下来**：
+
+```python
+for model in candidates:
+    for case in eval_set:
+        start = time.perf_counter()
+        response = call_model(model, case.messages)
+        latency = time.perf_counter() - start
+        record(
+            model=model, case_id=case.id,
+            score=grade(response, case),                     # 质量：按任务的指标打分
+            latency=latency,                                 # 延迟：之后算 P50、P99
+            input_tokens=response.usage.input_tokens,        # 成本：用 API 返回的真实 token 数
+            output_tokens=response.usage.output_tokens,
+        )
+```
+
+<Note title="给每个候选模型公平的机会" type="warning">
+
+prompt 往往是针对某个模型调过的，直接拿去测别的模型会低估它（见 [Prompt Engineering](/docs/application/prompt-engineering) Level 5）。可以给每个候选模型做少量的 prompt 适配，但**评测集和评分标准必须完全一样**。
+
+</Note>
+
+以**回复起草**为例，200 条样本的评测结果（示意数字，成本按每月 100 万次请求算）：
+
+| 模型 | 规则遵守率 | 回复评分（5 分制） | P50 延迟 | P99 延迟 | 每月成本 |
+| --- | --- | --- | --- | --- | --- |
+| S | 98% | 4.6 | 2.5 秒 | 5.0 秒 | 9,000 美元 |
+| M | 95% | 4.3 | 1.2 秒 | 2.6 秒 | 1,200 美元 |
+| X | 84% | 3.6 | 0.6 秒 | 1.3 秒 | 270 美元 |
+
+Level 0 定的硬约束是「规则遵守率不低于 95%」和「P99 低于 3 秒」。按顺序判断：
+
+1. **先用硬约束筛**：S 质量最好，但 P99 是 5 秒，**超出延迟上限被淘汰**；X 规则遵守率 84%，被淘汰。只剩 M
+2. **再看结果靠不靠得住**：M 的 95% 刚好压线，而样本只有 200 条
+
+```
+标准误差 = √(0.95 × 0.05 / 200) ≈ 0.0154
+95% 置信区间 ≈ 95% ± 1.96 × 1.54% ≈ 95% ± 3%，也就是 92% 到 98%
+```
+
+也就是说，M 真实的遵守率可能只有 92%。这时有两件事要做：
+
+- **扩大评测集**，把遵守率算得更准
+- **加一道代码检查**：回复里出现「已为您退款」「保证退款」这类承诺时拦下来，改为转人工。这样即使模型偶尔违规，客户也看不到
+
+### 质量高一点值不值得多花钱？
+
+假设 S 的延迟问题解决了（比如回复不需要实时生成），S 比 M 多出 3 个百分点的遵守率，值不值得每月多花 7,800 美元？
+
+```
+每月多花：9,000 − 1,200 = 7,800 美元
+每月少的违规回复：(98% − 95%) × 100 万 = 3 万条
+每少一条违规回复的成本：7,800 / 30,000 = 0.26 美元
+```
+
+问题就变成了：**一条错误承诺退款的回复，给公司造成的损失是不是超过 0.26 美元**？这就把「选哪个模型」变成了可以和业务方讨论的数字。很多时候，一道代码检查比换更贵的模型便宜得多。
+
+### 三类任务最后怎么选？
+
+按同样的方法评测另外两类任务（示意数字）：
+
+- **意图抽取**：输入短、输出更短（约 1,000 个输入 token、80 个输出 token）。在 500 条样本上，S、M、X 的准确率分别是 98.0%、97.6%、97.0%，**都超过了 95% 的要求**。选最便宜的 X
+- **复杂投诉处理**：输入长（约 3,000 个输入 token、600 个输出 token），每月约 5 万条。人工评审 50 条，S 平均 4.5 分，M 只有 3.8 分，经常漏掉客户的第二个诉求。量小，选 S
+
+| 任务 | 选择 | 每请求成本 | 每月量 | 每月成本 |
+| --- | --- | --- | --- | --- |
+| 意图抽取 | X | 0.000132 美元 | 100 万 | 132 美元 |
+| 回复起草 | M | 0.0012 美元 | 100 万 | 1,200 美元 |
+| 复杂投诉处理 | S | 0.018 美元 | 5 万 | 900 美元 |
+| **合计** | | | | **2,232 美元** |
+
+如果三类任务全部用 S：意图抽取 4,200 美元 + 回复起草 9,000 美元 + 复杂投诉 900 美元 = 14,100 美元。**分任务选模型，成本降低约 84%**，而且每个任务都满足了它的硬约束。
+
+但这里有个前提：系统得知道**每个请求属于哪类任务、有多难**。意图抽取和回复起草是固定的流程步骤，好分；可「这条消息是不是复杂投诉」要在运行时判断。怎么判断、判断错了怎么办，就是下一页 [Model Routing](/docs/application/model-routing) 的内容。
+
+<Note title="「为什么选 Gemini」这类问题的答法" type="tip">
+
+把上面的过程套进去：**约束**（延迟、成本、数据合规、需要的能力）→ **候选**（比较了哪几个）→ **评测**（多少条什么样的样本、什么指标）→ **取舍**（为什么没选更强或更便宜的）→ **结果**（质量、延迟、成本的数字）。如果当时没有正式评测，也要诚实说明当时的决策依据，以及现在回头看会怎么补上评测。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 评测集为什么要从真实流量里抽？除了随机抽样还要加入什么？
+2. 评测时为什么要同时记录质量、延迟和真实 token 数？
+3. 在回复起草的例子里，为什么质量最好的 S 被淘汰了？M 的 95% 为什么不能直接相信？
+4. 「每少一条违规回复的成本」怎么算？它怎么帮你和业务方讨论选型？
+5. 三类任务分别选了哪一档？分任务选模型比全用 S 省了多少？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Choosing with your own evaluation set
+
+### How do you build an evaluation set?
+
+**Sample from real traffic** instead of inventing a few examples:
+
+1. **Draw from production logs**: invented questions are too tidy; real customers make typos, ask several things at once, and get upset
+2. **Stratify by task type and difficulty**: make sure every task has enough samples — complex complaints are only 5% of traffic but need enough of their own
+3. **Add hard cases on purpose**: conversations that went wrong before, edge cases (no order number, an order number that doesn't exist, requests that break policy)
+4. **Label the expected result**: correct tickets for intent extraction; for reply tasks, write a **rubric** (follows policy? no false promises? tone?) rather than a single gold answer
+5. **Hold it out — don't tune prompts on it** (see [Prompt Engineering](/docs/application/prompt-engineering) Level 5)
+
+For size, **a few hundred examples** per task is enough to start comparing. The full treatment of evaluation is in [Evaluation Fundamentals](/docs/evaluation/fundamentals); grading replies with a model is in [LLM Evaluation](/docs/evaluation/llm-eval).
+
+### How do you compare quality, latency, and cost together?
+
+**Record all three in the same evaluation run**:
+
+```python
+for model in candidates:
+    for case in eval_set:
+        start = time.perf_counter()
+        response = call_model(model, case.messages)
+        latency = time.perf_counter() - start
+        record(
+            model=model, case_id=case.id,
+            score=grade(response, case),                     # quality: the task's metric
+            latency=latency,                                 # latency: compute P50 and P99 later
+            input_tokens=response.usage.input_tokens,        # cost: real token counts from the API
+            output_tokens=response.usage.output_tokens,
+        )
+```
+
+<Note title="Give every candidate a fair shot" type="warning">
+
+Prompts are usually tuned for one model, and running them unchanged on another underrates it (see [Prompt Engineering](/docs/application/prompt-engineering) Level 5). Light prompt adaptation per candidate is fine, but **the evaluation set and rubric must be identical**.
+
+</Note>
+
+Take **reply drafting**: results on 200 samples (illustrative numbers; monthly cost at 1 million requests):
+
+| Model | Rule compliance | Reply score (out of 5) | P50 latency | P99 latency | Monthly cost |
+| --- | --- | --- | --- | --- | --- |
+| S | 98% | 4.6 | 2.5 s | 5.0 s | $9,000 |
+| M | 95% | 4.3 | 1.2 s | 2.6 s | $1,200 |
+| X | 84% | 3.6 | 0.6 s | 1.3 s | $270 |
+
+The hard constraints from Level 0 were "rule compliance at least 95%" and "P99 under 3 seconds". In order:
+
+1. **Filter on hard constraints first**: S has the best quality but a 5-second P99, so it's **out on latency**; X's 84% compliance knocks it out. Only M is left
+2. **Then ask whether the result is trustworthy**: M's 95% is right at the line, on only 200 samples
+
+```
+standard error = sqrt(0.95 × 0.05 / 200) ≈ 0.0154
+95% confidence interval ≈ 95% ± 1.96 × 1.54% ≈ 95% ± 3%, i.e. 92% to 98%
+```
+
+So M's true compliance rate could be as low as 92%. Two things to do:
+
+- **Grow the evaluation set** to pin down the rate
+- **Add a code check**: when a reply contains promises like "your refund has been issued" or "refund guaranteed", block it and hand off to a human. Even if the model occasionally slips, customers never see it
+
+### Is a bit more quality worth the extra money?
+
+Suppose S's latency problem goes away (say replies don't need to be real-time). S beats M by 3 points of compliance — is that worth $7,800 more a month?
+
+```
+extra spend per month: $9,000 − $1,200 = $7,800
+fewer violating replies per month: (98% − 95%) × 1M = 30,000
+cost per avoided violation: $7,800 / 30,000 = $0.26
+```
+
+Now the question is: **does one reply that wrongly promises a refund cost the business more than $0.26?** That turns "which model" into a number you can discuss with the business. Often a code check is far cheaper than a pricier model.
+
+### So what does each of the three tasks get?
+
+Evaluate the other two tasks the same way (illustrative numbers):
+
+- **Intent extraction**: short input, shorter output (about 1,000 input and 80 output tokens). On 500 samples, S, M, and X score 98.0%, 97.6%, and 97.0% — **all above the 95% bar**. Pick the cheapest, X
+- **Complex complaint handling**: long input (about 3,000 input and 600 output tokens), about 50,000 a month. In a human review of 50, S averages 4.5 and M just 3.8, often missing the customer's second issue. Low volume — pick S
+
+| Task | Choice | Per request | Monthly volume | Monthly cost |
+| --- | --- | --- | --- | --- |
+| Intent extraction | X | $0.000132 | 1M | $132 |
+| Reply drafting | M | $0.0012 | 1M | $1,200 |
+| Complex complaints | S | $0.018 | 50K | $900 |
+| **Total** | | | | **$2,232** |
+
+With S on all three: $4,200 for intent extraction + $9,000 for replies + $900 for complaints = $14,100. **Choosing per task cuts cost by about 84%**, and every task still meets its hard constraints.
+
+There's a catch: the system has to know **which task each request is and how hard it is**. Intent extraction and reply drafting are fixed pipeline steps, easy to tell apart; but "is this message a complex complaint" has to be decided at runtime. How to decide, and what happens when you get it wrong, is the next page: [Model Routing](/docs/application/model-routing).
+
+<Note title="How to answer questions like “why Gemini”" type="tip">
+
+Fit the process above: **constraints** (latency, cost, data compliance, needed capabilities) → **candidates** (which ones you compared) → **evaluation** (how many samples of what kind, which metrics) → **trade-off** (why not something stronger or cheaper) → **results** (numbers for quality, latency, and cost). If there was no formal evaluation back then, say honestly what the decision was based on, and how you'd add evaluation looking back.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why sample the evaluation set from real traffic, and what should you add beyond random samples?
+2. Why record quality, latency, and real token counts in the same run?
+3. In the reply-drafting example, why was S — the best on quality — ruled out? Why can't M's 95% be taken at face value?
+4. How do you compute the cost per avoided violation, and how does it help the conversation with the business?
+5. Which tier did each of the three tasks get, and how much does choosing per task save versus all S?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 4 · 部署方式与长期风险
+
+### 用 API，还是自己部署开放权重模型？
+
+| | 调用 API | 自己部署开放权重模型 |
+| --- | --- | --- |
+| 上手 | 注册就能用，不用管服务器 | 要准备 GPU、推理框架、监控和运维（见 [Inference](/docs/llm/inference)） |
+| 模型能力 | 能用到最强的闭源模型 | 最强的开放权重模型通常落后闭源旗舰一段距离 |
+| 成本结构 | 按 token 付费，用多少付多少 | 主要是 GPU 的固定成本，不管用没用都要付 |
+| 数据 | 数据要发给服务商，靠合同和企业协议保障 | 数据不出自己的环境 |
+| 定制 | 能做的微调有限 | 可以任意微调、量化、改推理参数 |
+| 控制权 | 服务商可能改价格、限流、下线模型 | 版本完全自己控制 |
+
+**成本什么时候划算？** 用示意数字算一笔账：假设自己部署一个中等规模的开放权重模型，GPU 加运维每月 6,000 美元，能扛住流量；API 的 M 档每 100 万次请求 1,200 美元。
+
+```
+盈亏平衡点 = 6,000 / 1,200 = 每月 500 万次请求
+```
+
+每月请求量低于 500 万次，API 更便宜；高于这个量，自己部署才开始划算。实际算的时候还要考虑：
+
+- **GPU 利用率**：流量有高峰低谷，为了扛住高峰买的 GPU，大部分时间是闲着的
+- **人力成本**：部署、升级、故障排查都需要工程师的时间
+- **质量**：开放权重模型要先在你的评测集上达标，省下的钱才有意义
+
+**中间选项**：通过云平台（比如 Vertex AI、Amazon Bedrock、Azure）调用模型，数据可以留在指定的云区域，也更容易满足企业的合规要求；也有服务商专门托管开放权重模型，按 token 计费。
+
+### 怎么避免被一个服务商锁死？
+
+**锁定**是指换服务商的代价高到换不动。锁定通常来自这些地方：
+
+- **prompt 针对某个模型调过**：换模型要重新调（见 [Prompt Engineering](/docs/application/prompt-engineering) Level 5）
+- **用了某家独有的功能**：比如特定的文件接口、特定格式的工具调用
+- **在服务商平台上微调的模型**：模型权重在别人手里，带不走
+- **embedding 模型**：向量库里的所有向量都是用某个 embedding 模型算的，换模型就要**把所有文档重新算一遍向量**（见 [Embedding](/docs/rag/embedding)）
+
+降低锁定的做法：
+
+1. **加一层抽象**：业务代码调用自己封装的统一接口，不直接调用某家的 SDK。LiteLLM 这类库提供了统一的调用方式
+2. **评测集要能跑在任何模型上**：这是换模型时最有价值的资产
+3. **依赖独有功能时，想好替代方案**
+4. **准备一个测试过的备用模型**：主服务商出故障时可以切过去（见 [Model Routing](/docs/application/model-routing) Level 4）
+
+### 模型版本升级要注意什么？
+
+**1. 生产环境固定具体的模型版本。** 很多服务商提供「最新版」这样的别名，它指向的模型会在某天被悄悄换掉。同样的 prompt，换了版本之后输出风格、格式遵守程度、拒答倾向都可能变化。生产环境要写**带版本号或日期的具体模型名**，升级是你主动决定的事。
+
+**2. 关注下线计划。** 旧模型会被下线，服务商通常会提前通知。要提前安排迁移，不要等到下线前一周才发现。
+
+**3. 升级前跑回归评测。** 用 Level 3 的评测集比较新旧版本：
+
+- 质量：整体分数，**以及每一类任务、每个字段的分数**，有没有哪一类变差（见 [Structured Output](/docs/application/structured-output) Level 5）
+- 延迟：P50 和 P99
+- 成本：新版本的 token 用量可能变了，比如回复变长了
+
+**4. 逐步上线。** 先让少量流量用新版本，对比线上指标，没问题再全量（见 [Model Routing](/docs/application/model-routing) Level 4）。
+
+<Note title="新版本不一定每个方面都更好" type="warning">
+
+服务商说新版本「整体更强」，指的是他们关心的榜单和任务。你的某个具体任务可能反而变差，比如更啰嗦、更容易加 markdown、对某类请求更容易拒答。所以才需要自己的回归评测。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 调用 API 和自己部署开放权重模型，各有什么优缺点？
+2. 自己部署每月 6,000 美元，API 每 100 万次请求 1,200 美元，盈亏平衡点是多少？实际算的时候还要考虑什么？
+3. 锁定通常来自哪些地方？为什么换 embedding 模型特别麻烦？
+4. 为什么生产环境不应该用「最新版」别名？升级模型版本前要做什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Deployment and long-term risk
+
+### Call an API, or host an open-weights model yourself?
+
+| | API | Self-hosted open weights |
+| --- | --- | --- |
+| Getting started | sign up and go, no servers | GPUs, a serving framework, monitoring, and ops (see [Inference](/docs/llm/inference)) |
+| Model capability | access to the strongest closed models | the best open-weights models usually trail the closed flagships |
+| Cost structure | pay per token, only for what you use | mostly fixed GPU cost, paid whether you use it or not |
+| Data | sent to the provider, protected by contracts and enterprise agreements | never leaves your environment |
+| Customization | limited fine-tuning | fine-tune, quantize, and tune serving however you like |
+| Control | the provider may change prices, rate limits, or retire models | you control versions entirely |
+
+**When does self-hosting pay off?** Run the numbers with illustrative figures: say hosting a mid-sized open-weights model costs $6,000 a month in GPUs and ops and handles your traffic, while API tier M costs $1,200 per million requests.
+
+```
+break-even = $6,000 / $1,200 = 5 million requests per month
+```
+
+Below 5 million requests a month, the API is cheaper; above it, self-hosting starts to win. In practice also factor in:
+
+- **GPU utilization**: traffic peaks and dips, so GPUs sized for the peak sit idle much of the time
+- **People cost**: deployment, upgrades, and debugging all take engineering time
+- **Quality**: the open-weights model has to pass your evaluation set first, or the savings don't matter
+
+**Middle options**: calling models through cloud platforms (e.g., Vertex AI, Amazon Bedrock, Azure) keeps data in a chosen cloud region and eases enterprise compliance; there are also providers that host open-weights models and bill per token.
+
+### How do you avoid getting locked into one provider?
+
+**Lock-in** means switching providers costs too much to actually do. It usually comes from:
+
+- **prompts tuned to one model**: switching means retuning (see [Prompt Engineering](/docs/application/prompt-engineering) Level 5)
+- **provider-only features**: a particular file API, a particular tool-calling format
+- **models fine-tuned on the provider's platform**: someone else holds the weights, and you can't take them with you
+- **embedding models**: every vector in your store was computed by one embedding model, so switching means **re-embedding every document** (see [Embedding](/docs/rag/embedding))
+
+Ways to reduce it:
+
+1. **Add an abstraction layer**: business code calls your own unified interface, not a vendor SDK directly. Libraries like LiteLLM offer one calling convention across providers
+2. **Keep the evaluation set runnable on any model**: it's the most valuable asset when you switch
+3. **When you depend on a provider-only feature, know your alternative**
+4. **Keep a tested backup model** you can fail over to when the primary provider is down (see [Model Routing](/docs/application/model-routing) Level 4)
+
+### What should you watch for with model version upgrades?
+
+**1. Pin a specific model version in production.** Many providers offer "latest"-style aliases whose target gets swapped one day without notice. With the same prompt, a new version can change output style, format adherence, and refusal tendencies. Production should name **a specific model with a version or date**, so upgrading is a decision you make.
+
+**2. Track deprecation schedules.** Old models get retired, usually with advance notice. Plan the migration early — don't find out a week before shutdown.
+
+**3. Run a regression evaluation before upgrading.** Compare old and new versions on the Level 3 evaluation set:
+
+- quality: the overall score **and the score for each task type and each field** — did any category get worse (see [Structured Output](/docs/application/structured-output) Level 5)
+- latency: P50 and P99
+- cost: token usage may change, e.g., longer replies
+
+**4. Roll out gradually.** Send a small share of traffic to the new version, compare production metrics, then go to 100% if all is well (see [Model Routing](/docs/application/model-routing) Level 4).
+
+<Note title="A new version isn't better at everything" type="warning">
+
+When a provider says a new version is "stronger overall", they mean on the benchmarks and tasks they care about. Your specific task might get worse — wordier, more markdown, more refusals on some kind of request. That's why you need your own regression evaluation.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What are the pros and cons of calling an API versus self-hosting an open-weights model?
+2. With self-hosting at $6,000 a month and the API at $1,200 per million requests, where's the break-even point, and what else goes into the real calculation?
+3. Where does lock-in usually come from, and why is switching embedding models especially painful?
+4. Why shouldn't production use a "latest" alias, and what should you do before upgrading a model version?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note title="别说「我们选了最强的模型 / 榜单第一的模型」" type="danger">
+
+这说明你没考虑成本和延迟，也没有用自己的任务评测过。要说出约束、候选、评测数据和取舍。
+
+</Note>
+
+<Note title="别说「生产环境用最新版别名，自动享受升级」" type="danger">
+
+别名指向的模型会被悄悄换掉，输出行为跟着变。生产环境要固定具体版本，升级前跑回归评测。
+
+</Note>
+
+<Note title="只比较价格表上的单价" type="warning">
+
+不同模型的 tokenizer 不同，同一段文字 token 数不同；输出长度、推理 token、重试、多步调用都会放大真实成本。用真实数据跑一遍再算。
+
+</Note>
+
+<Note title="只看平均延迟" type="warning">
+
+客户感受到的是慢的那部分请求。要看 P99，并且区分流式场景的 TTFT 和结构化输出的总时长。
+
+</Note>
+
+<Note title="评测集太小，却根据一两个百分点的差距拍板" type="warning">
+
+200 条样本上 95% 的置信区间大约是正负 3 个百分点。差距小于误差范围时，要扩大评测集再下结论。
+
+</Note>
+
+<Note title="换 embedding 模型却不重建索引" type="warning">
+
+新旧 embedding 模型的向量不在同一个空间里，不能混用。换模型就要重新计算所有文档的向量。
+
+</Note>
+
+<Note title="忘了限流和数据合规" type="warning">
+
+模型评测效果再好，高峰期超过每分钟 token 上限，或者数据不能发给这家服务商，也用不了。这些是硬约束，要最先检查。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Traps
+
+<Note title="Don't say you picked the strongest model or the leaderboard leader" type="danger">
+
+That says you ignored cost and latency and never evaluated on your own task. Name the constraints, candidates, evaluation data, and trade-offs.
+
+</Note>
+
+<Note title="Don't say production uses the latest alias to get upgrades for free" type="danger">
+
+The model behind an alias gets swapped silently, and output behavior changes with it. Pin a specific version in production and run a regression evaluation before upgrading.
+
+</Note>
+
+<Note title="Comparing only per-token prices" type="warning">
+
+Different tokenizers produce different token counts for the same text, and output length, reasoning tokens, retries, and multi-step calls all multiply real cost. Run your real data and then do the math.
+
+</Note>
+
+<Note title="Looking only at average latency" type="warning">
+
+Customers feel the slow requests. Look at P99, and distinguish TTFT for streaming from total time for structured output.
+
+</Note>
+
+<Note title="Deciding on a one- or two-point gap with a small evaluation set" type="warning">
+
+On 200 samples, the 95% confidence interval around 95% is roughly plus or minus 3 points. When the gap is inside the margin of error, grow the evaluation set before concluding.
+
+</Note>
+
+<Note title="Switching embedding models without rebuilding the index" type="warning">
+
+Vectors from different embedding models don't live in the same space and can't be mixed. Switching means re-embedding every document.
+
+</Note>
+
+<Note title="Forgetting rate limits and data compliance" type="warning">
+
+However well a model evaluates, it's unusable if peak traffic exceeds its tokens-per-minute cap or your data can't go to that provider. These are hard constraints — check them first.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 连接
+
+</Locale>
+
+<Locale lang="en">
+
+## Connections
 
 </Locale>
 
 ```
-Task requirements
-        ↓
-quality × latency × cost × tools × context
-        ↓
-Primary model + fallback
+tasks differ (volume, difficulty, latency needs)
+                    ↓
+hard constraints (latency, capabilities, compliance, rate limits) + soft goals (quality, cost)
+                    ↓
+price sheet → cost per request → monthly cost · TTFT + tokens × TPOT
+                    ↓
+leaderboards: narrow candidates only (task mismatch, contamination, setup)
+                    ↓
+own evaluation set: quality + P50/P99 + real tokens → filter, then trade off
+                    ↓
+API vs. open weights · lock-in · pinned versions · regression eval
+                    ↓
+Model Routing: send each request to its model at runtime
 ```
 
 <Locale lang="zh">
 
-## 三级回答
-
-### Level 1 — 定义
-
-按任务选模型，而不是按品牌选。
-
-### Level 2 — 机制
-
-同一个任务可以在便宜模型和强模型上都测一遍。工具调用、结构化输出、长上下文、多模态支持是硬约束。
-
-### Level 3 — 工程
-
-你的项目里为什么选 Gemini：企业生态、BigQuery、延迟，还是质量？要能说出备选的 Claude / GPT 会在哪个维度更好。
+- 上游：[Tokenization](/docs/llm/tokenization)（按 token 计费、tokenizer 不同） · [Inference](/docs/llm/inference)（TTFT、TPOT、P99、自己部署） · [Post-training](/docs/llm/post-training)（推理模型） · [Prompt Engineering](/docs/application/prompt-engineering)（评测集、换模型要重新验证）
+- 同专栏：[Structured Output](/docs/application/structured-output)（字段级评估） · [Model Routing](/docs/application/model-routing)（运行时把请求分给不同模型）
+- 下游：[Evaluation Fundamentals](/docs/evaluation/fundamentals) · [LLM Evaluation](/docs/evaluation/llm-eval) · [Embedding](/docs/rag/embedding)（换 embedding 模型要重建索引）
+- 工程落点：[Cost](/docs/production/cost) · [Latency](/docs/production/latency) · [Reliability](/docs/production/reliability) · [Fine-tuning](/docs/llm/fine-tuning)（开放权重模型的定制）
 
 ## 面试问题
 
-1. GPT / Claude / Gemini 怎么选？（How do you choose between GPT, Claude, and Gemini?）
-2. 哪些任务可以降级到小模型？（Which tasks can you downgrade to a smaller model?）
-3. Tool calling 质量差，是换模型还是改 schema？（Tool calling quality is poor — do you switch models or fix the schema?）
-4. 多模态管道和纯文本管道怎么拆分模型？（How do you split models between multimodal and text-only pipelines?）
+先自己口头答一遍，再回到对应的 Level 对照。
 
-## 我的答案
+**Level 0 — 选模型为什么是工程问题**
+
+1. 你们项目为什么选这个模型？（Why did you choose this model for your project?）
+2. 选模型时要考虑哪些因素？哪些是硬约束？（What factors go into choosing a model, and which are hard constraints?）
+3. 什么时候该用推理模型，什么时候不该用？（When should you use a reasoning model, and when not?）
+
+**Level 1 — 比较维度与成本计算**
+
+4. 估算一下这个功能每月的模型调用成本。（Estimate this feature's monthly model cost.）
+5. 为什么不同模型的每 token 单价不能直接比较？（Why can't per-token prices be compared directly across models?）
+6. 比较模型的延迟时要看哪些指标？（Which metrics do you look at when comparing model latency?）
+
+**Level 2 — 公开榜单的用处和局限**
+
+7. 公开榜单分数高，为什么不代表适合你的任务？（Why doesn't a high leaderboard score mean a model fits your task?）
+8. 什么是数据污染？（What is benchmark contamination?）
+
+**Level 3 — 用自己的评测集选模型**
+
+9. 你会怎么设计一个评测来比较几个候选模型？（How would you design an evaluation to compare candidate models?）
+10. 强模型质量高 3 个百分点但贵 7.5 倍，你怎么决定？（The strong model is 3 points better but 7.5× the price — how do you decide?）
+11. 评测集有多大，结论才可信？（How big does an evaluation set need to be for the conclusion to hold?）
+
+**Level 4 — 部署方式与长期风险**
+
+12. 什么时候应该自己部署开源模型，而不是调用 API？（When should you self-host an open model instead of calling an API?）
+13. 怎么降低对单一模型服务商的依赖？（How do you reduce dependence on a single model provider?）
+14. 服务商发布了新版本模型，你们怎么决定要不要升级？（A provider releases a new model version — how do you decide whether to upgrade?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Pick the model for the task, not for the brand.
-
-### Level 2 — Mechanism
-
-Run the same task on both a cheap model and a strong one. Tool calling, structured output, long context, and multimodal support are hard constraints.
-
-### Level 3 — Engineering
-
-Why Gemini in my projects: the enterprise ecosystem, BigQuery, latency, or quality? Be ready to say where Claude or GPT would have been the better pick, and on which dimension.
+- Upstream: [Tokenization](/docs/llm/tokenization) (per-token billing, different tokenizers) · [Inference](/docs/llm/inference) (TTFT, TPOT, P99, self-hosting) · [Post-training](/docs/llm/post-training) (reasoning models) · [Prompt Engineering](/docs/application/prompt-engineering) (evaluation sets, revalidating on a new model)
+- Same column: [Structured Output](/docs/application/structured-output) (field-level evaluation) · [Model Routing](/docs/application/model-routing) (assigning requests to models at runtime)
+- Downstream: [Evaluation Fundamentals](/docs/evaluation/fundamentals) · [LLM Evaluation](/docs/evaluation/llm-eval) · [Embedding](/docs/rag/embedding) (switching embedding models means reindexing)
+- Where it lands in engineering: [Cost](/docs/production/cost) · [Latency](/docs/production/latency) · [Reliability](/docs/production/reliability) · [Fine-tuning](/docs/llm/fine-tuning) (customizing open-weights models)
 
 ## Interview questions
 
-1. How do you choose between GPT, Claude, and Gemini?
-2. Which tasks can you downgrade to a smaller model?
-3. Tool calling quality is poor — do you switch models or fix the schema?
-4. How do you split models between multimodal and text-only pipelines?
+Answer out loud first, then check against the matching Level.
 
-## My answer
+**Level 0 — Why choosing a model is an engineering problem**
+
+1. Why did you choose this model for your project?
+2. What factors go into choosing a model, and which are hard constraints?
+3. When should you use a reasoning model, and when not?
+
+**Level 1 — Comparison dimensions and cost math**
+
+4. Estimate this feature's monthly model cost.
+5. Why can't per-token prices be compared directly across models?
+6. Which metrics do you look at when comparing model latency?
+
+**Level 2 — What leaderboards are and aren't good for**
+
+7. Why doesn't a high leaderboard score mean a model fits your task?
+8. What is benchmark contamination?
+
+**Level 3 — Choosing with your own evaluation set**
+
+9. How would you design an evaluation to compare candidate models?
+10. The strong model is 3 points better but 7.5× the price — how do you decide?
+11. How big does an evaluation set need to be for the conclusion to hold?
+
+**Level 4 — Deployment and long-term risk**
+
+12. When should you self-host an open model instead of calling an API?
+13. How do you reduce dependence on a single model provider?
+14. A provider releases a new model version — how do you decide whether to upgrade?
 
 </Locale>
 
--
+---
+
+<Locale lang="zh">
+
+## 我的答案
+
+自己写，别让 agent 代写。30s 版超过 40 秒就砍，要按「约束 → 候选 → 评测 → 取舍 → 结果」讲。
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+Write it yourself — don't let the agent draft it. Cut it if it runs past 40 seconds, and follow constraints → candidates → evaluation → trade-off → result.
+
+</Locale>
+
+### 30s
+
+>
 
 <Locale lang="zh">
 
 ## 项目锚点
+
+你的项目为什么选 Gemini？当时的约束是什么（成本、延迟、上下文长度、和 Google Cloud / ADK 的集成、合规）？比较过哪些模型、用什么依据？如果现在重新选，你会怎么补上评测？一句话 + 一个数字。参考 [项目深挖](/docs/projects)。
 
 </Locale>
 
@@ -123,6 +1193,8 @@ Why Gemini in my projects: the enterprise ecosystem, BigQuery, latency, or quali
 
 ## Project anchor
 
+Why did your projects use Gemini? What were the constraints (cost, latency, context length, integration with Google Cloud / ADK, compliance)? Which models did you compare, and on what basis? If you chose again today, how would you add evaluation? One sentence plus one number. See [Projects](/docs/projects).
+
 </Locale>
 
--
+>
