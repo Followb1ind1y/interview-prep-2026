@@ -17,6 +17,21 @@ mastery: { talk: 0, probe: 0 }
 
 这一步看着不起眼，但它决定了：一段话占多少 context、一次请求多少钱、中文和代码为什么表现不一样、以及为什么模型数不清单词里有几个字母。
 
+## 这一页怎么学
+
+| 部分 | 回答的问题 | 时长 |
+| --- | --- | --- |
+| Level 1 · 基本概念 | 模型为什么只认整数？token、token id、embedding 是什么关系？为什么按 token 计费？ | 20 min |
+| Level 2 · 分词方法 | 有哪几种切法？BPE、WordPiece、SentencePiece 怎么工作、差在哪？词表大小怎么定？没见过的词怎么办？ | 60 min |
+| Level 3 · 工程影响 | token 数怎么一路影响延迟和账单？为什么 output token 更贵？中文和代码的 token 怎么估？ | 30 min |
+| 陷阱 · 面试问题 | 哪些说法会被当场追问？能不能脱稿答完这 15 道题？ | 20 min |
+
+这一页不需要深度学习基础，向量和 embedding 在 Level 1 里当场解释。**BPE 手推是全页重点**，建议拿纸跟着推一遍。蓝色的「我的问题」是学习时追问出来的补充，默认折叠，第一遍可以先读主线，再回头展开。
+
+Level 3 会提到 prefill、decode、KV cache 和 attention 的 O(n²)。第一次读先记住结论就够了，这些机制在 [Attention & Transformer](/docs/llm/transformer) 的 Level 5 和 Level 8 里会从头讲清楚，学完再回来看会顺很多。
+
+全页约 2 小时，可以分两次学；`/drill` 会记住你上次学到哪。
+
 ## 需要掌握
 
 - token / vocabulary / token id / embedding 四者的关系
@@ -35,6 +50,21 @@ mastery: { talk: 0, probe: 0 }
 A model can't read strings. It only sees a sequence of integers. Tokenization is the step that translates "text a human wrote" into "integers a model can consume."
 
 It looks like plumbing, but it decides how much context a passage costs, how much a request costs, why Chinese and code behave differently, and why models can't count letters in a word.
+
+## How to work through this page
+
+| Part | Question it answers | Time |
+| --- | --- | --- |
+| Level 1 · Fundamentals | Why does a model only take integers? How do tokens, token ids, and embeddings relate? Why bill per token? | 20 min |
+| Level 2 · Tokenization methods | What are the ways to split text? How do BPE, WordPiece, and SentencePiece work and differ? How is vocabulary size chosen? What about unseen words? | 60 min |
+| Level 3 · Engineering impact | How does token count flow through to latency and cost? Why do output tokens cost more? How do you estimate tokens for Chinese and code? | 30 min |
+| Traps · Interview questions | Which claims invite an immediate follow-up? Can you answer all 15 questions without notes? | 20 min |
+
+No deep learning background is needed; vectors and embeddings are explained on the spot in Level 1. **The BPE walkthrough is the core of the page** — work through it on paper. The blue "My question" blocks are follow-ups that came up while studying; they're collapsed by default, so read the main thread first and expand them afterward.
+
+Level 3 mentions prefill, decode, the KV cache, and attention's O(n²). On a first pass, just take the conclusions; those mechanisms are built up from scratch in Levels 5 and 8 of [Attention & Transformer](/docs/llm/transformer), and this section reads much more smoothly after that.
+
+The page takes about 2 hours and splits naturally into two sessions; `/drill` remembers where you stopped.
 
 ## Must know
 
