@@ -1,121 +1,2157 @@
 ---
 title: Post-training
 titleEn: Post-training
-description: SFT → Preference Optimization → RLHF / DPO → Instruction Following。
-descriptionEn: SFT → preference optimization → RLHF / DPO → instruction following.
-date: 2026-09-07
-keywords: ["sft", "rlhf", "dpo", "alignment", "instruction tuning"]
+description: 从「会续写」到「会听话」：SFT、偏好数据、RLHF、DPO、推理强化学习（GRPO），以及对齐的副作用和工程选择。
+descriptionEn: "From continuing text to following instructions: SFT, preference data, RLHF, DPO, reinforcement learning for reasoning (GRPO), and the side effects and engineering choices of alignment."
+date: 2026-09-14
+keywords: ["post-training", "sft", "instruction tuning", "chat template", "preference data", "reward model", "rlhf", "ppo", "kl penalty", "dpo", "grpo", "rlvr", "alignment", "reward hacking"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-这一段非常重要。要能画出从预训练到「听话」的整条链。
+预训练完的模型叫 **base model**，它读过海量文本，知识和能力都在，但它只会一件事：**接着往下写**。你问它问题，它可能接着编出更多问题。ChatGPT、Claude 这类「会听指令、回答得体」的助手，是在 base model 上再做一轮 post-training 得到的。
+
+面试里这一块非常重要：「SFT 和 RLHF 分别做什么」「为什么很多团队用 DPO」「reward hacking 是什么」「你的场景该 prompt、RAG 还是微调」几乎必问。这一页假设你已经学过 [Training](/docs/llm/training)（至少 Level 0–2：loss、next-token 预测、一次训练 step）。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · Base model 缺什么 | 预训练完的模型为什么不能直接当助手用？post-training 分几步？ | 20 min |
+| 1 · SFT | 怎么用「示范」教会模型回答？chat template 是什么？为什么只在回答部分算 loss？ | 45 min |
+| 2 · 为什么需要偏好 | SFT 哪里不够？偏好数据长什么样？怎么把「A 比 B 好」变成数学？ | 30 min |
+| 3 · RLHF | 奖励模型怎么训？强化学习怎么用奖励更新模型？KL 惩罚防的是什么？ | 50 min |
+| 4 · DPO | 为什么可以跳过奖励模型？DPO 的 loss 怎么算？和 RLHF 怎么选？ | 40 min |
+| 5 · 推理能力的强化学习 | 可验证奖励是什么？GRPO 怎么在没有价值模型的情况下算优势？长思维链从哪来？ | 40 min |
+| 6 · 副作用与工程选择 | 对齐会带来哪些问题？怎么评估？真实项目里 prompt、RAG、SFT、DPO 怎么选？ | 40 min |
+
+每个 Level 末尾有几道自测题，**答不上来就先别往下读**。全页约 4.5 小时，分几次学完；`/drill` 会记住你上次学到哪。
+
+全页用同一个例子贯穿：**用户说「把『我 爱 猫』翻译成英文」**。先看 base model 怎么「答非所问」，再看 SFT、偏好优化、强化学习分别怎么一步步改变它的回答。
 
 ## 需要掌握
 
-- SFT（监督微调）
-- RLHF（基于人类反馈的强化学习）
-- DPO（直接偏好优化）
-- preference data（偏好数据）
-- reward model（奖励模型）
-- alignment（对齐）
-- instruction tuning（指令微调）
-- catastrophic forgetting（灾难性遗忘）
-
-## 机制
+- Base model 和 chat / instruct model 的区别，post-training 的完整流程
+- SFT 的数据格式、chat template、只对回答部分算 loss、数据质量比数量重要
+- 偏好数据（prompt, chosen, rejected）的来源，Bradley-Terry 模型
+- 奖励模型怎么训；RLHF 里策略、奖励、PPO 的基本循环；KL 惩罚和参考模型的作用
+- DPO 的直觉和 loss 手算，β 的含义，DPO 和 RLHF 的取舍
+- 可验证奖励（RLVR）、GRPO 的组内优势计算、推理模型的长思维链
+- 对齐的副作用：reward hacking、灾难性遗忘、谄媚、过度拒绝、多样性下降
+- 怎么评估 post-training 的效果，以及真实项目里 prompt / RAG / SFT / 偏好优化怎么选
 
 </Locale>
 
 <Locale lang="en">
 
-This part matters a lot. Be able to draw the whole chain from a pretrained model to one that follows instructions.
+A model fresh out of pretraining is called a **base model**. It has read an enormous amount of text and has the knowledge and skills, but it only does one thing: **keep writing**. Ask it a question and it may carry on by inventing more questions. Assistants like ChatGPT and Claude, which follow instructions and answer appropriately, come from running post-training on top of a base model.
+
+This area matters a lot in interviews: "what do SFT and RLHF each do," "why do so many teams use DPO," "what is reward hacking," and "should your use case use prompting, RAG, or fine-tuning" come up almost every time. This page assumes you've studied [Training](/docs/llm/training) (at least Levels 0–2: loss, next-token prediction, one training step).
+
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · What a base model lacks | Why can't a pretrained model be used as an assistant directly? What are the stages of post-training? | 20 min |
+| 1 · SFT | How do demonstrations teach a model to answer? What is a chat template? Why compute loss only on the response? | 45 min |
+| 2 · Why preferences are needed | Where does SFT fall short? What does preference data look like? How does "A is better than B" become math? | 30 min |
+| 3 · RLHF | How is a reward model trained? How does reinforcement learning use rewards to update the model? What does the KL penalty guard against? | 50 min |
+| 4 · DPO | Why can the reward model be skipped? How is the DPO loss computed? How do you choose between DPO and RLHF? | 40 min |
+| 5 · Reinforcement learning for reasoning | What are verifiable rewards? How does GRPO compute advantages without a value model? Where do long chains of thought come from? | 40 min |
+| 6 · Side effects and engineering choices | What problems does alignment introduce? How do you evaluate it? In a real project, how do you choose between prompting, RAG, SFT, and DPO? | 40 min |
+
+Each Level ends with a few self-check questions — **if you can't answer them, don't move on yet**. The page takes about 4.5 hours over several sessions; `/drill` remembers where you stopped.
+
+One example runs through the whole page: **a user says 「把『我 爱 猫』翻译成英文」 ("translate 我爱猫 into English")**. First we see how a base model misses the point, then how SFT, preference optimization, and reinforcement learning each change its answer step by step.
 
 ## Must know
 
-- SFT
-- RLHF
-- DPO
-- preference data
-- reward model
-- alignment
-- instruction tuning
-- catastrophic forgetting
+- base models vs. chat / instruct models, and the full post-training pipeline
+- SFT data format, chat templates, computing loss only on the response, why quality beats quantity
+- where preference data (prompt, chosen, rejected) comes from, and the Bradley-Terry model
+- how a reward model is trained; the policy, reward, and PPO loop in RLHF; what the KL penalty and reference model are for
+- the intuition behind DPO and computing its loss by hand, what β means, DPO vs. RLHF trade-offs
+- verifiable rewards (RLVR), GRPO's group-relative advantages, long chains of thought in reasoning models
+- side effects of alignment: reward hacking, catastrophic forgetting, sycophancy, over-refusal, reduced diversity
+- how to evaluate post-training, and how to choose between prompting, RAG, SFT, and preference optimization in a real project
 
-## Mechanism
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · Base model 缺什么
+
+### 回顾：base model 是怎么来的？
+
+[Training](/docs/llm/training) 这一页讲过：预训练就是在几万亿 token 的文本上，反复让模型预测下一个 token，loss 是正确答案概率的负对数（交叉熵）。训完得到的模型叫 **base model**。
+
+它读过海量的网页、代码、书籍，知识和能力都在参数里，但训练目标自始至终只有一个：**让续写尽可能像训练数据**。这一页要讲的所有方法，都是在这个 base model 的基础上继续训练。
+
+### 直接拿 base model 当助手，会发生什么？
+
+用贯穿全页的例子试一下。用户输入：
+
+```
+把『我 爱 猫』翻译成英文
+```
+
+Base model 的续写可能是这样（示意）：
+
+```
+把『我 爱 狗』翻译成英文
+把『他 爱 猫』翻译成英文
+把『我们 爱 猫』翻译成英文
+```
+
+它没有回答，而是接着出题。原因在 Training Level 6 讲过：网页里这种句子最常出现在练习题列表中，「一道题后面跟着另一道题」才是最像训练数据的续写。
+
+就算它碰巧开始翻译了，也还会有别的问题：
+
+| 缺口 | 表现 |
+| --- | --- |
+| **不按指令做事** | 把指令当成文档的一部分接着写，而不是执行它 |
+| **不知道什么时候停、格式不稳** | 答完一句又接着编下一段；同样的问题这次是列表、下次是段落 |
+| **不符合人的偏好和安全要求** | 可能啰嗦、答非所问、自信地编造，或者照做有害请求 |
+
+**Post-training 的目标就是补上这三个缺口**：让模型从「会续写」变成「会按指令、以人喜欢的方式、安全地回答」。
+
+### Post-training 分几步？每步解决什么？
+
+主流流程：
+
+```
+Base model（会续写）
+    ↓  SFT：用「指令 → 好的回答」示范来训练
+会按指令回答，格式基本正确
+    ↓  偏好优化（RLHF 或 DPO）：用「哪个回答更好」的比较数据来训练
+回答更符合人的偏好，更有帮助、更安全
+    ↓  （新近趋势）推理强化学习：用「答案对不对」来训练
+在数学、代码等可验证任务上推理更强
+Chat / Instruct model（助手）
+```
+
+| 阶段 | 训练数据长什么样 | 主要解决 | 本页 Level |
+| --- | --- | --- | --- |
+| SFT | 指令 + 示范回答 | 不按指令、格式不稳 | 1 |
+| 偏好优化 | 同一个指令的两个回答，标出哪个更好 | 不符合偏好、不够安全 | 2、3、4 |
+| 推理强化学习 | 有标准答案的题目 | 推理能力 | 5 |
+
+在 Hugging Face 上经常能看到成对的模型，比如 `Llama-3-8B` 和 `Llama-3-8B-Instruct`：前者是 base model，后者是做完 post-training 的版本。
+
+<Note title="Post-training 的数据量很小，影响却很大" type="tip">
+
+预训练用几万亿 token；post-training 的数据量要小几个数量级。OpenAI 的 InstructGPT 里，SFT 只用了约 1.3 万条示范。但效果非常明显：标注员更喜欢做完 post-training 的 **13 亿参数** InstructGPT，而不是没做过的 **1750 亿参数** GPT-3。面试里用这个例子说明「对齐的价值」很有说服力。
+
+</Note>
+
+### Post-training 主要改变的是知识，还是行为？
+
+**主要是行为**：怎么理解指令、用什么格式和语气回答、什么时候拒绝、什么时候停。模型的知识和核心能力主要在预训练阶段就已经学到了，post-training 更像是**教模型把已有的能力「拿出来用」**。
+
+一个常被引用的证据是 LIMA：只用 **1,000 条**精心挑选的示范，对一个 65B 的 LLaMA 做 SFT，就得到了表现相当不错的对话模型。
+
+这个结论直接影响工程决策：想让模型学会**新知识**，post-training 通常不是好办法，优先考虑 RAG（见 [Training](/docs/llm/training) Level 6 和 [Fine-tuning](/docs/llm/fine-tuning)）；想让模型**表现方式**稳定下来，post-training 才是对的工具。
+
+<Note title="自测：到这里你应该能回答">
+
+1. Base model 是怎么训出来的？它的训练目标是什么？
+2. 直接给 base model 一个指令，它可能会怎样回应？为什么？
+3. Base model 当助手有哪三个缺口？
+4. Post-training 分哪几个阶段？各自用什么数据、解决什么问题？
+5. Post-training 主要改变的是知识还是行为？这对「要不要微调」有什么启发？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · What a base model lacks
+
+### Recap: where does a base model come from?
+
+The [Training](/docs/llm/training) page covered this: pretraining repeatedly asks the model to predict the next token across trillions of tokens of text, with the loss being the negative log of the probability of the correct answer (cross entropy). The resulting model is called a **base model**.
+
+It has read enormous amounts of web pages, code, and books, and the knowledge and skills live in its parameters — but its objective from start to finish was just one thing: **make the continuation look as much like the training data as possible**. Every method on this page continues training from that base model.
+
+### What happens if you use a base model directly as an assistant?
+
+Try it with the running example. The user types:
+
+```
+把『我 爱 猫』翻译成英文    (translate 我爱猫 into English)
+```
+
+A base model might continue like this (illustrative):
+
+```
+把『我 爱 狗』翻译成英文    (translate 我爱狗 into English)
+把『他 爱 猫』翻译成英文    (translate 他爱猫 into English)
+把『我们 爱 猫』翻译成英文  (translate 我们爱猫 into English)
+```
+
+Instead of answering, it keeps writing exercises. Training Level 6 explained why: on the web, sentences like this mostly appear in lists of practice problems, so one exercise followed by another is the most training-data-like continuation.
+
+Even if it happens to start translating, other problems remain:
+
+| Gap | What it looks like |
+| --- | --- |
+| **Doesn't follow instructions** | treats the instruction as part of a document to continue, rather than something to carry out |
+| **Doesn't know when to stop; inconsistent format** | answers one sentence and then invents another paragraph; the same question comes back as a list one time and a paragraph the next |
+| **Doesn't match human preferences or safety requirements** | may be rambling, off-topic, confidently wrong, or willing to carry out harmful requests |
+
+**Post-training exists to close these three gaps**: turning a model that continues text into one that follows instructions, answers the way people prefer, and does so safely.
+
+### What are the stages of post-training, and what does each fix?
+
+The mainstream pipeline:
+
+```
+Base model (continues text)
+    ↓  SFT: train on "instruction → good response" demonstrations
+Answers instructions, with mostly correct format
+    ↓  Preference optimization (RLHF or DPO): train on "which response is better" comparisons
+Answers match human preferences better — more helpful, safer
+    ↓  (recent trend) Reinforcement learning for reasoning: train on "is the answer correct"
+Stronger reasoning on verifiable tasks like math and code
+Chat / Instruct model (assistant)
+```
+
+| Stage | What the training data looks like | Mainly fixes | Level on this page |
+| --- | --- | --- | --- |
+| SFT | instruction + demonstration response | not following instructions, inconsistent format | 1 |
+| Preference optimization | two responses to the same instruction, with the better one marked | not matching preferences, not safe enough | 2, 3, 4 |
+| Reinforcement learning for reasoning | problems with reference answers | reasoning ability | 5 |
+
+On Hugging Face you'll often see models in pairs, like `Llama-3-8B` and `Llama-3-8B-Instruct`: the first is the base model, the second the post-trained version.
+
+<Note title="Post-training uses little data but has a huge effect" type="tip">
+
+Pretraining uses trillions of tokens; post-training data is orders of magnitude smaller. In OpenAI's InstructGPT, SFT used only about 13,000 demonstrations. Yet the effect was dramatic: labelers preferred the post-trained **1.3-billion-parameter** InstructGPT over the **175-billion-parameter** GPT-3 without it. It's a very convincing example for explaining the value of alignment in an interview.
+
+</Note>
+
+### Does post-training mainly change knowledge or behavior?
+
+**Mainly behavior**: how instructions are understood, what format and tone to answer in, when to decline, when to stop. The model's knowledge and core abilities are mostly learned in pretraining; post-training is more like **teaching the model to put the abilities it already has to use**.
+
+A frequently cited piece of evidence is LIMA: SFT on a 65B LLaMA with just **1,000** carefully chosen demonstrations produced a surprisingly capable chat model.
+
+That conclusion directly shapes engineering decisions: to teach a model **new knowledge**, post-training is usually the wrong tool and RAG should come first (see [Training](/docs/llm/training) Level 6 and [Fine-tuning](/docs/llm/fine-tuning)); to make its **way of responding** consistent, post-training is the right one.
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. How is a base model trained, and what's its objective?
+2. How might a base model respond to an instruction given directly, and why?
+3. What three gaps does a base model have as an assistant?
+4. What are the stages of post-training, and what data and problem does each involve?
+5. Does post-training mainly change knowledge or behavior, and what does that suggest about whether to fine-tune?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · SFT：用示范教会模型「回答」
+
+### SFT 是什么？训练数据长什么样？
+
+**SFT（Supervised Fine-Tuning，监督微调）**：在 base model 的基础上，用一批「指令 → 好的回答」的示范数据继续训练。
+
+训练方法和预训练**完全一样**，还是 next-token 预测 + 交叉熵 loss，只是数据换了：从「随便什么网页文本」换成了「人认真写好的问答示范」。
+
+几条示范数据：
+
+| 指令（instruction） | 示范回答（response） |
+| --- | --- |
+| 把『我 爱 猫』翻译成英文 | I love cats. |
+| 用两句话解释什么是 RAG | RAG 是先检索相关资料、再让模型基于资料回答的方法。它能让模型用上训练数据之外的最新知识，并给出来源。 |
+| 帮我写一条请假消息 | 你好，我明天身体不适需要请假一天，工作已交接给小王，有急事可以电话联系我。谢谢！ |
+
+数据的常见来源：
+
+- **人工撰写**：请标注员按规范写高质量回答，最贵也最可控
+- **改造现有数据集**：把已有的问答、翻译、摘要数据集改写成指令格式
+- **用更强的模型生成**：让能力更强的模型写回答，再人工或自动筛选（要留意模型使用条款的限制）
+
+### 指令和回答怎么变成模型能训的序列？什么是 chat template？
+
+模型只认识一串 token，分不出哪段是用户说的、哪段是自己该答的。所以要用**特殊 token** 把角色和边界标出来，这套固定格式叫 **chat template（对话模板）**。
+
+一个示意格式：
+
+```
+<|system|>你是一个乐于助人的助手。<|end|>
+<|user|>把『我 爱 猫』翻译成英文<|end|>
+<|assistant|>I love cats.<|end|>
+```
+
+- `<|system|>`、`<|user|>`、`<|assistant|>` 标出每段话是谁说的
+- `<|end|>` 标出一段话在哪结束
+
+**结束标记直接补上了 Level 0 的第二个缺口**：模型在 SFT 里反复见到「回答完就输出 `<|end|>`」，就学会了什么时候停。推理时，模型一生成这个 token，服务端就停止生成。
+
+真实模型的模板各不相同。比如 Qwen 用 `<|im_start|>` 和 `<|im_end|>`（常叫 ChatML 格式），LLaMA 3 用 `<|start_header_id|>`、`<|end_header_id|>` 和 `<|eot_id|>`。
+
+<Note title="推理时必须用和训练时一样的模板" type="warning">
+
+模板用错（少了特殊 token、角色名写错、换行不对），模型看到的就是一种训练时从没见过的格式，效果会明显下降，甚至不停地往下写。自己部署开源模型时，用 tokenizer 自带的模板最稳：
+
+```python
+text = tokenizer.apply_chat_template(
+    messages, tokenize=False, add_generation_prompt=True
+)
+```
+
+</Note>
+
+<Note title="这也解释了 system prompt 为什么有用" type="tip">
+
+模型在 SFT 里见过大量「system 段落 → 回答遵守它」的示范，所以 system prompt 才能稳定地影响回答方式。Prompt engineering 能起作用，前提就是 post-training 教会了模型「重视这些位置的内容」（见 [Prompt Engineering](/docs/application/prompt-engineering)）。
+
+</Note>
+
+### 为什么只在回答部分算 loss？手算一遍
+
+把上面那条示范切成 token（示意），逐个标出「这个位置算不算 loss」：
+
+```
+位置  token              是否算 loss
+1     <|user|>           否
+2     把                 否
+3     『                 否
+4     我                 否
+5     爱                 否
+6     猫                 否
+7     』                 否
+8     翻译               否
+9     成                 否
+10    英文               否
+11    <|assistant|>      否
+12    I                  是
+13    love               是
+14    cats               是
+15    .                  是
+16    <|end|>            是
+```
+
+16 个位置里，只有回答部分的 5 个算 loss。假设模型当前给这 5 个正确 token 的概率是：
+
+| token | 模型给的概率 p | loss = −ln p |
+| --- | --- | --- |
+| I | 0.60 | 0.511 |
+| love | 0.80 | 0.223 |
+| cats | 0.70 | 0.357 |
+| . | 0.90 | 0.105 |
+| 结束标记 | 0.50 | 0.693 |
+
+这条样本的 loss = (0.511 + 0.223 + 0.357 + 0.105 + 0.693) / 5 = **0.378**。
+
+为什么不让指令部分也算 loss？
+
+- **我们要教的是「怎么回答」，不是「怎么提问」**。指令部分也算的话，模型会花力气学着模仿用户的提问方式
+- **用户输入的质量参差不齐**，不应该当成要学习的示范
+
+实现上很简单：把指令部分对应的标签设成一个特殊值（PyTorch 里通常是 `-100`），计算交叉熵时这些位置会被自动跳过。
+
+<Note title="和预训练对比，只差「哪些位置算 loss」">
+
+预训练：每个位置都算 loss。SFT：只有回答部分算 loss。模型结构、loss 公式、训练循环都一样（见 [Training](/docs/llm/training) Level 1、Level 2）。
+
+</Note>
+
+### SFT 数据要多少？质量和数量哪个更重要？
+
+一些真实参照：
+
+```
+LIMA            1,000 条精选示范
+InstructGPT     约 13,000 条人工示范
+开源指令数据集    几万到几百万条不等
+```
+
+**质量比数量重要得多。** 好的 SFT 数据要做到：
+
+- **回答正确**：示范里的错误会被原样学走，比如编造的引用来源
+- **格式和风格一致**：同类问题一会儿用列表一会儿用段落，模型就学不到稳定的格式
+- **任务多样**：问答、写作、代码、多轮对话、该拒绝的请求都要覆盖，否则模型只会某几类任务
+
+<Note title="落到项目里：几千条高质量领域数据往往就够了" type="tip">
+
+想让模型在自己的业务里输出固定格式、使用特定语气或工具调用方式，通常几千条高质量的领域示范，配合 LoRA 这类参数高效微调就能做到，不需要全量训练（见 [Fine-tuning](/docs/llm/fine-tuning)）。
+
+</Note>
+
+### SFT 之后，还剩什么问题？
+
+SFT 让模型会回答了，但它的训练信号只有一种：「**对这个指令，照着这一个示范写**」。这带来几个局限：
+
+- **只能说「写成这样」，说不出「A 比 B 好」**：同一个问题有很多种还不错的回答，SFT 没法表达它们之间的好坏差别
+- **示范本身很难写**：一篇好的长文章、一段复杂的代码，让人从零写出完美示范又贵又慢
+- **会连同缺点一起模仿**：标注员的写作习惯、偶尔的错误，都会被学进去
+
+这些问题引出了下一步：**不再只给示范，而是告诉模型哪个回答更好**。
+
+<Note title="自测：到这里你应该能回答">
+
+1. SFT 和预训练在训练方法上有什么相同、有什么不同？
+2. 什么是 chat template？结束标记解决了 base model 的哪个缺口？
+3. 推理时模板用错会怎样？
+4. 为什么 SFT 只在回答部分算 loss？怎么实现？
+5. 为什么说 SFT 数据质量比数量重要？SFT 之后还剩哪些问题？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · SFT: teaching a model to answer with demonstrations
+
+### What is SFT, and what does its training data look like?
+
+**SFT (supervised fine-tuning)**: keep training a base model on a set of "instruction → good response" demonstrations.
+
+The training method is **exactly the same as pretraining** — next-token prediction with cross-entropy loss. Only the data changes: from arbitrary web text to carefully written question-and-answer demonstrations.
+
+A few demonstrations:
+
+| Instruction | Demonstration response |
+| --- | --- |
+| 把『我 爱 猫』翻译成英文 (translate 我爱猫 into English) | I love cats. |
+| Explain RAG in two sentences | RAG retrieves relevant material first and then has the model answer based on it. It lets the model use up-to-date knowledge beyond its training data and cite sources. |
+| Write me a sick-day message | Hi, I'm not feeling well and need to take tomorrow off. I've handed my work to Wang, and you can call me if anything urgent comes up. Thanks! |
+
+Common sources of this data:
+
+- **Human-written**: labelers write high-quality responses following guidelines — the most expensive and most controllable option
+- **Reformatted existing datasets**: rewrite existing QA, translation, and summarization datasets into instruction format
+- **Generated by a stronger model**: have a more capable model write responses, then filter them by hand or automatically (watch out for model terms-of-use restrictions)
+
+### How do instructions and responses become a trainable sequence? What is a chat template?
+
+A model only sees a sequence of tokens and can't tell which part the user said and which part it should answer. So **special tokens** mark roles and boundaries, and this fixed format is called a **chat template**.
+
+An illustrative format:
+
+```
+<|system|>You are a helpful assistant.<|end|>
+<|user|>把『我 爱 猫』翻译成英文<|end|>
+<|assistant|>I love cats.<|end|>
+```
+
+- `<|system|>`, `<|user|>`, and `<|assistant|>` mark who said each part
+- `<|end|>` marks where each part ends
+
+**The end marker directly fixes the second gap from Level 0**: in SFT the model sees "output `<|end|>` when you're done answering" over and over, so it learns when to stop. At inference, the server stops generating as soon as the model emits that token.
+
+Real models use different templates. Qwen, for example, uses `<|im_start|>` and `<|im_end|>` (often called ChatML), while LLaMA 3 uses `<|start_header_id|>`, `<|end_header_id|>`, and `<|eot_id|>`.
+
+<Note title="Inference must use the same template as training" type="warning">
+
+Get the template wrong — a missing special token, the wrong role name, misplaced newlines — and the model sees a format it never saw in training. Quality drops noticeably, and it may even keep generating without stopping. When self-hosting an open model, the tokenizer's built-in template is the safest choice:
+
+```python
+text = tokenizer.apply_chat_template(
+    messages, tokenize=False, add_generation_prompt=True
+)
+```
+
+</Note>
+
+<Note title="This is also why system prompts work" type="tip">
+
+During SFT the model saw many demonstrations of "a system section → a response that follows it," which is why a system prompt reliably shapes its answers. Prompt engineering works at all because post-training taught the model to pay attention to what's in those positions (see [Prompt Engineering](/docs/application/prompt-engineering)).
+
+</Note>
+
+### Why compute loss only on the response? Work it by hand
+
+Split the demonstration above into tokens (illustrative) and mark whether each position counts toward the loss:
+
+```
+pos   token              counts toward loss?
+1     <|user|>           no
+2     把                 no
+3     『                 no
+4     我                 no
+5     爱                 no
+6     猫                 no
+7     』                 no
+8     翻译               no
+9     成                 no
+10    英文               no
+11    <|assistant|>      no
+12    I                  yes
+13    love               yes
+14    cats               yes
+15    .                  yes
+16    <|end|>            yes
+```
+
+Of the 16 positions, only the 5 in the response count. Suppose the model currently gives these probabilities to the 5 correct tokens:
+
+| token | probability p | loss = −ln p |
+| --- | --- | --- |
+| I | 0.60 | 0.511 |
+| love | 0.80 | 0.223 |
+| cats | 0.70 | 0.357 |
+| . | 0.90 | 0.105 |
+| end marker | 0.50 | 0.693 |
+
+This example's loss = (0.511 + 0.223 + 0.357 + 0.105 + 0.693) / 5 = **0.378**.
+
+Why not count the instruction too?
+
+- **We're teaching the model how to answer, not how to ask.** If the instruction counted, the model would spend effort learning to imitate how users phrase questions
+- **User input varies wildly in quality** and shouldn't be treated as something to learn from
+
+Implementation is simple: set the labels for the instruction positions to a special value (usually `-100` in PyTorch), and cross entropy skips those positions automatically.
+
+<Note title="Compared with pretraining, only “which positions count” changes">
+
+Pretraining: every position counts. SFT: only the response counts. The model architecture, loss formula, and training loop are all the same (see [Training](/docs/llm/training) Levels 1 and 2).
+
+</Note>
+
+### How much SFT data is needed? Does quality or quantity matter more?
+
+Some real reference points:
+
+```
+LIMA                    1,000 curated demonstrations
+InstructGPT             about 13,000 human-written demonstrations
+open instruction sets   tens of thousands to millions
+```
+
+**Quality matters far more than quantity.** Good SFT data needs to be:
+
+- **correct**: mistakes in demonstrations get learned as-is — fabricated citations, for example
+- **consistent in format and style**: if similar questions get a list one time and a paragraph the next, the model never learns a stable format
+- **diverse in tasks**: QA, writing, code, multi-turn conversation, and requests that should be declined all need coverage, or the model only handles a few kinds of task
+
+<Note title="In a real project, a few thousand high-quality in-domain examples often suffice" type="tip">
+
+To get a model to produce a fixed format, a particular tone, or a specific tool-calling style for your use case, a few thousand high-quality in-domain demonstrations combined with parameter-efficient fine-tuning like LoRA usually do the job — no full training required (see [Fine-tuning](/docs/llm/fine-tuning)).
+
+</Note>
+
+### What problems remain after SFT?
+
+SFT teaches the model to answer, but its training signal is only ever "**for this instruction, write like this one demonstration**." That brings some limits:
+
+- **It can say "write it like this," but not "A is better than B"**: a question has many decent answers, and SFT can't express how they differ in quality
+- **Demonstrations are hard to write**: producing a perfect long essay or complex piece of code from scratch is slow and expensive
+- **It imitates flaws too**: labelers' writing habits and occasional mistakes get learned along with everything else
+
+These lead to the next step: **instead of only showing demonstrations, tell the model which response is better**.
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. How is SFT's training method the same as pretraining, and how is it different?
+2. What is a chat template, and which base-model gap does the end marker fix?
+3. What happens if the wrong template is used at inference?
+4. Why does SFT compute loss only on the response, and how is that implemented?
+5. Why does SFT data quality matter more than quantity, and what problems remain after SFT?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 为什么需要偏好数据
+
+### SFT 哪里不够？
+
+还是那个翻译请求，下面是两个都「没错」的回答：
+
+```
+回答 A:  I love cats.
+
+回答 B:  当然可以！『我 爱 猫』翻译成英文是 "I love cats"。其中「我」对应 I，
+         「爱」对应 love，「猫」对应 cats（这里用复数表示泛指猫这种动物）。
+         希望对你有帮助！如果还有其他需要翻译的句子，随时告诉我。
+```
+
+两个都翻译对了。但如果用户只想要译文，A 明显更好；B 啰嗦，还加了用户没问的解释。
+
+SFT 表达不了这种差别：它只能给出「照着这一个示范写」，没法告诉模型「**A 这样比 B 那样好**」。而真实使用中，模型要在无数种「都不算错」的回答之间做选择，这正是 SFT 给不出的信号。
+
+还有一个更实际的原因：**写出完美的回答很难，比较两个回答很容易**。让人从零写一篇好文章可能要一小时，但读两篇、选出更好的那篇只要一两分钟。就像不会做菜的人也能尝出哪道菜更好吃。
+
+### 偏好数据长什么样？从哪来？
+
+一条偏好数据由三部分组成：同一个指令（prompt），一个更好的回答（chosen），一个更差的回答（rejected）。
+
+```
+{
+  "prompt":   "把『我 爱 猫』翻译成英文",
+  "chosen":   "I love cats.",
+  "rejected": "当然可以！『我 爱 猫』翻译成英文是 \"I love cats\"。其中「我」对应 I……"
+}
+```
+
+典型的收集流程：
+
+```
+① 拿一批指令，让当前的 SFT 模型对每个指令生成 2 个或更多回答
+② 标注员按规范（有帮助、诚实、无害等）比较这些回答，选出更好的一个或排序
+③ 整理成 (prompt, chosen, rejected) 三元组
+```
+
+规模参照：InstructGPT 训练奖励模型用了约 3.3 万个指令的比较数据；LLaMA 2-Chat 收集了超过 100 万条人类偏好比较。
+
+除了人工标注，也可以**让 AI 来判断**：给一个强模型一套明确的原则，让它比较两个回答，这类方法叫 **RLAIF**（来自 AI 反馈的强化学习）。Anthropic 的 Constitutional AI 就大量使用了 AI 反馈，成本比人工低得多。
+
+<Note title="偏好数据本身是有噪声的" type="warning">
+
+即使是受过培训的标注员，意见也经常不一致。InstructGPT 报告里，标注员之间的一致率约 73%。换句话说，大约四分之一的比较连人都说不清哪个更好。这意味着偏好训练不可能「完美地」学到人的偏好，数据量和标注规范都很关键。
+
+</Note>
+
+<Note title="标注员的偏好会带着偏差进入模型" type="warning">
+
+人往往更容易给「更长、更有条理、语气更自信」的回答打高分，即使它并没有更准确。这些偏差会被模型学走，最典型的就是**回答越来越长**。Level 3 讲 reward hacking 时会再遇到它。
+
+</Note>
+
+### 怎么把「A 比 B 好」变成数学？
+
+偏好数据只说了「A 比 B 好」，没说「好多少」。常用的建模方式叫 **Bradley-Terry 模型**：
+
+1. 给每个回答一个**分数 r**（分数越高越好）
+2. 「A 比 B 好」的概率由两个分数的**差**决定：
+
+```
+P(A 比 B 好) = sigmoid(r_A − r_B)
+```
+
+**sigmoid** 是一个把任意数压到 0 到 1 之间的函数：`sigmoid(x) = 1 / (1 + e^(−x))`。x = 0 时正好是 0.5，x 越大越接近 1，x 越小越接近 0。
+
+手算：假设 A 的分数是 2.0，B 的分数是 0.5：
+
+```
+r_A − r_B = 2.0 − 0.5 = 1.5
+P(A 比 B 好) = sigmoid(1.5) = 1 / (1 + e^(−1.5)) = 0.818
+```
+
+几个值得注意的性质：
+
+```
+分数差 = 0        → P = 0.5     两个一样好
+分数差 = 1.5      → P = 0.818   A 明显更好
+分数差很大        → P 接近 1    A 几乎肯定更好
+A = 12.0, B = 10.5 → 差还是 1.5，P 还是 0.818
+```
+
+**只有分数的差有意义，绝对值没有意义。** 这很符合实际：让标注员给回答打「绝对分」很不稳定（有人严有人松），但比较两个回答要可靠得多。
+
+<Note title="这个公式是后面两种方法共同的地基" type="tip">
+
+Level 3 的 **RLHF** 会先训一个「奖励模型」来输出这个分数 r；Level 4 的 **DPO** 则发现可以不单独训奖励模型，直接把这个公式用在语言模型本身上。面试里能说出「两者都基于 Bradley-Terry 偏好模型」，能体现你理解它们的共同来源。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. SFT 为什么表达不了「A 比 B 好」？为什么比较两个回答比写一个完美回答容易？
+2. 一条偏好数据由哪三部分组成？通常怎么收集？
+3. 什么是 RLAIF？
+4. 偏好数据有哪些噪声和偏差？
+5. Bradley-Terry 模型怎么计算「A 比 B 好」的概率？A 分数 3、B 分数 3 时概率是多少？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Why preference data is needed
+
+### Where does SFT fall short?
+
+Same translation request, two responses that are both "not wrong":
+
+```
+Response A:  I love cats.
+
+Response B:  Of course! 『我 爱 猫』 in English is "I love cats." Here 我 corresponds to I,
+             爱 to love, and 猫 to cats (plural, meaning cats in general).
+             I hope this helps! Let me know if you have any other sentences to translate.
+```
+
+Both translations are correct. But if the user just wanted the translation, A is clearly better; B rambles and adds explanation nobody asked for.
+
+SFT can't express that difference. All it can say is "write like this one demonstration" — it can't tell the model "**A-style is better than B-style**." In real use a model constantly chooses among countless "not wrong" responses, and that's precisely the signal SFT doesn't provide.
+
+There's also a more practical reason: **writing a perfect response is hard, but comparing two is easy**. Writing a good essay from scratch might take an hour; reading two and picking the better one takes a minute or two. Even someone who can't cook can taste which dish is better.
+
+### What does preference data look like, and where does it come from?
+
+A preference example has three parts: one instruction (the prompt), a better response (chosen), and a worse response (rejected).
+
+```
+{
+  "prompt":   "把『我 爱 猫』翻译成英文",
+  "chosen":   "I love cats.",
+  "rejected": "Of course! 『我 爱 猫』 in English is \"I love cats.\" Here 我 corresponds to I…"
+}
+```
+
+A typical collection process:
+
+```
+① take a set of instructions and have the current SFT model generate 2 or more responses to each
+② labelers compare the responses against guidelines (helpful, honest, harmless, etc.) and pick the better one or rank them
+③ organize the results into (prompt, chosen, rejected) triples
+```
+
+For scale: InstructGPT trained its reward model on comparisons for about 33,000 prompts; LLaMA 2-Chat collected over 1 million human preference comparisons.
+
+Besides human labelers, you can **have AI do the judging**: give a strong model an explicit set of principles and ask it to compare two responses. Methods like this are called **RLAIF** (reinforcement learning from AI feedback). Anthropic's Constitutional AI relies heavily on AI feedback, which costs far less than human labeling.
+
+<Note title="Preference data is noisy by nature" type="warning">
+
+Even trained labelers often disagree. The InstructGPT report found labelers agreed with each other about 73% of the time — meaning roughly a quarter of comparisons couldn't be settled even by people. So preference training can never learn human preferences "perfectly," and both data volume and labeling guidelines matter a great deal.
+
+</Note>
+
+<Note title="Labelers' biases flow into the model" type="warning">
+
+People tend to rate responses that are longer, better organized, and more confident-sounding higher, even when they aren't more accurate. The model picks up those biases, most famously by **getting wordier and wordier**. This comes back in Level 3 with reward hacking.
+
+</Note>
+
+### How does "A is better than B" become math?
+
+Preference data only says "A is better than B," not by how much. The standard way to model it is the **Bradley-Terry model**:
+
+1. Give every response a **score r** (higher is better)
+2. The probability that "A is better than B" depends on the **difference** between their scores:
+
+```
+P(A better than B) = sigmoid(r_A − r_B)
+```
+
+**Sigmoid** is a function that squashes any number into the range 0 to 1: `sigmoid(x) = 1 / (1 + e^(−x))`. At x = 0 it's exactly 0.5; the larger x gets, the closer to 1; the smaller, the closer to 0.
+
+By hand: suppose A scores 2.0 and B scores 0.5:
+
+```
+r_A − r_B = 2.0 − 0.5 = 1.5
+P(A better than B) = sigmoid(1.5) = 1 / (1 + e^(−1.5)) = 0.818
+```
+
+A few properties worth noticing:
+
+```
+score difference = 0         → P = 0.5     equally good
+score difference = 1.5       → P = 0.818   A clearly better
+score difference very large  → P near 1    A almost certainly better
+A = 12.0, B = 10.5           → difference still 1.5, P still 0.818
+```
+
+**Only the difference between scores means anything; absolute values don't.** That matches reality: asking labelers for absolute scores is unreliable (some are strict, some lenient), while comparing two responses is far more dependable.
+
+<Note title="This formula is the foundation for the next two methods" type="tip">
+
+**RLHF** in Level 3 first trains a "reward model" to output this score r; **DPO** in Level 4 finds you can skip a separate reward model and apply the formula to the language model itself. Saying "both build on the Bradley-Terry preference model" in an interview shows you understand where they come from.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why can't SFT express "A is better than B," and why is comparing two responses easier than writing a perfect one?
+2. What three parts make up a preference example, and how is it usually collected?
+3. What is RLAIF?
+4. What noise and biases does preference data carry?
+5. How does the Bradley-Terry model compute the probability that A beats B? What is it when A and B both score 3?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · RLHF：奖励模型 + 强化学习
+
+Level 2 有了偏好数据，也有了把「A 比 B 好」变成数学的公式。RLHF（Reinforcement Learning from Human Feedback，基于人类反馈的强化学习）是第一个把偏好数据大规模用起来的方法，ChatGPT 最初就是靠它训出来的。
+
+### RLHF 整体分几步？
+
+```
+① SFT                从 base model 训出一个会回答的模型（Level 1）
+② 训奖励模型          用偏好数据训一个「打分员」，给任意回答打分
+③ 强化学习            让 SFT 模型生成回答 → 奖励模型打分 → 更新模型让高分回答更可能出现
+                     同时加 KL 惩罚，防止模型跑偏
+```
+
+先讲第 ② 步，再讲第 ③ 步。
+
+### 奖励模型怎么训？手算 loss
+
+**奖励模型（reward model，RM）**通常就是一个语言模型（常用 SFT 模型初始化），把最后预测下一个 token 的输出层换成一个**只输出一个数的线性层**。输入是「指令 + 回答」，输出是这个回答的分数 r。
+
+训练用的就是 Level 2 的 Bradley-Terry 公式：chosen 应该比 rejected 分高，loss 是：
+
+```
+loss = −ln sigmoid(r_chosen − r_rejected)
+```
+
+用 Level 2 那条偏好数据手算三种情况：
+
+```
+情况 1：奖励模型给 chosen 2.0，rejected 0.5（排对了）
+        loss = −ln sigmoid(1.5) = −ln 0.818 = 0.201      小
+
+情况 2：给 chosen 0.5，rejected 2.0（排反了）
+        loss = −ln sigmoid(−1.5) = −ln 0.182 = 1.701     大，会被强烈纠正
+
+情况 3：两个都给 1.0（分不出来）
+        loss = −ln sigmoid(0) = −ln 0.5 = 0.693
+```
+
+训练会不断把 chosen 的分往上推、rejected 的分往下压。训完之后，**奖励模型能给任何一个新回答打分**，相当于一个可以无限次使用、不要钱的自动标注员。
+
+### 强化学习是怎么用分数更新模型的？
+
+先把强化学习的几个术语对应到 LLM 上：
+
+| 强化学习术语 | 在 RLHF 里是 |
+| --- | --- |
+| 策略（policy） | 正在训练的语言模型 |
+| 动作（action） | 生成一个 token |
+| 一个回合（episode） | 生成一整个回答 |
+| 奖励（reward） | 回答生成完之后，奖励模型给的分数 |
+
+**为什么不能继续用交叉熵？** SFT 有标准答案，每个位置都知道「正确的下一个 token」是什么。强化学习没有标准答案：模型自己生成一个回答，**生成完之后**才拿到一个分数，而且只知道「这整个回答得了几分」。
+
+所以更新思路变成：**高分回答里的 token，提高它们的概率；低分回答里的，降低概率。** 为了知道「高」「低」是跟什么比，要减去一个基准（baseline），得到的差叫**优势（advantage）**：
+
+```
+基准分数 = 1.0（例如：这类问题回答的平均得分）
+
+回答 A 得分 3.0   → 优势 = 3.0 − 1.0 = +2.0   → 提高 A 的概率
+回答 B 得分 −1.0  → 优势 = −1.0 − 1.0 = −2.0  → 降低 B 的概率
+回答 C 得分 1.0   → 优势 = 0                  → 基本不动
+```
+
+实际中最常用的算法是 **PPO（Proximal Policy Optimization）**，InstructGPT 就用它。它在上面这个思路上加了两件事：
+
+- **用一个价值模型（value model，也叫 critic）来估计基准**：预测「在当前情况下，平均能得多少分」，比用固定的平均分更准
+- **限制每一步的更新幅度**：新模型和更新前的模型差别太大时就截断，避免一步走太远把模型训崩（这就是名字里 Proximal「近端」的意思）
+
+一轮 PPO 大致是：
+
+```
+① 从指令集里取一批指令
+② 当前模型为每个指令生成回答（采样）
+③ 奖励模型给每个回答打分，减去 KL 惩罚（下一节）
+④ 价值模型估计基准，算出每个 token 的优势
+⑤ 按优势更新模型（有幅度限制），同时更新价值模型
+回到 ①
+```
+
+### KL 惩罚在防什么？
+
+奖励模型是用有限的偏好数据训出来的，**它不是完美的裁判**。如果只追求奖励分数，模型很快会找到一些「奖励模型打高分、但人并不喜欢」的输出，甚至语言本身都开始变得奇怪。
+
+办法是：保留一份**冻结的 SFT 模型作为参考模型（reference model）**，惩罚当前模型偏离它太远：
+
+```
+最终奖励 = 奖励模型分数 − β × KL
+
+KL 的一个常用估算 = log π(回答) − log π_ref(回答)
+                   ↑ 当前模型生成这个回答的 log 概率   ↑ 参考模型生成它的 log 概率
+```
+
+手算一个例子：
+
+```
+奖励模型分数 = 5.0
+log π(回答) = −20，log π_ref(回答) = −35
+KL 估算 = −20 − (−35) = 15
+β = 0.1
+最终奖励 = 5.0 − 0.1 × 15 = 3.5
+```
+
+KL = 15 的意思是：当前模型生成这个回答的概率，是参考模型的 e¹⁵ 倍（约 330 万倍）。这个回答是模型「偏离原来说话方式」很远才得到的，所以要扣分。
+
+- **β 太小**：约束太弱，模型容易钻奖励模型的空子
+- **β 太大**：模型几乎不敢偏离 SFT 模型，偏好训练的效果也就出不来
+
+### 什么是 reward hacking？
+
+**模型学会了「刷分」，而不是真的变好。** 这是古德哈特定律（Goodhart's law）的体现：一个指标一旦被当成优化目标，就不再是好指标。
+
+常见例子：
+
+| 现象 | 为什么会出现 |
+| --- | --- |
+| **回答越来越长** | 标注员和奖励模型偏好「看起来更详尽」的回答（Level 2 讲过的长度偏差） |
+| **谄媚（sycophancy）** | 附和用户的观点更容易被打高分 |
+| **堆砌固定套话** | 某些句式（「这是一个很好的问题！」）碰巧拿分高 |
+| **过度加免责声明** | 显得「谨慎」能拿分，但实际没帮助 |
+
+缓解手段：KL 惩罚、改进偏好数据和标注规范、对回答长度做惩罚或归一化、定期用人工评估校准，而不是只看奖励分数。
+
+### RLHF 为什么又贵又难？
+
+**显存：训练时要同时放 4 个模型。**
+
+| 模型 | 状态 | 作用 |
+| --- | --- | --- |
+| 策略模型 | 训练中 | 生成回答，被更新 |
+| 价值模型 | 训练中 | 估计基准 |
+| 参考模型 | 冻结 | 算 KL 惩罚 |
+| 奖励模型 | 冻结 | 打分 |
+
+如果 4 个都是 7B：两个要训练的模型每个约 112 GB（每参数 16 字节），两个冻结的每个 fp16 权重约 14 GB，合计约 **252 GB**，还没算激活值和生成时的 KV cache。
+
+**速度：训练循环里要生成回答。** 生成是一个 token 一个 token 地 decode，本来就慢（见 [Attention & Transformer](/docs/llm/transformer) Level 8），RLHF 每一轮都要大量生成。
+
+**稳定性：超参数多、环节多。** 奖励模型的误差会被强化学习放大，调不好很容易训崩或者 reward hacking。
+
+这些痛点直接催生了下一节的 DPO。
+
+<Note title="自测：到这里你应该能回答">
+
+1. RLHF 分哪三步？
+2. 奖励模型的结构是什么？它的 loss 怎么算？chosen 1.0、rejected 1.0 时 loss 是多少？
+3. 为什么强化学习阶段不能直接用交叉熵？优势是什么？
+4. PPO 相比「简单按优势更新」多做了哪两件事？
+5. KL 惩罚防的是什么？β 太大或太小会怎样？
+6. 什么是 reward hacking？举两个例子。RLHF 为什么又贵又难？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · RLHF: a reward model plus reinforcement learning
+
+Level 2 gave us preference data and a formula for turning "A is better than B" into math. RLHF (reinforcement learning from human feedback) was the first method to put preference data to work at scale, and it's how ChatGPT was originally trained.
+
+### What are the stages of RLHF?
+
+```
+① SFT                    train a model that can answer, starting from the base model (Level 1)
+② train a reward model   use preference data to train a "grader" that scores any response
+③ reinforcement learning the SFT model generates responses → the reward model scores them → update the model so high-scoring responses become more likely
+                         with a KL penalty to keep the model from drifting
+```
+
+Step ② first, then step ③.
+
+### How is a reward model trained? Compute the loss by hand
+
+A **reward model (RM)** is usually a language model (often initialized from the SFT model) whose next-token output layer is swapped for **a linear layer that outputs a single number**. The input is "instruction + response"; the output is that response's score r.
+
+It's trained with the Bradley-Terry formula from Level 2 — chosen should score higher than rejected — using this loss:
+
+```
+loss = −ln sigmoid(r_chosen − r_rejected)
+```
+
+Work out three cases using the preference example from Level 2:
+
+```
+case 1: the RM gives chosen 2.0 and rejected 0.5 (correct order)
+        loss = −ln sigmoid(1.5) = −ln 0.818 = 0.201      small
+
+case 2: it gives chosen 0.5 and rejected 2.0 (reversed)
+        loss = −ln sigmoid(−1.5) = −ln 0.182 = 1.701     large, strongly corrected
+
+case 3: it gives both 1.0 (can't tell them apart)
+        loss = −ln sigmoid(0) = −ln 0.5 = 0.693
+```
+
+Training keeps pushing chosen scores up and rejected scores down. Once trained, **the reward model can score any new response** — effectively an automatic labeler you can use unlimited times for free.
+
+### How does reinforcement learning use scores to update the model?
+
+First, map the reinforcement learning terms onto an LLM:
+
+| RL term | In RLHF |
+| --- | --- |
+| policy | the language model being trained |
+| action | generating one token |
+| episode | generating one full response |
+| reward | the reward model's score once the response is finished |
+
+**Why not keep using cross entropy?** SFT has reference answers, so every position knows the "correct next token." RL has none: the model generates its own response and only gets a score **after it's done** — and that score covers the whole response.
+
+So the update idea becomes: **raise the probability of tokens in high-scoring responses, lower it for low-scoring ones.** To know what counts as high or low, subtract a baseline; the difference is called the **advantage**:
+
+```
+baseline score = 1.0 (e.g., the average score for this kind of question)
+
+response A scores 3.0    → advantage = 3.0 − 1.0 = +2.0    → make A more likely
+response B scores −1.0   → advantage = −1.0 − 1.0 = −2.0   → make B less likely
+response C scores 1.0    → advantage = 0                   → barely changes
+```
+
+The most widely used algorithm in practice is **PPO (Proximal Policy Optimization)**, which InstructGPT used. It adds two things on top of that idea:
+
+- **A value model (also called a critic) estimates the baseline**: it predicts "how much, on average, a response scores from this situation," which is more accurate than a fixed average
+- **Each update's size is limited**: when the new model would differ too much from the pre-update model, the change gets clipped, so a single step can't wreck the model (that's what "proximal" refers to)
+
+One round of PPO looks roughly like this:
+
+```
+① take a batch of instructions
+② the current model generates a response to each (sampling)
+③ the reward model scores each response, minus a KL penalty (next section)
+④ the value model estimates the baseline and each token's advantage is computed
+⑤ update the model by advantage (with the size limit), and update the value model
+back to ①
+```
+
+### What does the KL penalty guard against?
+
+The reward model was trained on limited preference data, so **it isn't a perfect judge**. Chase the reward score alone and the model soon finds outputs the reward model rates highly but people don't actually like — and the language itself can start turning strange.
+
+The fix: keep a **frozen copy of the SFT model as a reference model**, and penalize the current model for drifting too far from it:
+
+```
+final reward = reward model score − β × KL
+
+a common KL estimate = log π(response) − log π_ref(response)
+                       ↑ log probability of the response under the current model   ↑ under the reference model
+```
+
+A worked example:
+
+```
+reward model score = 5.0
+log π(response) = −20, log π_ref(response) = −35
+KL estimate = −20 − (−35) = 15
+β = 0.1
+final reward = 5.0 − 0.1 × 15 = 3.5
+```
+
+A KL of 15 means the current model is e¹⁵ times (about 3.3 million times) more likely to produce this response than the reference model. The model had to drift far from how it originally wrote to get this response, so it loses points.
+
+- **β too small**: the constraint is too weak, and the model easily exploits gaps in the reward model
+- **β too large**: the model barely dares to move away from the SFT model, so preference training has little effect
+
+### What is reward hacking?
+
+**The model learns to game the score instead of actually getting better.** It's Goodhart's law in action: once a metric becomes the target, it stops being a good metric.
+
+Common examples:
+
+| Behavior | Why it happens |
+| --- | --- |
+| **responses keep getting longer** | labelers and reward models prefer responses that look more thorough (the length bias from Level 2) |
+| **sycophancy** | agreeing with the user's view tends to score well |
+| **stock phrases everywhere** | certain phrasings ("What a great question!") happen to score high |
+| **excessive disclaimers** | looking "careful" earns points without actually helping |
+
+Mitigations: the KL penalty, better preference data and labeling guidelines, penalizing or normalizing response length, and regular human evaluation for calibration instead of trusting the reward score alone.
+
+### Why is RLHF so expensive and hard?
+
+**Memory: four models have to be loaded during training.**
+
+| Model | State | Role |
+| --- | --- | --- |
+| policy model | training | generates responses, gets updated |
+| value model | training | estimates the baseline |
+| reference model | frozen | computes the KL penalty |
+| reward model | frozen | scores responses |
+
+If all four are 7B: the two trained models need about 112 GB each (16 bytes per parameter), and the two frozen ones need about 14 GB each for fp16 weights — about **252 GB** in total, before activations and the KV cache for generation.
+
+**Speed: the training loop has to generate responses.** Generation decodes one token at a time and is slow to begin with (see [Attention & Transformer](/docs/llm/transformer) Level 8), and RLHF generates a lot every round.
+
+**Stability: many hyperparameters, many moving parts.** Reward model errors get amplified by RL, and without careful tuning training can easily collapse or slide into reward hacking.
+
+These pain points led directly to DPO in the next Level.
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What are the three stages of RLHF?
+2. What's the structure of a reward model, and how is its loss computed? What's the loss when chosen and rejected both score 1.0?
+3. Why can't the RL stage just use cross entropy, and what is an advantage?
+4. What two things does PPO add beyond simply updating by advantage?
+5. What does the KL penalty guard against, and what happens if β is too large or too small?
+6. What is reward hacking? Give two examples. Why is RLHF expensive and hard?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 4 · DPO：跳过奖励模型
+
+### DPO 想解决 RLHF 的什么问题？
+
+Level 3 结尾讲了 RLHF 的三个痛点：要同时放 4 个模型、训练中要不停生成回答、环节多容易训崩。
+
+**DPO（Direct Preference Optimization，直接偏好优化）**的做法是：**不训奖励模型，也不做强化学习，直接用偏好数据训练语言模型本身。** 它的训练看起来就像普通的有监督训练：
+
+| | RLHF（PPO） | DPO |
+| --- | --- | --- |
+| 需要的模型 | 4 个：策略、价值、参考、奖励 | 2 个：策略（训练中）、参考（冻结） |
+| 训练中要不要生成回答 | 要，每轮都采样 | 不要，直接用现成的偏好对 |
+| 训练流程 | 训奖励模型 → 强化学习循环 | 一个 loss，像普通微调一样训 |
+
+### DPO 的直觉是什么？
+
+先定义一个量：**模型对某个回答的「提升幅度」**。
+
+```
+提升幅度 = log π(回答) − log π_ref(回答)
+          ↑ 当前模型生成这个回答的 log 概率    ↑ 参考模型（冻结的 SFT 模型）生成它的 log 概率
+```
+
+提升幅度为正，说明训练让这个回答变得比原来更可能出现了；为负，说明变得更不可能了。
+
+DPO 的关键洞察是：**这个提升幅度本身就可以当作「隐式的奖励分数」**。于是 Level 2 的 Bradley-Terry 公式可以直接套上去：chosen 的提升幅度应该比 rejected 的大。
+
+打个比方：RLHF 是先培养一个评委（奖励模型），再让作者（语言模型）照着评委的打分反复修改；DPO 是不要评委，直接拿「这篇比那篇好」的例子去调整作者。
+
+### DPO 的 loss 怎么算？手算一遍
+
+```
+chosen 提升幅度   = log π(chosen)   − log π_ref(chosen)
+rejected 提升幅度 = log π(rejected) − log π_ref(rejected)
+
+margin = β × (chosen 提升幅度 − rejected 提升幅度)
+loss   = −ln sigmoid(margin)
+```
+
+这里 **log π(回答)** 是回答里每个 token 的 log 概率加起来。Level 1 的例子里，「I love cats.」加结束标记这 5 个 token 的概率是 0.60、0.80、0.70、0.90、0.50，log 概率之和约为 −1.889。回答越长，这个和越负。下面用更接近真实长度的数字。
+
+取 β = 0.1，看三种情况：
+
+**情况 1：刚开始训练，策略模型和参考模型一模一样**
+
+```
+log π(chosen) = −14,  log π_ref(chosen) = −14    → 提升幅度 0
+log π(rejected) = −18, log π_ref(rejected) = −18 → 提升幅度 0
+margin = 0.1 × (0 − 0) = 0
+loss = −ln sigmoid(0) = 0.693
+```
+
+**情况 2：训练了一段时间，方向对了**
+
+```
+log π(chosen) = −12,  log π_ref(chosen) = −14    → 提升幅度 +2   chosen 变得更可能
+log π(rejected) = −20, log π_ref(rejected) = −18 → 提升幅度 −2   rejected 变得更不可能
+margin = 0.1 × (2 − (−2)) = 0.4
+loss = −ln sigmoid(0.4) = 0.513      ↓ 比开始时低
+```
+
+**情况 3：方向反了**
+
+```
+log π(chosen) = −16,  log π_ref(chosen) = −14    → 提升幅度 −2
+log π(rejected) = −16, log π_ref(rejected) = −18 → 提升幅度 +2
+margin = 0.1 × (−2 − 2) = −0.4
+loss = −ln sigmoid(−0.4) = 0.913     ↑ 比开始时高，会被纠正
+```
+
+梯度下降会不断把 loss 往下压，也就是**把 chosen 的提升幅度往上推、把 rejected 的往下压**。放到贯穿全页的例子里：模型会越来越倾向于直接给出「I love cats.」，越来越少地输出那段啰嗦的解释。
+
+### β 是什么意思？
+
+β 控制**模型可以离参考模型多远**，作用和 RLHF 里 KL 惩罚的 β 一样。同样是情况 2 的提升幅度，换成 β = 0.5：
+
+```
+β = 0.1 → margin = 0.4 → loss = 0.513
+β = 0.5 → margin = 2.0 → loss = 0.127
+```
+
+β 大时，**很小的提升幅度就能让 loss 降得很低**，模型没有动力再往远处走，所以会停在离参考模型比较近的地方；β 小时，要把 loss 降下来需要更大的提升幅度，模型会偏离参考模型更远。常用值在 0.1 左右。
+
+### DPO 和 RLHF 怎么选？
+
+| | RLHF（PPO） | DPO |
+| --- | --- | --- |
+| 实现和调参难度 | 高 | 低，接近普通微调 |
+| 显存和算力 | 高（4 个模型 + 训练中生成） | 低很多 |
+| 训练数据 | 在线：每轮用当前模型新生成的回答 | 离线：一批固定的偏好对 |
+| 能不能超出数据本身 | 能，模型边生成边探索 | 受限于现成的偏好对 |
+| 常见用法 | 大厂的旗舰模型 | 开源社区、中小团队，也常与其他方法组合 |
+
+两者并不互斥。比如 Meta 公布的 LLaMA 3 后训练流程里，就组合使用了 SFT、拒绝采样、PPO 和 DPO。
+
+<Note title="DPO 的离线数据有代价" type="warning">
+
+DPO 用的偏好对往往不是当前模型生成的（可能来自别的模型，或者训练早期的版本），模型学到的只是「这批数据里 A 比 B 好」，不一定能泛化到它自己会生成的回答上。另外有研究发现，DPO 训练中 chosen 和 rejected 的概率可能**同时下降**，只是 rejected 降得更多——loss 在变好，但模型生成 chosen 这类好回答的概率并没有真正提高。所以 DPO 训完一定要看生成效果，不能只看 loss。
+
+</Note>
+
+<Note title="DPO 之后出现了很多变体">
+
+例如 **KTO** 只需要「这个回答好 / 不好」的单条标注，不需要成对数据；**ORPO** 把 SFT 和偏好优化合成一步，不需要单独的参考模型。面试时知道「DPO 有很多简化变体，主要在降低数据或模型的要求」就够了，不必背每个公式。
+
+</Note>
+
+### 落到项目里：什么时候值得做偏好优化？
+
+大多数应用团队走到 SFT 就够了。值得再做一步偏好优化的典型信号：
+
+- SFT 后的回答**基本正确，但总有稳定的风格问题**：太啰嗦、语气不对、该拒绝的不拒绝、不该拒绝的拒绝
+- 这些问题**很难写成标准答案，但很容易比较**：领域专家看两个回答，能很快选出更好的那个
+
+可行的做法：用自己的 SFT 模型对同一批指令生成多个回答，请领域专家挑出更好的，攒几千条偏好对，用 LoRA + DPO 训练，再用胜率（新模型的回答被评为更好的比例）评估效果（LoRA 见 [Fine-tuning](/docs/llm/fine-tuning)，评估见 Level 6）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. DPO 相比 RLHF 省掉了哪些东西？
+2. 什么是「提升幅度」？DPO 为什么可以把它当作隐式奖励？
+3. 写出 DPO 的 loss。chosen 提升幅度 +1、rejected 提升幅度 −1、β = 0.1 时，margin 是多少？
+4. β 大和 β 小分别意味着什么？
+5. DPO 和 RLHF 各有什么优缺点？DPO 的离线数据有什么代价？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · DPO: skipping the reward model
+
+### What problem with RLHF does DPO set out to solve?
+
+Level 3 ended with RLHF's three pain points: four models in memory at once, constant generation during training, and many moving parts that make training fragile.
+
+**DPO (Direct Preference Optimization)** takes a different route: **no reward model and no reinforcement learning — train the language model itself directly on preference data.** Its training looks just like ordinary supervised training:
+
+| | RLHF (PPO) | DPO |
+| --- | --- | --- |
+| Models needed | 4: policy, value, reference, reward | 2: policy (training), reference (frozen) |
+| Generates responses during training? | yes, samples every round | no, uses existing preference pairs directly |
+| Training process | train a reward model → RL loop | one loss, trained like ordinary fine-tuning |
+
+### What's the intuition behind DPO?
+
+First, define one quantity: **how much the model has "lifted" a response**.
+
+```
+lift = log π(response) − log π_ref(response)
+       ↑ log probability under the current model    ↑ under the reference model (the frozen SFT model)
+```
+
+A positive lift means training made the response more likely than before; a negative lift means less likely.
+
+DPO's key insight is that **this lift can itself serve as an implicit reward score**. So the Bradley-Terry formula from Level 2 applies directly: chosen should get a bigger lift than rejected.
+
+An analogy: RLHF first trains a judge (the reward model) and then has the writer (the language model) revise over and over based on the judge's scores; DPO drops the judge and adjusts the writer directly from "this one is better than that one" examples.
+
+### How is the DPO loss computed? Work it by hand
+
+```
+chosen lift   = log π(chosen)   − log π_ref(chosen)
+rejected lift = log π(rejected) − log π_ref(rejected)
+
+margin = β × (chosen lift − rejected lift)
+loss   = −ln sigmoid(margin)
+```
+
+Here **log π(response)** is the sum of the log probabilities of every token in the response. In Level 1's example, the 5 tokens of "I love cats." plus the end marker had probabilities 0.60, 0.80, 0.70, 0.90, and 0.50, summing to a log probability of about −1.889. The longer the response, the more negative the sum. The numbers below are closer to realistic lengths.
+
+With β = 0.1, look at three cases:
+
+**Case 1: training has just started; policy and reference are identical**
+
+```
+log π(chosen) = −14,   log π_ref(chosen) = −14     → lift 0
+log π(rejected) = −18, log π_ref(rejected) = −18   → lift 0
+margin = 0.1 × (0 − 0) = 0
+loss = −ln sigmoid(0) = 0.693
+```
+
+**Case 2: after some training, moving in the right direction**
+
+```
+log π(chosen) = −12,   log π_ref(chosen) = −14     → lift +2   chosen became more likely
+log π(rejected) = −20, log π_ref(rejected) = −18   → lift −2   rejected became less likely
+margin = 0.1 × (2 − (−2)) = 0.4
+loss = −ln sigmoid(0.4) = 0.513      ↓ lower than at the start
+```
+
+**Case 3: moving in the wrong direction**
+
+```
+log π(chosen) = −16,   log π_ref(chosen) = −14     → lift −2
+log π(rejected) = −16, log π_ref(rejected) = −18   → lift +2
+margin = 0.1 × (−2 − 2) = −0.4
+loss = −ln sigmoid(−0.4) = 0.913     ↑ higher than at the start, so it gets corrected
+```
+
+Gradient descent keeps pushing the loss down, which means **pushing the chosen lift up and the rejected lift down**. In the running example, the model increasingly just answers "I love cats." and less and less often produces the rambling explanation.
+
+### What does β mean?
+
+β controls **how far the model may move from the reference model**, playing the same role as β in RLHF's KL penalty. Take the lifts from case 2 and switch to β = 0.5:
+
+```
+β = 0.1 → margin = 0.4 → loss = 0.513
+β = 0.5 → margin = 2.0 → loss = 0.127
+```
+
+With a large β, **a small lift already drives the loss very low**, so the model has no incentive to move further and stays fairly close to the reference; with a small β, bringing the loss down takes a bigger lift, so the model drifts further from the reference. Values around 0.1 are common.
+
+### How do you choose between DPO and RLHF?
+
+| | RLHF (PPO) | DPO |
+| --- | --- | --- |
+| Implementation and tuning difficulty | high | low, close to ordinary fine-tuning |
+| Memory and compute | high (4 models + generation during training) | much lower |
+| Training data | online: fresh responses generated by the current model each round | offline: a fixed set of preference pairs |
+| Can it go beyond the data? | yes, the model explores as it generates | limited to the existing pairs |
+| Typical use | flagship models at large labs | open-source community and smaller teams, often combined with other methods |
+
+They aren't mutually exclusive. Meta's published LLaMA 3 post-training pipeline, for example, combined SFT, rejection sampling, PPO, and DPO.
+
+<Note title="DPO's offline data comes at a cost" type="warning">
+
+DPO's preference pairs often weren't generated by the current model (they may come from another model or an earlier checkpoint), so what it learns is "in this dataset, A beats B," which doesn't necessarily generalize to responses it would actually produce. Research has also found that during DPO training the probabilities of both chosen and rejected can **fall together**, with rejected just falling faster — the loss improves while the model isn't really any more likely to produce good responses like chosen. So after DPO, always look at generations; don't trust the loss alone.
+
+</Note>
+
+<Note title="Many variants followed DPO">
+
+**KTO**, for example, needs only single "good / bad" labels rather than pairs; **ORPO** merges SFT and preference optimization into one step with no separate reference model. For interviews, knowing "DPO has many simplified variants, mostly reducing what data or models are required" is enough — no need to memorize each formula.
+
+</Note>
+
+### In a real project, when is preference optimization worth it?
+
+For most application teams, SFT is where it stops. Typical signs that an extra preference-optimization step is worthwhile:
+
+- after SFT, responses are **basically correct but have consistent style problems**: too wordy, wrong tone, not declining what it should, declining what it shouldn't
+- those problems are **hard to write as reference answers but easy to compare**: a domain expert looking at two responses can quickly pick the better one
+
+A workable approach: have your own SFT model generate several responses to the same instructions, ask domain experts to pick the better ones, collect a few thousand preference pairs, train with LoRA + DPO, and evaluate by win rate (the share of comparisons where the new model's response is judged better). LoRA is covered on [Fine-tuning](/docs/llm/fine-tuning); evaluation in Level 6.
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What does DPO eliminate compared with RLHF?
+2. What is the "lift," and why can DPO treat it as an implicit reward?
+3. Write out the DPO loss. With a chosen lift of +1, a rejected lift of −1, and β = 0.1, what's the margin?
+4. What do a large β and a small β each mean?
+5. What are the strengths and weaknesses of DPO and RLHF, and what does DPO's offline data cost you?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 5 · 推理能力的强化学习：可验证奖励与 GRPO
+
+### 为什么需要单独的「推理强化学习」？
+
+RLHF 的奖励来自人的偏好，它擅长衡量「回答得好不好、得不得体」。但数学题、写代码这类任务，**真正重要的是答案对不对**：
+
+- 让人逐道核对复杂数学推导，又贵又慢
+- 奖励模型可能被「看起来很像正确推导」的错误回答骗过
+
+好在这类任务有一个天然优势：**对错可以用程序自动判断**。数学题比对最终答案，代码跑单元测试。
+
+于是有了 **RLVR（Reinforcement Learning with Verifiable Rewards，可验证奖励的强化学习）**：不用奖励模型，奖励直接由规则给出，答对得 1 分，答错得 0 分。
+
+### 可验证奖励具体怎么给？
+
+换一个和猫有关、但答案唯一的题：
+
+```
+题目：一只猫有 4 条腿，3 只猫一共有几条腿？请把最终答案写在「答案：」后面。
+标准答案：12
+```
+
+常见的规则奖励：
+
+| 奖励 | 怎么判 | 例子 |
+| --- | --- | --- |
+| **正确性奖励** | 抽出最终答案，和标准答案比较 | 「答案：12」→ 1 分；「答案：7」→ 0 分 |
+| **格式奖励** | 检查是否按要求的格式输出 | 没写「答案：」，无法抽取 → 0 分 |
+| **代码奖励** | 运行单元测试，按通过情况给分 | 10 个测试过了 10 个 → 1 分 |
+
+规则奖励便宜、可以无限使用，也比奖励模型更难被「刷分」。
+
+<Note title="规则奖励也会被钻空子" type="warning">
+
+比如只检查格式时，模型可能学会「格式完美但推理是瞎编的」；只看最终答案时，选择题可能靠猜也能拿分。设计奖励时要想清楚「模型能不能不解题就拿到分」。
+
+</Note>
+
+### GRPO 是怎么工作的？手算组内优势
+
+Level 3 的 PPO 需要一个**价值模型**来估计基准分数，它和策略模型差不多大，又占显存又难训。
+
+**GRPO（Group Relative Policy Optimization）**由 DeepSeek 提出，后来用在了 DeepSeek-R1 的训练中。它的做法很聪明：**对同一道题一次生成一组回答，用这组回答的平均分当基准**，价值模型就不需要了。
+
+```
+优势 = (这个回答的奖励 − 本组平均奖励) / 本组奖励的标准差
+```
+
+**手算：对猫腿那道题，一次生成 4 个回答**
+
+```
+回答 1：3 × 4 = 12，答案：12    奖励 1
+回答 2：4 + 3 = 7，答案：7      奖励 0
+回答 3：每只 4 条，共 12 条，答案：12  奖励 1
+回答 4：4 × 4 = 16，答案：16    奖励 0
+
+平均 = 0.5，标准差 = 0.5
+优势 = [(1−0.5)/0.5, (0−0.5)/0.5, (1−0.5)/0.5, (0−0.5)/0.5] = [+1, −1, +1, −1]
+```
+
+答对的两个回答概率被提高，答错的被降低。
+
+**如果 4 个里只有 1 个答对：**
+
+```
+奖励 = [1, 0, 0, 0]，平均 = 0.25，标准差 = 0.433
+优势 = [+1.732, −0.577, −0.577, −0.577]
+```
+
+难得答对的那一个会被**大幅**提高。
+
+**如果 4 个全对，或者全错：**
+
+```
+奖励 = [1, 1, 1, 1] 或 [0, 0, 0, 0]，标准差 = 0
+优势 = [0, 0, 0, 0]      ← 没有任何学习信号
+```
+
+<Note title="题目难度决定了 GRPO 能不能学到东西" type="tip">
+
+太简单（全对）或太难（全错）的题，组内没有差异，优势全是 0，白白浪费了生成的算力。所以训练推理模型时，要挑选「模型有时对、有时错」的题目，随着模型变强再换更难的题。面试里能说出这一点，说明你真正理解了组内相对优势的含义。
+
+</Note>
+
+和 PPO 对比：
+
+| | PPO | GRPO |
+| --- | --- | --- |
+| 基准从哪来 | 价值模型预测 | 同一道题一组回答的平均分 |
+| 需要价值模型吗 | 需要 | 不需要 |
+| 每道题生成几个回答 | 通常 1 个 | 一组（例如 4 到 16 个） |
+| 仍然保留 | KL 惩罚、更新幅度限制 | KL 惩罚、更新幅度限制 |
+
+用规则奖励时，奖励模型和价值模型都省掉了，只剩策略模型和参考模型，显存比 RLHF 小很多。
+
+### 长思维链是怎么「长」出来的？
+
+DeepSeek 报告了一个很有代表性的实验（DeepSeek-R1-Zero）：**直接在 base model 上做 GRPO，奖励只有「答案对不对」和「格式对不对」，完全不给示范。**
+
+他们观察到：随着训练进行，**模型的回答越来越长**，而且自发出现了检查前面步骤、发现错误后重新推导这类行为。没有人写过「要反思」的示范，这些行为是被奖励「选」出来的：
+
+```
+多想几步、回头检查 → 最终答案更可能对 → 拿到奖励 → 这种行为被强化
+```
+
+最终发布的 DeepSeek-R1 在此基础上加了几轮 SFT：先用少量长思维链数据做 SFT，再做强化学习，再用生成的好回答做 SFT，最后再做一轮覆盖各类任务的强化学习。纯 RL 版本的 R1-Zero 虽然推理强，但也有可读性差、中英文混杂的问题。
+
+<Note title="推理模型 = 用输出 token 换准确率" type="tip">
+
+推理模型在回答前会生成大量「思考」token。这些都是 output token，是按 decode 一个个生成的，**又慢又贵**（见 [Tokenization](/docs/llm/tokenization) Level 3、[Attention & Transformer](/docs/llm/transformer) Level 8）。所以工程上要按任务选择：复杂数学、代码、多步推理值得用推理模型；简单问答、翻译、格式转换用普通模型更快更省。
+
+</Note>
+
+### 推理强化学习有哪些局限？
+
+- **只适用于能自动判对错的任务**：写文章、写邮件这类开放任务没有标准答案，仍然要靠偏好数据
+- **可能「想太多」**：简单问题也生成很长的思考过程，浪费 token 和时间
+- **规则奖励设计不当会被钻空子**：格式对了但推理是错的
+- **纯 RL 可能损害可读性**：R1-Zero 的中英文混杂就是例子，通常还要配合 SFT
+
+回到贯穿全页的例子：把「我 爱 猫」翻译成英文，**不需要**推理强化学习。翻译没有唯一的程序可判答案，而且让模型为了一句简单翻译先想几百个 token，只会让回答更慢更贵。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么数学和代码任务适合用可验证奖励？RLVR 和 RLHF 的奖励来源有什么区别？
+2. 规则奖励可能怎么被钻空子？
+3. GRPO 怎么在没有价值模型的情况下算优势？手算奖励为 [1, 1, 0, 0] 时的优势。
+4. 为什么一组回答全对或全错时学不到东西？这对选题有什么启发？
+5. 长思维链为什么会在强化学习中自己出现？推理模型在工程上的代价是什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 5 · Reinforcement learning for reasoning: verifiable rewards and GRPO
+
+### Why is separate "reasoning RL" needed?
+
+RLHF's reward comes from human preferences, which are good at measuring whether an answer is helpful and appropriate. But for tasks like math and coding, **what really matters is whether the answer is correct**:
+
+- having people check complex math derivations one by one is slow and expensive
+- a reward model can be fooled by a wrong answer that looks like a correct derivation
+
+These tasks have one natural advantage: **correctness can be checked automatically by a program**. Compare the final answer for a math problem; run unit tests for code.
+
+That gives us **RLVR (reinforcement learning with verifiable rewards)**: no reward model, just a rule that gives 1 point for a correct answer and 0 for a wrong one.
+
+### How exactly are verifiable rewards given?
+
+Switch to a cat-themed problem with a single right answer:
+
+```
+problem: A cat has 4 legs. How many legs do 3 cats have in total? Put your final answer after "Answer:".
+reference answer: 12
+```
+
+Common rule-based rewards:
+
+| Reward | How it's judged | Example |
+| --- | --- | --- |
+| **Correctness reward** | extract the final answer and compare it with the reference | "Answer: 12" → 1; "Answer: 7" → 0 |
+| **Format reward** | check that the output follows the required format | no "Answer:", so nothing can be extracted → 0 |
+| **Code reward** | run unit tests and score by how many pass | 10 of 10 tests pass → 1 |
+
+Rule-based rewards are cheap, usable without limit, and harder to game than a reward model.
+
+<Note title="Rule-based rewards can be gamed too" type="warning">
+
+If only the format is checked, a model may learn "perfect format, made-up reasoning"; if only the final answer is checked, multiple-choice questions can be scored by guessing. When designing a reward, ask whether the model can earn points without actually solving the problem.
+
+</Note>
+
+### How does GRPO work? Compute group-relative advantages by hand
+
+PPO in Level 3 needs a **value model** to estimate the baseline, and that model is about as big as the policy — memory-hungry and hard to train.
+
+**GRPO (Group Relative Policy Optimization)** was introduced by DeepSeek and later used to train DeepSeek-R1. Its trick is clever: **generate a group of responses to the same problem at once and use the group's average score as the baseline**, so no value model is needed.
+
+```
+advantage = (this response's reward − the group's mean reward) / the group's reward standard deviation
+```
+
+**By hand: generate 4 responses to the cat-legs problem**
+
+```
+response 1: 3 × 4 = 12, Answer: 12              reward 1
+response 2: 4 + 3 = 7, Answer: 7                reward 0
+response 3: 4 each, 12 in total, Answer: 12     reward 1
+response 4: 4 × 4 = 16, Answer: 16              reward 0
+
+mean = 0.5, standard deviation = 0.5
+advantages = [(1−0.5)/0.5, (0−0.5)/0.5, (1−0.5)/0.5, (0−0.5)/0.5] = [+1, −1, +1, −1]
+```
+
+The two correct responses become more likely; the wrong ones less likely.
+
+**If only 1 of the 4 is correct:**
+
+```
+rewards = [1, 0, 0, 0], mean = 0.25, standard deviation = 0.433
+advantages = [+1.732, −0.577, −0.577, −0.577]
+```
+
+The rare correct response gets a **large** boost.
+
+**If all 4 are correct, or all wrong:**
+
+```
+rewards = [1, 1, 1, 1] or [0, 0, 0, 0], standard deviation = 0
+advantages = [0, 0, 0, 0]      ← no learning signal at all
+```
+
+<Note title="Problem difficulty decides whether GRPO learns anything" type="tip">
+
+Problems that are too easy (all correct) or too hard (all wrong) produce no variation within the group, so every advantage is 0 and the compute spent generating is wasted. When training reasoning models, pick problems the model gets right only some of the time, and move to harder ones as it improves. Saying this in an interview shows you really understand what group-relative advantage means.
+
+</Note>
+
+Compared with PPO:
+
+| | PPO | GRPO |
+| --- | --- | --- |
+| Where the baseline comes from | predicted by a value model | the average score of a group of responses to the same problem |
+| Needs a value model? | yes | no |
+| Responses generated per problem | usually 1 | a group (e.g. 4 to 16) |
+| Still keeps | KL penalty, update size limit | KL penalty, update size limit |
+
+With rule-based rewards, both the reward model and the value model are gone, leaving only the policy and reference models — far less memory than RLHF.
+
+### Where do long chains of thought come from?
+
+DeepSeek reported a telling experiment (DeepSeek-R1-Zero): **run GRPO directly on a base model, with rewards only for correct answers and correct format, and no demonstrations at all.**
+
+They observed that as training went on, **responses got longer and longer**, and behaviors like checking earlier steps and re-deriving after spotting a mistake emerged on their own. Nobody wrote demonstrations of "reflect on your work"; these behaviors were selected by the reward:
+
+```
+think a few more steps, go back and check → the final answer is more likely correct → reward → the behavior gets reinforced
+```
+
+The released DeepSeek-R1 added several rounds of SFT around this: SFT on a small amount of long chain-of-thought data first, then RL, then SFT on good responses the model generated, and finally another round of RL covering all kinds of tasks. The pure-RL R1-Zero reasoned well but had problems with readability and mixing languages.
+
+<Note title="Reasoning models trade output tokens for accuracy" type="tip">
+
+Reasoning models generate a large number of "thinking" tokens before answering. Those are all output tokens, decoded one at a time, so they're **slow and expensive** (see [Tokenization](/docs/llm/tokenization) Level 3 and [Attention & Transformer](/docs/llm/transformer) Level 8). In engineering terms, choose per task: complex math, code, and multi-step reasoning justify a reasoning model; simple QA, translation, and format conversion are faster and cheaper on a regular model.
+
+</Note>
+
+### What are the limits of reasoning RL?
+
+- **It only applies to tasks that can be checked automatically**: open-ended tasks like writing essays or emails have no reference answer and still need preference data
+- **It can overthink**: even simple questions get long reasoning, wasting tokens and time
+- **Poorly designed rule rewards get gamed**: correct format, wrong reasoning
+- **Pure RL can hurt readability**: R1-Zero's language mixing is an example, which is why SFT is usually combined with it
+
+Back to the running example: translating 「我 爱 猫」 into English **doesn't need** reasoning RL. Translation has no single program-checkable answer, and having the model think for hundreds of tokens before a one-line translation would only make it slower and more expensive.
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why are math and coding tasks suited to verifiable rewards? How do RLVR and RLHF differ in where the reward comes from?
+2. How can rule-based rewards be gamed?
+3. How does GRPO compute advantages without a value model? Compute the advantages for rewards [1, 1, 0, 0].
+4. Why does a group that's all correct or all wrong teach nothing, and what does that mean for choosing problems?
+5. Why do long chains of thought emerge on their own during RL, and what's the engineering cost of reasoning models?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 6 · 对齐的副作用、评估与工程选择
+
+### 对齐会带来哪些副作用？
+
+Post-training 让模型更有用，但每一步都有代价。前面几个 Level 零散提到过一些，这里汇总：
+
+| 副作用 | 表现 | 主要来源 | 常见缓解 |
+| --- | --- | --- | --- |
+| **Reward hacking** | 回答变长、堆套话、刷分 | 奖励模型或规则奖励不完美（Level 3、5） | KL 惩罚、长度惩罚、改进奖励、人工抽查 |
+| **对齐税 / 灾难性遗忘** | 某些原有能力下降 | 训练把参数往新目标上推 | 混入部分预训练数据或通用任务数据；控制训练强度 |
+| **谄媚（sycophancy）** | 附和用户的错误观点 | 人类偏好里「被认同」更容易得高分 | 偏好数据里专门加入「礼貌地纠正用户」的样本 |
+| **过度拒绝** | 拒绝无害请求，比如「怎么杀掉一个 Python 进程」 | 安全数据过多、太严 | 在数据里加入「看起来敏感但其实无害」的样本 |
+| **多样性下降、置信度失准** | 回答千篇一律；模型说的「有把握」不再能反映真实正确率 | 偏好优化把输出分布压向少数高分风格 | 采样参数调整、在数据里保留多样的好回答 |
+
+两个有公开记录的例子：
+
+- **InstructGPT** 发现做完 RLHF 后，在一些公开 NLP 评测上的表现下降了。他们的办法是强化学习时混入一部分预训练数据的梯度，把性能拉回来
+- **GPT-4 技术报告**提到，预训练模型的置信度校准得很好（它说 70% 把握时大约 70% 答对），而 post-training 之后校准明显变差
+
+<Note title="面试时把副作用和手段一一对应" type="tip">
+
+被问「RLHF 有什么问题」时，不要只说「reward hacking」。按「现象 → 来源 → 缓解」讲两三个，能体现你理解的是整个系统的取舍，而不只是一个名词。
+
+</Note>
+
+### 怎么评估 post-training 的效果？
+
+Loss 在 post-training 里几乎不能说明问题（Level 4 讲过 DPO 的 loss 可能在骗你）。真正要看的是生成结果：
+
+**1. 胜率（win rate）**：拿同一批测试指令，让新旧两个模型各答一遍，由人或强模型判断哪个更好。
+
+```
+共 200 组比较：新模型赢 110，平局 30，输 60
+
+不算平局：110 / (110 + 60) = 64.7%
+平局各算一半：(110 + 15) / 200 = 62.5%
+```
+
+报胜率时要说清楚平局怎么算。
+
+**2. LLM-as-judge**：让一个强模型当裁判，便宜又快，但有已知的偏差：
+
+- **位置偏差**：倾向于选排在前面（或后面）的回答 → 每组比较**交换顺序再判一次**
+- **长度偏差**：倾向于选更长的回答 → 在评判标准里明确「简洁」，或者对长度做控制
+- **自我偏好**：倾向于选和自己风格相似的回答 → 裁判模型不要和被测模型同源
+
+（详见 [LLM Evaluation](/docs/evaluation/llm-eval)）
+
+**3. 分维度的评测集**：
+
+| 维度 | 常见评测 |
+| --- | --- |
+| 知识和推理能力（检查有没有遗忘） | MMLU、GSM8K、HumanEval |
+| 对话质量 | MT-Bench、AlpacaEval、Chatbot Arena（大量真人投票） |
+| 安全 | 有害请求的拒绝率，以及无害请求的误拒率 |
+| 你自己的业务 | 从真实流量里抽样、从未公开过的测试集 |
+
+<Note title="测试指令不能出现在训练数据里" type="warning">
+
+用训练时见过的指令做评估，胜率会虚高。评估集要单独留出，而且最好包含训练数据分布之外的问题，才能看出模型有没有真正泛化，而不是只记住了训练集。
+
+</Note>
+
+### 真实项目里，prompt、RAG、SFT、偏好优化怎么选？
+
+按成本从低到高，一步步往上加，**只有前一步解决不了才进入下一步**：
+
+```
+① Prompt           写清指令、给几个例子、规定输出格式            几乎零成本，改完立刻生效
+② RAG              缺知识、知识会变、需要引用来源               要搭检索，但不改模型
+③ SFT（通常 LoRA）  格式、语气、工具调用方式仍然不稳定             需要几千条高质量示范
+④ DPO              基本对了，但有稳定的风格问题，且容易比较好坏    需要偏好对，要控制副作用
+⑤ 推理强化学习       有可自动判对错的任务，需要更强推理            成本最高，少数团队才做
+```
+
+| 遇到的问题 | 首选 | 为什么 |
+| --- | --- | --- |
+| 模型不知道公司内部的最新政策 | RAG | 知识会变、需要引用，微调灌知识不可靠 |
+| 输出的 JSON 字段偶尔缺失或格式错 | Prompt + 结构化输出，仍不行再 SFT | 先用约束解码等手段（见 [Structured Output](/docs/application/structured-output)） |
+| 客服回答总是太啰嗦、语气太官方 | SFT，再不行上 DPO | 行为和风格问题，正是 post-training 擅长的 |
+| 调用内部工具的方式总是不对 | SFT | 用正确的工具调用示范来教 |
+
+<Note title="大多数应用团队停在前三步" type="tip">
+
+绝大多数产品需求，prompt + RAG + 少量 LoRA SFT 就能解决。面试里被问「你会怎么定制这个模型」，按这个阶梯从低成本讲起，并说清楚「为什么前一步不够」，比一上来就说「微调」或「RLHF」成熟得多（更多见 [Fine-tuning](/docs/llm/fine-tuning)）。
+
+</Note>
+
+<Note title="做 SFT 通常从 instruct 模型开始，而不是 base model">
+
+开源模型一般同时发布 base 和 instruct 两个版本。instruct 版本已经做过完整的 post-training，在它上面用少量领域数据做 SFT，能保留原有的对话和安全能力；从 base model 开始就要自己重建这些能力。注意在 instruct 模型上训练时，要用它**原本的 chat template**。
+
+</Note>
+
+### 回顾：贯穿全页的例子，每一步改变了什么？
+
+用户说「把『我 爱 猫』翻译成英文」：
+
+| 阶段 | 模型的回答（示意） | 这一步解决了什么 |
+| --- | --- | --- |
+| Base model | 接着编出「把『我 爱 狗』翻译成英文……」 | 什么都没解决，只会续写 |
+| SFT 之后 | 「I love cats.」，但有时会附一大段解释，有时不知道停 | 学会了按指令回答、什么时候停 |
+| DPO 之后 | 稳定地只回答「I love cats.」 | 学会了用户更偏好的简洁风格 |
+| 如果被 reward hacking | 回答越来越长，堆满「希望对你有帮助」 | 这是要用 KL 惩罚和评估防住的副作用 |
+| 推理强化学习 | 不需要 | 翻译没有程序可判的唯一答案，多想只会更慢更贵 |
+
+<Note title="自测：到这里你应该能回答">
+
+1. 说出对齐的三个副作用，分别讲清现象、来源和缓解方法。
+2. 为什么 post-training 不能只看 loss？胜率怎么算？平局怎么处理？
+3. LLM-as-judge 有哪些偏差？怎么缓解？
+4. 按成本从低到高，prompt、RAG、SFT、DPO、推理 RL 分别适合解决什么问题？
+5. 做领域 SFT 时，为什么通常从 instruct 模型开始？要注意什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 6 · Side effects, evaluation, and engineering choices
+
+### What side effects does alignment introduce?
+
+Post-training makes a model more useful, but every step has a cost. Earlier Levels mentioned some of these in passing; here they are together:
+
+| Side effect | What it looks like | Main source | Common mitigation |
+| --- | --- | --- | --- |
+| **Reward hacking** | longer responses, stock phrases, gaming the score | imperfect reward models or rule rewards (Levels 3 and 5) | KL penalty, length penalty, better rewards, human spot checks |
+| **Alignment tax / catastrophic forgetting** | some existing abilities decline | training pushes parameters toward a new objective | mix in some pretraining or general-task data; limit training strength |
+| **Sycophancy** | agreeing with a user's wrong views | in human preferences, being agreed with tends to score higher | add examples of politely correcting the user to the preference data |
+| **Over-refusal** | declining harmless requests, like "how do I kill a Python process" | too much or overly strict safety data | add examples that look sensitive but are actually harmless |
+| **Reduced diversity, miscalibration** | responses all sound alike; the model's stated confidence no longer tracks actual accuracy | preference optimization squeezes outputs toward a few high-scoring styles | tune sampling parameters, keep varied good responses in the data |
+
+Two publicly documented examples:
+
+- **InstructGPT** found that after RLHF, performance dropped on some public NLP benchmarks. Their fix was mixing in gradients from pretraining data during RL to recover it
+- **The GPT-4 technical report** noted that the pretrained model was well calibrated (when it said 70% confident, it was right about 70% of the time), while post-training made calibration noticeably worse
+
+<Note title="In interviews, pair each side effect with its fix" type="tip">
+
+When asked "what's wrong with RLHF," don't just say "reward hacking." Walking through two or three as "symptom → source → mitigation" shows you understand the trade-offs of the whole system, not just a buzzword.
+
+</Note>
+
+### How do you evaluate post-training?
+
+In post-training, loss says almost nothing (Level 4 showed that DPO's loss can mislead you). What you actually have to look at is the generated output:
+
+**1. Win rate**: have the old and new models answer the same test instructions, and let a person or a strong model judge which is better.
+
+```
+200 comparisons: new model wins 110, ties 30, loses 60
+
+excluding ties:        110 / (110 + 60) = 64.7%
+counting ties as half: (110 + 15) / 200 = 62.5%
+```
+
+When reporting a win rate, say how ties were counted.
+
+**2. LLM-as-judge**: have a strong model act as the judge — cheap and fast, but with known biases:
+
+- **Position bias**: favors the response shown first (or last) → **swap the order and judge each comparison again**
+- **Length bias**: favors longer responses → state "concise" explicitly in the rubric, or control for length
+- **Self-preference**: favors responses in its own style → don't use a judge from the same model family as the one being tested
+
+(Details on [LLM Evaluation](/docs/evaluation/llm-eval).)
+
+**3. Evaluation sets by dimension**:
+
+| Dimension | Common evaluations |
+| --- | --- |
+| Knowledge and reasoning (checking for forgetting) | MMLU, GSM8K, HumanEval |
+| Conversation quality | MT-Bench, AlpacaEval, Chatbot Arena (large-scale human voting) |
+| Safety | refusal rate on harmful requests, and false-refusal rate on harmless ones |
+| Your own use case | a never-published test set sampled from real traffic |
+
+<Note title="Test instructions must not appear in the training data" type="warning">
+
+Evaluating on instructions seen during training inflates the win rate. Keep the evaluation set separate, and ideally include questions from outside the training distribution, so you can tell whether the model actually generalizes instead of just remembering the training set.
+
+</Note>
+
+### In a real project, how do you choose between prompting, RAG, SFT, and preference optimization?
+
+Go from cheapest to most expensive, adding a step **only when the previous one can't solve the problem**:
+
+```
+① Prompting          write clear instructions, give a few examples, specify the output format    near-zero cost, takes effect immediately
+② RAG                missing knowledge, changing knowledge, or sources needed                    needs retrieval, but the model is untouched
+③ SFT (usually LoRA) format, tone, or tool-calling style still inconsistent                      needs a few thousand high-quality demonstrations
+④ DPO                mostly right, but with consistent style problems that are easy to compare   needs preference pairs; watch the side effects
+⑤ Reasoning RL       tasks that can be checked automatically and need stronger reasoning         most expensive; only a few teams do it
+```
+
+| Problem | First choice | Why |
+| --- | --- | --- |
+| The model doesn't know the company's latest internal policy | RAG | the knowledge changes and needs citations; fine-tuning facts in is unreliable |
+| Output JSON occasionally misses fields or breaks format | prompting + structured output, then SFT if that's not enough | try constrained decoding and similar tools first (see [Structured Output](/docs/application/structured-output)) |
+| Support answers are always too wordy and too formal | SFT, then DPO if needed | behavior and style problems are exactly what post-training is good at |
+| Calls to internal tools keep coming out wrong | SFT | teach it with correct tool-calling demonstrations |
+
+<Note title="Most application teams stop at the first three steps" type="tip">
+
+The vast majority of product needs are solved with prompting + RAG + a little LoRA SFT. When an interviewer asks "how would you customize this model," starting from the cheap end of this ladder and explaining why each earlier step isn't enough sounds far more seasoned than jumping straight to "fine-tune it" or "RLHF" (more on [Fine-tuning](/docs/llm/fine-tuning)).
+
+</Note>
+
+<Note title="Domain SFT usually starts from the instruct model, not the base model">
+
+Open models are usually released as both base and instruct versions. The instruct version has already been through full post-training, so SFT on a small amount of domain data on top of it keeps the existing conversation and safety abilities; starting from the base model means rebuilding those yourself. When training on an instruct model, use its **original chat template**.
+
+</Note>
+
+### Recap: what did each step change in the running example?
+
+The user says 「把『我 爱 猫』翻译成英文」 ("translate 我爱猫 into English"):
+
+| Stage | Model's response (illustrative) | What this step fixed |
+| --- | --- | --- |
+| Base model | keeps inventing "translate 我爱狗 into English…" | nothing; it only continues text |
+| After SFT | "I love cats." — but sometimes with a long explanation attached, sometimes not knowing when to stop | learned to answer instructions and when to stop |
+| After DPO | consistently answers just "I love cats." | learned the concise style users prefer |
+| If reward hacking sets in | responses keep growing, stuffed with "I hope this helps" | the side effect the KL penalty and evaluation have to catch |
+| Reasoning RL | not needed | translation has no single program-checkable answer; more thinking only adds latency and cost |
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Name three side effects of alignment, each with its symptom, source, and mitigation.
+2. Why can't post-training be judged by loss? How is win rate computed, and how are ties handled?
+3. What biases does LLM-as-judge have, and how do you mitigate them?
+4. From cheapest to most expensive, what is each of prompting, RAG, SFT, DPO, and reasoning RL suited to solve?
+5. Why does domain SFT usually start from an instruct model, and what should you watch out for?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note title="别说「RLHF 让模型学会了新知识」" type="danger">
+
+Post-training 主要改变的是行为、格式和偏好，知识和核心能力主要来自预训练。想补知识首选 RAG；把 RLHF 说成「给模型灌知识」，会暴露对整个训练流程的误解。
+
+</Note>
+
+<Note title="别说「DPO 不需要参考模型」" type="danger">
+
+标准 DPO 需要一个冻结的参考模型（通常是 SFT 模型），「提升幅度」就是相对它算的。它省掉的是**奖励模型、价值模型和训练中的采样**。不需要参考模型的是 ORPO 这类变体。
+
+</Note>
+
+<Note title="别说「奖励分数越高，模型越好」" type="danger">
+
+奖励模型是不完美的代理指标，一味追高分就会 reward hacking：回答变长、谄媚、堆套话。这正是 KL 惩罚和人工评估存在的原因。
+
+</Note>
+
+<Note title="DPO 的 loss 下降，不代表生成质量变好" type="warning">
+
+chosen 和 rejected 的概率可能一起下降，只是 rejected 降得更多。必须看实际生成结果和胜率。
+
+</Note>
+
+<Note title="Chat template 不匹配会让效果明显变差" type="warning">
+
+推理时的模板必须和训练时一致。在 instruct 模型上继续 SFT，也要沿用它原本的模板。
+
+</Note>
+
+<Note title="LLM-as-judge 有位置、长度和自我偏好偏差" type="warning">
+
+不交换顺序、不控制长度的比较结果不可信。
+
+</Note>
+
+<Note title="推理模型不是在所有任务上都更好" type="warning">
+
+它用大量 output token 换准确率，更慢更贵。简单任务上可能「想太多」，不如普通模型实用。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Traps
+
+<Note title="Don't say RLHF teaches the model new knowledge" type="danger">
+
+Post-training mainly changes behavior, format, and preferences; knowledge and core abilities come mainly from pretraining. RAG is the first choice for adding knowledge. Describing RLHF as "loading knowledge into the model" exposes a misunderstanding of the whole training pipeline.
+
+</Note>
+
+<Note title="Don't say DPO needs no reference model" type="danger">
+
+Standard DPO needs a frozen reference model (usually the SFT model), and the "lift" is measured against it. What it eliminates is **the reward model, the value model, and sampling during training**. Variants like ORPO are the ones without a reference model.
+
+</Note>
+
+<Note title="Don't say a higher reward score means a better model" type="danger">
+
+A reward model is an imperfect proxy, and chasing its score leads to reward hacking: longer responses, sycophancy, stock phrases. That's exactly why the KL penalty and human evaluation exist.
+
+</Note>
+
+<Note title="A falling DPO loss doesn't mean better generations" type="warning">
+
+The probabilities of chosen and rejected can both fall, with rejected just falling faster. Look at actual generations and win rates.
+
+</Note>
+
+<Note title="A mismatched chat template noticeably degrades quality" type="warning">
+
+The template at inference must match training. When continuing SFT on an instruct model, keep its original template.
+
+</Note>
+
+<Note title="LLM-as-judge has position, length, and self-preference biases" type="warning">
+
+Comparisons that don't swap order or control for length can't be trusted.
+
+</Note>
+
+<Note title="Reasoning models aren't better at everything" type="warning">
+
+They trade large numbers of output tokens for accuracy, so they're slower and more expensive. On simple tasks they can overthink and be less practical than a regular model.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 连接
+
+</Locale>
+
+<Locale lang="en">
+
+## Connections
 
 </Locale>
 
 ```
-Pretraining
-     ↓
-SFT
-     ↓
-Preference Optimization
-     ↓
-RLHF / DPO
-     ↓
-Instruction Following
+Pretraining → base model (continues text)
+                   ↓  SFT: demonstrations, chat template, loss on response only
+             instruct model
+                   ↓  preference data (prompt, chosen, rejected) → Bradley-Terry
+        ┌──────────┴──────────┐
+  RLHF: RM + PPO + KL     DPO: implicit reward, 2 models
+        └──────────┬──────────┘
+                   ↓  verifiable rewards → GRPO → long chain of thought
+          chat / reasoning model
+                   ↓
+  side effects (reward hacking, forgetting, sycophancy) → evaluation (win rate, LLM-as-judge)
 ```
 
 <Locale lang="zh">
 
-## 三级回答
-
-### Level 1 — 定义
-
-Post-training 把「会续写」的模型，变成「会按指令做事、回答符合人类偏好」的模型。
-
-### Level 2 — 机制
-
-SFT 教格式和任务。RLHF 用 reward model + 强化学习；DPO 直接在偏好对上优化，省掉显式的奖励模型和采样。
-
-### Level 3 — 工程
-
-数据质量和偏好覆盖面决定模型行为。微调过猛会导致灾难性遗忘。生产环境里多数能力靠 RAG / prompt 解决，而不是把基座模型再训一遍。
+- 上游：[Training](/docs/llm/training)（base model 从哪来、交叉熵 loss、知识截止） · [Attention & Transformer](/docs/llm/transformer)（Level 8：为什么生成慢、推理模型为什么贵） · [Tokenization](/docs/llm/tokenization)（chat template 的特殊 token、output token 为什么贵）
+- 下游和并列：[Fine-tuning](/docs/llm/fine-tuning)（LoRA / QLoRA、RAG 和微调怎么选） · [Prompt Engineering](/docs/application/prompt-engineering)（system prompt 为什么有效） · [Structured Output](/docs/application/structured-output)
+- 工程落点：[LLM Evaluation](/docs/evaluation/llm-eval)（胜率、LLM-as-judge） · [Tool Calling](/docs/agent/tool-calling)（工具调用能力来自 post-training） · [Cost](/docs/production/cost)
 
 ## 面试问题
 
-1. SFT、RLHF、DPO 各自解决什么问题？（What problem does each of SFT, RLHF, and DPO solve?）
-2. 偏好数据从哪来？数据质量差会怎样？（Where does preference data come from, and what happens when it's bad?）
-3. 为什么很多团队用 DPO 而不是完整的 RLHF？（Why do many teams use DPO instead of full RLHF?）
-4. 指令微调之后，模型为什么可能「忘了」原来的能力？（Why can a model lose abilities it had after instruction tuning?）
+先自己口头答一遍，再回到对应的 Level 对照。
 
-## 我的答案
+**Level 0 — Base model 缺什么**
+
+1. Base model 和 chat / instruct model 有什么区别？（How does a base model differ from a chat or instruct model?）
+2. Post-training 分哪几个阶段？各自解决什么问题？（What are the stages of post-training, and what does each solve?）
+3. Post-training 主要改变的是知识还是行为？（Does post-training mainly change knowledge or behavior?）
+
+**Level 1 — SFT**
+
+4. SFT 是什么？数据长什么样、从哪来？（What is SFT, and what does its data look like and come from?）
+5. 什么是 chat template？推理时模板用错会怎样？（What is a chat template, and what happens if the wrong one is used at inference?）
+6. 为什么 SFT 只在回答部分算 loss？（Why does SFT compute loss only on the response?）
+7. SFT 数据要多少？为什么质量比数量重要？（How much SFT data do you need, and why does quality matter more than quantity?）
+
+**Level 2 — 偏好数据**
+
+8. 有了 SFT，为什么还需要偏好数据？（Why is preference data needed on top of SFT?）
+9. 偏好数据怎么收集？有哪些噪声和偏差？（How is preference data collected, and what noise and biases does it carry?）
+10. 解释 Bradley-Terry 模型。（Explain the Bradley-Terry model.）
+
+**Level 3 — RLHF**
+
+11. RLHF 分哪几步？（What are the steps of RLHF?）
+12. 奖励模型怎么训练？loss 是什么？（How is a reward model trained, and what is its loss?）
+13. PPO 里的优势和价值模型分别是什么？（What are the advantage and the value model in PPO?）
+14. KL 惩罚的作用是什么？β 怎么影响训练？（What does the KL penalty do, and how does β affect training?）
+15. 什么是 reward hacking？举例并说说怎么缓解。（What is reward hacking? Give examples and mitigations.）
+16. RLHF 为什么又贵又难训？（Why is RLHF so expensive and hard to train?）
+
+**Level 4 — DPO**
+
+17. DPO 的核心思想是什么？它和 RLHF 有什么区别？（What is the core idea of DPO, and how does it differ from RLHF?）
+18. 写出 DPO 的 loss，解释 β 的作用。（Write out the DPO loss and explain what β does.）
+19. DPO 有哪些局限？什么时候你会选 RLHF 而不是 DPO？（What are DPO's limitations, and when would you choose RLHF instead?）
+
+**Level 5 — 推理强化学习**
+
+20. 什么是可验证奖励（RLVR）？适合什么任务？（What are verifiable rewards, and what tasks suit them?）
+21. GRPO 和 PPO 有什么区别？GRPO 怎么计算优势？（How does GRPO differ from PPO, and how does it compute advantages?）
+22. 为什么一组回答全对或全错时，GRPO 学不到东西？（Why does GRPO learn nothing when a group is all correct or all wrong?）
+23. 推理模型的长思维链是怎么出现的？工程上的代价是什么？（How do reasoning models' long chains of thought emerge, and what's the engineering cost?）
+
+**Level 6 — 副作用、评估与工程选择**
+
+24. 对齐有哪些副作用？分别怎么缓解？（What side effects does alignment have, and how is each mitigated?）
+25. 怎么评估一个 post-training 后的模型？LLM-as-judge 要注意什么？（How do you evaluate a post-trained model, and what should you watch for with LLM-as-judge?）
+26. 一个客服场景的回答总是太啰嗦，你会用 prompt、RAG、SFT 还是 DPO？为什么？（Support responses are consistently too wordy — would you use prompting, RAG, SFT, or DPO, and why?）
+27. 做领域 SFT 时，你会从 base 模型还是 instruct 模型开始？（For domain SFT, would you start from a base model or an instruct model?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Post-training turns a model that can continue text into one that follows instructions and gives the answers people prefer.
-
-### Level 2 — Mechanism
-
-SFT teaches format and tasks. RLHF uses a reward model plus reinforcement learning; DPO optimizes directly on preference pairs, skipping the explicit reward model and sampling loop.
-
-### Level 3 — Engineering
-
-Data quality and preference coverage decide how the model behaves. Fine-tune too aggressively and you get catastrophic forgetting. In production, most capabilities come from RAG or prompting — not from retraining the base model.
+- Upstream: [Training](/docs/llm/training) (where base models come from, cross-entropy loss, knowledge cutoffs) · [Attention & Transformer](/docs/llm/transformer) (Level 8: why generation is slow and reasoning models are expensive) · [Tokenization](/docs/llm/tokenization) (chat template special tokens, why output tokens cost more)
+- Downstream and adjacent: [Fine-tuning](/docs/llm/fine-tuning) (LoRA / QLoRA, choosing between RAG and fine-tuning) · [Prompt Engineering](/docs/application/prompt-engineering) (why system prompts work) · [Structured Output](/docs/application/structured-output)
+- Where it lands in engineering: [LLM Evaluation](/docs/evaluation/llm-eval) (win rate, LLM-as-judge) · [Tool Calling](/docs/agent/tool-calling) (tool-calling ability comes from post-training) · [Cost](/docs/production/cost)
 
 ## Interview questions
 
-1. What problem does each of SFT, RLHF, and DPO solve?
-2. Where does preference data come from, and what happens when it's bad?
-3. Why do many teams use DPO instead of full RLHF?
-4. Why can a model lose abilities it had after instruction tuning?
+Answer out loud first, then check against the matching Level.
 
-## My answer
+**Level 0 — What a base model lacks**
+
+1. How does a base model differ from a chat or instruct model?
+2. What are the stages of post-training, and what does each solve?
+3. Does post-training mainly change knowledge or behavior?
+
+**Level 1 — SFT**
+
+4. What is SFT, and what does its data look like and come from?
+5. What is a chat template, and what happens if the wrong one is used at inference?
+6. Why does SFT compute loss only on the response?
+7. How much SFT data do you need, and why does quality matter more than quantity?
+
+**Level 2 — Preference data**
+
+8. Why is preference data needed on top of SFT?
+9. How is preference data collected, and what noise and biases does it carry?
+10. Explain the Bradley-Terry model.
+
+**Level 3 — RLHF**
+
+11. What are the steps of RLHF?
+12. How is a reward model trained, and what is its loss?
+13. What are the advantage and the value model in PPO?
+14. What does the KL penalty do, and how does β affect training?
+15. What is reward hacking? Give examples and mitigations.
+16. Why is RLHF so expensive and hard to train?
+
+**Level 4 — DPO**
+
+17. What is the core idea of DPO, and how does it differ from RLHF?
+18. Write out the DPO loss and explain what β does.
+19. What are DPO's limitations, and when would you choose RLHF instead?
+
+**Level 5 — Reasoning RL**
+
+20. What are verifiable rewards, and what tasks suit them?
+21. How does GRPO differ from PPO, and how does it compute advantages?
+22. Why does GRPO learn nothing when a group is all correct or all wrong?
+23. How do reasoning models' long chains of thought emerge, and what's the engineering cost?
+
+**Level 6 — Side effects, evaluation, and engineering choices**
+
+24. What side effects does alignment have, and how is each mitigated?
+25. How do you evaluate a post-trained model, and what should you watch for with LLM-as-judge?
+26. Support responses are consistently too wordy — would you use prompting, RAG, SFT, or DPO, and why?
+27. For domain SFT, would you start from a base model or an instruct model?
 
 </Locale>
 
--
+---
+
+<Locale lang="zh">
+
+## 我的答案
+
+自己写，别让 agent 代写。30s 版超过 40 秒就砍；2min 版要能从 base model 的缺口一路讲到 SFT、DPO / RLHF 和工程选择。
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+Write it yourself — don't let the agent draft it. Cut the 30s version if it runs past 40 seconds; the 2min version should run from what a base model lacks through SFT, DPO / RLHF, and the engineering choice.
+
+</Locale>
+
+### 30s
+
+>
+
+### 2min
+
+>
 
 <Locale lang="zh">
 
 ## 项目锚点
+
+哪个项目里你做过或评估过 SFT、LoRA 微调、偏好数据或 LLM-as-judge？为什么选这个方案而不是 prompt 或 RAG？一句话 + 一个数字。参考 [项目深挖](/docs/projects)。
 
 </Locale>
 
@@ -123,6 +2159,8 @@ Data quality and preference coverage decide how the model behaves. Fine-tune too
 
 ## Project anchor
 
+In which project did you run or evaluate SFT, LoRA fine-tuning, preference data, or LLM-as-judge? Why that approach instead of prompting or RAG? One sentence plus one number. See [Projects](/docs/projects).
+
 </Locale>
 
--
+>

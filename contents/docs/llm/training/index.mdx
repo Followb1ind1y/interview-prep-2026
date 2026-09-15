@@ -1,113 +1,1948 @@
 ---
 title: Training
 titleEn: Training
-description: Pretraining、next-token prediction、cross entropy、scaling laws。不做到论文级。
-descriptionEn: Pretraining, next-token prediction, cross entropy, scaling laws.
-date: 2026-09-07
-keywords: ["pretraining", "next-token", "scaling laws", "cross entropy"]
+description: 预训练到底在学什么：next-token 交叉熵、一次训练 step、数据、scaling laws、分布式训练与显存，以及预训练给了模型什么、没给什么。
+descriptionEn: "What pretraining actually learns: next-token cross entropy, one training step, data, scaling laws, distributed training and memory, and what pretraining does and doesn't give a model."
+date: 2026-09-14
+keywords: ["pretraining", "next-token prediction", "cross entropy", "perplexity", "adamw", "learning rate", "scaling laws", "chinchilla", "data parallel", "zero", "fsdp", "base model"]
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-知道预训练在优化什么就够了。SFT / RLHF 放在 Post-training 页。
+LLM 的几乎所有能力——语法、事实知识、写代码、简单推理——底子都来自预训练。后面的 Post-training 只是教它「怎么用」这些能力。面试里 Training 不用做到论文级，但要能讲清：**预训练到底在优化什么、一次训练怎么跑、要多少数据和算力、为什么这么花钱、训完之后模型会什么不会什么**。
+
+这一页假设你已经学过 [Tokenization](/docs/llm/tokenization) 和 [Attention & Transformer](/docs/llm/transformer)（至少 Level 0、Level 5、Level 6）。那边讲过的 loss、梯度、teacher forcing、每个参数 16 字节，这里只简单回顾并链过去，不重复讲。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 回顾与梯度下降 | loss 和梯度是什么？参数具体是怎么一步步更新的？学习率太大会怎样？ | 20 min |
+| 1 · 预训练在学什么 | 没有标注数据，模型怎么学？next-token 预测的 loss 怎么算？perplexity 是什么？ | 40 min |
+| 2 · 一次训练 step | 一个 batch 从进入模型到参数更新，中间发生了什么？AdamW、学习率调度、梯度裁剪各管什么？ | 40 min |
+| 3 · 数据 | 预训练用什么数据？怎么清洗？要多少 token？ | 30 min |
+| 4 · Scaling laws | 模型该多大、数据该多少？训练要多少算力？为什么 LLaMA 3 8B 要训 15T token？ | 40 min |
+| 5 · 分布式训练与显存 | 为什么一张卡训不了？数据并行、ZeRO、张量并行、流水线并行分别切的是什么？ | 40 min |
+| 6 · 预训练给了什么、没给什么 | Base model 能做什么、不能做什么？知识截止、幻觉、领域适配跟预训练有什么关系？ | 30 min |
+
+每个 Level 末尾有几道自测题，**答不上来就先别往下读**。全页约 4 小时，分几次学完；`/drill` 会记住你上次学到哪。
+
+全页用同一个例子贯穿：**把「我 爱 猫 。」当成一条训练文本**，从算它的 loss 开始，一路讲到一次参数更新、再到估算整个模型的训练成本。下一页 [Post-training](/docs/llm/post-training) 会接着用这句话。
 
 ## 需要掌握
 
-- pretraining（预训练）
-- next-token prediction（下一个 token 预测）
-- cross entropy（交叉熵）
-- gradient descent（梯度下降）
-- backpropagation（反向传播）
-- scaling laws（缩放定律）
-- 数据 / 模型 / 算力的同步扩展
-
-## 机制
+- 梯度下降怎么更新参数，学习率的作用
+- 自监督学习：为什么文本自己就是标签
+- next-token 预测的交叉熵 loss 怎么算（手算一句话），perplexity 的含义
+- 一个训练 step 的完整流程：batch 形状 → 前向 → loss → 反向 → 优化器更新
+- AdamW、学习率 warmup + cosine 衰减、梯度裁剪、loss 曲线和 loss spike
+- 预训练数据的来源、清洗流程、数据配比、数据污染
+- Scaling laws、训练算力 ≈ 6 × 参数量 × token 数、Chinchilla 配比，以及为什么现在要「过度训练」小模型
+- 训练显存、数据并行、ZeRO / FSDP、张量并行、流水线并行、混合精度、激活重计算
+- Base model 的能力边界：续写而不是听指令、知识截止、幻觉的根源
 
 </Locale>
 
 <Locale lang="en">
 
-Knowing what pretraining optimizes is enough. SFT / RLHF live on the Post-training page.
+Almost every capability an LLM has — grammar, factual knowledge, coding, simple reasoning — is grounded in pretraining. Post-training later just teaches it how to use those capabilities. Interviews don't expect paper-level depth on training, but you do need to explain: **what pretraining actually optimizes, how a training run works, how much data and compute it takes, why it costs so much, and what the model can and can't do afterward**.
+
+This page assumes you've studied [Tokenization](/docs/llm/tokenization) and [Attention & Transformer](/docs/llm/transformer) (at least Levels 0, 5, and 6). Loss, gradients, teacher forcing, and 16 bytes per parameter were covered there; here they get a quick recap and a link rather than a second explanation.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Recap and gradient descent | What are loss and gradients? How exactly do parameters get updated step by step? What happens if the learning rate is too high? | 20 min |
+| 1 · What pretraining learns | With no labeled data, how does the model learn? How is next-token loss computed? What is perplexity? | 40 min |
+| 2 · One training step | What happens between a batch entering the model and the parameters updating? What do AdamW, learning-rate schedules, and gradient clipping each handle? | 40 min |
+| 3 · Data | What data goes into pretraining, how is it cleaned, and how many tokens does it take? | 30 min |
+| 4 · Scaling laws | How big should the model be and how much data should it see? How much compute does training take? Why train LLaMA 3 8B on 15T tokens? | 40 min |
+| 5 · Distributed training and memory | Why can't one GPU do it? What do data parallelism, ZeRO, tensor parallelism, and pipeline parallelism each split? | 40 min |
+| 6 · What pretraining does and doesn't give you | What can a base model do and not do? How do knowledge cutoffs, hallucination, and domain adaptation relate to pretraining? | 30 min |
+
+Each Level ends with a few self-check questions — **if you can't answer them, don't move on yet**. The page takes about 4 hours over several sessions; `/drill` remembers where you stopped.
+
+One example runs through the whole page: **treat 「我 爱 猫 。」 as a single piece of training text**. We start by computing its loss, then follow it through one parameter update, all the way to estimating the cost of training the entire model. The next page, [Post-training](/docs/llm/post-training), picks up the same sentence.
 
 ## Must know
 
-- pretraining
-- next-token prediction
-- cross entropy
-- gradient descent
-- backpropagation
-- scaling laws
-- data / model / compute scaling
+- how gradient descent updates parameters, and what the learning rate does
+- self-supervised learning: why text is its own label
+- how next-token cross-entropy loss is computed (by hand, for one sentence), and what perplexity means
+- the full training step: batch shape → forward pass → loss → backward pass → optimizer update
+- AdamW, learning-rate warmup + cosine decay, gradient clipping, loss curves and loss spikes
+- where pretraining data comes from, how it's cleaned, data mixtures, contamination
+- scaling laws, training compute ≈ 6 × parameters × tokens, the Chinchilla ratio, and why small models are now "overtrained"
+- training memory, data parallelism, ZeRO / FSDP, tensor parallelism, pipeline parallelism, mixed precision, activation checkpointing
+- what a base model can't do: it continues text instead of following instructions, has a knowledge cutoff, and hallucinates for a structural reason
 
-## Mechanism
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 回顾与梯度下降
+
+### loss 和梯度是什么？（回顾）
+
+[Attention & Transformer](/docs/llm/transformer) 的 Level 0 讲过训练的四步，这里快速回顾：
+
+```
+① 前向计算   把输入喂进模型，得到预测
+② 算 loss    用一个数衡量「错了多少」
+③ 算梯度     对每个参数，算出「往哪个方向调一点，loss 会变小」（反向传播）
+④ 更新参数   每个参数朝让 loss 变小的方向挪一小步
+```
+
+那一页没有展开第 ④ 步具体怎么「挪」。这一节用一个只有一个参数的模型把它手算出来。
+
+### 梯度下降具体是怎么更新参数的？手算一遍
+
+一个最小的模型：只有一个参数 w，预测值 = w × x。
+
+```
+训练样本:  x = 1，正确答案 y = 2
+loss:      (预测 − y)²  =  (w × 1 − 2)²
+一开始:    w = 0，预测 = 0，loss = (0 − 2)² = 4
+```
+
+**梯度**就是「w 变大一点点，loss 会怎么变」。对这个 loss 求导：
+
+```
+梯度 = 2 × (w × x − y) × x
+w = 0 时，梯度 = 2 × (0 − 2) × 1 = −4
+```
+
+梯度是负数，意思是「w 变大，loss 会变小」。**梯度下降**的更新规则是朝梯度的反方向走一小步：
+
+```
+w ← w − 学习率 × 梯度
+```
+
+取学习率 0.1，连续走 4 步：
+
+| step | w | 预测 | loss | 梯度 | 更新后的 w |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 0.000 | 0.000 | 4.000 | −4.000 | 0 − 0.1 × (−4.000) = 0.400 |
+| 1 | 0.400 | 0.400 | 2.560 | −3.200 | 0.720 |
+| 2 | 0.720 | 0.720 | 1.638 | −2.560 | 0.976 |
+| 3 | 0.976 | 0.976 | 1.049 | −2.048 | … |
+
+w 一步步靠近正确值 2，loss 一步步变小。离答案越近，梯度越小，步子也就自然越小。
+
+**真实 LLM 做的是完全一样的事**，只是参数从 1 个变成几十亿个，梯度靠反向传播一次性全部算出来，每个参数各自按自己的梯度更新。
+
+### 学习率太大或太小会怎样？
+
+同一个例子，把学习率从 0.1 换成 1.1：
+
+| step | w | loss | 梯度 |
+| --- | --- | --- | --- |
+| 0 | 0.000 | 4.000 | −4.000 |
+| 1 | 4.400 | 5.760 | 4.800 |
+| 2 | −0.880 | 8.294 | −5.760 |
+| 3 | 5.456 | 11.944 | 6.912 |
+
+步子迈得太大，每一步都跨过了正确值 2，而且越跨越远，loss 不降反升，这叫**发散**。
+
+- **学习率太大**：来回震荡甚至发散，loss 变成 NaN（数值溢出），训练直接崩掉
+- **学习率太小**：每步只挪一点点，要很多很多步才能收敛，算力全浪费在「慢慢走」上
+
+真实 LLM 的学习率看起来很小，比如 LLaMA 2 7B 的峰值学习率是 `3e-4`（0.0003）。这是因为模型有几十亿个参数一起动，而且优化器会按每个参数的情况再调整步长（Level 2 的 AdamW）。学习率怎么随训练过程变化，也在 Level 2 讲。
+
+### Batch、step、epoch 分别是什么？
+
+| 术语 | 含义 |
+| --- | --- |
+| **batch** | 一次用来算梯度的一组样本。多个样本的梯度取平均，比只看一个样本稳定得多，而且能在 GPU 上并行算 |
+| **step** | 一次参数更新。一个 batch → 算一次梯度 → 更新一次参数，就是一个 step |
+| **epoch** | 把整个训练集完整过一遍 |
+
+传统机器学习常说「训了 10 个 epoch」。**LLM 预训练基本只把数据过一遍左右**，数据量太大，而且重复看同样的数据收益很低。所以大家更习惯用**「训了多少 token」**来衡量训练量。
+
+一组能对上的真实数字：LLaMA 2 每个 step 的 batch 约 **400 万个 token**，总共训了 **2 万亿（2T）token**，所以一共约 **2T ÷ 4M = 500,000 个 step**。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 梯度是负数时，参数应该变大还是变小？为什么？
+2. 写出梯度下降的更新公式，并用 w = 0、梯度 = −4、学习率 0.1 算一步。
+3. 学习率太大会发生什么？太小呢？
+4. batch、step、epoch 分别是什么？为什么 LLM 预训练更常说「训了多少 token」？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Recap and gradient descent
+
+### What are loss and gradients? (recap)
+
+Level 0 of [Attention & Transformer](/docs/llm/transformer) covered the four steps of training. A quick recap:
+
+```
+① forward pass       feed the input through the model and get a prediction
+② compute the loss   one number measuring how wrong the prediction is
+③ compute gradients  for every parameter, which direction to nudge it so the loss drops (backpropagation)
+④ update             move every parameter a small step in that direction
+```
+
+That page didn't spell out how step ④ actually moves the parameters. This section works it out by hand with a model that has a single parameter.
+
+### How exactly does gradient descent update parameters? Work it by hand
+
+The smallest possible model: one parameter w, and prediction = w × x.
+
+```
+training example:  x = 1, correct answer y = 2
+loss:              (prediction − y)²  =  (w × 1 − 2)²
+at the start:      w = 0, prediction = 0, loss = (0 − 2)² = 4
+```
+
+The **gradient** answers "if w grows a tiny bit, how does the loss change?" Differentiating this loss:
+
+```
+gradient = 2 × (w × x − y) × x
+at w = 0, gradient = 2 × (0 − 2) × 1 = −4
+```
+
+A negative gradient means "increasing w decreases the loss." **Gradient descent** takes a small step in the opposite direction of the gradient:
+
+```
+w ← w − learning rate × gradient
+```
+
+With a learning rate of 0.1, take four steps:
+
+| step | w | prediction | loss | gradient | new w |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 0.000 | 0.000 | 4.000 | −4.000 | 0 − 0.1 × (−4.000) = 0.400 |
+| 1 | 0.400 | 0.400 | 2.560 | −3.200 | 0.720 |
+| 2 | 0.720 | 0.720 | 1.638 | −2.560 | 0.976 |
+| 3 | 0.976 | 0.976 | 1.049 | −2.048 | … |
+
+w creeps toward the correct value of 2 and the loss keeps shrinking. The closer it gets, the smaller the gradient, so the steps naturally get smaller too.
+
+**A real LLM does exactly the same thing** — just with billions of parameters instead of one. Backpropagation computes all their gradients in one pass, and each parameter updates according to its own gradient.
+
+### What happens if the learning rate is too high or too low?
+
+Same example, but change the learning rate from 0.1 to 1.1:
+
+| step | w | loss | gradient |
+| --- | --- | --- | --- |
+| 0 | 0.000 | 4.000 | −4.000 |
+| 1 | 4.400 | 5.760 | 4.800 |
+| 2 | −0.880 | 8.294 | −5.760 |
+| 3 | 5.456 | 11.944 | 6.912 |
+
+Each step is so large that it overshoots the correct value of 2, by more every time, so the loss rises instead of falling. That's called **divergence**.
+
+- **Learning rate too high**: training oscillates or diverges, the loss turns into NaN (numerical overflow), and the run crashes
+- **Learning rate too low**: each step barely moves, so it takes an enormous number of steps to converge and the compute gets wasted inching along
+
+Real LLM learning rates look tiny — LLaMA 2 7B's peak is `3e-4` (0.0003). That's because billions of parameters move together, and the optimizer adjusts each parameter's step size individually (AdamW in Level 2). How the learning rate changes over the course of training is also in Level 2.
+
+### What are a batch, a step, and an epoch?
+
+| Term | Meaning |
+| --- | --- |
+| **batch** | the set of examples used to compute one gradient. Averaging gradients over many examples is far more stable than using one, and it runs in parallel on GPUs |
+| **step** | one parameter update: one batch → one gradient → one update |
+| **epoch** | one full pass over the training set |
+
+Classic machine learning talks about "training for 10 epochs." **LLM pretraining passes over its data roughly once** — there's too much of it, and seeing the same data again pays off little. So training volume is usually measured in **how many tokens the model has seen**.
+
+A set of real numbers that line up: LLaMA 2 used about **4 million tokens per step** and trained on **2 trillion (2T) tokens** in total, for roughly **2T ÷ 4M = 500,000 steps**.
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. When a gradient is negative, should the parameter go up or down, and why?
+2. Write the gradient descent update rule and compute one step with w = 0, gradient = −4, learning rate 0.1.
+3. What happens when the learning rate is too high? Too low?
+4. What are a batch, a step, and an epoch? Why does LLM pretraining usually talk about "how many tokens were trained"?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 预训练在学什么：next-token 预测
+
+### 没有人工标注，模型怎么学？
+
+传统的**监督学习**需要人工标注：一张图片配一个「猫」的标签，模型学「图片 → 标签」。给几万亿 token 的文本一个个打标签，完全不可能。
+
+预训练用的办法是：**让文本自己当标签**。一句话里，每个位置的「下一个 token」就是这个位置的正确答案。拿「我 爱 猫 。」当训练文本：
+
+```
+模型看到的（输入）         要预测的（目标）
+<bos>                     我
+<bos> 我                  爱
+<bos> 我 爱               猫
+<bos> 我 爱 猫            。
+```
+
+一句 4 个 token 的话，自动变成 4 个训练样本，不需要任何人工标注。这种「从数据本身构造监督信号」的方式叫**自监督学习（self-supervised learning）**。
+
+而且这 4 个样本不用分 4 次算：靠 causal mask，一次前向计算就能让每个位置同时预测自己的下一个 token（[Attention & Transformer](/docs/llm/transformer) Level 4、Level 5 讲过，就是 teacher forcing）。
+
+**这就是 LLM 能用上整个互联网文本的原因**：任何一段文字，拿来就能训练。
+
+### 一句话的 loss 怎么算？手算「我 爱 猫 。」
+
+在每个位置，模型会输出一个覆盖整个词表的概率分布（logits 过 softmax，见 Attention & Transformer Level 6）。**loss 只看模型给正确答案的那个概率 p，取 −ln p。**
+
+假设模型现在对这句话给出的概率是：
+
+| 位置 | 模型看到的 | 正确答案 | 模型给正确答案的概率 p | loss = −ln p |
+| --- | --- | --- | --- | --- |
+| 1 | `<bos>` | 我 | 0.05 | 2.996 |
+| 2 | `<bos>` 我 | 爱 | 0.30 | 1.204 |
+| 3 | `<bos>` 我 爱 | 猫 | 0.10 | 2.303 |
+| 4 | `<bos>` 我 爱 猫 | 。 | 0.60 | 0.511 |
+
+整句话的 loss 取平均：
+
+```
+(2.996 + 1.204 + 2.303 + 0.511) / 4 = 1.753
+```
+
+读这张表：
+
+- 位置 4 最容易：看到「我 爱 猫」，下一个是句号很正常，模型给了 0.60，loss 很低
+- 位置 1 最难：只看到开头，下一个字可能是任何字，给「我」0.05 已经不低了
+- 位置 3 有意思：「我 爱」后面可以是猫、狗、你、学习……模型只给了「猫」0.10
+
+这个「正确答案概率的负对数」就叫**交叉熵（cross entropy）**。一个 batch 的 loss，就是 batch 里所有位置交叉熵的平均。训练的目标就是把这个数压低。
+
+<Note title="为什么取对数，而不是直接用 1 − p？">
+
+两个原因。一是**对自信的错误罚得很重**：p = 0.5 时 loss 是 0.693，p = 0.01 时 loss 是 4.6，模型「很确定地错」会被强烈纠正。二是**乘法变加法**：一整句话的概率是每个位置概率的乘积，取对数后变成求和，数值稳定，也方便求梯度。
+
+</Note>
+
+### Perplexity 是什么？
+
+**Perplexity（困惑度）= e 的「平均 loss」次方**，是 loss 的一个更直观的换算：
+
+```
+上面那句话: perplexity = e^1.753 = 5.77
+```
+
+直觉是：**模型平均每一步像在 5.77 个候选里犹豫**。越低越好，最低是 1（每一步都百分之百确定）。
+
+一个很有用的参照点——完全随机猜。如果模型对 LLaMA 3 词表里的 128,256 个 token 一视同仁：
+
+```
+每个 token 的概率 = 1 / 128,256
+loss = ln(128,256) = 11.76
+perplexity = 128,256        ← 等于词表大小
+```
+
+**所以一个刚初始化、什么都没学的模型，loss 大约从 ln(词表大小) 开始**，训练就是把它从 11 左右一路压下去。
+
+<Note title="Perplexity 只能在同一个 tokenizer 下比较" type="warning">
+
+loss 和 perplexity 都是「每个 token」算的。换一个 tokenizer，同一段文本切出的 token 数不同、每个 token 的难度也不同，数值就没法直接比。说「A 模型 perplexity 比 B 低，所以更好」之前，先确认两者用的是同一个 tokenizer 和同一份评测数据（见 [Tokenization](/docs/llm/tokenization)）。
+
+</Note>
+
+### 为什么「预测下一个词」能学到知识和推理？
+
+因为**想把下一个词猜准，就必须学会它背后的东西**：
+
+| 要猜准的下一个词 | 模型必须学会的 |
+| --- | --- |
+| 「我 爱」→ 「猫」「你」「学习」… | 语法：「爱」后面接宾语 |
+| 「法国的首都是」→「巴黎」 | 事实知识 |
+| `def add(a, b): return` → `a + b` | 代码的语义 |
+| 「小明有 3 个苹果，又买了 2 个，现在有」→「5」 | 简单推理 |
+| 「他气得摔门而去，心情非常」→「糟糕」 | 情绪、常识 |
+
+loss 要持续下降，模型就只能把这些规律压缩进参数里。所以「next-token 预测」这个看起来很朴素的目标，逼着模型学到了语言、知识和一定程度的推理。
+
+<Note title="这也解释了幻觉从哪来" type="tip">
+
+预训练奖励的是「**看起来像真的下一个词**」，而不是「**真的正确的下一个词**」。模型没见过某个事实时，它仍然会给出一个语言上最通顺的续写。这就是幻觉的结构性来源，Level 6 会展开。
+
+</Note>
+
+<Note title="学到的程度取决于在数据里出现多少" type="warning">
+
+模型学到的是统计规律。一个事实在训练数据里出现几千次，模型记得很牢；只出现一两次，就很可能记不住或记混。所以「模型读过维基百科」不等于「模型记住了维基百科每一条」。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么说预训练是「自监督」的？「我 爱 猫 。」能变成几个训练样本？
+2. 模型给正确答案的概率是 0.3，这个位置的 loss 是多少？
+3. 交叉熵为什么用 −ln p？对「很自信但错了」有什么效果？
+4. Perplexity 是什么？一个随机初始化的模型，loss 大约从多少开始？
+5. 为什么「预测下一个词」能让模型学到知识？这和幻觉有什么关系？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · What pretraining learns: next-token prediction
+
+### With no human labels, how does the model learn?
+
+Classic **supervised learning** needs human labels: a picture paired with the label "cat," so the model learns "image → label." Hand-labeling trillions of tokens of text is simply impossible.
+
+Pretraining's answer: **let the text be its own label**. In any sentence, the next token at each position is that position's correct answer. Take 「我 爱 猫 。」 as a training text:
+
+```
+what the model sees (input)    what it must predict (target)
+<bos>                          我
+<bos> 我                       爱
+<bos> 我 爱                    猫
+<bos> 我 爱 猫                 。
+```
+
+A 4-token sentence automatically becomes 4 training examples with no human labeling at all. Building the supervision signal out of the data itself like this is called **self-supervised learning**.
+
+And those 4 examples don't need 4 separate computations: with the causal mask, one forward pass lets every position predict its own next token at the same time (covered in Levels 4 and 5 of [Attention & Transformer](/docs/llm/transformer) — that's teacher forcing).
+
+**This is why LLMs can use the entire internet as training data**: any piece of text is ready to train on.
+
+### How is the loss for one sentence computed? Work out 「我 爱 猫 。」
+
+At each position the model outputs a probability distribution over the whole vocabulary (logits through softmax, see Attention & Transformer Level 6). **The loss only looks at the probability p the model gave the correct answer, and takes −ln p.**
+
+Suppose the model currently assigns these probabilities to the sentence:
+
+| Position | What the model sees | Correct answer | Probability p given to it | loss = −ln p |
+| --- | --- | --- | --- | --- |
+| 1 | `<bos>` | 我 | 0.05 | 2.996 |
+| 2 | `<bos>` 我 | 爱 | 0.30 | 1.204 |
+| 3 | `<bos>` 我 爱 | 猫 | 0.10 | 2.303 |
+| 4 | `<bos>` 我 爱 猫 | 。 | 0.60 | 0.511 |
+
+The sentence's loss is the average:
+
+```
+(2.996 + 1.204 + 2.303 + 0.511) / 4 = 1.753
+```
+
+Reading the table:
+
+- Position 4 is easiest: after 「我 爱 猫」 a period is natural, the model gives it 0.60, and the loss is low
+- Position 1 is hardest: at the very start almost any character could come next, so 0.05 for 我 is actually not bad
+- Position 3 is interesting: after 「我 爱」 could come cat, dog, you, studying… and the model gives 猫 only 0.10
+
+This "negative log of the probability of the correct answer" is called **cross entropy**. A batch's loss is the average cross entropy over every position in the batch, and training aims to drive that number down.
+
+<Note title="Why take a log instead of just using 1 − p?">
+
+Two reasons. First, **it punishes confident mistakes hard**: p = 0.5 gives a loss of 0.693, but p = 0.01 gives 4.6, so being confidently wrong gets corrected strongly. Second, **multiplication becomes addition**: a whole sentence's probability is the product of every position's probability, and taking logs turns that into a sum, which is numerically stable and easy to differentiate.
+
+</Note>
+
+### What is perplexity?
+
+**Perplexity = e raised to the average loss.** It's a more intuitive way to read the loss:
+
+```
+the sentence above: perplexity = e^1.753 = 5.77
+```
+
+The intuition: **on average, at each step the model is hesitating among about 5.77 candidates**. Lower is better, and the minimum is 1 (fully certain at every step).
+
+A very useful reference point is pure random guessing. If the model treated all 128,256 tokens in LLaMA 3's vocabulary equally:
+
+```
+probability of each token = 1 / 128,256
+loss = ln(128,256) = 11.76
+perplexity = 128,256        ← equal to the vocabulary size
+```
+
+**So a freshly initialized model that has learned nothing starts with a loss of roughly ln(vocabulary size)**, and training drives it down from around 11.
+
+<Note title="Perplexity is only comparable under the same tokenizer" type="warning">
+
+Loss and perplexity are both computed per token. Change the tokenizer and the same text splits into a different number of tokens of different difficulty, so the numbers can't be compared directly. Before claiming "model A has lower perplexity than B, so it's better," confirm both use the same tokenizer and the same evaluation data (see [Tokenization](/docs/llm/tokenization)).
+
+</Note>
+
+### Why does "predict the next word" teach knowledge and reasoning?
+
+Because **to predict the next word well, the model has to learn what's behind it**:
+
+| Next word to predict | What the model has to learn |
+| --- | --- |
+| 「我 爱」→ cat, you, studying… | grammar: 爱 ("love") takes an object |
+| "The capital of France is" → "Paris" | factual knowledge |
+| `def add(a, b): return` → `a + b` | what code means |
+| "Tom has 3 apples and buys 2 more, so now he has" → "5" | simple reasoning |
+| "He slammed the door on his way out, feeling really" → "upset" | emotion, common sense |
+
+For the loss to keep dropping, the model has no choice but to compress these regularities into its parameters. That's how a humble-looking objective like next-token prediction forces a model to learn language, knowledge, and a degree of reasoning.
+
+<Note title="This also explains where hallucinations come from" type="tip">
+
+Pretraining rewards the **next word that looks right**, not the **next word that is actually true**. When the model hasn't seen a fact, it still produces the most fluent continuation. That's the structural source of hallucination, expanded on in Level 6.
+
+</Note>
+
+<Note title="How well something is learned depends on how often it appears" type="warning">
+
+What the model learns is statistical. A fact that appears thousands of times in the training data sticks firmly; one that appears once or twice is likely to be forgotten or mixed up. So "the model read Wikipedia" doesn't mean "the model memorized every Wikipedia entry."
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why is pretraining called self-supervised? How many training examples does 「我 爱 猫 。」 become?
+2. If the model gives the correct answer probability 0.3, what's the loss at that position?
+3. Why does cross entropy use −ln p, and how does that treat confident mistakes?
+4. What is perplexity? Roughly what loss does a randomly initialized model start at?
+5. Why does "predict the next word" teach a model knowledge, and how does that relate to hallucination?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 一次训练 step 是怎么跑的
+
+Level 1 讲了 loss 怎么算，这一节把它放回真实的训练循环里：一个 batch 从进入模型，到几十亿个参数被更新，中间到底发生了什么。
+
+### 一个 batch 长什么样？
+
+预训练数据是一篇篇长短不一的文档。为了不浪费算力去算 `<pad>`，通常的做法是**打包（packing）**：把文档首尾相连，中间用 `<eos>` 隔开，再切成固定长度的片段。
+
+```
+文档 A: 我 爱 猫 。                     文档 B: 今天 天气 很 好 。
+                    ↓ 首尾相连，用 <eos> 隔开
+我 爱 猫 。 <eos> 今天 天气 很 好 。 <eos> …
+                    ↓ 切成固定长度（例如 4,096 个 token 一段）
+[ 第 1 段 ] [ 第 2 段 ] [ 第 3 段 ] …
+```
+
+LLaMA 2 的上下文长度是 4,096，每个 step 约 400 万个 token，也就是一个 batch 大约 **1,000 条长度为 4,096 的序列**，形状约 `[1000, 4096]`。
+
+每条序列都按 Level 1 的方式「错开一位」变成输入和目标：
+
+```
+输入 = tokens[:, :-1]      去掉最后一个
+目标 = tokens[:, 1:]       去掉第一个
+```
+
+<Note title="打包后不同文档挤在同一条序列里">
+
+默认情况下，文档 B 的 token 能「看到」前面文档 A 的内容，这通常无害，模型会学会 `<eos>` 之后是新文档。有些模型会额外加一个文档边界的 mask，禁止跨文档做 attention，例如 LLaMA 3 在长序列训练时就这样做了。
+
+</Note>
+
+### 从前向到参数更新，一个 step 里发生了什么？
+
+```
+① 取一个 batch       token ids              [B, L]
+② 前向计算          logits                  [B, L, V]      每个位置对整个词表打分
+③ 算 loss           每个位置的交叉熵 → 平均   一个数
+④ 反向传播          每个参数的梯度            和参数形状一样
+⑤ 梯度裁剪          梯度整体太大就等比缩小
+⑥ 优化器更新        AdamW 用梯度更新参数
+⑦ 清空梯度，进入下一个 step
+```
+
+这里 B 是 batch 里的序列数，L 是序列长度，V 是词表大小。
+
+<Note title="一个 batch 放不进 GPU 怎么办？梯度累积">
+
+光第 ② 步的 logits 就很大：一条 4,096 长的序列、32,000 的词表，用 fp16 存要约 262 MB；LLaMA 3 的 128,256 词表就要约 1 GB。1,000 条序列一起算根本放不下。所以实际会把一个 batch 拆成很多个小的 **micro-batch**，分到多张 GPU、分多次做前向和反向，把梯度**累加**起来，最后只做一次参数更新。结果和一次算完整个 batch 一样，这叫**梯度累积（gradient accumulation）**。
+
+</Note>
+
+### 为什么用 AdamW，而不是最简单的梯度下降？
+
+Level 0 的梯度下降对所有参数用同一个学习率，只看当前这一步的梯度。在几十亿参数的模型上，这有两个问题：
+
+- **梯度很吵**：每个 batch 的内容不同，梯度方向会来回跳
+- **不同参数需要的步长不一样**：有的参数梯度一直很大，有的一直很小，用同一个学习率很难兼顾
+
+**Adam** 为每个参数额外记两个「滑动平均」：
+
+```
+m（动量）      ≈ 最近梯度的平均方向        → 让更新方向更平稳，不被单个 batch 带偏
+v（二阶矩）    ≈ 最近梯度平方的平均大小    → 梯度一直很大的参数，步子自动变小
+
+每个参数的更新 ≈ 学习率 × m / √v
+```
+
+**AdamW** 在 Adam 的基础上加了**权重衰减（weight decay）**：每一步都把参数往 0 的方向稍微拉一点，防止参数无限变大，起到正则化作用。
+
+LLaMA 2 的真实配置：β₁ = 0.9（动量的平均速度）、β₂ = 0.95、权重衰减 0.1、梯度裁剪阈值 1.0。
+
+<Note title="Adam 的两个状态就是训练显存的大头" type="tip">
+
+m 和 v 每个参数各存一份，用 fp32 就是每个参数 8 字节。这正是 [Attention & Transformer](/docs/llm/transformer) Level 8 里「训练每个参数要 16 字节」中最大的一块，Level 5 的 ZeRO 就是专门切分它们的。
+
+</Note>
+
+### 学习率为什么要先升后降？
+
+标准做法是**先预热（warmup），再余弦衰减（cosine decay）**：
+
+- **Warmup**：训练刚开始时参数是随机的，Adam 的 m、v 也还没积累出靠谱的估计，这时步子太大很容易炸。所以学习率从 0 开始，线性升到峰值
+- **Cosine 衰减**：前期步子大一点，快速降 loss；后期步子越来越小，让模型稳定地收敛到更好的位置
+
+用 LLaMA 2 的真实配置算一遍：峰值 `3e-4`，warmup 2,000 步，之后按余弦曲线降到峰值的 10%，总共约 500,000 步（Level 0 算过）：
+
+```
+step          学习率
+0             0
+1,000         1.50e-4     warmup 到一半
+2,000         3.00e-4     到达峰值
+126,500       2.60e-4     训练 1/4
+251,000       1.65e-4     训练一半
+375,500       6.95e-5     训练 3/4
+500,000       3.00e-5     结束，峰值的 10%
+```
+
+### 梯度裁剪是做什么的？
+
+偶尔会碰到一个「坏 batch」，算出来的梯度异常大。直接用它更新，参数会被一步推到很远的地方，之前的训练成果可能就毁了。
+
+**梯度裁剪**：把所有参数的梯度看成一个巨大的向量，算它的整体长度（范数）。超过阈值就**等比缩小**，方向不变：
+
+```
+阈值 = 1.0
+这一步的梯度范数 = 5.0  → 所有梯度都乘 1.0 / 5.0 = 0.2
+这一步的梯度范数 = 0.8  → 不动
+```
+
+这是一个便宜又有效的保险，几乎所有 LLM 训练都会开。
+
+### 正常的 loss 曲线长什么样？什么是 loss spike？
+
+一条正常的预训练 loss 曲线：
+
+- **起点约等于 ln(词表大小)**：32,000 词表的模型从约 10.4 开始（Level 1 讲过为什么）
+- **前期下降很快**：模型迅速学会高频词、基本语法
+- **后期越降越慢**：剩下的都是难学的知识和规律，最后缓慢降到 2 左右或更低（具体数值取决于 tokenizer 和数据）
+
+**Loss spike** 是训练中 loss 突然大幅跳高。常见原因是某批数据异常、学习率偏大、数值溢出。常见处理方式：
+
+- 靠梯度裁剪兜住小的波动
+- 跳过出问题的那几批数据
+- 回滚到 spike 之前保存的 checkpoint，调低学习率后继续——PaLM 训练时就用过「回滚 + 跳过数据」
+
+<Note title="训练 loss 在降，不代表能力一定在涨" type="warning">
+
+loss 衡量的是「平均猜下一个 token 猜得多准」，而下游关心的是回答问题、写代码、推理这些具体能力。所以训练过程中除了看 loss，还要定期在评测集上跑下游指标。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么预训练要把文档打包？一个 batch 的形状大概是什么？
+2. 按顺序说出一个训练 step 的七步。
+3. 什么是梯度累积？它解决了什么问题？
+4. Adam 的 m 和 v 各起什么作用？AdamW 多了什么？
+5. 为什么学习率要先 warmup 再衰减？梯度裁剪做了什么？
+6. 一个 128,256 词表的模型，loss 曲线大约从多少开始？loss spike 通常怎么处理？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · How one training step runs
+
+Level 1 covered how the loss is computed. This Level puts it back into the real training loop: what actually happens between a batch entering the model and billions of parameters being updated.
+
+### What does a batch look like?
+
+Pretraining data is a pile of documents of different lengths. To avoid wasting compute on `<pad>`, the usual approach is **packing**: join documents end to end with `<eos>` between them, then cut the stream into fixed-length pieces.
+
+```
+document A: 我 爱 猫 。                  document B: 今天 天气 很 好 。
+                    ↓ join end to end, separated by <eos>
+我 爱 猫 。 <eos> 今天 天气 很 好 。 <eos> …
+                    ↓ cut into fixed lengths (e.g. 4,096 tokens each)
+[ piece 1 ] [ piece 2 ] [ piece 3 ] …
+```
+
+LLaMA 2 has a 4,096-token context and uses about 4 million tokens per step, so a batch is roughly **1,000 sequences of length 4,096**, shape about `[1000, 4096]`.
+
+Each sequence is shifted by one, as in Level 1, to get inputs and targets:
+
+```
+inputs  = tokens[:, :-1]      drop the last token
+targets = tokens[:, 1:]       drop the first token
+```
+
+<Note title="Packing puts different documents in the same sequence">
+
+By default, tokens from document B can "see" document A before them. That's usually harmless — the model learns that a new document starts after `<eos>`. Some models add a document-boundary mask to block attention across documents; LLaMA 3, for example, did this when training on long sequences.
+
+</Note>
+
+### What happens in one step, from forward pass to parameter update?
+
+```
+① take a batch          token ids                       [B, L]
+② forward pass          logits                          [B, L, V]   every position scores the whole vocabulary
+③ compute the loss      cross entropy per position → average    a single number
+④ backward pass         a gradient for every parameter  same shape as the parameters
+⑤ gradient clipping     scale the gradients down if they're too large overall
+⑥ optimizer update      AdamW updates the parameters using the gradients
+⑦ zero the gradients and move on to the next step
+```
+
+Here B is the number of sequences in the batch, L is the sequence length, and V is the vocabulary size.
+
+<Note title="What if a batch doesn't fit on the GPU? Gradient accumulation">
+
+The logits in step ② alone are huge: one 4,096-token sequence with a 32,000-token vocabulary takes about 262 MB in fp16, and LLaMA 3's 128,256-token vocabulary takes about 1 GB. A thousand sequences at once won't fit. So in practice a batch is split into many small **micro-batches**, spread over many GPUs and several forward/backward passes, with their gradients **summed up** before a single parameter update. The result is identical to processing the whole batch at once; this is called **gradient accumulation**.
+
+</Note>
+
+### Why AdamW instead of plain gradient descent?
+
+The gradient descent from Level 0 uses one learning rate for every parameter and looks only at the current step's gradient. On a model with billions of parameters, that causes two problems:
+
+- **Gradients are noisy**: every batch has different content, so the gradient direction jumps around
+- **Different parameters need different step sizes**: some consistently get large gradients and others small ones, and a single learning rate can't serve both
+
+**Adam** keeps two extra moving averages for every parameter:
+
+```
+m (momentum)        ≈ the average direction of recent gradients    → steadier updates, not thrown off by a single batch
+v (second moment)   ≈ the average size of recent squared gradients → parameters with consistently large gradients take smaller steps
+
+each parameter's update ≈ learning rate × m / √v
+```
+
+**AdamW** adds **weight decay** on top of Adam: every step pulls each parameter slightly toward 0, keeping parameters from growing without bound, which acts as regularization.
+
+LLaMA 2's actual settings: β₁ = 0.9 (how quickly the momentum average moves), β₂ = 0.95, weight decay 0.1, and a gradient clipping threshold of 1.0.
+
+<Note title="Adam's two states are the biggest chunk of training memory" type="tip">
+
+m and v are stored once per parameter, which in fp32 is 8 bytes per parameter. That's the largest piece of the "16 bytes per parameter for training" from [Attention & Transformer](/docs/llm/transformer) Level 8, and ZeRO in Level 5 exists specifically to split them up.
+
+</Note>
+
+### Why does the learning rate rise and then fall?
+
+The standard recipe is **warmup, then cosine decay**:
+
+- **Warmup**: at the start the parameters are random and Adam's m and v haven't built up reliable estimates, so big steps can easily blow up training. The learning rate starts at 0 and climbs linearly to its peak
+- **Cosine decay**: take bigger steps early to cut the loss quickly, then ever smaller ones so the model settles into a better spot
+
+Work it out with LLaMA 2's real settings: peak `3e-4`, 2,000 warmup steps, then a cosine curve down to 10% of the peak, over about 500,000 steps in total (computed in Level 0):
+
+```
+step          learning rate
+0             0
+1,000         1.50e-4     halfway through warmup
+2,000         3.00e-4     peak reached
+126,500       2.60e-4     1/4 of training
+251,000       1.65e-4     halfway
+375,500       6.95e-5     3/4 of training
+500,000       3.00e-5     end, 10% of peak
+```
+
+### What does gradient clipping do?
+
+Occasionally a "bad batch" produces an abnormally large gradient. Updating with it directly can shove the parameters far away in a single step and wreck the progress made so far.
+
+**Gradient clipping**: treat all parameters' gradients as one giant vector and compute its overall length (norm). If it exceeds a threshold, **scale everything down proportionally**, keeping the direction:
+
+```
+threshold = 1.0
+this step's gradient norm = 5.0  → multiply every gradient by 1.0 / 5.0 = 0.2
+this step's gradient norm = 0.8  → leave it alone
+```
+
+It's cheap, effective insurance, and nearly every LLM training run turns it on.
+
+### What does a normal loss curve look like? What is a loss spike?
+
+A healthy pretraining loss curve:
+
+- **It starts at about ln(vocabulary size)**: a model with a 32,000-token vocabulary starts around 10.4 (Level 1 explains why)
+- **It drops fast early**: the model quickly picks up frequent words and basic grammar
+- **It slows down later**: what's left is hard knowledge and regularities, and it creeps down to around 2 or lower (the exact value depends on the tokenizer and data)
+
+A **loss spike** is a sudden large jump in loss during training. Common causes are an anomalous data batch, a learning rate that's too high, or numerical overflow. Common fixes:
+
+- rely on gradient clipping to absorb small bumps
+- skip the batches that caused the problem
+- roll back to a checkpoint saved before the spike and continue with a lower learning rate — PaLM's training used exactly this "roll back and skip data" approach
+
+<Note title="Falling training loss doesn't guarantee rising capability" type="warning">
+
+Loss measures "how well, on average, the model guesses the next token," while what users care about is concrete ability — answering questions, writing code, reasoning. So besides watching the loss, training runs periodically evaluate downstream metrics on benchmark sets.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why does pretraining pack documents together, and roughly what shape is a batch?
+2. Name the seven steps of a training step in order.
+3. What is gradient accumulation, and what problem does it solve?
+4. What do Adam's m and v each do, and what does AdamW add?
+5. Why does the learning rate warm up and then decay? What does gradient clipping do?
+6. Roughly where does the loss curve start for a model with a 128,256-token vocabulary, and how are loss spikes usually handled?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 数据：训什么、怎么洗、要多少
+
+Level 1 说「任何文本拿来就能训」，但「能训」不等于「值得训」。模型最后是什么水平，很大程度上由喂进去的数据决定。
+
+### 预训练数据从哪来？
+
+主要是公开可获取的大规模文本。LLaMA 1 公开了它的数据配比，是一个很好的参照（总计约 1.4T token）：
+
+| 来源 | 占比 | 提供什么 |
+| --- | --- | --- |
+| CommonCrawl（网页爬取） | 67% | 数量最大，覆盖面最广，质量参差不齐 |
+| C4（清洗过的网页） | 15% | 同上，但过滤得更干净 |
+| GitHub（代码） | 4.5% | 代码能力，也被认为有助于结构化推理 |
+| Wikipedia | 4.5% | 高质量事实知识，多语言 |
+| 书籍 | 4.5% | 长文本、连贯叙述 |
+| ArXiv（论文） | 2.5% | 科学和数学内容 |
+| StackExchange（问答） | 2% | 高质量的问答对 |
+
+之后的模型把数据量和配比都推得更远。比如 LLaMA 3 训练了 15T 以上的 token，代码数据是 LLaMA 2 的约 4 倍，超过 5% 是覆盖 30 多种语言的非英文数据。
+
+<Note title="数据配比直接决定模型擅长什么" type="tip">
+
+非英文数据只占几个百分点，所以很多模型的中文能力明显弱于英文；代码占比高的模型写代码更强。面试被问「为什么这个模型中文不好」时，从预训练数据配比讲起，比泛泛说「训练不够」有说服力得多。这和 [Tokenization](/docs/llm/tokenization) 里「token 效率取决于语言在训练语料里的占比」是同一个道理。
+
+</Note>
+
+### 原始网页数据为什么不能直接用？要怎么清洗？
+
+原始网页里充满了导航栏、广告、乱码、重复页面、低质量的 SEO 文章、色情暴力内容和个人隐私。直接拿来训，既浪费算力，又会让模型学坏。典型的清洗流水线：
+
+```
+① 抽取正文        从 HTML 里去掉导航、广告、脚本，只留正文
+② 语言识别        判断每篇文档是什么语言，按需要保留
+③ 去重            删掉完全相同和高度相似的文档
+④ 质量过滤        规则 + 分类器，打分后丢掉低质量内容
+⑤ 安全过滤        去掉有害内容，脱敏个人信息（邮箱、电话等）
+⑥ 去污染          删掉和评测集重复的内容（下面讲）
+```
+
+**去重**为什么重要？假设爬到的网页里「我 爱 猫 。」这一段在 3 个不同网站上各出现了一次：
+
+```
+原始:   我 爱 猫 。  |  我 爱 猫 。  |  我 爱 猫 。
+去重后: 我 爱 猫 。
+```
+
+不去重的话，模型会把这段话看 3 遍：浪费算力，还会让模型倾向于**逐字背下**高频重复的内容，而不是学到可泛化的规律。真实的去重除了找完全相同的文本，还会用 MinHash 这类方法找「只差几个字」的近似重复。
+
+**质量过滤**常见两类手段：
+
+- **规则**：太短的文档、符号或数字比例异常高的、重复行太多的，直接丢掉
+- **分类器**：训一个小模型给文档打「质量分」。LLaMA 3 就用上一代的 LLaMA 2 来生成训练这类质量分类器的数据
+
+### 什么是数据污染（contamination）？
+
+**评测集里的题目，出现在了训练数据里。** 比如某个数学评测的原题和答案被人贴到了网上，爬虫又把这个网页收进了预训练数据。
+
+后果是模型在这个评测上的分数**虚高**：它不是会做，而是见过答案。所以严格的训练流程会做去污染：检查训练数据和评测集之间的 n-gram 重叠（连续多个 token 完全一样），重叠太多的就删掉。
+
+<Note title="看到模型刷榜分数时要多问一句" type="warning">
+
+公开 benchmark 存在的时间越长，被混进各种网页、再被爬进训练数据的可能性越大。评估模型时，除了看公开榜单，最好用自己业务里没公开过的数据再测一遍，这也是 [Evaluation](/docs/evaluation) 专栏反复强调的点。
+
+</Note>
+
+### 要多少数据？真实模型训了多少 token？
+
+| 模型 | 参数量 | 训练 token 数 |
+| --- | --- | --- |
+| GPT-3（2020） | 175B | 300B |
+| Chinchilla（2022） | 70B | 1.4T |
+| LLaMA 1 65B（2023） | 65B | 1.4T |
+| LLaMA 2（2023） | 7B / 13B / 70B | 2T |
+| LLaMA 3（2024） | 8B / 70B | 15T 以上 |
+
+趋势很明显：**训练 token 数的增长比参数量快得多**。LLaMA 3 8B 的参数量只有 GPT-3 的 1/20，训练 token 数却是它的 50 倍。为什么要这样训，是 Level 4 scaling laws 要回答的问题。
+
+<Note title="高质量数据是会用完的">
+
+公开互联网上高质量的文本总量是有限的，数据增长的速度跟不上模型对数据的需求。这是业界开始大量使用**合成数据**（让现有模型生成训练数据）的重要原因之一，也是 [Post-training](/docs/llm/post-training) 里很多数据的来源。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 预训练数据主要有哪些来源？数据配比会怎样影响模型能力？
+2. 说出网页数据清洗流水线的几个主要步骤。
+3. 为什么要去重？不去重会有什么后果？
+4. 什么是数据污染？它会对评测结果造成什么影响？
+5. 从 GPT-3 到 LLaMA 3，训练 token 数和参数量的增长有什么不同？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Data: what to train on, how to clean it, how much
+
+Level 1 said any text can be trained on, but "can be" isn't "worth it." How good a model ends up is largely decided by the data that goes in.
+
+### Where does pretraining data come from?
+
+Mostly large-scale, publicly accessible text. LLaMA 1 published its data mix, which makes a good reference (about 1.4T tokens in total):
+
+| Source | Share | What it provides |
+| --- | --- | --- |
+| CommonCrawl (web crawl) | 67% | the largest volume and broadest coverage, very uneven quality |
+| C4 (cleaned web) | 15% | same, but filtered more thoroughly |
+| GitHub (code) | 4.5% | coding ability, also thought to help structured reasoning |
+| Wikipedia | 4.5% | high-quality factual knowledge, many languages |
+| Books | 4.5% | long-form, coherent text |
+| ArXiv (papers) | 2.5% | scientific and mathematical content |
+| StackExchange (Q&A) | 2% | high-quality question-answer pairs |
+
+Later models pushed both volume and mix much further. LLaMA 3, for example, trained on over 15T tokens, with about 4x as much code as LLaMA 2 and over 5% non-English data covering 30-plus languages.
+
+<Note title="The data mix directly decides what a model is good at" type="tip">
+
+Non-English data is only a few percent, which is why many models are noticeably weaker in Chinese than in English; models with more code are better at coding. When asked "why is this model bad at Chinese," starting from the pretraining data mix is far more convincing than a vague "it wasn't trained enough." It's the same principle as "token efficiency depends on how much of that language is in the training corpus" from [Tokenization](/docs/llm/tokenization).
+
+</Note>
+
+### Why can't raw web data be used as-is? How is it cleaned?
+
+Raw web pages are full of navigation bars, ads, garbled text, duplicate pages, low-quality SEO content, explicit or violent material, and personal information. Training on it directly wastes compute and teaches the model bad habits. A typical cleaning pipeline:
+
+```
+① extract text        strip navigation, ads, and scripts from HTML, keep the main content
+② language ID         identify each document's language and keep what's needed
+③ deduplicate         remove exact and near-duplicate documents
+④ quality filter      score with rules plus a classifier, drop low-quality content
+⑤ safety filter       remove harmful content, scrub personal information (emails, phone numbers)
+⑥ decontaminate       remove content that overlaps with evaluation sets (below)
+```
+
+**Why does deduplication matter?** Suppose the crawl picked up 「我 爱 猫 。」 once each on three different websites:
+
+```
+raw:       我 爱 猫 。  |  我 爱 猫 。  |  我 爱 猫 。
+deduped:   我 爱 猫 。
+```
+
+Without deduplication the model reads the passage three times: wasted compute, and a tendency to **memorize frequently repeated content word for word** instead of learning patterns that generalize. Real deduplication goes beyond exact matches and uses methods like MinHash to catch near-duplicates that differ by only a few words.
+
+**Quality filtering** usually combines two approaches:
+
+- **Rules**: drop documents that are too short, have an unusually high ratio of symbols or digits, or repeat lines too often
+- **Classifiers**: train a small model to give each document a quality score. LLaMA 3 used the previous generation, LLaMA 2, to generate the training data for exactly this kind of classifier
+
+### What is data contamination?
+
+**Questions from an evaluation set end up in the training data.** For example, a math benchmark's problems and answers get posted online, and a crawler sweeps that page into the pretraining data.
+
+The result is an **inflated score** on that benchmark: the model didn't learn to solve the problems, it saw the answers. Careful training pipelines therefore decontaminate: check n-gram overlap (runs of identical consecutive tokens) between the training data and evaluation sets, and remove anything that overlaps too much.
+
+<Note title="Ask one more question when you see leaderboard scores" type="warning">
+
+The longer a public benchmark has existed, the more likely it has leaked into web pages that later get crawled into training data. When evaluating a model, besides public leaderboards, test it again on data from your own use case that has never been published — a point the [Evaluation](/docs/evaluation) column keeps coming back to.
+
+</Note>
+
+### How much data is needed? How many tokens have real models trained on?
+
+| Model | Parameters | Training tokens |
+| --- | --- | --- |
+| GPT-3 (2020) | 175B | 300B |
+| Chinchilla (2022) | 70B | 1.4T |
+| LLaMA 1 65B (2023) | 65B | 1.4T |
+| LLaMA 2 (2023) | 7B / 13B / 70B | 2T |
+| LLaMA 3 (2024) | 8B / 70B | over 15T |
+
+The trend is clear: **training tokens have grown much faster than parameter counts**. LLaMA 3 8B has one-twentieth of GPT-3's parameters but trained on 50 times as many tokens. Why train this way is the question Level 4's scaling laws answer.
+
+<Note title="High-quality data runs out">
+
+The total amount of high-quality text on the public internet is finite, and it isn't growing as fast as models' appetite for data. That's a major reason the industry has turned heavily to **synthetic data** (having existing models generate training data), which is also where much of the data in [Post-training](/docs/llm/post-training) comes from.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What are the main sources of pretraining data, and how does the data mix affect a model's abilities?
+2. Name the main steps of a web-data cleaning pipeline.
+3. Why deduplicate, and what happens if you don't?
+4. What is data contamination, and how does it distort evaluation results?
+5. From GPT-3 to LLaMA 3, how has the growth in training tokens compared with the growth in parameters?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 4 · Scaling laws：模型该多大、数据该多少
+
+训练一个大模型要花几百万到几千万美元，没法「先训训看」。Scaling laws 回答的就是：**在花钱之前，怎么预测效果、怎么分配预算**。
+
+### Scaling laws 说的是什么？
+
+核心发现：**模型的 loss 会随着参数量、数据量、算力的增加，平滑且可预测地下降。** 在对数坐标上画出来，基本是一条直线。
+
+这带来一个非常实用的能力：**先用小规模训练拟合出这条线，再外推大模型的效果**。GPT-4 的技术报告就提到，他们用算力只有其万分之一左右的小模型，提前预测出了 GPT-4 的最终 loss。
+
+<Note title="Scaling laws 对工程师有什么用" type="tip">
+
+不训练基座模型的团队也用得上这个思路：「加数据」「换更大的模型」各能带来多少提升，可以先在小规模上做实验、画曲线，再决定是否投入。面试时能说出「先小规模验证，再按趋势外推」，比「越大越好」专业得多。
+
+</Note>
+
+### 训练一个模型要多少算力？
+
+一个很好用的估算公式：
+
+```
+训练算力（浮点运算次数）≈ 6 × 参数量 N × 训练 token 数 D
+```
+
+为什么是 6？[Attention & Transformer](/docs/llm/transformer) Level 8 讲过，前向计算每个 token 约 **2N** 次运算；反向传播大约是前向的两倍，约 **4N**；加起来每个 token **6N**。
+
+先拿贯穿全页的例子练手：用 7B 模型训练「`<bos>` 我 爱 猫 。」这 5 个 token，一次要做：
+
+```
+6 × 7×10⁹ × 5 = 2.1×10¹¹ 次浮点运算
+```
+
+再算整个 LLaMA 2 7B（2T token）：
+
+```
+C = 6 × 7×10⁹ × 2×10¹² = 8.4×10²² 次浮点运算
+```
+
+**换算成 GPU 小时，和官方数字对账。** 按常见假设：一张 A100 用 bf16 的理论算力约每秒 312 万亿次运算，实际利用率（MFU）约 40%：
+
+```
+实际吞吐 = 312×10¹² × 40% ≈ 1.25×10¹⁴ 次/秒
+耗时     = 8.4×10²² / 1.25×10¹⁴ ≈ 6.7×10⁸ 秒 ≈ 187,000 GPU 小时
+```
+
+Meta 公布的 LLaMA 2 7B 实际用了 **184,320 A100 GPU 小时**，估算只差约 1.5%。同样的方法估 70B 得到约 187 万小时，官方数字是 172 万小时。
+
+<Note title="能现场估出训练成本，是面试里的加分项" type="tip">
+
+「6ND」加上「GPU 算力 × 利用率」，几分钟就能把一个模型的训练成本估到正确的数量级。再乘上每 GPU 小时的价格，就是钱：按每小时 2 美元粗算，LLaMA 2 7B 约 37 万美元；LLaMA 3 8B 官方公布约 130 万 H100 GPU 小时，约 260 万美元。
+
+</Note>
+
+### 固定预算下，模型大一点好还是数据多一点好？
+
+这是 scaling laws 最重要的应用。算力 C ≈ 6ND 固定时，N 和 D 此消彼长：可以训一个大模型、少看点数据，也可以训一个小模型、多看点数据。
+
+**Chinchilla（2022）给出的答案：参数量和数据量应该同步增长，大约每个参数配 20 个 token。**
+
+它用了一个很漂亮的对照实验：
+
+```
+Gopher      280B 参数 × 300B token
+Chinchilla   70B 参数 × 1.4T token      ← 算力差不多，参数只有 1/4
+结果：Chinchilla 在大多数评测上更好
+```
+
+结论是，之前的大模型普遍**参数太多、数据太少**。用「每个参数多少 token」来看各个模型：
+
+| 模型 | 参数量 | 训练 token | 每个参数的 token 数 |
+| --- | --- | --- | --- |
+| GPT-3 | 175B | 300B | 约 2 |
+| Chinchilla | 70B | 1.4T | **20** |
+| LLaMA 2 7B | 7B | 2T | 约 286 |
+| LLaMA 3 8B | 8B | 15T | 约 1,875 |
+
+### 既然 Chinchilla 说 20 倍最优，为什么 LLaMA 3 8B 要训到 1,875 倍？
+
+因为 **Chinchilla 的「最优」只算了训练成本，没算推理成本**。
+
+- Chinchilla 回答的是：「想达到某个 loss，**训练**时怎么花算力最省？」
+- 但模型训完是要部署的，**每生成一个 token 的推理成本和参数量成正比**，而且会持续几个月、几年、服务几亿次请求
+
+所以现在的做法是：**把一个小模型训得远超 Chinchilla 配比**。训练时多花点算力，换来一个同等效果但小得多、推理便宜得多的模型。
+
+```
+8B 模型每个 token 的推理算力 ≈ 2 × 8B
+70B 模型                     ≈ 2 × 70B      约是 8B 的 8.75 倍
+```
+
+而且实验表明，超过 20 倍之后 loss 仍然在降：Meta 提到 LLaMA 3 的 8B 和 70B 训到 15T token 时，效果仍然在按对数线性提升。
+
+<Note title="「涌现能力」要谨慎地说" type="warning">
+
+常听到「模型大到一定程度，某些能力会突然涌现」。但 loss 本身是平滑下降的；很多「突然出现」的现象，是因为评测指标是「全对才得分」这种非黑即白的方式，把平滑的进步显示成了跳变。面试里可以说「有些任务的表现会在某个规模附近快速提升」，别说成「能力是突然凭空出现的」。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. Scaling laws 的核心发现是什么？它能帮我们做什么？
+2. 训练算力为什么约等于 6ND？估算 LLaMA 2 7B 的训练算力，并换算成 GPU 小时。
+3. Chinchilla 的结论是什么？它是怎么证明的？
+4. 为什么 LLaMA 3 8B 训练的 token 数远超 Chinchilla 的「最优」配比？
+5. 为什么说「涌现能力」要谨慎地说？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Scaling laws: how big should the model be, how much data should it see
+
+Training a large model costs millions to tens of millions of dollars, so "just train it and see" isn't an option. Scaling laws answer: **how do you predict the outcome and allocate the budget before spending the money**.
+
+### What do scaling laws say?
+
+The core finding: **a model's loss falls smoothly and predictably as parameters, data, and compute grow.** Plotted on log-log axes, it's close to a straight line.
+
+That gives you a very practical ability: **fit the line with small training runs, then extrapolate to a large model**. The GPT-4 technical report describes predicting GPT-4's final loss ahead of time using small models trained with on the order of ten-thousandth of the compute.
+
+<Note title="Why scaling laws matter to engineers" type="tip">
+
+Teams that never train a base model can still use the idea: how much do "more data" or "a bigger model" actually buy? Run small experiments, plot the curve, then decide whether to invest. Saying "validate at small scale, then extrapolate the trend" in an interview sounds far more professional than "bigger is better."
+
+</Note>
+
+### How much compute does training a model take?
+
+A very handy estimate:
+
+```
+training compute (floating-point operations) ≈ 6 × parameters N × training tokens D
+```
+
+Why 6? [Attention & Transformer](/docs/llm/transformer) Level 8 covered that a forward pass costs about **2N** operations per token; the backward pass costs roughly twice that, about **4N**; together, **6N** per token.
+
+Warm up on the running example: training a 7B model on the 5 tokens 「`<bos>` 我 爱 猫 。」 takes:
+
+```
+6 × 7×10⁹ × 5 = 2.1×10¹¹ floating-point operations
+```
+
+Now all of LLaMA 2 7B (2T tokens):
+
+```
+C = 6 × 7×10⁹ × 2×10¹² = 8.4×10²² floating-point operations
+```
+
+**Convert to GPU hours and check against the official number.** Under common assumptions — an A100 in bf16 has a theoretical throughput of about 312 trillion operations per second, with around 40% actual utilization (MFU):
+
+```
+actual throughput = 312×10¹² × 40% ≈ 1.25×10¹⁴ operations/second
+time              = 8.4×10²² / 1.25×10¹⁴ ≈ 6.7×10⁸ seconds ≈ 187,000 GPU hours
+```
+
+Meta reported that LLaMA 2 7B actually used **184,320 A100 GPU hours** — the estimate is off by about 1.5%. The same method gives about 1.87 million hours for 70B, against an official 1.72 million.
+
+<Note title="Estimating training cost on the spot is an interview win" type="tip">
+
+"6ND" plus "GPU throughput × utilization" gets a model's training cost to the right order of magnitude in minutes. Multiply by the price per GPU hour and you have dollars: at a rough $2 an hour, LLaMA 2 7B comes to about $370K; LLaMA 3 8B, officially about 1.3 million H100 GPU hours, comes to about $2.6M.
+
+</Note>
+
+### With a fixed budget, is a bigger model or more data better?
+
+This is the most important application of scaling laws. With compute C ≈ 6ND fixed, N and D trade off: train a big model on less data, or a small model on more.
+
+**Chinchilla's (2022) answer: grow parameters and data together, at roughly 20 tokens per parameter.**
+
+It rested on an elegant comparison:
+
+```
+Gopher      280B parameters × 300B tokens
+Chinchilla   70B parameters × 1.4T tokens      ← about the same compute, a quarter of the parameters
+result: Chinchilla did better on most evaluations
+```
+
+The conclusion: earlier large models were generally **too big and undertrained on data**. Look at tokens per parameter across models:
+
+| Model | Parameters | Training tokens | Tokens per parameter |
+| --- | --- | --- | --- |
+| GPT-3 | 175B | 300B | about 2 |
+| Chinchilla | 70B | 1.4T | **20** |
+| LLaMA 2 7B | 7B | 2T | about 286 |
+| LLaMA 3 8B | 8B | 15T | about 1,875 |
+
+### If Chinchilla says 20x is optimal, why train LLaMA 3 8B to 1,875x?
+
+Because **Chinchilla's "optimal" only counts training cost, not inference cost**.
+
+- Chinchilla answers: "to reach a given loss, what's the cheapest way to spend **training** compute?"
+- But a trained model gets deployed, and **inference cost per generated token scales with parameter count** — for months or years, across hundreds of millions of requests
+
+So today's practice is to **train a small model far past the Chinchilla ratio**. Spend more compute in training, and get a model that's just as good but much smaller and far cheaper to serve.
+
+```
+inference compute per token, 8B model    ≈ 2 × 8B
+                             70B model   ≈ 2 × 70B      about 8.75x the 8B
+```
+
+And experiments show the loss keeps falling past 20x: Meta noted that LLaMA 3's 8B and 70B models were still improving log-linearly after training on 15T tokens.
+
+<Note title="Be careful when talking about “emergent abilities”" type="warning">
+
+You'll often hear that certain abilities suddenly emerge once a model is large enough. But the loss itself falls smoothly, and many "sudden" jumps come from all-or-nothing metrics (credit only for a fully correct answer) that make smooth progress look like a step change. In an interview, "performance on some tasks improves quickly around a certain scale" is fine; "abilities appear out of nowhere" is not.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What's the core finding of scaling laws, and what can it help you do?
+2. Why is training compute about 6ND? Estimate LLaMA 2 7B's training compute and convert it to GPU hours.
+3. What did Chinchilla conclude, and how did it show it?
+4. Why did LLaMA 3 8B train on far more tokens than Chinchilla's "optimal" ratio?
+5. Why should you be careful when talking about "emergent abilities"?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 5 · 分布式训练与显存
+
+Level 4 算出 LLaMA 2 7B 要约 18 万 GPU 小时。如果只用一张卡，要连续跑 21 年。更根本的问题是：**一张卡连模型都放不下**。这一节讲大模型是怎么被切开、分到成千上万张卡上训练的。
+
+### 为什么一张 GPU 训不了 7B 模型？
+
+[Attention & Transformer](/docs/llm/transformer) Level 8 算过：混合精度 + AdamW 训练，每个参数要存约 **16 字节**（fp16 权重 2 + fp16 梯度 2 + fp32 主权重 4 + Adam 的 m 和 v 共 8）。
+
+```
+7B 模型:   7×10⁹ × 16 字节 ≈ 112 GB
+70B 模型:  70×10⁹ × 16 字节 ≈ 1,120 GB
+一张 A100 / H100:  80 GB
+```
+
+这还没算**激活值**：前向计算时每一层的中间结果都要留着给反向传播用，它和 batch 大小 × 序列长度 × 层数成正比，长序列时可能比上面这些还大。
+
+所以要解决两件事：**放得下**（切分显存）和**算得快**（多卡并行）。
+
+### 混合精度是什么？为什么用 bf16？
+
+**混合精度**：前向和反向计算用 16 位浮点数（省显存、算得快），同时保留一份 32 位的「主权重」用来做参数更新（保证精度，小的更新量不会被舍入成 0）。
+
+16 位有两种格式：
+
+| | fp16 | bf16（bfloat16） |
+| --- | --- | --- |
+| 能表示的数值范围 | 小，容易上溢或下溢 | 和 fp32 一样大 |
+| 精度 | 相对高 | 相对低 |
+| 训练稳定性 | 需要额外做 loss scaling 防止梯度下溢 | 基本不需要，更省心 |
+
+现在的大模型训练基本都用 **bf16**：精度稍低一点，但数值范围和 fp32 一样，几乎不会出现溢出导致的 loss 变 NaN。
+
+### 数据并行是怎么做的？它有什么局限？
+
+**数据并行（Data Parallelism）**是最简单的多卡训练：
+
+```
+每张 GPU 上都放一份完整的模型
+一个 batch 拆成 N 份，每张卡算自己那一份的梯度
+所有卡把梯度求平均（all-reduce 通信）
+每张卡用同样的平均梯度更新 → 所有卡上的模型始终保持一致
+```
+
+8 张卡就是 8 倍的吞吐，而且实现简单。
+
+**局限：每张卡都要放下完整的模型和优化器状态。** 7B 训练要 112 GB，一张 80 GB 的卡连一份都放不下，单纯的数据并行在这里就走不通了。
+
+### ZeRO / FSDP 切的是什么？
+
+**ZeRO（DeepSpeed 的方案）和 FSDP（PyTorch 的对应实现）的思路是：数据并行时，每张卡上那份完整的优化器状态、梯度、参数，大部分是重复的，把它们切开分到各张卡上。**
+
+分三个阶段，切得越来越多：
+
+| 阶段 | 切分什么 | 效果 |
+| --- | --- | --- |
+| ZeRO-1 | 优化器状态（Adam 的 m、v、主权重，占 16 字节里的 12 字节） | 显存大头被切开 |
+| ZeRO-2 | 再加上梯度 | 进一步省显存 |
+| ZeRO-3 / FSDP | 再加上参数本身 | 每张卡只存 1/N，用到某一层时临时从其他卡取回来 |
+
+用 ZeRO-3 算一下：
+
+```
+7B 模型:   112 GB ÷ 8 张卡  = 每张卡 14 GB
+70B 模型:  1,120 GB ÷ 64 张卡 = 每张卡 17.5 GB      （激活值另算）
+```
+
+代价是**通信变多**：每一层计算前都要从其他卡把参数收集回来，算完再释放。卡与卡之间的网络越快，这个代价越小。
+
+### 张量并行和流水线并行又是什么？
+
+模型大到一定程度，光靠 ZeRO 还不够，或者通信代价太高，就要**把模型本身切开**：
+
+| 方式 | 怎么切 | 通信要求 | 通常用在 |
+| --- | --- | --- | --- |
+| **数据并行 / ZeRO** | 数据切开，模型状态切开 | 中 | 跨节点，最基础的一层 |
+| **张量并行（Tensor Parallelism）** | **一层内部**的大矩阵切开，比如把 FFN 的矩阵按列分到几张卡上同时算 | 非常高，每一层都要通信 | 单台机器内部（8 卡之间有 NVLink 高速互联） |
+| **流水线并行（Pipeline Parallelism）** | **按层**切开，比如 80 层里 1–40 层放 A 卡、41–80 层放 B 卡 | 较低，只在切分处传激活值 | 跨机器 |
+
+流水线并行有个问题：B 卡要等 A 卡算完前 40 层才能开始，中间会空转（叫「气泡」）。解决办法是把 batch 再切成很多个 micro-batch，像流水线一样一个接一个送进去，减少空闲时间。
+
+超大模型训练会把三种组合起来用，叫 **3D 并行**：机器内用张量并行，跨机器用流水线并行，最外层再套数据并行。
+
+### 激活重计算是什么？
+
+前面说过，激活值要留着给反向传播用，长序列时很占显存。**激活重计算（activation checkpointing）**的做法是：
+
+- 前向计算时**只保存少数几层**的激活值，其余的算完就扔
+- 反向传播需要时，从最近保存的地方**重新算一遍前向**把它们找回来
+
+这是典型的**用计算换显存**：大约多花三分之一的计算量，换来激活值显存的大幅下降。
+
+<Note title="真实规模下，硬件故障是常态">
+
+Meta 训练 LLaMA 3 用了两个各约 24,000 张 GPU 的集群。这种规模下，每天都可能有卡、网络或存储出故障。所以大规模训练必须定期保存 checkpoint、能自动检测故障并从最近的 checkpoint 恢复——这些工程能力本身就决定了一次训练能不能跑完。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么一张 80 GB 的 GPU 训不了 7B 模型？算一下显存需求。
+2. 混合精度是什么？bf16 比 fp16 好在哪？
+3. 数据并行怎么工作？它的局限是什么？
+4. ZeRO 的三个阶段分别切分了什么？代价是什么？
+5. 张量并行和流水线并行分别怎么切模型？为什么张量并行通常只在单台机器内用？
+6. 激活重计算是用什么换什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 5 · Distributed training and memory
+
+Level 4 estimated that LLaMA 2 7B needs about 180,000 GPU hours — 21 years nonstop on a single GPU. The more fundamental problem: **one GPU can't even hold the model**. This Level covers how large models are split up and trained across thousands of GPUs.
+
+### Why can't one GPU train a 7B model?
+
+[Attention & Transformer](/docs/llm/transformer) Level 8 worked it out: with mixed precision and AdamW, training needs about **16 bytes per parameter** (fp16 weights 2 + fp16 gradients 2 + fp32 master weights 4 + Adam's m and v 8).
+
+```
+7B model:   7×10⁹ × 16 bytes ≈ 112 GB
+70B model:  70×10⁹ × 16 bytes ≈ 1,120 GB
+one A100 / H100:  80 GB
+```
+
+And that's before **activations**: every layer's intermediate results from the forward pass have to be kept for backpropagation. They scale with batch size × sequence length × layers, and on long sequences they can exceed everything above.
+
+So there are two problems to solve: **fitting** (splitting memory) and **speed** (running across many GPUs).
+
+### What is mixed precision, and why bf16?
+
+**Mixed precision**: run the forward and backward passes in 16-bit floating point (less memory, faster math) while keeping a 32-bit copy of the "master weights" for the parameter update (so tiny updates don't round down to zero).
+
+There are two 16-bit formats:
+
+| | fp16 | bf16 (bfloat16) |
+| --- | --- | --- |
+| Range of representable values | small, prone to overflow and underflow | as large as fp32 |
+| Precision | relatively high | relatively low |
+| Training stability | needs extra loss scaling to keep gradients from underflowing | rarely needs anything extra |
+
+Large-model training today almost always uses **bf16**: slightly lower precision, but the same range as fp32, so overflow-driven NaN losses almost never happen.
+
+### How does data parallelism work, and where does it fall short?
+
+**Data parallelism** is the simplest multi-GPU training:
+
+```
+every GPU holds a full copy of the model
+a batch is split into N parts, and each GPU computes gradients on its own part
+all GPUs average their gradients (all-reduce communication)
+every GPU applies the same averaged gradient → the model stays identical everywhere
+```
+
+Eight GPUs give eight times the throughput, and it's simple to implement.
+
+**The limitation: every GPU has to hold the full model and optimizer state.** Training 7B needs 112 GB, which doesn't fit on an 80 GB GPU even once, so plain data parallelism simply doesn't work here.
+
+### What do ZeRO and FSDP split?
+
+**ZeRO (DeepSpeed's approach) and FSDP (PyTorch's counterpart) start from one observation: under data parallelism, the full optimizer state, gradients, and parameters on each GPU are mostly duplicated — so split them across the GPUs instead.**
+
+There are three stages, each splitting more:
+
+| Stage | What gets split | Effect |
+| --- | --- | --- |
+| ZeRO-1 | optimizer state (Adam's m, v, and master weights — 12 of the 16 bytes) | the biggest chunk of memory gets divided |
+| ZeRO-2 | plus gradients | more memory saved |
+| ZeRO-3 / FSDP | plus the parameters themselves | each GPU stores only 1/N and gathers a layer from the others just when it's needed |
+
+With ZeRO-3:
+
+```
+7B model:   112 GB ÷ 8 GPUs    = 14 GB per GPU
+70B model:  1,120 GB ÷ 64 GPUs = 17.5 GB per GPU      (activations extra)
+```
+
+The cost is **more communication**: before computing each layer, its parameters have to be gathered from other GPUs and released afterward. The faster the network between GPUs, the smaller that cost.
+
+### What are tensor parallelism and pipeline parallelism?
+
+Past a certain size, ZeRO alone isn't enough or its communication gets too expensive, so **the model itself gets split**:
+
+| Approach | How it splits | Communication needs | Typically used |
+| --- | --- | --- | --- |
+| **Data parallelism / ZeRO** | splits the data and the model state | moderate | across nodes, the base layer |
+| **Tensor parallelism** | splits large matrices **within a layer**, e.g. dividing an FFN matrix by columns across GPUs that compute simultaneously | very high; every layer communicates | inside a single machine (NVLink between its 8 GPUs) |
+| **Pipeline parallelism** | splits **by layer**, e.g. layers 1–40 on GPU A and 41–80 on GPU B | lower; only activations cross each split | across machines |
+
+Pipeline parallelism has one catch: GPU B has to wait for GPU A to finish the first 40 layers, and sits idle in the meantime (the "bubble"). The fix is to cut the batch into many micro-batches and feed them in one after another like an assembly line, cutting the idle time.
+
+Training the largest models combines all three, called **3D parallelism**: tensor parallelism within a machine, pipeline parallelism across machines, and data parallelism wrapped around the outside.
+
+### What is activation checkpointing?
+
+As noted, activations have to be kept for backpropagation and take a lot of memory on long sequences. **Activation checkpointing** works like this:
+
+- during the forward pass, **save activations for only a few layers** and discard the rest once computed
+- when backpropagation needs them, **rerun the forward pass** from the nearest saved point to recover them
+
+It's a classic **compute-for-memory trade**: roughly a third more compute in exchange for a large drop in activation memory.
+
+<Note title="At real scale, hardware failure is routine">
+
+Meta trained LLaMA 3 on two clusters of about 24,000 GPUs each. At that scale, GPUs, networking, or storage can fail on any given day. So large-scale training has to checkpoint regularly and detect failures and resume from the latest checkpoint automatically — engineering that by itself decides whether a training run finishes at all.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why can't one 80 GB GPU train a 7B model? Work out the memory.
+2. What is mixed precision, and what's better about bf16 than fp16?
+3. How does data parallelism work, and what's its limitation?
+4. What does each of ZeRO's three stages split, and what's the cost?
+5. How do tensor parallelism and pipeline parallelism each split the model? Why is tensor parallelism usually kept inside one machine?
+6. What does activation checkpointing trade for what?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 6 · 预训练给了模型什么、没给什么
+
+前五个 Level 讲的是「怎么训」。这一节回到面试和工程最关心的问题：**训完的这个 base model，到底能用来做什么、有哪些天生的短板**。这些短板正是 [Post-training](/docs/llm/post-training)、RAG 和微调各自要解决的问题。
+
+### Base model 能做什么、不能做什么？
+
+预训练完得到的模型叫 **base model**。它能做的事其实很多：
+
+- **流畅地续写**：给开头，接着往下写
+- **学会示例里的规律**：在输入里放几个例子，它能照着做（few-shot）
+- **补全代码**、回答它在训练数据里见过很多次的事实
+
+但它的训练目标只有「接着往下写」，所以**不会按指令做事**。用贯穿全页的句子做个实验，直接给 base model 一个指令：
+
+```
+输入:    把「我 爱 猫」翻译成英文
+续写（示意）:
+         把「我 爱 狗」翻译成英文
+         把「他 爱 猫」翻译成英文
+         把「我们 爱 猫」翻译成英文
+```
+
+它没有翻译，而是接着编出更多「翻译题」。原因很直接：在网页数据里，这种句子最常出现在练习题列表里，**「一道题后面接着另一道题」才是最像训练数据的续写**。
+
+<Note title="让 base model 干活的技巧：把任务写成「文档」" type="tip">
+
+既然 base model 只会续写，就把任务伪装成它熟悉的文档格式：
+
+```
+英文：dog   中文：狗
+英文：fish  中文：鱼
+英文：cat   中文：
+```
+
+这时最像训练数据的续写就是「猫」。这就是 few-shot prompting 在 base model 上有效的原因，也说明了 prompt 设计本质上是在「让正确答案成为最自然的续写」。
+
+</Note>
+
+### 什么是知识截止？知识过时了该怎么办？
+
+模型只知道训练数据收集截止日期之前的内容，这个日期叫**知识截止（knowledge cutoff）**。之后发生的事，模型完全不知道，而且**它也不知道自己不知道**——被问到时仍会给出一个最通顺的回答。
+
+知识过时或者缺失时，常见的三种办法：
+
+| 办法 | 怎么做 | 适合 | 代价 |
+| --- | --- | --- | --- |
+| **RAG** | 回答前先检索最新资料，放进 prompt | 会变化的知识、需要引用来源 | 要搭检索系统，但不改模型 |
+| **继续预训练 / 微调** | 用新数据再训练模型 | 大量稳定的领域知识、特定格式和风格 | 贵，而且训完又会再次过时 |
+| **直接写进 prompt** | 把少量关键事实放进 system prompt | 少量、固定的信息 | 占上下文长度 |
+
+**知识会变化、需要可追溯时，默认选 RAG**（见 [RAG Architecture](/docs/rag/architecture)）。
+
+<Note title="用微调「灌」新知识，效果往往不稳定" type="warning">
+
+直觉上「拿新资料微调一下，模型就学会了」，但实践中模型通过微调吸收新事实又慢又不牢靠，还可能让它更自信地编造。微调更擅长改变**行为、格式和风格**，而不是可靠地加入新知识。RAG、微调和 prompt 怎么选，详见 [Fine-tuning](/docs/llm/fine-tuning)。
+
+</Note>
+
+### 幻觉的根源在哪？
+
+把前面几个 Level 的结论串起来，幻觉不是偶然的 bug，而是**训练方式的结构性结果**：
+
+1. **训练目标奖励「像」，不奖励「真」**（Level 1）：模型学的是最可能的下一个 token，一个听起来合理的错误答案，在语言上可能和正确答案一样通顺
+2. **低频知识学得不牢**（Level 1）：只见过一两次的事实，模型记得模糊，就容易拼凑出错误版本
+3. **预训练里没有「说不知道」的训练信号**：网页文本里很少出现「我不确定这个问题的答案」，模型没学过在不确定时停下来
+4. **采样带来随机性**：temperature 越高，越可能选到低概率、也更可能是错误的 token（见 [Attention & Transformer](/docs/llm/transformer) Level 6）
+
+对应的缓解手段：用 RAG 给模型提供依据、在 post-training 里教模型表达不确定或拒答、事实类任务调低 temperature、在应用层做引用校验。
+
+<Note title="别说「幻觉只是训练不够，模型再大一点就没了」" type="danger">
+
+更大的模型、更多的数据确实能减少幻觉，但只要训练目标是「生成最可能的续写」，幻觉就不会彻底消失。面试里更准确的说法是：幻觉是生成式模型的结构性问题，要靠**检索依据 + 对齐训练 + 应用层校验**一起控制。
+
+</Note>
+
+### 继续预训练是什么？什么时候用？
+
+**继续预训练（continued pretraining）**：拿一个已经训好的 base model，用大量某个领域的文本继续做 next-token 预测训练，让模型的知识分布偏向这个领域。
+
+一个真实例子：**Code Llama 就是在 LLaMA 2 的基础上，用约 500B token 的代码数据继续预训练得到的**。
+
+它和 Post-training 里的 SFT 要分清：
+
+| | 继续预训练 | SFT（Post-training） |
+| --- | --- | --- |
+| 数据 | 大量无标注的领域文本（数十亿 token 以上） | 少量「指令 → 回答」示范（几千到几十万条） |
+| 训练目标 | 还是 next-token 预测 | 学会按指令回答 |
+| 改变的主要是 | 领域知识和语言分布 | 行为、格式、风格 |
+
+两个注意点：
+
+- **需要混入一部分通用数据**，否则模型会在学新领域时丢掉原有的通用能力，这叫**灾难性遗忘（catastrophic forgetting）**
+- **大多数应用团队用不到它**：成本高、数据量要求大。除非是医疗、法律这类术语密集的领域，或者要支持一门新语言，否则通常 RAG + 少量 SFT 就够了
+
+### 预训练和使用模型，钱主要花在哪？
+
+- **预训练**：一次性的巨额投入。Level 4 算过，7B 模型约 37 万美元，更大的模型要几千万美元
+- **推理**：每个 token 都要花钱，而且只要模型在线就一直在花
+
+Level 4 已经讲过这对训练策略的影响（小模型训更多 token）。对不训练基座模型的应用团队来说，**成本几乎全部是推理成本**，所以面试里讨论成本时，重点应放在 token 数、模型大小选择、缓存和批处理上（见 [Cost](/docs/production/cost)）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. Base model 能做什么、不能做什么？为什么直接给它指令，它可能会接着编出更多问题？
+2. 怎样让 base model 完成翻译这类任务？
+3. 什么是知识截止？知识过时时，RAG、微调、prompt 分别适合什么情况？
+4. 说出幻觉的几个结构性来源，以及对应的缓解手段。
+5. 继续预训练和 SFT 有什么区别？什么是灾难性遗忘？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 6 · What pretraining does and doesn't give a model
+
+The first five Levels were about how training works. This one turns to what interviews and engineering care about most: **what can this trained base model actually be used for, and what are its built-in weaknesses?** Those weaknesses are exactly what [Post-training](/docs/llm/post-training), RAG, and fine-tuning each set out to fix.
+
+### What can a base model do, and what can't it do?
+
+The model you get from pretraining is called a **base model**, and it can do quite a lot:
+
+- **continue text fluently**: give it a beginning and it keeps writing
+- **pick up patterns from examples**: put a few examples in the input and it follows them (few-shot)
+- **complete code** and recall facts it saw many times in training
+
+But its only objective was "keep writing," so **it doesn't follow instructions**. Try it with the page's running example and give a base model an instruction directly:
+
+```
+input:                 把「我 爱 猫」翻译成英文    (translate 我爱猫 into English)
+continuation (illustrative):
+                       把「我 爱 狗」翻译成英文    (translate 我爱狗 into English)
+                       把「他 爱 猫」翻译成英文    (translate 他爱猫 into English)
+                       把「我们 爱 猫」翻译成英文  (translate 我们爱猫 into English)
+```
+
+Instead of translating, it invents more translation exercises. The reason is simple: on the web, sentences like this mostly appear in lists of practice problems, so **one exercise followed by another is the most training-data-like continuation**.
+
+<Note title="Getting a base model to do the job: write the task as a document" type="tip">
+
+Since a base model only continues text, disguise the task as a document format it knows:
+
+```
+English: dog   Chinese: 狗
+English: fish  Chinese: 鱼
+English: cat   Chinese:
+```
+
+Now the most training-data-like continuation is 猫. That's why few-shot prompting works on base models — and it shows that prompt design is fundamentally about making the right answer the most natural continuation.
+
+</Note>
+
+### What is a knowledge cutoff, and what do you do when knowledge goes stale?
+
+A model only knows what was in its training data up to the collection date, called the **knowledge cutoff**. It knows nothing about what happened afterward — and **it doesn't know that it doesn't know**, so when asked, it still produces the most fluent answer it can.
+
+When knowledge is stale or missing, there are three common options:
+
+| Option | How | Good for | Cost |
+| --- | --- | --- | --- |
+| **RAG** | retrieve current material before answering and put it in the prompt | knowledge that changes, answers that need sources | requires a retrieval system, but leaves the model untouched |
+| **Continued pretraining / fine-tuning** | train the model again on new data | large, stable bodies of domain knowledge; specific formats and styles | expensive, and goes stale again after training |
+| **Put it in the prompt** | place a few key facts in the system prompt | a small amount of fixed information | uses up context length |
+
+**When knowledge changes and needs to be traceable, default to RAG** (see [RAG Architecture](/docs/rag/architecture)).
+
+<Note title="Fine-tuning new facts into a model tends to be unreliable" type="warning">
+
+The intuition is "fine-tune on the new material and the model will know it," but in practice models absorb new facts through fine-tuning slowly and unreliably, and may even become more confident when making things up. Fine-tuning is better at changing **behavior, format, and style** than at reliably adding knowledge. For how to choose between RAG, fine-tuning, and prompting, see [Fine-tuning](/docs/llm/fine-tuning).
+
+</Note>
+
+### Where do hallucinations come from?
+
+Put the earlier Levels together and hallucination isn't a random bug but a **structural consequence of how models are trained**:
+
+1. **The objective rewards plausible, not true** (Level 1): the model learns the most likely next token, and a reasonable-sounding wrong answer can be just as fluent as the right one
+2. **Rare knowledge is learned weakly** (Level 1): a fact seen once or twice is remembered vaguely and easily pieced together wrong
+3. **Pretraining has no signal for saying "I don't know"**: web text rarely says "I'm not sure what the answer is," so the model never learned to stop when uncertain
+4. **Sampling adds randomness**: the higher the temperature, the more likely it picks low-probability tokens, which are also more likely to be wrong (see [Attention & Transformer](/docs/llm/transformer) Level 6)
+
+The matching mitigations: ground the model with RAG, teach it in post-training to express uncertainty or decline, lower the temperature for factual tasks, and verify citations at the application layer.
+
+<Note title="Don't say hallucination is just undertraining that a bigger model will eliminate" type="danger">
+
+Bigger models and more data do reduce hallucination, but as long as the objective is "generate the most likely continuation," it won't disappear entirely. The more accurate interview answer: hallucination is a structural issue of generative models, controlled by **retrieved grounding + alignment training + application-level checks** together.
+
+</Note>
+
+### What is continued pretraining, and when is it used?
+
+**Continued pretraining**: take an already-trained base model and keep running next-token training on a large amount of text from one domain, shifting the model's knowledge toward that domain.
+
+A real example: **Code Llama is LLaMA 2 with continued pretraining on about 500B tokens of code**.
+
+Keep it distinct from SFT in Post-training:
+
+| | Continued pretraining | SFT (post-training) |
+| --- | --- | --- |
+| Data | large amounts of unlabeled domain text (billions of tokens or more) | a small set of "instruction → response" demonstrations (thousands to hundreds of thousands) |
+| Objective | still next-token prediction | learning to answer instructions |
+| Mainly changes | domain knowledge and language distribution | behavior, format, style |
+
+Two cautions:
+
+- **Mix in some general data**, or the model loses its general abilities while learning the new domain — this is called **catastrophic forgetting**
+- **Most application teams never need it**: it's expensive and data-hungry. Unless the domain is dense with jargon, like medicine or law, or you need to support a new language, RAG plus a little SFT is usually enough
+
+### Where does the money go: pretraining or using the model?
+
+- **Pretraining**: a huge one-time investment. Level 4 put a 7B model at about $370K, and larger models cost tens of millions
+- **Inference**: every token costs money, for as long as the model is serving
+
+Level 4 already covered how this shapes training strategy (train small models on more tokens). For application teams that don't train base models, **cost is almost entirely inference cost**, so cost discussions in interviews should focus on token counts, model size choices, caching, and batching (see [Cost](/docs/production/cost)).
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What can a base model do and not do? Why might it respond to an instruction by inventing more questions?
+2. How can you get a base model to perform a task like translation?
+3. What is a knowledge cutoff? When knowledge is stale, what are RAG, fine-tuning, and prompting each suited for?
+4. Name several structural sources of hallucination and their mitigations.
+5. How does continued pretraining differ from SFT? What is catastrophic forgetting?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note title="别说「预训练就是让模型背下训练数据」" type="danger">
+
+预训练的目标是把下一个 token 猜准，模型为此学到的是可泛化的统计规律，本质上是一种压缩。确实会有一部分高频重复的内容被逐字记住，但那是副作用（也是要去重的原因），不是训练的目的。
+
+</Note>
+
+<Note title="别说「Chinchilla 说每个参数 20 个 token 最优，训更多就是浪费」" type="danger">
+
+Chinchilla 的「最优」只针对训练算力。考虑到推理成本，把小模型训到远超 20 倍是主流做法，而且 loss 在 20 倍之后仍然在下降，LLaMA 3 8B 训到了约 1,875 倍。
+
+</Note>
+
+<Note title="6ND 是估算，不是精确值" type="warning">
+
+它忽略了 attention 里随序列长度平方增长的那部分计算，也没算通信开销和失败重跑。上下文很长时，实际算力会比 6ND 高。用它估数量级很好，报精确预算时要说明假设。
+
+</Note>
+
+<Note title="单纯的数据并行不会降低每张卡的显存" type="warning">
+
+数据并行只是让多张卡同时算，每张卡仍然要放下完整的模型和优化器状态。真正把显存切开的是 ZeRO / FSDP、张量并行和流水线并行。说「用 8 张卡数据并行就能训 70B」是错的。
+
+</Note>
+
+<Note title="不同 tokenizer 的 loss 和 perplexity 不能直接比" type="warning">
+
+两者都是按 token 计算的。词表和切分方式不同，同一段文本的 token 数和每个 token 的难度都不同。
+
+</Note>
+
+<Note title="微调不是给模型补充新知识的可靠办法" type="warning">
+
+需要最新、可追溯的知识时，首选 RAG。微调更擅长改变行为、格式和风格。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Traps
+
+<Note title="Don't say pretraining just makes the model memorize its training data" type="danger">
+
+Pretraining's goal is predicting the next token well, and what the model learns to do that is generalizable statistical structure — essentially a form of compression. Some heavily repeated content does get memorized word for word, but that's a side effect (and a reason to deduplicate), not the purpose.
+
+</Note>
+
+<Note title="Don't say Chinchilla proves 20 tokens per parameter is optimal, so more is wasted" type="danger">
+
+Chinchilla's "optimal" only concerns training compute. Once inference cost is counted, training small models far past 20x is standard practice, and the loss keeps falling past 20x — LLaMA 3 8B went to about 1,875x.
+
+</Note>
+
+<Note title="6ND is an estimate, not an exact figure" type="warning">
+
+It ignores the part of attention that grows with the square of sequence length, and it leaves out communication overhead and failed reruns. With very long context, actual compute runs higher than 6ND. It's great for orders of magnitude; when quoting a precise budget, state the assumptions.
+
+</Note>
+
+<Note title="Plain data parallelism doesn't reduce memory per GPU" type="warning">
+
+Data parallelism only lets multiple GPUs compute at once; each one still has to hold the full model and optimizer state. What actually splits memory is ZeRO / FSDP, tensor parallelism, and pipeline parallelism. "Train 70B with 8 GPUs of data parallelism" is wrong.
+
+</Note>
+
+<Note title="Loss and perplexity aren't comparable across tokenizers" type="warning">
+
+Both are computed per token. With a different vocabulary and splitting, the same text has a different token count and different per-token difficulty.
+
+</Note>
+
+<Note title="Fine-tuning isn't a reliable way to add new knowledge" type="warning">
+
+When you need current, traceable knowledge, reach for RAG first. Fine-tuning is better at changing behavior, format, and style.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 连接
+
+</Locale>
+
+<Locale lang="en">
+
+## Connections
 
 </Locale>
 
 ```
-prefix tokens → predict next token
-             → cross entropy loss
-             → backprop → update weights
+Tokenization → token ids → next-token targets
+                               ↓
+        cross entropy → backprop → gradient clip → AdamW      (one step)
+                               ↓
+        data: sources, mix, dedup, decontamination → tokens D
+        model size N → compute ≈ 6ND → GPU hours → cost
+                               ↓
+        distributed: data parallel / ZeRO / tensor / pipeline, bf16, checkpointing
+                               ↓
+        base model → Post-training (SFT, RLHF, DPO) → assistant
 ```
 
 <Locale lang="zh">
 
-## 三级回答
-
-### Level 1 — 定义
-
-预训练就是大规模的下一个 token 预测，让模型学到语言和世界知识的统计结构。
-
-### Level 2 — 机制
-
-每个位置都预测下一个 token，loss 是交叉熵。数据、模型规模和算力按 scaling laws 一起增长。
-
-### Level 3 — 工程
-
-面试时不要展开优化器论文。能讲清这一点就够：预训练给的是通用先验；完成任务的能力和「听话」来自 post-training。
+- 上游：[Tokenization](/docs/llm/tokenization)（词表大小决定 loss 的起点，perplexity 不能跨 tokenizer 比） · [Attention & Transformer](/docs/llm/transformer)（Level 0 的训练四步、Level 5 的 teacher forcing、Level 8 的 16 字节 / 参数和 2N 前向算力）
+- 下游：[Post-training](/docs/llm/post-training)（把 base model 变成助手） · [Fine-tuning](/docs/llm/fine-tuning)（LoRA / QLoRA，RAG 和微调怎么选） · [Inference](/docs/llm/inference)（为什么推理成本推动了「过度训练」小模型）
+- 工程落点：[RAG Architecture](/docs/rag/architecture)（知识截止） · [Evaluation](/docs/evaluation)（数据污染、别只看公开榜单） · [Cost](/docs/production/cost)
 
 ## 面试问题
 
-1. 预训练到底在优化什么目标？（What objective is pretraining actually optimizing?）
-2. 为什么用交叉熵，而不是直接「生成整句」？（Why train with cross entropy instead of generating whole sentences directly?）
-3. Scaling laws 对选模型和预估效果有什么用？（How do scaling laws help with choosing a model and estimating quality?）
-4. 预训练的知识过时了，该 fine-tune 还是上 RAG？（The model's pretraining knowledge is out of date — do you fine-tune or add RAG?）
+先自己口头答一遍，再回到对应的 Level 对照。
 
-## 我的答案
+**Level 0 — 梯度下降**
+
+1. 梯度下降是怎么更新参数的？学习率太大或太小会怎样？（How does gradient descent update parameters, and what happens when the learning rate is too high or too low?）
+2. batch、step、epoch 分别是什么？为什么 LLM 预训练更常用「训了多少 token」来衡量？（What are a batch, a step, and an epoch, and why is LLM pretraining usually measured in tokens?）
+
+**Level 1 — 预训练目标**
+
+3. 预训练在优化什么目标？为什么说它是自监督的？（What does pretraining optimize, and why is it called self-supervised?）
+4. 交叉熵 loss 是怎么算的？为什么用负对数？（How is cross-entropy loss computed, and why the negative log?）
+5. Perplexity 是什么？一个随机初始化的模型，loss 大约从多少开始？（What is perplexity, and roughly what loss does a randomly initialized model start at?）
+6. 为什么「预测下一个词」能让模型学到知识和推理能力？（Why does next-token prediction teach a model knowledge and reasoning?）
+
+**Level 2 — 一次训练 step**
+
+7. 讲一遍一个训练 step 从取 batch 到参数更新的完整过程。（Walk me through one training step, from taking a batch to updating the parameters.）
+8. 为什么用 AdamW？m、v 和权重衰减各起什么作用？（Why AdamW? What do m, v, and weight decay each do?）
+9. 学习率为什么要先 warmup 再衰减？梯度裁剪做了什么？（Why warm up and then decay the learning rate, and what does gradient clipping do?）
+10. 训练中出现 loss spike，你会怎么排查和处理？（How would you investigate and handle a loss spike during training?）
+
+**Level 3 — 数据**
+
+11. 预训练数据要怎么清洗？为什么要去重？（How is pretraining data cleaned, and why deduplicate?）
+12. 什么是数据污染？怎么发现和避免？（What is data contamination, and how do you detect and prevent it?）
+13. 为什么很多模型中文能力明显弱于英文？（Why are many models noticeably weaker in Chinese than in English?）
+
+**Level 4 — Scaling laws**
+
+14. 估算一个 7B 模型训练 2T token 需要多少算力、多少 GPU 小时。（Estimate the compute and GPU hours to train a 7B model on 2T tokens.）
+15. Chinchilla scaling law 的结论是什么？（What did the Chinchilla scaling law conclude?）
+16. 为什么 LLaMA 3 8B 训练的 token 数远远超过 Chinchilla 的最优配比？（Why did LLaMA 3 8B train on far more tokens than the Chinchilla-optimal ratio?）
+
+**Level 5 — 分布式训练**
+
+17. 训练一个 7B 模型要多少显存？为什么一张 80 GB 的卡放不下？（How much memory does training a 7B model take, and why doesn't it fit on one 80 GB GPU?）
+18. 数据并行、ZeRO、张量并行、流水线并行分别切的是什么？各适合什么场景？（What do data parallelism, ZeRO, tensor parallelism, and pipeline parallelism each split, and when is each used?）
+19. bf16 和 fp16 有什么区别？激活重计算用什么换什么？（How do bf16 and fp16 differ, and what does activation checkpointing trade?）
+
+**Level 6 — Base model 的能力边界**
+
+20. Base model 和 chat model 有什么区别？（How does a base model differ from a chat model?）
+21. 模型的知识过时了，你会用 RAG 还是微调？为什么？（The model's knowledge is out of date — would you use RAG or fine-tuning, and why?）
+22. 幻觉的根源是什么？怎么缓解？（What causes hallucination, and how do you mitigate it?）
+23. 什么情况下需要继续预训练，而不是 SFT？（When would you use continued pretraining instead of SFT?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Pretraining is next-token prediction at massive scale. It teaches the model the statistical structure of language and world knowledge.
-
-### Level 2 — Mechanism
-
-Every position predicts the next token, and the loss is cross entropy. Data, model size, and compute are scaled up together along the scaling laws.
-
-### Level 3 — Engineering
-
-Don't wander into optimizer papers in an interview. The point to land: pretraining gives you a general prior; task skill and instruction following come from post-training.
+- Upstream: [Tokenization](/docs/llm/tokenization) (vocabulary size sets the starting loss; perplexity doesn't compare across tokenizers) · [Attention & Transformer](/docs/llm/transformer) (the four training steps in Level 0, teacher forcing in Level 5, 16 bytes per parameter and 2N forward compute in Level 8)
+- Downstream: [Post-training](/docs/llm/post-training) (turning a base model into an assistant) · [Fine-tuning](/docs/llm/fine-tuning) (LoRA / QLoRA, choosing between RAG and fine-tuning) · [Inference](/docs/llm/inference) (why inference cost drove "overtraining" small models)
+- Where it lands in engineering: [RAG Architecture](/docs/rag/architecture) (knowledge cutoffs) · [Evaluation](/docs/evaluation) (contamination, don't trust public leaderboards alone) · [Cost](/docs/production/cost)
 
 ## Interview questions
 
-1. What objective is pretraining actually optimizing?
-2. Why train with cross entropy instead of generating whole sentences directly?
-3. How do scaling laws help with choosing a model and estimating quality?
-4. The model's pretraining knowledge is out of date — do you fine-tune or add RAG?
+Answer out loud first, then check against the matching Level.
 
-## My answer
+**Level 0 — Gradient descent**
+
+1. How does gradient descent update parameters, and what happens when the learning rate is too high or too low?
+2. What are a batch, a step, and an epoch, and why is LLM pretraining usually measured in tokens?
+
+**Level 1 — The pretraining objective**
+
+3. What does pretraining optimize, and why is it called self-supervised?
+4. How is cross-entropy loss computed, and why the negative log?
+5. What is perplexity, and roughly what loss does a randomly initialized model start at?
+6. Why does next-token prediction teach a model knowledge and reasoning?
+
+**Level 2 — One training step**
+
+7. Walk me through one training step, from taking a batch to updating the parameters.
+8. Why AdamW? What do m, v, and weight decay each do?
+9. Why warm up and then decay the learning rate, and what does gradient clipping do?
+10. How would you investigate and handle a loss spike during training?
+
+**Level 3 — Data**
+
+11. How is pretraining data cleaned, and why deduplicate?
+12. What is data contamination, and how do you detect and prevent it?
+13. Why are many models noticeably weaker in Chinese than in English?
+
+**Level 4 — Scaling laws**
+
+14. Estimate the compute and GPU hours to train a 7B model on 2T tokens.
+15. What did the Chinchilla scaling law conclude?
+16. Why did LLaMA 3 8B train on far more tokens than the Chinchilla-optimal ratio?
+
+**Level 5 — Distributed training**
+
+17. How much memory does training a 7B model take, and why doesn't it fit on one 80 GB GPU?
+18. What do data parallelism, ZeRO, tensor parallelism, and pipeline parallelism each split, and when is each used?
+19. How do bf16 and fp16 differ, and what does activation checkpointing trade?
+
+**Level 6 — What a base model can and can't do**
+
+20. How does a base model differ from a chat model?
+21. The model's knowledge is out of date — would you use RAG or fine-tuning, and why?
+22. What causes hallucination, and how do you mitigate it?
+23. When would you use continued pretraining instead of SFT?
 
 </Locale>
 
--
+---
+
+<Locale lang="zh">
+
+## 我的答案
+
+自己写，别让 agent 代写。写完念一遍，超过 40 秒就砍。
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+Write it yourself — don't let the agent draft it. Read it aloud; if it runs past 40 seconds, cut.
+
+</Locale>
+
+### 30s
+
+>
 
 <Locale lang="zh">
 
 ## 项目锚点
+
+哪个项目里你碰过训练相关的决策：数据清洗、训练算力或显存估算、选择 base 还是 instruct 模型、要不要继续预训练？一句话 + 一个数字。参考 [项目深挖](/docs/projects)。
 
 </Locale>
 
@@ -115,6 +1950,8 @@ Don't wander into optimizer papers in an interview. The point to land: pretraini
 
 ## Project anchor
 
+In which project did you face a training-related decision: data cleaning, estimating compute or memory, choosing a base or instruct model, or whether to do continued pretraining? One sentence plus one number. See [Projects](/docs/projects).
+
 </Locale>
 
--
+>

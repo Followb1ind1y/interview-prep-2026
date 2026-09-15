@@ -102,6 +102,7 @@ Level 的名字跟着内容走（`Level 2 · Attention 的直觉`、`Level 6 · 
 
 - **`<Note>` 内容前后必须空行**，否则里面的 markdown 块（列表、表格）不解析
 - **正文里的 `<bos>`、`<pad>`、`<eos>` 这类尖括号必须包反引号**（或放进代码块）。MDX 会把裸露的 `<bos>` 当成 JSX 标签，整页编译失败、直接 404
+- **表格单元格里不能出现 `|`，包在反引号里也不行**。GFM 会把它当成列分隔符，整行错位。像 `<|end|>` 这种 chat template 特殊 token 放进表格时，改写成文字或写成 `\|`
 - **不要用 `$...$` 写公式** — 本站没挂 `remark-math`，KaTeX 收不到节点。用代码块写
 - 中文加粗已由 `remark-cjk-friendly` 修好（`lib/markdown.ts`），`**词表（Vocabulary）**是` 这种写法现在正常
 - 图用 `<Mermaid chart={\`...\`} />`；简单的链用 ASCII 代码块就够，不要为了用而用

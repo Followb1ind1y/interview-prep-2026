@@ -26,6 +26,7 @@ Spend about 5 minutes a day, then stop. Detailed reasoning belongs on the matchi
 - [Tokenization](/docs/llm/tokenization)：把「byte-level BPE 和一般 BPE 的区别」「大词表怎么让中文省 token」和原来的「BPE 怎么处理中文」合并成一条问答，附 tiktoken 实测；顺手修正 strawberry 计费例子、中文 token 估算和 tokenizer / 词表的前后矛盾说法
 - Attention 和 Transformer 合并成一页 [Attention & Transformer](/docs/llm/transformer)，按前置知识重排成 Level 0–8：基础知识 → Encoder / Decoder → attention 直觉 → self-attention → 多头、位置编码、mask → 组装 Transformer → 三种架构 → 现代改进 → 工程影响；全页用「我 爱 猫」一个例子贯穿，每级带自测题
 - `/study` skill 加入编排原则：按依赖排序、先问题后方案、术语当场解释、单一贯穿例子、每级自测；大主题先写开头几级确认
+- 按 Attention & Transformer 的编排重写 [Training](/docs/llm/training)（Level 0–6：梯度下降 → next-token 交叉熵 → 一次训练 step → 数据 → scaling laws 与 6ND 成本对账 → 分布式训练 → base model 边界）和 [Post-training](/docs/llm/post-training)（Level 0–6：base model 缺口 → SFT → 偏好数据 → RLHF → DPO → GRPO 推理强化学习 → 副作用、评估与工程选择）；两页接着用「我 爱 猫」贯穿
 
 </Locale>
 
@@ -34,6 +35,7 @@ Spend about 5 minutes a day, then stop. Detailed reasoning belongs on the matchi
 - [Tokenization](/docs/llm/tokenization): merged "byte-level vs. regular BPE", "how large vocabularies make Chinese cheaper", and the existing "how BPE handles Chinese" into one Q&A with tiktoken measurements; also fixed the strawberry billing example, the Chinese token estimate, and the contradictory tokenizer / vocabulary wording
 - Merged Attention and Transformer into one page, [Attention & Transformer](/docs/llm/transformer), reordered by prerequisites into Levels 0–8: foundations → encoders and decoders → attention intuition → self-attention → multi-head, positions, masks → assembling the Transformer → three architectures → modern upgrades → engineering impact; one example (「我 爱 猫」) runs throughout, with a self-check at every Level
 - Added sequencing principles to the `/study` skill: order by dependency, problem before solution, define terms on first use, one running example, a self-check per Level; draft the first few Levels of a large topic for review first
+- Rewrote [Training](/docs/llm/training) (Levels 0–6: gradient descent → next-token cross entropy → one training step → data → scaling laws with a 6ND cost check → distributed training → what a base model can't do) and [Post-training](/docs/llm/post-training) (Levels 0–6: base-model gaps → SFT → preference data → RLHF → DPO → GRPO reasoning RL → side effects, evaluation, and engineering choices) in the Attention & Transformer format, continuing the 「我 爱 猫」 running example
 
 </Locale>
 
