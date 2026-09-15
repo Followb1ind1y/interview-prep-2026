@@ -1,108 +1,1272 @@
 ---
 title: Model Routing
 titleEn: Model Routing
-description: 简单走便宜模型，难的走强模型。fallback、cascade、A/B。
-descriptionEn: Easy queries to cheap models, hard ones to strong models. Fallback, cascade, A/B.
-date: 2026-09-07
-keywords: ["model routing", "cascade", "fallback", "a/b testing"]
+description: 为什么不该让所有请求都走最贵的模型：静态路由、用分类器动态路由、级联、降级兜底和 A/B 测试，以及每种方式的成本、质量和延迟怎么算。
+descriptionEn: "Why not every request should hit the most expensive model: static routing, classifier-based dynamic routing, cascades, fallback, and A/B testing — plus how to compute the cost, quality, and latency of each."
+date: 2026-09-14
+keywords: ["model routing", "router", "classifier", "cascade", "escalation", "fallback", "circuit breaker", "graceful degradation", "a/b testing", "shadow mode", "cost optimization"]
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-路由是调节成本和质量的杠杆，也是进入 Production 话题的入口。
+[Model Selection](/docs/application/model-selection) 的结论是：不同任务、不同难度的请求，适合的模型不一样。那么一个线上系统就不应该只接一个模型，而是**让每个请求去它该去的模型**：简单的问题走便宜又快的小模型，难的问题交给强模型，主模型出故障时自动切到备用模型。这就是模型路由，它是控制 LLM 应用成本和可靠性最直接的杠杆之一。
+
+这一页假设你已经学过 [Model Selection](/docs/application/model-selection)（模型分档、成本计算、评测集）和 [Structured Output](/docs/application/structured-output) Level 4（校验失败怎么处理）。重试、超时、熔断的通用做法在 [Production Reliability](/docs/production/reliability) 里，这一页只讲和「选哪个模型」直接相关的部分。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 为什么需要路由 | 所有请求都用一个模型有什么问题？路由能省多少钱？有哪几种路由方式？ | 20 min |
+| 1 · 静态路由 | 怎么按任务、按规则把请求分给不同的模型？优缺点是什么？ | 25 min |
+| 2 · 动态路由 | 怎么用分类器判断一个请求难不难？分错了会损失多少质量、浪费多少钱？ | 40 min |
+| 3 · 级联 | 先让便宜模型试、不行再升级，成本和延迟怎么算？怎么判断「不行」？ | 35 min |
+| 4 · 降级兜底与 A/B 测试 | 模型或服务出故障时怎么切换？怎么证明新的路由策略真的更好？ | 35 min |
+
+每个 Level 末尾有几道自测题，**答不上来就先别往下读**。全页约 2.5 小时，分几次学完；`/drill` 会记住你上次学到哪。
+
+全页继续用猫粮店智能客服：假设流量里 **70% 是简单问题**（查物流、问营业时间），**25% 是中等问题**（退换货政策、商品对比），**5% 是复杂问题**（带情绪的投诉、多个诉求混在一起）。我们要把它们分配给小、中、强三档模型，并在出故障时兜底。价格沿用 Model Selection 页的**示意价格**。
 
 ## 需要掌握
 
-- routing（路由）
-- fallback（降级兜底）
-- model cascade（模型级联）
-- A/B testing（A/B 测试）
-
-## 机制
+- 单一模型的质量与成本困境；真实流量的难度分布；混合成本的计算；路由方式总览
+- 按任务、规则（关键词、用户等级、输入长度、语言、是否带图片）的静态路由
+- 用 LLM、embedding 近邻或训练好的分类器做难度判断；训练标签从哪来；阈值取舍；误判带来的质量损失和成本浪费；路由器自身的开销
+- 级联：便宜模型先答、校验或验证不通过再升级；期望成本和延迟；什么信号能决定升级；自报置信度为什么不可靠
+- 故障兜底：超时、限流、服务不可用时切换备用模型；备用链路要提前测好；优雅降级
+- A/B 测试和影子模式；用什么指标判断路由策略的好坏；显著性的简单估算；记录每个请求的路由决策
 
 </Locale>
 
 <Locale lang="en">
 
-Routing is the lever between cost and quality, and it's also the way into production topics.
+[Model Selection](/docs/application/model-selection) concluded that different tasks and difficulty levels suit different models. So a production system shouldn't be wired to just one model; it should **send each request to the model it belongs with**: simple questions to a cheap, fast small model, hard ones to a strong model, and an automatic switch to a backup when the primary fails. That's model routing, one of the most direct levers on an LLM application's cost and reliability.
+
+This page assumes you've studied [Model Selection](/docs/application/model-selection) (model tiers, cost math, evaluation sets) and [Structured Output](/docs/application/structured-output) Level 4 (handling validation failures). General practices for retries, timeouts, and circuit breakers live in [Production Reliability](/docs/production/reliability); this page covers only what's directly tied to choosing which model.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Why routing is needed | What's wrong with one model for every request? How much can routing save, and what kinds of routing are there? | 20 min |
+| 1 · Static routing | How do you assign requests to models by task and by rules, and what are the pros and cons? | 25 min |
+| 2 · Dynamic routing | How does a classifier decide whether a request is hard? How much quality and money does misrouting cost? | 40 min |
+| 3 · Cascades | Try a cheap model first and escalate if it fails — how do you compute cost and latency, and how do you decide it failed? | 35 min |
+| 4 · Fallback and A/B testing | How do you switch when a model or service fails? How do you prove a new routing policy is actually better? | 35 min |
+
+Each Level ends with a few self-check questions — **if you can't answer them, don't move on yet**. The page takes about 2.5 hours over several sessions; `/drill` remembers where you stopped.
+
+The page continues with the cat-food shop's support assistant. Suppose traffic is **70% simple** (tracking a delivery, store hours), **25% medium** (return policy, product comparisons), and **5% complex** (emotional complaints, several issues mixed together). We'll assign them to small, mid, and strong models and fall back when something fails. Prices reuse the **illustrative prices** from the Model Selection page.
 
 ## Must know
 
-- routing
-- fallback
-- model cascade
-- A/B testing
+- the quality–cost dilemma of a single model; the difficulty distribution of real traffic; computing blended cost; an overview of routing approaches
+- static routing by task and by rules (keywords, user tier, input length, language, whether an image is attached)
+- judging difficulty with an LLM, embedding nearest neighbors, or a trained classifier; where training labels come from; threshold trade-offs; the quality loss and wasted cost from misrouting; the router's own overhead
+- cascades: a cheap model answers first and escalates when validation or verification fails; expected cost and latency; which signals should trigger escalation; why self-reported confidence is unreliable
+- failure fallback: switching to a backup model on timeouts, rate limits, or outages; testing the backup path in advance; graceful degradation
+- A/B tests and shadow mode; the metrics that judge a routing policy; a quick significance estimate; logging each request's routing decision
 
-## Mechanism
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 为什么需要路由
+
+### 所有请求都用一个模型，有什么问题？
+
+猫粮店客服的流量里，70% 是简单问题，25% 是中等问题，5% 是复杂问题。按 [Model Selection](/docs/application/model-selection) Level 1 的示意价格，一次请求 1,500 个输入 token 加 300 个输出 token：
+
+| 方案 | 每 100 万次请求的成本 | 问题 |
+| --- | --- | --- |
+| 全部用 S（强） | 9,000 美元 | 70% 的简单问题用不上强模型的能力，钱白花了，客户也要多等 |
+| 全部用 X（小） | 270 美元 | 5% 的复杂投诉处理不好，最容易流失的恰恰是这批客户 |
+
+只接一个模型，就只能在「贵」和「差」之间选。**路由**的思路是：**每个请求去它该去的模型**。
+
+### 路由能省多少钱？
+
+假设能完美地把简单问题分给 X、中等问题分给 M、复杂问题分给 S：
+
+```
+每请求平均成本 = 70% × 0.00027 + 25% × 0.0012 + 5% × 0.009
+             = 0.000189 + 0.0003 + 0.00045
+             = 0.000939 美元
+
+每 100 万次请求：939 美元，比全部用 S 的 9,000 美元省了 89.6%
+```
+
+延迟也一起降下来（每档延迟沿用 Model Selection Level 1 的示意数字：X 0.6 秒、M 1.2 秒、S 2.5 秒）：
+
+```
+平均延迟 = 70% × 0.6 + 25% × 1.2 + 5% × 2.5 = 0.42 + 0.3 + 0.125 ≈ 0.85 秒，全部用 S 是 2.5 秒
+```
+
+一个值得注意的地方：**只占 5% 的复杂问题，花掉了 0.00045 / 0.000939 ≈ 48% 的钱**。成本主要由送去强模型的那部分流量决定，所以路由器每多把一个简单问题错送给 S，都很贵。
+
+<Note title="「完美路由」只是上限" type="warning">
+
+上面的计算假设每个请求都被分对了。现实中路由器会分错：把复杂问题分给小模型，质量下降；把简单问题分给强模型，钱白花。Level 2 会用具体数字算分错的代价。
+
+</Note>
+
+### 路由有哪几种方式？
+
+| 方式 | 什么时候决定 | 怎么决定 | 本页 Level |
+| --- | --- | --- | --- |
+| 静态路由 | 请求发出前 | 按任务类型或固定规则 | Level 1 |
+| 动态路由 | 请求发出前 | 用分类器预测这个请求难不难 | Level 2 |
+| 级联 | 看到回答之后 | 先让便宜模型答，检查不通过再升级 | Level 3 |
+| 降级兜底 | 出故障的时候 | 主模型超时、限流、不可用时切到备用模型 | Level 4 |
+
+[Model Selection](/docs/application/model-selection) Level 3 给三类任务分别选模型，其实已经是最简单的静态路由了。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 所有请求都用一个模型，会遇到什么两难？
+2. 70% 走 X、25% 走 M、5% 走 S，每 100 万次请求的成本是多少？比全部用 S 省了多少？
+3. 为什么只占 5% 的复杂问题花掉了近一半的钱？这对路由器的设计意味着什么？
+4. 路由有哪四种方式？分别在什么时候做决定？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Why routing is needed
+
+### What's wrong with sending every request to one model?
+
+The cat-food shop's traffic is 70% simple, 25% medium, and 5% complex. With the illustrative prices from [Model Selection](/docs/application/model-selection) Level 1, and 1,500 input plus 300 output tokens per request:
+
+| Plan | Cost per 1M requests | Problem |
+| --- | --- | --- |
+| Everything on S (strong) | $9,000 | the 70% of simple questions don't need it — wasted money and longer waits |
+| Everything on X (small) | $270 | the 5% of complex complaints get handled badly, and those are exactly the customers most likely to leave |
+
+With a single model, you're choosing between expensive and bad. **Routing** says: **send each request to the model it belongs with**.
+
+### How much can routing save?
+
+Suppose you could route perfectly: simple to X, medium to M, complex to S:
+
+```
+average cost per request = 70% × $0.00027 + 25% × $0.0012 + 5% × $0.009
+                         = $0.000189 + $0.0003 + $0.00045
+                         = $0.000939
+
+per 1M requests: $939 — 89.6% less than $9,000 with everything on S
+```
+
+Latency drops too (per-tier latencies from Model Selection Level 1: X 0.6 s, M 1.2 s, S 2.5 s):
+
+```
+average latency = 70% × 0.6 + 25% × 1.2 + 5% × 2.5 = 0.42 + 0.3 + 0.125 ≈ 0.85 s, versus 2.5 s all on S
+```
+
+Worth noticing: **the 5% of complex requests account for $0.00045 / $0.000939 ≈ 48% of the spend**. Cost is driven by the traffic sent to the strong model, so every simple question the router wrongly sends to S is expensive.
+
+<Note title="Perfect routing is only the ceiling" type="warning">
+
+The math above assumes every request is routed correctly. Real routers make mistakes: complex questions sent to the small model lose quality, and simple questions sent to the strong model waste money. Level 2 puts numbers on those mistakes.
+
+</Note>
+
+### What kinds of routing are there?
+
+| Approach | When it decides | How it decides | Level |
+| --- | --- | --- | --- |
+| Static routing | before the request | by task type or fixed rules | Level 1 |
+| Dynamic routing | before the request | a classifier predicts whether the request is hard | Level 2 |
+| Cascade | after seeing an answer | a cheap model answers first, escalate if the check fails | Level 3 |
+| Fallback | when something breaks | switch to a backup when the primary times out, is rate-limited, or is down | Level 4 |
+
+Picking a model per task in [Model Selection](/docs/application/model-selection) Level 3 was already the simplest form of static routing.
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What dilemma do you face with one model for every request?
+2. With 70% on X, 25% on M, and 5% on S, what's the cost per 1M requests, and how much does it save versus all S?
+3. Why does the 5% of complex traffic eat nearly half the spend, and what does that mean for router design?
+4. What are the four kinds of routing, and when does each make its decision?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 静态路由
+
+### 按任务路由怎么做？
+
+系统里固定的流程步骤，每一步用哪个模型可以直接写在配置里。这就是 [Model Selection](/docs/application/model-selection) Level 3 的结论：
+
+```python
+ROUTES = {
+    "intent_extraction": "model-x",      # 量大、简单
+    "reply_draft": "model-m",            # 中等
+    "complaint_resolution": "model-s",   # 量小、难
+}
+
+def call_for_task(task: str, messages: list[dict]):
+    return call_model(ROUTES[task], messages)
+```
+
+把模型名放进配置而不是写死在代码里，换模型时只改配置，也方便做 Level 4 的 A/B 测试。
+
+### 按规则路由怎么做？
+
+同一个任务里，也可以用请求本身的特征来决定：
+
+```python
+ESCALATION_KEYWORDS = ["投诉", "律师", "曝光", "12315"]
+
+def route_reply(request) -> str:
+    if request.has_image:
+        return "model-m"                         # X 不支持图片输入
+    if request.input_tokens > 30_000:
+        return "model-s"                         # 历史对话太长，需要长上下文能力
+    if request.user_tier == "vip":
+        return "model-s"                         # 高价值客户
+    if any(k in request.text for k in ESCALATION_KEYWORDS):
+        return "model-s"                         # 可能是复杂投诉
+    return "model-x"
+```
+
+常见的规则依据：
+
+| 依据 | 例子 |
+| --- | --- |
+| 输入类型 | 带图片的消息走支持图片的模型 |
+| 输入长度 | 超过小模型上下文窗口的，走长上下文模型 |
+| 用户等级 | VIP 客户、企业客户走强模型 |
+| 关键词 | 出现「投诉」「律师」等词，走强模型 |
+| 语言 | 某个模型在某种语言上明显更好 |
+
+规则是**从上往下、命中第一条就返回**，所以顺序本身就是一种优先级：上面的例子里，VIP 客户发来图片，走的是 M 而不是 S。
+
+### 静态路由有什么优点和问题？
+
+**优点**：
+
+- 简单，几行代码，不需要训练数据
+- **结果可预测、好排查**：为什么这条请求去了 S，看规则就知道
+- 几乎不增加延迟和成本
+
+**问题**：
+
+- **关键词会漏判**：「我已经等了两周了，你们到底还管不管」没有任何关键词，但客户明显很生气
+- **关键词会误判**：「我不是要投诉，就是问一下发货时间」包含「投诉」，却是个简单问题
+- **规则越加越多**：每发现一个漏判就加一条，几个月后规则互相冲突，没人敢改
+- **规则描述不了「难度」**：一个请求难不难，往往取决于内容的意思，而不是表面特征
+
+这些问题引出了 Level 2：让一个模型来判断请求难不难。
+
+<Note title="静态路由不是过时的方案" type="tip">
+
+按任务路由和少量高确定性的规则（图片、超长输入）应该一直保留，因为它们几乎不会出错。动态路由是**在静态路由的基础上**，处理规则判断不了的那部分请求。面试里说「先用规则处理确定的情况，剩下的交给分类器」，比一上来就讲分类器更有说服力。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 按任务路由为什么要把模型名写在配置里？
+2. 常见的规则路由依据有哪些？规则的顺序为什么重要？
+3. 举一个关键词规则漏判和误判的例子。
+4. 静态路由的优点是什么？它最根本的局限是什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Static routing
+
+### How does routing by task work?
+
+For fixed pipeline steps, which model each step uses can go straight into config. That's the conclusion from [Model Selection](/docs/application/model-selection) Level 3:
+
+```python
+ROUTES = {
+    "intent_extraction": "model-x",      # high volume, simple
+    "reply_draft": "model-m",            # medium
+    "complaint_resolution": "model-s",   # low volume, hard
+}
+
+def call_for_task(task: str, messages: list[dict]):
+    return call_model(ROUTES[task], messages)
+```
+
+Keeping model names in config rather than hard-coded means switching models is a config change, and it makes the A/B tests in Level 4 easier.
+
+### How does rule-based routing work?
+
+Within one task, features of the request itself can decide:
+
+```python
+ESCALATION_KEYWORDS = ["投诉", "律师", "曝光", "12315"]   # complaint, lawyer, go public, consumer hotline
+
+def route_reply(request) -> str:
+    if request.has_image:
+        return "model-m"                         # X doesn't accept images
+    if request.input_tokens > 30_000:
+        return "model-s"                         # chat history too long; needs long context
+    if request.user_tier == "vip":
+        return "model-s"                         # high-value customer
+    if any(k in request.text for k in ESCALATION_KEYWORDS):
+        return "model-s"                         # possibly a complex complaint
+    return "model-x"
+```
+
+Common rule inputs:
+
+| Input | Example |
+| --- | --- |
+| Input type | messages with images go to a model that accepts images |
+| Input length | anything beyond the small model's context window goes to a long-context model |
+| User tier | VIP and enterprise customers go to the strong model |
+| Keywords | words like "complaint" or "lawyer" go to the strong model |
+| Language | one model is clearly better in a given language |
+
+Rules run **top to bottom and return on the first match**, so order is itself a priority: in the example above, a VIP customer who sends an image goes to M, not S.
+
+### What's good and bad about static routing?
+
+**Good**:
+
+- simple — a few lines of code, no training data
+- **predictable and easy to debug**: why did this request go to S? Read the rules
+- adds almost no latency or cost
+
+**Bad**:
+
+- **keywords miss things**: "I've waited two weeks — does anyone there even care?" has no keyword, but the customer is clearly angry
+- **keywords misfire**: "I'm not trying to complain, just asking when it ships" contains "complain" but is a simple question
+- **rules pile up**: every miss adds a rule, and a few months later they conflict and nobody dares touch them
+- **rules can't express difficulty**: whether a request is hard usually depends on what it means, not surface features
+
+Those problems lead to Level 2: let a model judge whether a request is hard.
+
+<Note title="Static routing isn't obsolete" type="tip">
+
+Routing by task, plus a few high-certainty rules (images, very long inputs), should stay, because they almost never get it wrong. Dynamic routing sits **on top of static routing** and handles what rules can't. In an interview, "rules handle the clear-cut cases, and a classifier handles the rest" is more convincing than jumping straight to a classifier.
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. Why put model names in config when routing by task?
+2. What are common inputs to rule-based routing, and why does rule order matter?
+3. Give an example of a keyword rule missing a case and one misfiring.
+4. What's good about static routing, and what's its fundamental limit?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 动态路由
+
+### 分类器路由是怎么工作的？
+
+在调用主模型之前，先让一个**路由器**看一眼请求，预测它该去哪个模型：
+
+```
+客户消息 → 路由器：「这条消息难吗？」 → 难：S
+                                      → 不难：X
+```
+
+路由器常见的三种做法：
+
+| 做法 | 怎么判断 | 优点 | 缺点 |
+| --- | --- | --- | --- |
+| 用小 LLM 判断 | 给 X 一个 prompt：「判断这条客服消息是否复杂」，用结构化输出返回 simple 或 complex | 不需要训练，改 prompt 就能调整 | 每个请求多一次模型调用，增加成本和延迟 |
+| embedding 近邻 | 把消息转成向量，找标注过的样本里最像的 k 条，看它们多数是难还是不难（见 [Embedding](/docs/rag/embedding)） | 便宜，加新样本就能改进 | 需要一批标注样本 |
+| 训练一个小分类器 | 用标注数据训练一个专门的小模型，输出「难」的概率 | 最快最便宜，毫秒级 | 需要较多训练数据，要定期重新训练 |
+
+路由器本身也有成本。用小 LLM 做路由，假设每次 300 个输入 token、5 个输出 token，在 X 档上每 1,000 次请求多花约 0.03 美元，并多出一次调用的延迟（示意）。训练好的小分类器，这部分开销几乎可以忽略。
+
+### 训练标签从哪来？
+
+**路由器要预测的不是「这个问题看起来难不难」，而是「小模型能不能答好」**。有些问题人觉得难，小模型答得很好；有些看起来简单，小模型偏偏会错。
+
+所以标签最好用真实结果来定：
+
+1. 从线上日志里抽一批请求，**同时让 X 和 S 各答一遍**
+2. 按 [Model Selection](/docs/application/model-selection) Level 3 的评分方法给两个回答打分
+3. X 答得够好的，标为「不难」；X 答不好、S 答得好的，标为「难」；两个都答不好的，单独拿出来分析，换模型解决不了这类问题
+
+<Note title="面试时把「难」定义清楚" type="tip">
+
+说「我们训练了一个分类器判断问题难度」，面试官会追问：难度怎么定义？标签从哪来？好的回答是：「难」的定义是**小模型的回答达不到质量线**，标签来自让大小模型同时回答并打分。这说明你的路由器优化的是真正的目标。
+
+</Note>
+
+### 分错了会有什么后果？
+
+路由器会犯两种错：
+
+- **把难题分给 X**（漏判）：质量下降，客户体验受损
+- **把简单问题分给 S**（误判）：质量没问题，但钱白花了
+
+用具体数字算一遍。1,000 个请求里有 100 个难题。路由器把 150 个判为「难」送去 S，其中 90 个真的难、60 个其实不难；还有 10 个难题被漏掉，送去了 X。
+
+| | 真的难 | 其实不难 | 合计 |
+| --- | --- | --- | --- |
+| 路由器判为难，送去 S | 90 | 60 | 150 |
+| 路由器判为不难，送去 X | 10 | 840 | 850 |
+| 合计 | 100 | 900 | 1,000 |
+
+两个衡量路由器的指标：
+
+- **精确率（precision）**：判为「难」的请求里，真的难的比例。90 / 150 = **0.60**。精确率低，意味着很多钱花在了不需要 S 的请求上
+- **召回率（recall）**：所有真的难的请求里，被找出来的比例。90 / 100 = **0.90**。召回率低，意味着很多难题被小模型处理了
+
+再假设两个模型在两类问题上的正确率（示意）：S 答难题 90%、答简单题 98%；X 答难题 40%、答简单题 95%。三种方案对比：
+
+```
+全部用 S：正确 = 100 × 0.90 + 900 × 0.98 = 90 + 882 = 972            → 97.2%
+          成本 = 1,000 × 0.009 = 9.00 美元
+
+全部用 X：正确 = 100 × 0.40 + 900 × 0.95 = 40 + 855 = 895            → 89.5%
+          成本 = 1,000 × 0.00027 = 0.27 美元
+
+路由：    正确 = 90 × 0.90 + 60 × 0.98 + 10 × 0.40 + 840 × 0.95
+              = 81 + 58.8 + 4 + 798 = 941.8                          → 94.18%
+          成本 = 150 × 0.009 + 850 × 0.00027 = 1.35 + 0.2295 = 1.5795 美元
+```
+
+| 方案 | 正确率 | 每 1,000 次请求成本 |
+| --- | --- | --- |
+| 全部用 S | 97.2% | 9.00 美元 |
+| 全部用 X | 89.5% | 0.27 美元 |
+| 路由 | 94.18% | 1.58 美元 |
+
+怎么读这个结果：
+
+1. **路由用全部用 S 约 18% 的成本**（1.58 / 9.00），把正确率从 89.5% 拉回到 94.18%，找回了两者差距（7.7 个百分点）的约 61%
+2. **剩下的差距主要不是路由器的错**。漏判的 10 个难题，X 比 S 少答对 10 × (0.90 − 0.40) = 5 个；而 840 个简单题，X 比 S 少答对 840 × (0.98 − 0.95) = 25.2 个。想再往上提，要么提高 X 在简单题上的质量，要么接受更多请求走 S
+3. **60 个误判花掉了 60 × 0.009 = 0.54 美元**，占路由总成本的三分之一以上。提高精确率能明显省钱
+
+### 阈值怎么定？
+
+分类器通常输出一个「难」的概率，比如 0.73。**阈值**决定概率多高才送去 S：
+
+- **阈值调低**（比如 0.3）：更多请求去 S，召回率上升、漏判变少，但精确率下降、成本上升
+- **阈值调高**（比如 0.8）：更少请求去 S，成本下降，但漏判变多
+
+定阈值的方法：在标注好的评测集上，试一组阈值，每个阈值都按上面的方法算出正确率和成本。先找出**满足质量底线**（比如正确率不低于 94%）的阈值，再在里面选成本最低的。
+
+<Note title="流量分布变了，阈值也要跟着调" type="warning">
+
+大促期间物流问题暴增，或者上线了新商品，请求的分布就变了，原来定好的阈值不一定还合适。要持续监控「送去 S 的比例」，这个比例突然变化，往往说明流量或路由器出了问题（见 Level 4）。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 路由器有哪三种常见做法？各自的优缺点是什么？
+2. 路由器的训练标签应该怎么定？为什么不能按「看起来难不难」来标？
+3. 在上面的例子里，精确率和召回率分别是多少？各自低了会有什么后果？
+4. 路由方案的正确率 94.18% 和成本 1.58 美元是怎么算出来的？剩下的质量差距主要来自哪里？
+5. 阈值调高、调低分别有什么影响？怎么选阈值？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Dynamic routing
+
+### How does classifier-based routing work?
+
+Before calling the main model, a **router** looks at the request and predicts which model it should go to:
+
+```
+customer message → router: "is this hard?" → hard: S
+                                            → not hard: X
+```
+
+Three common ways to build the router:
+
+| Approach | How it judges | Pros | Cons |
+| --- | --- | --- | --- |
+| A small LLM | prompt X with "is this support message complex?" and return simple or complex via structured output | no training; adjust by editing the prompt | an extra model call per request, adding cost and latency |
+| Embedding nearest neighbors | embed the message, find the k most similar labeled examples, take the majority label (see [Embedding](/docs/rag/embedding)) | cheap; improves as you add examples | needs a pool of labeled examples |
+| A trained small classifier | train a dedicated small model on labeled data to output the probability of "hard" | fastest and cheapest, millisecond-level | needs more training data and periodic retraining |
+
+The router costs something too. With a small LLM as the router at about 300 input and 5 output tokens per call on tier X, that's roughly $0.03 more per 1,000 requests plus one extra call's latency (illustrative). A trained small classifier makes that overhead negligible.
+
+### Where do the training labels come from?
+
+**The router shouldn't predict "does this look hard", but "can the small model handle it well".** Some questions look hard to people and the small model nails them; some look easy and the small model gets them wrong.
+
+So labels should come from real outcomes:
+
+1. Sample requests from production logs and **have both X and S answer each one**
+2. Grade both answers using the method from [Model Selection](/docs/application/model-selection) Level 3
+3. Where X is good enough, label "not hard"; where X falls short and S succeeds, label "hard"; where both fail, pull them out for analysis — switching models won't fix those
+
+<Note title="Define “hard” precisely in interviews" type="tip">
+
+Say "we trained a classifier to predict difficulty" and the follow-up is: how did you define difficulty, and where did labels come from? The strong answer: "hard" means **the small model's answer falls below the quality bar**, and labels come from having both models answer and grading them. That shows the router optimizes for the real goal.
+
+</Note>
+
+### What does misrouting cost?
+
+A router makes two kinds of mistakes:
+
+- **sending a hard request to X** (a miss): quality drops and the customer suffers
+- **sending an easy request to S** (a false alarm): quality is fine, but the money is wasted
+
+Let's put numbers on it. Of 1,000 requests, 100 are hard. The router flags 150 as hard and sends them to S — 90 truly hard, 60 actually easy — and misses 10 hard ones, which go to X.
+
+| | Truly hard | Actually easy | Total |
+| --- | --- | --- | --- |
+| Flagged hard, sent to S | 90 | 60 | 150 |
+| Flagged easy, sent to X | 10 | 840 | 850 |
+| Total | 100 | 900 | 1,000 |
+
+Two metrics for the router:
+
+- **Precision**: of the requests flagged hard, the share that really are. 90 / 150 = **0.60**. Low precision means a lot of money spent on requests that didn't need S
+- **Recall**: of all truly hard requests, the share the router caught. 90 / 100 = **0.90**. Low recall means many hard questions got the small model
+
+Now assume each model's accuracy on each kind of question (illustrative): S gets 90% of hard and 98% of easy questions right; X gets 40% of hard and 95% of easy. Compare three plans:
+
+```
+All S:   correct = 100 × 0.90 + 900 × 0.98 = 90 + 882 = 972            → 97.2%
+         cost    = 1,000 × $0.009 = $9.00
+
+All X:   correct = 100 × 0.40 + 900 × 0.95 = 40 + 855 = 895            → 89.5%
+         cost    = 1,000 × $0.00027 = $0.27
+
+Routed:  correct = 90 × 0.90 + 60 × 0.98 + 10 × 0.40 + 840 × 0.95
+                 = 81 + 58.8 + 4 + 798 = 941.8                          → 94.18%
+         cost    = 150 × $0.009 + 850 × $0.00027 = $1.35 + $0.2295 = $1.5795
+```
+
+| Plan | Accuracy | Cost per 1,000 requests |
+| --- | --- | --- |
+| All S | 97.2% | $9.00 |
+| All X | 89.5% | $0.27 |
+| Routed | 94.18% | $1.58 |
+
+How to read it:
+
+1. **Routing costs about 18% of all-S** ($1.58 / $9.00) and lifts accuracy from 89.5% to 94.18%, recovering about 61% of the 7.7-point gap
+2. **Most of the remaining gap isn't the router's fault.** The 10 missed hard requests cost 10 × (0.90 − 0.40) = 5 correct answers; the 840 easy requests on X cost 840 × (0.98 − 0.95) = 25.2. To go higher, either improve X on easy questions or accept sending more traffic to S
+3. **The 60 false alarms cost 60 × $0.009 = $0.54**, over a third of the routed spend. Better precision saves real money
+
+### How do you set the threshold?
+
+A classifier usually outputs a probability of "hard", say 0.73. The **threshold** decides how high it must be to go to S:
+
+- **Lower threshold** (say 0.3): more traffic to S — recall rises and misses fall, but precision drops and cost rises
+- **Higher threshold** (say 0.8): less traffic to S — cheaper, but more misses
+
+How to choose: on the labeled evaluation set, try a range of thresholds and compute accuracy and cost for each as above. Find the thresholds that **meet the quality floor** (say at least 94% accuracy), then pick the cheapest.
+
+<Note title="When traffic shifts, the threshold has to follow" type="warning">
+
+During a big sale shipping questions spike, or a new product launches, and the request mix changes — the old threshold may no longer fit. Keep monitoring the share of traffic sent to S; a sudden change often signals a shift in traffic or a router problem (see Level 4).
+
+</Note>
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What are three common ways to build a router, with their pros and cons?
+2. How should router training labels be defined, and why not by whether a request looks hard?
+3. What are the precision and recall in the example above, and what goes wrong when each is low?
+4. How were the routed plan's 94.18% accuracy and $1.58 cost computed? Where does most of the remaining quality gap come from?
+5. What happens when you raise or lower the threshold, and how do you choose one?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 级联
+
+### 级联是怎么工作的？
+
+Level 2 的路由器要在**看到回答之前**猜请求难不难。**级联（cascade）**换了个思路：先让便宜的模型答，**看了回答再决定**要不要升级。
+
+```
+客户消息 → X 回答 → 检查 → 通过：直接返回
+                          → 不通过：交给 S 重新回答 → 返回
+```
+
+好处是不需要事先预测难度：X 答好了就用，答不好才花 S 的钱。
+
+### 级联的成本和延迟怎么算？
+
+假设 20% 的请求检查不通过、需要升级：
+
+```
+成本：每个请求都要付 X 的钱，其中 20% 还要再付 S 的钱
+     = 0.00027 + 20% × 0.009 = 0.00027 + 0.0018 = 0.00207 美元
+     每 100 万次请求 2,070 美元，比全部用 S 的 9,000 美元省了 77%
+
+延迟：每个请求都要等 X，其中 20% 还要再等 S
+     平均 = 0.6 + 20% × 2.5 = 1.1 秒
+     被升级的请求 = 0.6 + 2.5 = 3.1 秒
+```
+
+**平均延迟很好看，但尾部延迟变差了**：20% 的请求要 3.1 秒，所以 P99 至少是 3.1 秒，**比全部用 S 的 2.5 秒还慢**。被升级的恰恰是难题，对应的往往是最着急的客户。
+
+还有一个限制：**流式回复不适合级联**。X 的回答已经一个字一个字显示给客户了，检查不通过时没法收回。所以级联更适合结果要先经过检查、再交给代码或客户的场景，比如工单抽取、后台生成的回复草稿。
+
+### 怎么判断回答「不行」，需要升级？
+
+检查信号按可靠程度排序：
+
+| 信号 | 例子 | 可靠程度 | 额外成本 |
+| --- | --- | --- | --- |
+| 格式校验 | 结构化输出没通过 schema 或语义检查（见 [Structured Output](/docs/application/structured-output) Level 4） | 高 | 几乎为零 |
+| 业务规则检查 | 回复里出现「保证退款」这类承诺；提到了订单信息里没有的内容 | 高，但只能覆盖写成规则的情况 | 几乎为零 |
+| 验证器模型 | 另一个模型按评分标准检查回答是否合格 | 中到高，取决于验证器本身的质量 | 多一次模型调用 |
+| token 概率 | 回答中 token 的平均概率很低，说明模型不太确定 | 中，要先在评测集上校准 | 几乎为零，但要 API 能返回概率 |
+| 模型自报置信度 | 让模型在回答后写「置信度：0.95」 | **低** | 几乎为零 |
+
+优先用能用代码检查的信号，它们便宜又可靠。
+
+### 为什么不能相信模型自己说的置信度？
+
+一个信号有用的前提是**校准（calibration）**：模型说「90% 确定」的回答里，真的大约 90% 是对的。模型自报的置信度通常校准得很差，而且**经常过度自信**：答错的时候，一样会说自己很确定。小模型尤其分不清自己知道什么、不知道什么。
+
+检验方法：让 X 回答 1,000 条评测样本，每条都自报置信度，按置信度分组，看每组真实的正确率（示意数字）：
+
+| 自报置信度 | 回答数 | 实际正确率 | 答错的数量 |
+| --- | --- | --- | --- |
+| 0.9 以上 | 800 | 88% | 96 |
+| 0.7 到 0.9 | 160 | 85% | 24 |
+| 0.7 以下 | 40 | 80% | 8 |
+| 合计 | 1,000 | 87.2% | 128 |
+
+三组的正确率几乎一样，**置信度根本分不开对和错**。更糟的是，128 个错误里有 96 个在「0.9 以上」这一组：
+
+- 置信度低于 0.7 才升级：升级 40 条，只抓到 8 个错误（6%）
+- 置信度低于 0.9 就升级：升级 200 条，也只抓到 32 个错误（25%）
+
+<Note title="别把自报置信度当升级依据" type="danger">
+
+「让模型输出置信度，低于阈值就升级」是面试里常见的错误答案。要说出：自报置信度通常校准得差、过度自信；更可靠的信号是格式校验、业务规则检查和单独的验证器。如果要用某种置信度信号，先在评测集上按分组验证它的校准情况。
+
+</Note>
+
+### 级联和分类器路由怎么选？
+
+| 场景 | 更适合 | 原因 |
+| --- | --- | --- |
+| 有便宜又可靠的检查（schema 校验、代码的单元测试） | 级联 | 检查结果直接说明回答行不行 |
+| 从输入很难看出难度 | 级联 | 不需要事先预测 |
+| 流式回复、P99 延迟要求严格 | 分类器路由 | 只调用一次模型，不会收回已显示的内容 |
+| 没有可靠的检查手段 | 分类器路由 | 级联的升级判断不可靠，就失去了意义 |
+
+两者也可以组合：**分类器把明显的难题直接送去 S，剩下的走级联**。明显的难题不用先在 X 上浪费一次调用和 0.6 秒。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 级联和分类器路由的根本区别是什么？
+2. 20% 的请求升级时，级联的平均成本、平均延迟和被升级请求的延迟分别是多少？为什么 P99 比全部用 S 还慢？
+3. 为什么流式回复不适合级联？
+4. 升级的判断信号有哪些？哪些最可靠？
+5. 什么是校准？为什么模型自报的置信度不能作为升级依据？
+6. 什么场景适合级联，什么场景适合分类器路由？怎么把两者组合起来？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Cascades
+
+### How does a cascade work?
+
+The Level 2 router has to guess difficulty **before seeing any answer**. A **cascade** flips that: let the cheap model answer first, and **decide after seeing the answer** whether to escalate.
+
+```
+customer message → X answers → check → passes: return it
+                                     → fails: S answers instead → return
+```
+
+The upside: no need to predict difficulty ahead of time. If X's answer is good, use it; pay for S only when it isn't.
+
+### How do you compute a cascade's cost and latency?
+
+Suppose 20% of requests fail the check and escalate:
+
+```
+Cost: every request pays for X, and 20% also pay for S
+    = $0.00027 + 20% × $0.009 = $0.00027 + $0.0018 = $0.00207
+    $2,070 per 1M requests — 77% less than $9,000 with everything on S
+
+Latency: every request waits for X, and 20% also wait for S
+    average = 0.6 + 20% × 2.5 = 1.1 s
+    escalated requests = 0.6 + 2.5 = 3.1 s
+```
+
+**The average looks great, but tail latency gets worse**: 20% of requests take 3.1 s, so P99 is at least 3.1 s — **slower than the 2.5 s of sending everything to S**. And the escalated requests are the hard ones, often from the customers in the biggest hurry.
+
+One more limit: **cascades don't suit streamed replies**. Once X's answer has been streamed to the customer word by word, you can't take it back when the check fails. Cascades fit cases where output is checked before it reaches code or customers — ticket extraction, reply drafts generated in the background.
+
+### How do you decide an answer isn't good enough?
+
+Check signals, ranked by reliability:
+
+| Signal | Example | Reliability | Extra cost |
+| --- | --- | --- | --- |
+| Format validation | structured output fails schema or semantic checks (see [Structured Output](/docs/application/structured-output) Level 4) | high | nearly zero |
+| Business-rule checks | the reply promises "refund guaranteed", or mentions something not in the order info | high, but only for cases written as rules | nearly zero |
+| A verifier model | another model grades the answer against a rubric | medium to high, depending on the verifier | one more model call |
+| Token probabilities | a low average token probability suggests the model is unsure | medium; calibrate on the evaluation set first | nearly zero, if the API returns probabilities |
+| Self-reported confidence | ask the model to append "confidence: 0.95" | **low** | nearly zero |
+
+Prefer signals code can check — they're cheap and reliable.
+
+### Why not trust the model's own confidence?
+
+A signal is only useful if it's **calibrated**: among answers where the model says "90% sure", about 90% are actually right. Self-reported confidence is usually poorly calibrated and **often overconfident** — the model sounds just as sure when it's wrong. Small models are especially bad at knowing what they don't know.
+
+To check: have X answer 1,000 evaluation samples, each with a self-reported confidence, group by confidence, and look at real accuracy in each group (illustrative numbers):
+
+| Stated confidence | Answers | Actual accuracy | Wrong answers |
+| --- | --- | --- | --- |
+| above 0.9 | 800 | 88% | 96 |
+| 0.7 to 0.9 | 160 | 85% | 24 |
+| below 0.7 | 40 | 80% | 8 |
+| Total | 1,000 | 87.2% | 128 |
+
+Accuracy is nearly the same across groups — **confidence doesn't separate right from wrong**. Worse, 96 of the 128 errors sit in the "above 0.9" group:
+
+- escalate below 0.7: 40 escalations catch only 8 errors (6%)
+- escalate below 0.9: 200 escalations still catch only 32 errors (25%)
+
+<Note title="Don't escalate on self-reported confidence" type="danger">
+
+"Have the model output a confidence and escalate below a threshold" is a common wrong interview answer. Say instead: self-reported confidence is usually poorly calibrated and overconfident; more reliable signals are format validation, business-rule checks, and a separate verifier. If you do use a confidence signal, first verify its calibration by group on the evaluation set.
+
+</Note>
+
+### Cascade or classifier routing?
+
+| Situation | Better fit | Why |
+| --- | --- | --- |
+| a cheap, reliable check exists (schema validation, unit tests for code) | cascade | the check directly says whether the answer is good |
+| difficulty is hard to see from the input | cascade | no need to predict ahead of time |
+| streamed replies, strict P99 latency | classifier routing | one model call, nothing to take back |
+| no reliable check | classifier routing | if escalation decisions are unreliable, a cascade loses its point |
+
+You can combine them: **the classifier sends obviously hard requests straight to S, and everything else goes through the cascade**. Obvious hard cases skip a wasted call and 0.6 s on X.
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What's the fundamental difference between a cascade and classifier routing?
+2. With 20% escalating, what are the cascade's average cost, average latency, and escalated-request latency? Why is P99 slower than all S?
+3. Why don't cascades suit streamed replies?
+4. What signals can trigger escalation, and which are most reliable?
+5. What is calibration, and why can't self-reported confidence drive escalation?
+6. When does a cascade fit, when does classifier routing fit, and how can you combine them?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 4 · 降级兜底与 A/B 测试
+
+### 模型服务出故障时怎么办？
+
+调用外部模型服务，一定会遇到这些情况：
+
+- **超时**：服务变慢，迟迟不返回
+- **限流**：超过了每分钟的请求数或 token 数上限，服务返回 429 错误
+- **服务不可用**：服务商故障，返回 5xx 错误
+- **模型下线**：旧版本到期停用（见 [Model Selection](/docs/application/model-selection) Level 4）
+
+**降级兜底**就是提前准备一条备用链路：主模型出问题时，自动按顺序换下一个。
+
+```python
+FALLBACK_CHAIN = [
+    "provider-a/model-m",     # 主模型
+    "provider-b/model-m2",    # 另一家服务商的同档模型
+    "provider-a/model-x",     # 小模型，质量差一点但能用
+]
+
+def generate_with_fallback(messages):
+    for model in FALLBACK_CHAIN:
+        try:
+            return call_model(model, messages, timeout=5)
+        except (Timeout, RateLimited, ServiceUnavailable) as e:
+            log_fallback(model, reason=type(e).__name__)
+            continue
+    return HANDOFF_REPLY      # 「已为您转接人工客服」
+```
+
+几个要点：
+
+- **超时要设短**：客户在等，不能每一级都等 60 秒。每一级的超时加起来，要在整体延迟预算之内
+- **只对「换个模型可能就好了」的错误切换**：请求本身有问题（比如 400 参数错误），换哪个模型都一样会失败，应该直接报错
+- **熔断**：主模型连续大量失败时，一段时间内直接跳过它，不要每个请求都先去撞一次墙。超时、重试、熔断的通用做法见 [Reliability](/docs/production/reliability)
+- **不同服务商放在不同位置**：同一家服务商故障时，它的几个模型往往一起出问题
+
+**优雅降级**：兜底不一定是「换一个模型做同样的事」。比如复杂投诉处理的 S 不可用时，可以让 M 起草处理方案，**标记为必须人工审核**。功能打了折扣，但没有中断。
+
+<Note title="备用链路要提前测好" type="warning">
+
+平时从来不走的备用链路，真出故障时往往也跑不通：prompt 是针对主模型调的，换到备用模型效果变差（见 [Prompt Engineering](/docs/application/prompt-engineering) Level 5）；备用模型不支持同样的结构化输出参数（见 [Structured Output](/docs/application/structured-output) Level 2）；另一家服务商的数据合规没有审批过；备用账号的限流额度太低，一切换就被限流。备用模型也要在评测集上跑过，并且定期演练切换。
+
+</Note>
+
+### 怎么证明新的路由策略真的更好？
+
+比如想把 Level 2 的阈值从 0.5 调到 0.4，或者上线一个新训练的路由器。先在评测集上做离线评估，通过之后，上线分两步走。
+
+**第一步：影子模式（shadow mode）。** 新路由器和旧路由器同时运行，**但只用旧路由器的决定**，新路由器的决定只记日志。
+
+- 对用户没有任何风险
+- 能看出新路由器会把多少流量送去 S，估算成本变化，找出两者判断不一致的请求重点检查
+- 看不到新决定对用户的真实影响
+
+**第二步：A/B 测试。** 把用户随机分成两组：对照组用旧策略，实验组用新策略，比较两组的结果。
+
+要看的指标：
+
+- **主要指标**：问题解决率（不需要转人工就解决的比例）
+- **成本和延迟**：每请求成本、P99 延迟
+- **护栏指标**：投诉率、转人工率。主要指标变好了，护栏指标也不能明显变差
+
+**结果怎么判断是不是真的变好了？** 假设每组 5,000 个对话，对照组解决率 82%，实验组 84%：
+
+```
+合并解决率 p = (82% + 84%) / 2 = 83%
+标准误差 = √(p × (1 − p) × (1/5000 + 1/5000))
+        = √(0.83 × 0.17 × 0.0004) ≈ 0.00751
+z = (84% − 82%) / 0.00751 ≈ 2.66
+```
+
+z 大于 1.96，说明在 95% 的置信水平下，这 2 个百分点的差距**不太可能是随机波动**。如果每组只有 1,000 个对话，同样 2 个百分点的差距，标准误差是 0.0168，z 只有 1.19，就不能下结论。
+
+<Note title="A/B 测试的常见错误" type="warning">
+
+- **按请求随机分组**：同一个客户这条消息走新策略、下条走旧策略，体验不一致，结果也互相污染。要**按用户分组**，同一个用户始终在同一组
+- **中途偷看，一显著就停**：反复查看结果，碰到一次显著就宣布胜利，很容易得到假阳性。要提前定好样本量和指标
+- **只看主要指标**：解决率升了，但投诉率也升了，不能算成功
+
+</Note>
+
+### 路由决策要记录什么？
+
+每个请求都要记下路由相关的信息：
+
+| 字段 | 例子 |
+| --- | --- |
+| 路由器版本和阈值 | router-v3，阈值 0.4 |
+| 路由器的输出 | 「难」的概率 0.62 |
+| 最终使用的模型 | provider-a/model-s |
+| 是否升级、是否降级，原因 | 级联升级：schema 校验失败；降级：主模型超时 |
+| 延迟、token 数、成本 | 2.7 秒，1,500 / 310 token，0.0092 美元 |
+| 结果 | 校验通过；客户未转人工 |
+
+这些记录的用处：
+
+- **排查问题**：客户投诉回复质量差，能查到这条请求被分给了哪个模型、为什么
+- **算清成本**：每类请求、每个模型各花了多少钱
+- **产生新的训练数据**：被升级的请求、被投诉的请求，就是路由器下一版的标注样本
+- **发现异常**：送去 S 的比例从 15% 突然涨到 30%，要么流量变了，要么路由器出了问题
+
+记录和监控的通用做法见 [Observability](/docs/production/observability)。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 模型服务会出哪几种故障？降级链路怎么设计？
+2. 为什么 400 错误不应该触发切换？为什么备用模型最好来自另一家服务商？
+3. 为什么备用链路要提前测试？常见的坑有哪些？
+4. 影子模式和 A/B 测试分别能验证什么、不能验证什么？
+5. 每组 5,000 个对话、解决率 82% 对 84%，z 值是多少？每组只有 1,000 个时为什么不能下结论？
+6. 每个请求的路由决策要记录哪些字段？这些记录有什么用？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Fallback and A/B testing
+
+### What do you do when a model service fails?
+
+Calling external model services, you will hit all of these:
+
+- **Timeouts**: the service slows down and doesn't respond
+- **Rate limits**: you exceed the per-minute request or token cap and get a 429
+- **Outages**: the provider is down and returns 5xx errors
+- **Deprecation**: an old version reaches end of life (see [Model Selection](/docs/application/model-selection) Level 4)
+
+**Fallback** means preparing a backup path ahead of time: when the primary model fails, automatically move to the next one in order.
+
+```python
+FALLBACK_CHAIN = [
+    "provider-a/model-m",     # primary
+    "provider-b/model-m2",    # same tier from another provider
+    "provider-a/model-x",     # small model: a bit worse, but usable
+]
+
+def generate_with_fallback(messages):
+    for model in FALLBACK_CHAIN:
+        try:
+            return call_model(model, messages, timeout=5)
+        except (Timeout, RateLimited, ServiceUnavailable) as e:
+            log_fallback(model, reason=type(e).__name__)
+            continue
+    return HANDOFF_REPLY      # "I've passed you to a human agent"
+```
+
+Key points:
+
+- **Keep timeouts short**: the customer is waiting, so no step can wait 60 seconds. The timeouts across all steps must fit the overall latency budget
+- **Only fail over on errors another model might fix**: if the request itself is bad (say a 400 for invalid parameters), every model will fail — surface the error
+- **Circuit breaking**: when the primary fails heavily, skip it for a while instead of hitting the wall on every request. General practices for timeouts, retries, and circuit breakers are in [Reliability](/docs/production/reliability)
+- **Put different providers in the chain**: when one provider has an outage, its models often go down together
+
+**Graceful degradation**: fallback doesn't have to mean "the same job on another model". If S is unavailable for complex complaints, M can draft the resolution with a **mandatory human review** flag. The feature is reduced, not broken.
+
+<Note title="Test the backup path before you need it" type="warning">
+
+A backup path that never runs usually fails when you finally need it: the prompt was tuned for the primary and works worse on the backup (see [Prompt Engineering](/docs/application/prompt-engineering) Level 5); the backup doesn't support the same structured-output parameters (see [Structured Output](/docs/application/structured-output) Level 2); the other provider never passed data-compliance review; or the backup account's rate limit is so low it throttles the moment you switch. Run the backup model on the evaluation set too, and rehearse failovers regularly.
+
+</Note>
+
+### How do you prove a new routing policy is actually better?
+
+Say you want to move the Level 2 threshold from 0.5 to 0.4, or ship a newly trained router. Evaluate offline on the evaluation set first; once it passes, roll out in two steps.
+
+**Step 1: shadow mode.** Run the new and old routers side by side, **but act only on the old router's decision** — the new router's decisions are just logged.
+
+- zero risk to users
+- shows how much traffic the new router would send to S, estimates the cost change, and surfaces requests where the two disagree for closer review
+- can't show the new decisions' real effect on users
+
+**Step 2: A/B test.** Randomly split users into two groups: control keeps the old policy, treatment gets the new one, and you compare outcomes.
+
+Metrics to watch:
+
+- **Primary metric**: resolution rate (the share resolved without a human handoff)
+- **Cost and latency**: cost per request, P99 latency
+- **Guardrail metrics**: complaint rate, handoff rate. If the primary metric improves, guardrails still can't get noticeably worse
+
+**How do you tell whether the improvement is real?** Suppose each group has 5,000 conversations, with 82% resolution in control and 84% in treatment:
+
+```
+pooled rate p = (82% + 84%) / 2 = 83%
+standard error = sqrt(p × (1 − p) × (1/5000 + 1/5000))
+               = sqrt(0.83 × 0.17 × 0.0004) ≈ 0.00751
+z = (84% − 82%) / 0.00751 ≈ 2.66
+```
+
+z is above 1.96, so at 95% confidence the 2-point gap is **unlikely to be random noise**. With only 1,000 conversations per group, the same 2-point gap has a standard error of 0.0168 and z of just 1.19 — not enough to conclude anything.
+
+<Note title="Common A/B testing mistakes" type="warning">
+
+- **Randomizing per request**: one message from a customer gets the new policy and the next gets the old — an inconsistent experience and contaminated results. **Randomize per user**, so each user stays in one group
+- **Peeking and stopping at the first significant result**: checking repeatedly and declaring victory the first time it looks significant produces false positives. Fix the sample size and metrics up front
+- **Watching only the primary metric**: resolution went up but so did complaints — that's not a win
+
+</Note>
+
+### What should you log about routing decisions?
+
+For every request, record the routing details:
+
+| Field | Example |
+| --- | --- |
+| Router version and threshold | router-v3, threshold 0.4 |
+| Router output | probability of hard: 0.62 |
+| Model actually used | provider-a/model-s |
+| Escalation or fallback, and why | cascade escalation: schema validation failed; fallback: primary timed out |
+| Latency, tokens, cost | 2.7 s, 1,500 / 310 tokens, $0.0092 |
+| Outcome | validation passed; no human handoff |
+
+What those records are for:
+
+- **Debugging**: when a customer complains about a bad reply, you can see which model handled it and why
+- **Cost attribution**: how much each request type and each model costs
+- **New training data**: escalated requests and complained-about requests become labeled examples for the next router
+- **Spotting anomalies**: if the share going to S jumps from 15% to 30%, either traffic changed or the router broke
+
+General logging and monitoring practices are in [Observability](/docs/production/observability).
+
+<Note title="Self-check: by now you should be able to answer">
+
+1. What kinds of failures do model services have, and how do you design the fallback chain?
+2. Why shouldn't a 400 error trigger failover, and why should the backup ideally come from another provider?
+3. Why test the backup path in advance, and what are the common pitfalls?
+4. What can shadow mode and A/B tests each verify, and what can't they?
+5. With 5,000 conversations per group and 82% versus 84% resolution, what is z? Why can't you conclude anything with 1,000 per group?
+6. Which fields should you log for each routing decision, and what are they used for?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note title="别说「路由之后质量和全用强模型一样，成本还低很多」" type="danger">
+
+路由一定会分错，而且小模型在简单问题上通常也比强模型差一点。Level 2 的例子里，路由的正确率是 94.18%，全用 S 是 97.2%。要说清楚用多少质量换了多少成本。
+
+</Note>
+
+<Note title="别说「让模型输出置信度，低于阈值就升级」" type="danger">
+
+模型自报的置信度通常校准得很差、过度自信，分不开对和错。升级信号优先用格式校验、业务规则检查和单独的验证器。
+
+</Note>
+
+<Note title="只算完美路由的省钱效果" type="warning">
+
+真实的省钱幅度要算上误判送去强模型的流量、路由器本身的调用成本，以及级联里每个请求都要先付的小模型费用。
+
+</Note>
+
+<Note title="只看级联的平均延迟" type="warning">
+
+被升级的请求要等两个模型，P99 可能比全部用强模型还慢。流式回复没法收回已经显示的内容，也不适合级联。
+
+</Note>
+
+<Note title="备用链路从来没跑过" type="warning">
+
+prompt 不适配、结构化输出参数不兼容、合规没审批、限流额度太低，都会让兜底在真正故障时失效。要在评测集上验证，并定期演练切换。
+
+</Note>
+
+<Note title="A/B 测试按请求分组，或者样本不够就下结论" type="warning">
+
+要按用户分组，提前定好样本量。每组 1,000 个对话时，2 个百分点的差距还不能说明问题。
+
+</Note>
+
+<Note title="不记录路由决策" type="warning">
+
+没有日志，就查不出某条回复为什么质量差，算不清每个模型花了多少钱，也没有数据训练下一版路由器。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Traps
+
+<Note title="Don't say routing matches all-strong quality at a fraction of the cost" type="danger">
+
+Routers always misroute some requests, and small models are usually a bit worse even on easy questions. In the Level 2 example, routing reached 94.18% accuracy versus 97.2% for all S. Say how much quality you traded for how much cost.
+
+</Note>
+
+<Note title="Don't say you escalate when the model's stated confidence is low" type="danger">
+
+Self-reported confidence is usually poorly calibrated and overconfident, and it doesn't separate right from wrong. Prefer format validation, business-rule checks, and a separate verifier as escalation signals.
+
+</Note>
+
+<Note title="Counting only the savings from perfect routing" type="warning">
+
+Real savings must include false alarms sent to the strong model, the router's own calls, and the small-model cost every cascade request pays up front.
+
+</Note>
+
+<Note title="Looking only at a cascade's average latency" type="warning">
+
+Escalated requests wait for two models, so P99 can be slower than sending everything to the strong model. Streamed replies can't be taken back, so they don't suit cascades either.
+
+</Note>
+
+<Note title="A backup path that has never run" type="warning">
+
+Prompts that don't transfer, incompatible structured-output parameters, missing compliance approval, and low rate limits all make fallback fail during a real outage. Validate it on the evaluation set and rehearse failovers regularly.
+
+</Note>
+
+<Note title="Randomizing A/B tests per request, or concluding on too few samples" type="warning">
+
+Randomize per user and fix the sample size up front. At 1,000 conversations per group, a 2-point gap proves nothing.
+
+</Note>
+
+<Note title="Not logging routing decisions" type="warning">
+
+Without logs you can't explain why a reply was bad, attribute cost per model, or collect data to train the next router.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 连接
+
+</Locale>
+
+<Locale lang="en">
+
+## Connections
 
 </Locale>
 
 ```
-Easy query        → cheap model
-Hard query        → strong model
-Coding            → specialized model
-Summarization     → cheap model
+one model: expensive or bad → traffic mix 70 / 25 / 5 → blended cost
+                    ↓
+static routing: by task, by rules (predictable, can't see difficulty)
+                    ↓
+dynamic routing: router predicts "can the small model handle it"
+    precision / recall · misroute cost · threshold vs. quality floor
+                    ↓
+cascade: answer cheap, check, escalate · avg vs. P99 · calibration
+                    ↓
+fallback chain · circuit breaking · graceful degradation
+                    ↓
+offline eval → shadow mode → A/B test (per user, z-test) · routing logs
 ```
 
 <Locale lang="zh">
 
-## 三级回答
-
-### Level 1 — 定义
-
-按请求的特征，把流量分到不同的模型。
-
-### Level 2 — 机制
-
-可以用规则（长度、任务类型），或者先用小分类器 / 小模型判断难度。Cascade：先用便宜模型，置信度低再升级到强模型。
-
-### Level 3 — 工程
-
-路由错了，简单问题会花冤枉钱，难题会答崩。必须有 fallback 和 A/B 测试。这和 agent 选工具不同：这里选的是「用哪个大脑」，不是「用哪个工具」。
+- 上游：[Model Selection](/docs/application/model-selection)（分档、成本计算、评测集） · [Structured Output](/docs/application/structured-output)（格式校验作为升级信号） · [Prompt Engineering](/docs/application/prompt-engineering)（换模型 prompt 要重新验证）
+- 相关：[Embedding](/docs/rag/embedding)（近邻路由） · [LLM Evaluation](/docs/evaluation/llm-eval)（验证器模型、打分）
+- 工程落点：[Cost](/docs/production/cost) · [Latency](/docs/production/latency) · [Reliability](/docs/production/reliability)（超时、重试、熔断） · [Observability](/docs/production/observability)（路由日志和监控）
 
 ## 面试问题
 
-1. 你用什么信号判断一个查询难不难？（What signals do you use to judge how hard a query is?）
-2. Cascade 比直接打大模型省在哪、慢在哪？（Compared with always calling the large model, where does a cascade save money and where does it add latency?）
-3. Fallback 的触发条件是什么？（What triggers a fallback?）
-4. 怎么用 A/B 测试验证路由没有伤害质量？（How do you use A/B testing to prove routing didn't hurt quality?）
+先自己口头答一遍，再回到对应的 Level 对照。
 
-## 我的答案
+**Level 0 — 为什么需要路由**
+
+1. 为什么要做模型路由？能省多少钱？（Why do model routing, and how much can it save?）
+2. 路由有哪几种方式？（What kinds of model routing are there?）
+
+**Level 1 — 静态路由**
+
+3. 规则路由有什么优缺点？什么时候够用？（What are the pros and cons of rule-based routing, and when is it enough?）
+
+**Level 2 — 动态路由**
+
+4. 怎么设计一个判断请求难度的路由器？训练数据从哪来？（How would you design a router that judges request difficulty, and where does its training data come from?）
+5. 路由器分错了会怎样？怎么衡量路由器的好坏？（What happens when the router misroutes, and how do you measure a router?）
+6. 路由器的阈值怎么定？（How do you set the router's threshold?）
+
+**Level 3 — 级联**
+
+7. 级联是什么？它的成本和延迟怎么算？（What is a cascade, and how do you compute its cost and latency?）
+8. 级联里怎么判断要不要升级？为什么不能用模型自报的置信度？（How does a cascade decide to escalate, and why not use the model's self-reported confidence?）
+9. 级联和分类器路由怎么选？（How do you choose between a cascade and classifier routing?）
+
+**Level 4 — 降级兜底与 A/B 测试**
+
+10. 主模型服务挂了，你的系统会怎么处理？（Your primary model provider goes down — what does your system do?）
+11. 怎么验证一个新的路由策略比旧的好？（How do you verify a new routing policy beats the old one?）
+12. A/B 测试的结果怎么判断是不是显著？（How do you tell whether an A/B test result is significant?）
+13. 设计一个客服系统的模型路由方案，要求成本降低一半以上，质量不明显下降。（Design model routing for a support system that cuts cost by more than half without a noticeable quality drop.）
 
 </Locale>
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Sending traffic to different models based on what each request looks like.
-
-### Level 2 — Mechanism
-
-Use rules (length, task type), or have a small classifier or small model judge difficulty first. A cascade starts with the cheap model and escalates to the strong one when confidence is low.
-
-### Level 3 — Engineering
-
-Misrouting makes easy questions expensive and breaks hard ones. You need fallbacks and A/B tests. This is different from an agent choosing tools: here you're choosing which brain, not which tool.
+- Upstream: [Model Selection](/docs/application/model-selection) (tiers, cost math, evaluation sets) · [Structured Output](/docs/application/structured-output) (format validation as an escalation signal) · [Prompt Engineering](/docs/application/prompt-engineering) (revalidating prompts on a new model)
+- Related: [Embedding](/docs/rag/embedding) (nearest-neighbor routing) · [LLM Evaluation](/docs/evaluation/llm-eval) (verifier models, grading)
+- Where it lands in engineering: [Cost](/docs/production/cost) · [Latency](/docs/production/latency) · [Reliability](/docs/production/reliability) (timeouts, retries, circuit breakers) · [Observability](/docs/production/observability) (routing logs and monitoring)
 
 ## Interview questions
 
-1. What signals do you use to judge how hard a query is?
-2. Compared with always calling the large model, where does a cascade save money and where does it add latency?
-3. What triggers a fallback?
-4. How do you use A/B testing to prove routing didn't hurt quality?
+Answer out loud first, then check against the matching Level.
 
-## My answer
+**Level 0 — Why routing is needed**
+
+1. Why do model routing, and how much can it save?
+2. What kinds of model routing are there?
+
+**Level 1 — Static routing**
+
+3. What are the pros and cons of rule-based routing, and when is it enough?
+
+**Level 2 — Dynamic routing**
+
+4. How would you design a router that judges request difficulty, and where does its training data come from?
+5. What happens when the router misroutes, and how do you measure a router?
+6. How do you set the router's threshold?
+
+**Level 3 — Cascades**
+
+7. What is a cascade, and how do you compute its cost and latency?
+8. How does a cascade decide to escalate, and why not use the model's self-reported confidence?
+9. How do you choose between a cascade and classifier routing?
+
+**Level 4 — Fallback and A/B testing**
+
+10. Your primary model provider goes down — what does your system do?
+11. How do you verify a new routing policy beats the old one?
+12. How do you tell whether an A/B test result is significant?
+13. Design model routing for a support system that cuts cost by more than half without a noticeable quality drop.
 
 </Locale>
 
--
+---
+
+<Locale lang="zh">
+
+## 我的答案
+
+自己写，别让 agent 代写。30s 版超过 40 秒就砍，要讲到路由方式、分错的代价和怎么验证。
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+Write it yourself — don't let the agent draft it. Cut it if it runs past 40 seconds; cover the routing approaches, the cost of misrouting, and how you validate.
+
+</Locale>
+
+### 30s
+
+>
 
 <Locale lang="zh">
 
 ## 项目锚点
+
+你的 multi-agent 项目里，不同的 agent 或步骤用的是同一个模型吗？有没有按任务选不同的模型、做过超时或故障时的兜底？如果现在重做，你会把哪一步换成更便宜的模型，怎么验证质量没掉？一句话 + 一个数字。参考 [项目深挖](/docs/projects)。
 
 </Locale>
 
@@ -110,6 +1274,8 @@ Misrouting makes easy questions expensive and breaks hard ones. You need fallbac
 
 ## Project anchor
 
+In your multi-agent projects, did every agent or step use the same model? Did you pick models per task, or add fallback for timeouts and outages? If you rebuilt it now, which step would you move to a cheaper model, and how would you verify quality held up? One sentence plus one number. See [Projects](/docs/projects).
+
 </Locale>
 
--
+>
