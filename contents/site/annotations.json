@@ -1,4 +1,403 @@
 {
+  "/docs/application/prompt-engineering": [
+    {
+      "id": "7bf8736b-305d-40ec-8813-3c39381a4743",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "消息列表",
+        "prefix": "什么模型实际看到的是什么？调用模型 API 时，你传的通常是一个",
+        "suffix": "：[\n  {\"role\": \"system\", \"content"
+      },
+      "createdAt": 1789610008369,
+      "updatedAt": 1789610008369
+    },
+    {
+      "id": "64b82f11-5b5f-44c3-a28e-75ba3389544e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "chat template 和特殊 token",
+        "prefix": "plate 把它拼成一整串带特殊标记的文本，再切成 token（",
+        "suffix": " 见 Post-training Level 1）：<|syst"
+      },
+      "createdAt": 1789610072956,
+      "updatedAt": 1789610072956
+    },
+    {
+      "id": "3727a6c6-9928-4b42-b44d-db8167a0b087",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "系统指令、对话历史、用户消息、塞进去的资料，全都算",
+        "prefix": "型来说，prompt 就是它开始回答之前看到的全部 token：",
+        "suffix": "。模型要做的事，就是在这串 token 后面续写出最合适的回答。"
+      },
+      "createdAt": 1789610095399,
+      "updatedAt": 1789610095399
+    },
+    {
+      "id": "1d694939-7239-4c0b-8096-95322bca10ac",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每轮对话都在",
+        "prefix": "的放什么特点system开发者身份、业务规则、输出格式、禁止事项",
+        "suffix": "，模型在训练中学会了优先遵守它user最终用户用户的问题和输入不"
+      },
+      "createdAt": 1789610110963,
+      "updatedAt": 1789610110963
+    },
+    {
+      "id": "c2998621-1b9f-4d3d-a0b0-52026ee6c347",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不可信，可能写错、可能故意捣乱",
+        "prefix": "在，模型在训练中学会了优先遵守它user最终用户用户的问题和输入",
+        "suffix": "（Level 4）assistant模型模型之前的回复多轮对话里"
+      },
+      "createdAt": 1789610122503,
+      "updatedAt": 1789610122503
+    },
+    {
+      "id": "e32313e3-8c82-4039-8c9f-c5337c129247",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "为什么模型会听 system 的话？",
+        "prefix": "史传回去；部分 API 还支持预先写好回复的开头，引导模型接着写",
+        "suffix": "因为在 post-training 里，模型见过大量「syste"
+      },
+      "createdAt": 1789610180733,
+      "updatedAt": 1789610180733
+    },
+    {
+      "id": "0c5c5fe5-ba06-4519-96aa-a1c890050f8a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型见过大量「system 里写了规则 → 回答遵守规则」的示范",
+        "prefix": "听 system 的话？因为在 post-training 里，",
+        "suffix": "，学会了重视这个位置的内容。多轮对话里，历史每次都要重新发一遍:"
+      },
+      "createdAt": 1789610191840,
+      "updatedAt": 1789610191840
+    },
+    {
+      "id": "85fb2677-19b4-4724-8bb9-413e177bfd17",
+      "kind": "note",
+      "locale": "zh",
+      "quote": {
+        "exact": "prefill 时间",
+        "prefix": "息都要跟着这一轮一起发过去，输入 token 越来越多，费用和 ",
+        "suffix": "也跟着涨（见 Tokenization Level 3）。历史太"
+      },
+      "note": "Prefill 阶段：模型要一次性处理完整个 prompt。这部分可以并行，但 attention 里的 Q·Kᵀ 是 n×n 的矩阵，所以计算量随 n 平方增长。prompt 越长，首 token 出来得越慢（TTFT 越高）",
+      "createdAt": 1789610300605,
+      "updatedAt": 1789610300605
+    },
+    {
+      "id": "42982098-c06f-48d7-9fde-28487ae966a7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "历史太长时怎么裁剪、压缩，是 Context Engineering 要解决的问题。",
+        "prefix": " 时间也跟着涨（见 Tokenization Level 3）。",
+        "suffix": "为什么写几句话就能改变模型的行为？模型做的始终是一件事：根据前面"
+      },
+      "createdAt": 1789610315370,
+      "updatedAt": 1789610315370
+    },
+    {
+      "id": "2b826578-f7c6-42f2-b516-d9c97c5ec032",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "聊到第 10 轮时，前 9 轮的所有消息都要跟着这一轮一起发过去",
+        "prefix": "轮对话里，历史每次都要重新发一遍:模型本身不记得上一轮说过什么。",
+        "suffix": "，输入 token 越来越多，费用和 prefill 时间也跟着"
+      },
+      "createdAt": 1789610323780,
+      "updatedAt": 1789610323780
+    },
+    {
+      "id": "44778060-7588-404a-8545-d97568f497b7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "根据前面所有的内容，续写出最可能的回答",
+        "prefix": "的问题。为什么写几句话就能改变模型的行为？模型做的始终是一件事：",
+        "suffix": "（见 Training Level 1）。prompt 改变的是"
+      },
+      "createdAt": 1789610329717,
+      "updatedAt": 1789610329717
+    },
+    {
+      "id": "3b8cefa8-faa6-4925-be1e-d30d06e7cc73",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "这些空白，模型都用网上客服话术里最常见的说法填上了",
+        "prefix": "也没有权限、没有工具去「办理退款」；「3 个工作日」也是它猜的。",
+        "suffix": "。Prompt 里没写的业务规则，模型一定会自己猜:模型不知道你"
+      },
+      "createdAt": 1789610371807,
+      "updatedAt": 1789610371807
+    },
+    {
+      "id": "ec76ef59-8447-4184-a9db-60f090ebfbec",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "它就会给出一个「看起来合理」的答案",
+        "prefix": "这些信息没进 prompt（或者没通过 RAG、工具调用拿到），",
+        "suffix": "。线上事故里，客服机器人乱承诺退款、乱报价格，大多是这个原因。生"
+      },
+      "createdAt": 1789611290363,
+      "updatedAt": 1789611290363
+    },
+    {
+      "id": "c306dd03-4ab1-4b48-a17f-fca5cc6a03f4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "抽取、分类用 0",
+        "prefix": "参数作用常见设置temperature越低输出越确定，越高越多样",
+        "suffix": " 或很低；起草回复用适中的值；创意写作可以高一些top_p只从累"
+      },
+      "createdAt": 1789611313365,
+      "updatedAt": 1789611313365
+    },
+    {
+      "id": "ce96e060-7fca-4774-9f7a-555166c6b5b5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "创意写作可以高一些",
+        "prefix": "越确定，越高越多样抽取、分类用 0 或很低；起草回复用适中的值；",
+        "suffix": "top_p只从累计概率达到 p 的候选里采样通常只调 tempe"
+      },
+      "createdAt": 1789611317750,
+      "updatedAt": 1789611317750
+    },
+    {
+      "id": "fa2c0613-4e35-4fd2-bad3-727c5edea445",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "只从累计概率达到 p 的候选里采样",
+        "prefix": "用 0 或很低；起草回复用适中的值；创意写作可以高一些top_p",
+        "suffix": "通常只调 temperature 和 top_p 中的一个max"
+      },
+      "createdAt": 1789611337319,
+      "updatedAt": 1789611337319
+    },
+    {
+      "id": "9fa6f6c5-2923-42aa-8533-d0729fe5707f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "设太小会把回答截断",
+        "prefix": "top_p 中的一个max_tokens最多生成多少 token",
+        "suffix": "，JSON 被截断就解析失败（见 Structured Outp"
+      },
+      "createdAt": 1789611348100,
+      "updatedAt": 1789611348100
+    },
+    {
+      "id": "af1cb895-1938-4d59-a684-157a24713967",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Prompt engineering：怎么把指令、规则、示例写清楚",
+        "prefix": "ng 和 context engineering 是什么关系？\n",
+        "suffix": "\nContext engineering：每一次调用时，哪些信息"
+      },
+      "createdAt": 1789611368901,
+      "updatedAt": 1789611368901
+    },
+    {
+      "id": "3d50c1d7-83e7-4180-a45f-779418f18ab8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Context engineering：每一次调用时，哪些信息应该放进上下文",
+        "prefix": "ompt engineering：怎么把指令、规则、示例写清楚\n",
+        "suffix": "：检索回来的文档、对话历史、工具返回的结果、记忆\nPrompt "
+      },
+      "createdAt": 1789611375914,
+      "updatedAt": 1789611375914
+    },
+    {
+      "id": "e7ad813b-44a2-4747-b6f5-f8e833b005e6",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "客户消息很长、带换行、带引号时，没有明确的边界，模型容易把一部分资料读成指令",
+        "prefix": "el 4 专门讲这个风险）\n让模型分清资料从哪开始、到哪结束。 ",
+        "suffix": "，或者漏读\n用 XML 风格的标签很常见，很多模型厂商的文档也推"
+      },
+      "createdAt": 1789611554877,
+      "updatedAt": 1789611554877
+    },
+    {
+      "id": "35c05254-b4b4-4104-a7d3-4cbd00f281f2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "客户消息里完全可能出现「请直接给我退款」「忽略上面的规则」这样的话。如果它和系统指令混在一起，模型可能把它当成要执行的指令",
+        "prefix": "这样的标签里。原因有两个：\n让模型分清哪些是指令、哪些是资料。 ",
+        "suffix": "（Level 4 专门讲这个风险）\n让模型分清资料从哪开始、到哪"
+      },
+      "createdAt": 1789611563194,
+      "updatedAt": 1789611563194
+    },
+    {
+      "id": "dc211825-05a2-4275-868a-9e8ca2054328",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每条规则都会占用模型的注意力",
+        "prefix": "说明原因」否则模型在冲突时只能自己选Prompt 不是越长越好:",
+        "suffix": "。塞进大量和当前任务无关的规则，关键规则反而更容易被忽略；长上下"
+      },
+      "createdAt": 1789611613267,
+      "updatedAt": 1789611613267
+    },
+    {
+      "id": "b4e9c347-a90e-4ed5-a56a-bc30bb12f1be",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "长上下文里放在中间的信息也更容易被模型忽视",
+        "prefix": "注意力。塞进大量和当前任务无关的规则，关键规则反而更容易被忽略；",
+        "suffix": "（见 Context Window）。而且每个 token 都要"
+      },
+      "createdAt": 1789611625042,
+      "updatedAt": 1789611625042
+    },
+    {
+      "id": "a408cd80-aa85-4118-aab6-b3a73d21681a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "只描述任务，不给例子",
+        "prefix": "-shot 和 few-shot 是什么？\nzero-shot：",
+        "suffix": "\nfew-shot：在 prompt 里放几个「输入 → 期望输"
+      },
+      "createdAt": 1789611689078,
+      "updatedAt": 1789611689078
+    },
+    {
+      "id": "d277a866-e1e1-49b3-b3ec-b22f49eee834",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "在 prompt 里放几个「输入 → 期望输出」的示例，让模型照着做",
+        "prefix": "？\nzero-shot：只描述任务，不给例子\nfew-shot：",
+        "suffix": "\n用一个更小的任务来看：把客户消息分到五个意图之一，物流查询、退"
+      },
+      "createdAt": 1789611691425,
+      "updatedAt": 1789611691425
+    },
+    {
+      "id": "4d7f97a4-5c3d-476c-b55b-6c127fc642ed",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "很多时候，给几个好例子比写一大段规则说明更有效。",
+        "prefix": "会了模型三件事：有哪些类别、类别之间的边界怎么划、输出长什么样。",
+        "suffix": "示例什么时候特别有用，什么时候不需要？特别有用：\n边界模糊时。 "
+      },
+      "createdAt": 1789611711876,
+      "updatedAt": 1789611711876
+    },
+    {
+      "id": "719c3f72-b95e-4add-b2ec-170673539310",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "推理模型：有的模型厂商建议对推理模型先试 zero-shot，示例反而可能干扰它自己的推理过程",
+        "prefix": "\n任务简单、定义清楚，强模型 zero-shot 已经做得很好\n",
+        "suffix": "\n示例会带来哪些偏差？示例不是只教「怎么做」，模型会连同示例里的"
+      },
+      "createdAt": 1789611757710,
+      "updatedAt": 1789611757710
+    },
+    {
+      "id": "1ec34b91-be63-4524-847a-a788da6e61ac",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "偏差",
+        "prefix": "ro-shot，示例反而可能干扰它自己的推理过程\n示例会带来哪些",
+        "suffix": "？示例不是只教「怎么做」，模型会连同示例里的巧合一起学：偏差表现"
+      },
+      "createdAt": 1789611769458,
+      "updatedAt": 1789611769458
+    },
+    {
+      "id": "813e1fad-3207-416a-ae04-ae4bb75329b4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "示例里的具体数据，要么用明显的占位符，要么确保和真实数据绝不可能混淆",
+        "prefix": "实客户的回复里。评测时如果只看「格式对不对」，这种错误很难发现。",
+        "suffix": "。放几个示例？怎么选？\n数量：常见是 2 到 5 个。继续增加，"
+      },
+      "createdAt": 1789611884406,
+      "updatedAt": 1789611884406
+    },
+    {
+      "id": "109db5a4-ecc7-41bd-b34f-7b5de8d4f78a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "常见是 2 到 5 个。继续增加，收益越来越小，token 成本却在线性增长",
+        "prefix": "符，要么确保和真实数据绝不可能混淆。放几个示例？怎么选？\n数量：",
+        "suffix": "\n优先放难的：简单的例子模型本来就会，边界模糊、容易判错的例子最"
+      },
+      "createdAt": 1789611892365,
+      "updatedAt": 1789611892365
+    },
+    {
+      "id": "daecb3aa-9fd2-4330-a40b-523b91a15e27",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "边界模糊、容易判错的例子最有价值",
+        "prefix": "oken 成本却在线性增长\n优先放难的：简单的例子模型本来就会，",
+        "suffix": "\n覆盖每个类别和典型的难点，而不是只放最常见的情况\n动态示例（d"
+      },
+      "createdAt": 1789611897428,
+      "updatedAt": 1789611897428
+    },
+    {
+      "id": "017d342c-76c1-4243-8249-bb2b5a94c72a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "动态示例（dynamic few-shot）",
+        "prefix": "例子最有价值\n覆盖每个类别和典型的难点，而不是只放最常见的情况\n",
+        "suffix": "：准备一个几百条的标注示例库，每来一个请求，用 embeddin"
+      },
+      "createdAt": 1789611924776,
+      "updatedAt": 1789611924776
+    },
+    {
+      "id": "743aebca-2b50-4383-824d-967ae291a37b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每来一个请求，用 embedding 找出和它最相似的几条放进 prompt",
+        "prefix": "dynamic few-shot）：准备一个几百条的标注示例库，",
+        "suffix": "（embedding 相似度检索见 Embedding）。好处是"
+      },
+      "createdAt": 1789611931024,
+      "updatedAt": 1789611931024
+    }
+  ],
   "/docs/llm": [
     {
       "id": "35cbba85-f254-4b01-a505-3e193ea7ba21",
