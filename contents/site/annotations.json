@@ -854,6 +854,188 @@
       "updatedAt": 1789694563899
     }
   ],
+  "/docs/application/structured-output": [
+    {
+      "id": "b994daff-492e-474c-9859-b3f742fd61dc",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "给代码用的输出只要格式不对，程序就会出错",
+        "prefix": "# 高紧急度转人工\n给人看的回复写得稍微不规范，最多是体验不好；",
+        "suffix": "。只在 prompt 里要求「输出 JSON」，会以哪些方式出错"
+      },
+      "createdAt": 1789694694004,
+      "updatedAt": 1789694694004
+    },
+    {
+      "id": "e05f4926-5316-4812-8b65-17341fed6ab5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "语法合法（能被解析成 JSON）、结构合法（字段、类型、取值符合约定）、语义正确（内容是对的）",
+        "prefix": "出合法」拆成三层来看:下一个 Level 会把「合法」拆成三层：",
+        "suffix": "。①②③⑦ 是语法问题，④⑤ 是结构问题，⑥ 是语义问题。面试里"
+      },
+      "createdAt": 1789694749732,
+      "updatedAt": 1789694749732
+    },
+    {
+      "id": "ff6ba70d-df54-41d6-ad88-8cc6501aa238",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "先得有一份明确的约定，写清楚合法长什么样",
+        "prefix": "坏了，有的是字段不对，有的是内容编错了。要让模型输出合法的结果，",
+        "suffix": "。这份约定会在三个地方用到：\n告诉模型：放进 prompt，或者"
+      },
+      "createdAt": 1789694782589,
+      "updatedAt": 1789694782589
+    },
+    {
+      "id": "07a358ad-950b-4038-97a5-c98795281227",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Pydantic 自动生成 JSON Schema",
+        "prefix": " 里通常用 Pydantic：用一个 Python 类定义结构，",
+        "suffix": "，也负责校验。from typing import Litera"
+      },
+      "createdAt": 1789694850095,
+      "updatedAt": 1789694850095
+    },
+    {
+      "id": "e869a311-3f5a-4dfd-b05a-ba943547d817",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "错误信息精确到哪个字段、期望什么、实际给了什么",
+        "prefix": "put_value='很急', input_type=str]\n",
+        "suffix": "。Level 4 会把这段错误信息原样发回给模型，让它改正。Py"
+      },
+      "createdAt": 1789694881221,
+      "updatedAt": 1789694881221
+    },
+    {
+      "id": "d9a738ca-545d-471a-bf33-b2acb340fda7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "json.loads 不报错就算通过",
+        "prefix": "ctically valid）。输出是一段能被解析的 JSON。",
+        "suffix": "。第二层：结构合法（schema-valid）。字段齐全、类型正"
+      },
+      "createdAt": 1789694902829,
+      "updatedAt": 1789694902829
+    },
+    {
+      "id": "b9f96aec-c3eb-4210-9dae-c907ecf6a64c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Pydantic 校验通过就算通过",
+        "prefix": "valid）。字段齐全、类型正确、枚举值在范围内、没有多余字段。",
+        "suffix": "。第三层：语义正确（semantically correct）。"
+      },
+      "createdAt": 1789694905693,
+      "updatedAt": 1789694905693
+    },
+    {
+      "id": "4562ea36-30a9-4780-b690-961b63255b57",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "业务规则代码 + 评测集",
+        "prefix": "nschema 校验④ 缺字段 ⑤ 类型或取值不对语义内容对不对",
+        "suffix": "⑥ 编造订单号语义层能用代码查的，尽量用代码查：def chec"
+      },
+      "createdAt": 1789694920817,
+      "updatedAt": 1789694920817
+    },
+    {
+      "id": "93a94b65-36d8-4850-b126-669abaa02ac9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "没有任何保证",
+        "prefix": "是：物流查询、退款、商品咨询、投诉、其他\n这能把错误率降下来，但",
+        "suffix": "。模型每一步仍然是从概率分布里选 token，「很急」这种不在枚"
+      },
+      "createdAt": 1789694980348,
+      "updatedAt": 1789694980348
+    },
+    {
+      "id": "92997e69-dcc3-4aae-a21d-462d3c8eed3a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "在 prompt 里写清楚格式要求，再给一个示例",
+        "prefix": "证程度一个比一个强。方式一：只靠 prompt，能做到什么程度？",
+        "suffix": "：从客户消息中抽取工单信息，只输出 JSON，不要输出任何其他文"
+      },
+      "createdAt": 1789695005456,
+      "updatedAt": 1789695005456
+    },
+    {
+      "id": "e9a06114-b492-4d08-966a-f2a5e282b3a2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "打开后保证输出是语法合法的 JSON。它在生成时就排除了会让 JSON 写坏的 token",
+        "prefix": "了什么，没保证什么？JSON mode 是 API 的一个参数，",
+        "suffix": "（原理见 Level 3）。它只管语法这一层：{\"intent\""
+      },
+      "createdAt": 1789695047620,
+      "updatedAt": 1789695047620
+    },
+    {
+      "id": "df977ba4-c186-4a79-b4e4-94f6d9f24556",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "response_schema",
+        "prefix": "messages(customer_message),\n    ",
+        "suffix": "=Ticket.model_json_schema(),   #"
+      },
+      "createdAt": 1789695062096,
+      "updatedAt": 1789695062096
+    },
+    {
+      "id": "bc6cfe73-91d8-472a-9731-fe754f71b818",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "保证输出符合这份 schema：字段齐全、类型正确、枚举值在范围内",
+        "prefix": "接把 Level 1 的 JSON Schema 传给 API，",
+        "suffix": "。示意代码（各家 SDK 的参数名不同）：response = "
+      },
+      "createdAt": 1789695072386,
+      "updatedAt": 1789695072386
+    },
+    {
+      "id": "c483be69-5b31-4322-9515-d78262428a25",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "工具调用就是结构化输出：每个工具的参数都用一份 JSON Schema 描述，模型输出的参数必须符合这份 schema。",
+        "prefix": "真正执行（完整流程见 Tool Calling）。从输出格式看，",
+        "suffix": "tools = [{\n    \"name\": \"create_t"
+      },
+      "createdAt": 1789695157949,
+      "updatedAt": 1789695157949
+    },
+    {
+      "id": "678afc9e-d007-426e-8aeb-19a1d3d1a12c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "参数符合 schema 只说明格式对",
+        "prefix": "参数就是你要的结构化结果。「输出了工具调用」不等于「应该执行」:",
+        "suffix": "。order_id 是不是这个客户的、要不要真的发起退款，仍然要"
+      },
+      "createdAt": 1789695204508,
+      "updatedAt": 1789695204508
+    }
+  ],
   "/docs/llm": [
     {
       "id": "35cbba85-f254-4b01-a505-3e193ea7ba21",
