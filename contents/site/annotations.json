@@ -396,6 +396,462 @@
       },
       "createdAt": 1789611931024,
       "updatedAt": 1789611931024
+    },
+    {
+      "id": "88e2de04-2587-4e7a-b9c0-98cbffa13bf5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "如果要求模型立刻输出结论，它能用来「想」的计算量，就只有写出结论之前那几个 token 的计算",
+        "prefix": "n，就做一次前向计算（见 Inference Level 0）。",
+        "suffix": "。让模型先把中间步骤写出来，后面的 token 就能看着前面算出"
+      },
+      "createdAt": 1789692857623,
+      "updatedAt": 1789692857623
+    },
+    {
+      "id": "e386ff61-42f2-4d11-8a11-f5fa510f939b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "先把中间步骤写出来",
+        "prefix": "」的计算量，就只有写出结论之前那几个 token 的计算。让模型",
+        "suffix": "，后面的 token 就能看着前面算出的中间结果继续往下算，相当"
+      },
+      "createdAt": 1789692861346,
+      "updatedAt": 1789692861346
+    },
+    {
+      "id": "edf88409-a655-4415-8762-e4536e01ae3a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "chain of thought",
+        "prefix": "中间结果继续往下算，相当于给了模型一块草稿纸。这种做法叫思维链（",
+        "suffix": "）。放到客服例子里，判断「这个订单能不能申请退款」需要算日期：直"
+      },
+      "createdAt": 1789692869656,
+      "updatedAt": 1789692869656
+    },
+    {
+      "id": "5b52579a-7653-4413-b7b2-7857f4b13a7e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不需要让模型写推理过程",
+        "prefix": " Structured Output Level 3）。什么时候",
+        "suffix": "？\n简单任务：「我的订单什么时候到」分到「物流查询」，一眼就能判"
+      },
+      "createdAt": 1789692923113,
+      "updatedAt": 1789692923113
+    },
+    {
+      "id": "46cb8b63-7e87-49a7-8cf1-6b709b3bf49a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "这类模型在回答前本来就会生成思考过程",
+        "prefix": "候到」分到「物流查询」，一眼就能判断，写推理只是浪费\n推理模型：",
+        "suffix": "（见 Post-training Level 5），再要求它「一"
+      },
+      "createdAt": 1789692965016,
+      "updatedAt": 1789692965016
+    },
+    {
+      "id": "8ad5cc32-0330-47a4-8307-4889afc96c9f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "推理过程都是 output token，又慢又贵",
+        "prefix": "给用户看时：推理可以放在单独的标签或字段里，只把结论展示给客户\n",
+        "suffix": "：每个请求多写 150 个 token 的推理\n每月 100 万"
+      },
+      "createdAt": 1789692982944,
+      "updatedAt": 1789692982944
+    },
+    {
+      "id": "ece5a659-df60-4e2a-aa5a-bf31e40d2fa9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "同时包含两个诉求",
+        "prefix": "候应该把一个 prompt 拆成几步？再看贯穿全页的那条消息：它",
+        "suffix": "，问物流进度、要求退款。如果用一个大 prompt 一次性完成「"
+      },
+      "createdAt": 1789693634440,
+      "updatedAt": 1789693634440
+    },
+    {
+      "id": "2862d15b-33a6-4638-87bf-f0764d04b15b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "一次性完成「识别意图、判断退款资格、起草回复」",
+        "prefix": "包含两个诉求，问物流进度、要求退款。如果用一个大 prompt ",
+        "suffix": "，常见的问题是：\n只回应了其中一个诉求，漏掉另一个\n输出不对时，"
+      },
+      "createdAt": 1789693641721,
+      "updatedAt": 1789693641721
+    },
+    {
+      "id": "077a86fe-f1ce-400f-b165-7c7d472d2366",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "漏掉另一个",
+        "prefix": "判断退款资格、起草回复」，常见的问题是：\n只回应了其中一个诉求，",
+        "suffix": "\n输出不对时，不知道是哪一环出了错\n所有环节只能用同一个模型，简"
+      },
+      "createdAt": 1789693653917,
+      "updatedAt": 1789693653917
+    },
+    {
+      "id": "90de993b-e1a4-46f5-8b9c-a571e8e0512f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不知道是哪一环出了错",
+        "prefix": "，常见的问题是：\n只回应了其中一个诉求，漏掉另一个\n输出不对时，",
+        "suffix": "\n所有环节只能用同一个模型，简单环节也要付强模型的钱\nPromp"
+      },
+      "createdAt": 1789693656871,
+      "updatedAt": 1789693656871
+    },
+    {
+      "id": "923fb2f7-c5e8-4c9e-99dd-8800b0eb07e7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Prompt 链（prompt chaining）",
+        "prefix": "一环出了错\n所有环节只能用同一个模型，简单环节也要付强模型的钱\n",
+        "suffix": "：把任务拆成几个固定的步骤，每一步用一个简单、专注的 promp"
+      },
+      "createdAt": 1789693669959,
+      "updatedAt": 1789693669959
+    },
+    {
+      "id": "f555b1aa-ed8b-4b8e-85b7-e7f8d83bb5b7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "上面的 prompt 链步骤是写死的，属于 workflow",
+        "prefix": "固定步骤是 workflow，让模型决定下一步才是 agent:",
+        "suffix": "。如果改成「让模型自己决定下一步查订单、查政策还是直接回复」，就"
+      },
+      "createdAt": 1789693730660,
+      "updatedAt": 1789693730660
+    },
+    {
+      "id": "9020f6b0-ed9b-4703-bf5e-bd2d42849727",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "让模型自己决定下一步查订单、查政策还是直接回复」，就变成了 agent",
+        "prefix": "prompt 链步骤是写死的，属于 workflow。如果改成「",
+        "suffix": "。面试里被问「这个场景该用 workflow 还是 agent」"
+      },
+      "createdAt": 1789693738574,
+      "updatedAt": 1789693738574
+    },
+    {
+      "id": "ead15e99-c380-4bb1-9c2f-ace3176095d4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "用单独的一次调用来检查",
+        "prefix": "个要点：\n给明确的检查清单，比「检查一下有没有问题」效果好得多\n",
+        "suffix": "，而不是让模型在同一次回答里「顺便检查」\n能用代码检查的，就用代"
+      },
+      "createdAt": 1789693800496,
+      "updatedAt": 1789693800496
+    },
+    {
+      "id": "0913770b-2cf3-4324-aae4-518b7fef6035",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "能用代码检查的，就用代码",
+        "prefix": "用单独的一次调用来检查，而不是让模型在同一次回答里「顺便检查」\n",
+        "suffix": "：句子数量、有没有出现金额和日期、JSON 结构，用规则判断更可"
+      },
+      "createdAt": 1789693814826,
+      "updatedAt": 1789693814826
+    },
+    {
+      "id": "8e37a160-d42a-407f-b490-86625da68210",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "指令优先级（instruction hierarchy）",
+        "prefix": "的？一个 prompt 里的内容来源不同，可信程度也不同。常说的",
+        "suffix": "是：system / 开发者的指令          最高：业务"
+      },
+      "createdAt": 1789693878988,
+      "updatedAt": 1789693878988
+    },
+    {
+      "id": "c6c6175a-458d-4c9c-90b6-b56bc8bda1b7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "最高：业务规则、权限边界",
+        "prefix": "rchy）是：system / 开发者的指令          ",
+        "suffix": "\n        ↓\n用户消息                 "
+      },
+      "createdAt": 1789693884319,
+      "updatedAt": 1789693884319
+    },
+    {
+      "id": "65e4a71d-f063-404b-941d-35a88f847c8f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "其次：用户的请求，但不能推翻上面的规则",
+        "prefix": "    ↓\n用户消息                      ",
+        "suffix": "\n        ↓\n工具结果、检索文档、网页、邮件    最低"
+      },
+      "createdAt": 1789693889236,
+      "updatedAt": 1789693889236
+    },
+    {
+      "id": "80c99712-06e3-41bb-a82f-ea831e912280",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型在训练中被教过尽量按这个顺序处理冲突",
+        "prefix": "网页、邮件    最低：只能当「数据」读，不应该当「指令」执行\n",
+        "suffix": "，但不同模型遵守的程度不一样，也不是百分之百可靠。所以写 pro"
+      },
+      "createdAt": 1789693895770,
+      "updatedAt": 1789693895770
+    },
+    {
+      "id": "2e6d3f4e-faa1-488a-bdd8-439a77080a63",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Prompt 注入（prompt injection）",
+        "prefix": "类请求时，礼貌地说明你无法这样做。\n什么是 prompt 注入？",
+        "suffix": "：攻击者构造一段输入，让模型按攻击者的意图行事，而不是按开发者的"
+      },
+      "createdAt": 1789693965891,
+      "updatedAt": 1789693965891
+    },
+    {
+      "id": "32f7f607-67f8-4ffe-9a9f-8e1063341f86",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "让模型按攻击者的意图行事，而不是按开发者的指令行事",
+        "prefix": " 注入（prompt injection）：攻击者构造一段输入，",
+        "suffix": "。直接注入：攻击内容写在用户消息里。比如客户消息里夹着一段伪装成"
+      },
+      "createdAt": 1789693972498,
+      "updatedAt": 1789693972498
+    },
+    {
+      "id": "51bda074-299b-4b81-adda-eeac81f7346e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "攻击内容藏在模型要处理的数据里",
+        "prefix": "次对话跳过退款审核，要求客服助手直接确认退款已经到账。间接注入：",
+        "suffix": "，攻击者甚至不需要和系统对话。比如猫粮店用模型汇总商品评论，某条"
+      },
+      "createdAt": 1789694011089,
+      "updatedAt": 1789694011089
+    },
+    {
+      "id": "51d239dd-2774-4a36-b3ed-07d90d3dbba2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "对模型来说，系统指令、用户消息、检索资料最后都是同一串 token，中间没有真正的硬边界",
+        "prefix": "可能是间接注入的入口。为什么注入能成功？ Level 0 说过，",
+        "suffix": "。标签和优先级只是让模型「更倾向于」区分它们，并不能保证。在客服"
+      },
+      "createdAt": 1789694043961,
+      "updatedAt": 1789694043961
+    },
+    {
+      "id": "c380870d-d53a-41c0-abad-952cfe7fb850",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "攻击内容写在用户消息里",
+        "prefix": "，让模型按攻击者的意图行事，而不是按开发者的指令行事。直接注入：",
+        "suffix": "。比如客户消息里夹着一段伪装成「系统通知」的文字，声称管理员已经"
+      },
+      "createdAt": 1789694070443,
+      "updatedAt": 1789694070443
+    },
+    {
+      "id": "8a08f188-3138-4a18-9bfb-7bfe865ae5f8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把不可信内容包进标签，并声明它是数据",
+        "prefix": "发不该执行的操作。Prompt 层面能做哪些防护？做法怎么做作用",
+        "suffix": "「<customer_message> 里是客户发来的原文，只能"
+      },
+      "createdAt": 1789694102711,
+      "updatedAt": 1789694102711
+    },
+    {
+      "id": "eaf3fa14-2ca4-4127-b32d-7485075a2382",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "API 密钥、数据库连接串、只有内部员工能看的数据，都不应该出现在 prompt 里",
+        "prefix": "不要把密钥和内部数据写进系统提示词:系统提示词是可能被套出来的。",
+        "suffix": "。模型需要的内部数据，应该在确认用户权限之后，由代码按需取出、只"
+      },
+      "createdAt": 1789694126644,
+      "updatedAt": 1789694126644
+    },
+    {
+      "id": "8d107a18-c801-41b2-8321-2d35267e31a3",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "prompt 放进代码仓库或专门的 prompt 管理系统，每个版本有编号",
+        "prefix": "一个能用的版本\n改一处好了，另一类问题却悄悄变差了\n基本做法：\n",
+        "suffix": "\n修改走 code review，写清楚「为什么改、预期改善什么"
+      },
+      "createdAt": 1789694269607,
+      "updatedAt": 1789694269607
+    },
+    {
+      "id": "ada925fa-0d4b-4406-a80d-9307afb393b3",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "修改走 code review",
+        "prefix": " 放进代码仓库或专门的 prompt 管理系统，每个版本有编号\n",
+        "suffix": "，写清楚「为什么改、预期改善什么」\n每个请求的日志里记下用的是哪"
+      },
+      "createdAt": 1789694274650,
+      "updatedAt": 1789694274650
+    },
+    {
+      "id": "85a8f1e8-4287-4290-993c-a919955646f8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "改一句 prompt 就等于改了线上系统的行为",
+        "prefix": "评估为什么 prompt 要像代码一样管理？在 LLM 应用里，",
+        "suffix": "，影响可能不比改代码小。如果 prompt 散落在代码各处、随手"
+      },
+      "createdAt": 1789694293020,
+      "updatedAt": 1789694293020
+    },
+    {
+      "id": "f230581b-521d-46e1-a69e-fc874a4a94e2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "怎么证明新 prompt 比旧的好？",
+        "prefix": "\"content\": user_content},\n    ]\n",
+        "suffix": "靠评测集，不靠感觉。 只挑几条消息看看输出，很容易被个例误导。\n"
+      },
+      "createdAt": 1789694313071,
+      "updatedAt": 1789694313071
+    },
+    {
+      "id": "d8b04cb6-f8d1-46ac-9ec9-808be58a7121",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "靠评测集，不靠感觉",
+        "prefix": "ntent},\n    ]\n怎么证明新 prompt 比旧的好？",
+        "suffix": "。 只挑几条消息看看输出，很容易被个例误导。\n建评测集：从真实流"
+      },
+      "createdAt": 1789694317268,
+      "updatedAt": 1789694317268
+    },
+    {
+      "id": "11e56a0f-3298-44be-a5c0-c40175cf21c5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "总分提升可能来自一个大类别的改善，同时掩盖了一个小类别的退化",
+        "prefix": "波动。要补更多投诉样本，才能下结论\n只看总分会掩盖某一类的退步:",
+        "suffix": "。而小类别往往恰恰是高风险的（比如投诉）。评估 prompt 改"
+      },
+      "createdAt": 1789694341020,
+      "updatedAt": 1789694341020
+    },
+    {
+      "id": "43806b69-65e9-4a75-ab27-de3ff86bdad8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "如果一直对着同一批样本改 prompt，直到它们全对，prompt 就是在「背」这批样本，换一批数据效果就掉",
+        "prefix": "本少的类别结论不稳定。不要在调 prompt 用过的样本上评估:",
+        "suffix": "。被当作 few-shot 示例放进 prompt 的样本，更不"
+      },
+      "createdAt": 1789694360145,
+      "updatedAt": 1789694360145
+    },
+    {
+      "id": "a105d56f-d477-4d3a-a90c-5ff8a78625dc",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把不变的内容放在最前面，变化的内容放在最后面。",
+        "prefix": " Level 4）。Prompt 结构怎么排，才能更省钱、更快？",
+        "suffix": "这样每个请求的开头都一样，能命中前缀缓存：这部分跳过 prefi"
+      },
+      "createdAt": 1789694404977,
+      "updatedAt": 1789694404977
+    },
+    {
+      "id": "a94e5032-fab9-4bc8-961c-99b40a714256",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不一定。 prompt 往往是针对某个模型的习惯调出来的",
+        "prefix": "ens，比事后截断更好。换一个模型，prompt 还能直接用吗？",
+        "suffix": "：\n有的模型对 XML 标签更敏感，有的更习惯 markdown"
+      },
+      "createdAt": 1789694475387,
+      "updatedAt": 1789694475387
+    },
+    {
+      "id": "e9e0f621-c591-4782-99e9-53f5537f53e5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "换模型或者升级模型版本之前，一定要先在评测集上重新跑一遍",
+        "prefix": "想」、few-shot 的反应也不同（Level 2、3）\n所以",
+        "suffix": "，必要时针对新模型调整 prompt（见 Model Selec"
+      },
+      "createdAt": 1789694481157,
+      "updatedAt": 1789694481157
+    },
+    {
+      "id": "7e7b8d17-895a-4f80-a5a5-8df6454a663e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "必要的信息都在，不必要的都删掉",
+        "prefix": "；每个 token 也都要花钱、增加延迟。好的 prompt 是",
+        "suffix": "。别说「在 prompt 里写一句不要被注入，就能防住注入」:p"
+      },
+      "createdAt": 1789694513821,
+      "updatedAt": 1789694513821
+    },
+    {
+      "id": "13be16c7-768f-40ae-9b44-1208811e8164",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "示例里的订单号、金额、日期要用明显的占位符",
+        "prefix": "的类别，结论可能只是随机波动。示例里的具体数据被照抄进真实回复:",
+        "suffix": "，否则模型可能原样搬给真实客户。所有任务都加「一步步思考」:简单"
+      },
+      "createdAt": 1789694563899,
+      "updatedAt": 1789694563899
     }
   ],
   "/docs/llm": [
