@@ -192,7 +192,7 @@ export function TableAnchor({ levelProgress = {}, tocs }: TableAnchorProps) {
                 <Collapsible defaultOpen={status !== 'done'}>
                   <div className="flex items-start">
                     <div className="min-w-0 flex-1">{parentLink}</div>
-                    {status && <StudyStatusIcon className="mt-1.5" status={status} />}
+                    {status && <StudyStatusIcon className="mt-1" status={status} />}
                     <CollapsibleTrigger asChild>
                       <Button
                         aria-label="Toggle section"
