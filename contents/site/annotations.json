@@ -1,4 +1,349 @@
 {
+  "/docs/application/model-selection": [
+    {
+      "id": "1739a7cd-b2f4-40cb-b680-5c8aa7c3bc14",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "对这个任务来说，哪个模型质量够用，同时延迟和成本最合适",
+        "prefix": "好，客户就流失了。所以选模型要回答的不是「哪个模型最强」，而是：",
+        "suffix": "。质量、延迟、成本三者通常互相牵制，选模型就是在这三者之间做取舍"
+      },
+      "createdAt": 1789933060851,
+      "updatedAt": 1789933060851
+    },
+    {
+      "id": "72f6b155-afe9-453c-abf9-2ed81c5afcd9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "硬约束：必须满足，不满足的模型直接淘汰",
+        "prefix": "模型就是在这三者之间做取舍。选模型要考虑哪些约束？约束分两种：\n",
+        "suffix": "。比如「P99 延迟必须低于 3 秒」「必须支持结构化输出」「客"
+      },
+      "createdAt": 1789933165727,
+      "updatedAt": 1789933165727
+    },
+    {
+      "id": "242d4f74-cf1d-47c9-bff1-c41fba9f2e5e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "软目标：在满足硬约束的模型里比较，越好越好",
+        "prefix": "迟必须低于 3 秒」「必须支持结构化输出」「客户数据不能出境」\n",
+        "suffix": "。比如质量越高越好、成本越低越好\n同一个系统里，不同任务的约束差"
+      },
+      "createdAt": 1789933169170,
+      "updatedAt": 1789933169170
+    },
+    {
+      "id": "7f35cd7a-02f4-4b3a-bbaf-0b18c4119738",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "推理模型在给出答案之前，会先生成一段「思考」过程",
+        "prefix": "（强）、M（中）、X（小）三档代表。2. 推理模型和普通模型。 ",
+        "suffix": "（原理见 Post-training）。它在多步推理、复杂判断上"
+      },
+      "createdAt": 1789933207799,
+      "updatedAt": 1789933207799
+    },
+    {
+      "id": "b1be61e0-e23e-43d8-8c14-dd70940b2102",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "约束是什么 → 比较了哪些候选 → 用什么数据评估 → 怎么取舍 → 结果数字",
+        "prefix": "l 4 讲。面试里被问「为什么选这个模型」:好的回答有固定结构：",
+        "suffix": "。只说「它效果最好」或「大家都在用」，面试官会继续追问你有没有比"
+      },
+      "createdAt": 1789933244199,
+      "updatedAt": 1789933244199
+    },
+    {
+      "id": "6199145e-2a68-400a-834f-cca224e47a0a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "推理模型的思考 token 按输出计费，即使你看不到思考内容",
+        "prefix": "每天晚上给所有对话打标签），可以用批量接口，价格通常有明显折扣\n",
+        "suffix": "\n不同模型的 token 数不能直接比:不同模型用不同的 tok"
+      },
+      "createdAt": 1789933286977,
+      "updatedAt": 1789933286977
+    },
+    {
+      "id": "6165ebfe-de40-40e7-bbcc-1b1f235f3370",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不同模型的 token 数不能直接比:",
+        "prefix": "\n推理模型的思考 token 按输出计费，即使你看不到思考内容\n",
+        "suffix": "不同模型用不同的 tokenizer（见 Tokenizatio"
+      },
+      "createdAt": 1789933303539,
+      "updatedAt": 1789933303539
+    },
+    {
+      "id": "2ba6a9cd-44e2-48f5-943a-502613a1d820",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "单价低的模型不一定更便宜。比较成本要用你自己的真实数据跑一遍，看 API 返回的 token 用量。",
+        "prefix": ",000 个 token，在另一个模型里可能是 1,600 个。",
+        "suffix": "一个请求、一个月要花多少钱？每请求成本 = 输入 token 数"
+      },
+      "createdAt": 1789933306671,
+      "updatedAt": 1789933306671
+    },
+    {
+      "id": "492a0567-b880-48ae-8748-8649b5c95cc5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "输出比输入贵",
+        "prefix": "美元X（小）0.10 美元0.40 美元读价格表时要注意几点：\n",
+        "suffix": "。输入在 prefill 阶段一次并行算完，输出要在 decod"
+      },
+      "createdAt": 1789933317321,
+      "updatedAt": 1789933317321
+    },
+    {
+      "id": "ed2345b6-9549-4c7f-a9c8-a27943c2932e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "控制输出长度，往往比压缩 prompt 更省钱。",
+        "prefix": " token 花的钱和 1,500 个输入 token 一样多。",
+        "suffix": "缓存能省多少？ Prompt Engineering Level"
+      },
+      "createdAt": 1789933345033,
+      "updatedAt": 1789933345033
+    },
+    {
+      "id": "08d9b9fc-e074-49ac-aa15-4f117859aa3c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "多步调用：一个 agent 完成一个任务要调用 5 次模型",
+        "prefix": "00 / 100万 = 0.00225 美元，成本增加 25%\n",
+        "suffix": "，成本就是单次的 5 倍左右\n延迟怎么比较？Inference "
+      },
+      "createdAt": 1789933364734,
+      "updatedAt": 1789933364734
+    },
+    {
+      "id": "f444a36b-e0af-4668-89c4-3613c584a787",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "time from sending the request to the first token",
+        "prefix": "1 introduced two metrics: TTFT (",
+        "suffix": ") and TPOT (average time per tok"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "从发送请求到收到第一个token所花费的时间",
+        "pos": "phr.",
+        "note": ""
+      },
+      "createdAt": 1789933388051,
+      "updatedAt": 1789933388051
+    },
+    {
+      "id": "47b21f0d-86c2-44d7-82c3-b0c5e8d42358",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "TTFT（从发出请求到收到第一个 token 的时间）",
+        "prefix": "延迟怎么比较？Inference Level 1 讲过两个指标：",
+        "suffix": "和 TPOT（之后每生成一个 token 的平均时间）。一次请求"
+      },
+      "createdAt": 1789933404060,
+      "updatedAt": 1789933404060
+    },
+    {
+      "id": "3492d861-940d-4db2-957f-5a5c96df7797",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "看 P99，不只看平均值。同一个模型，高峰时段的延迟可能比平时慢很多",
+        "prefix": "TFT；工单 JSON 要等完整生成才能交给代码，看的是总时长\n",
+        "suffix": "\n自己测。延迟受你所在的地区、调用的时段、prompt 长度影响"
+      },
+      "createdAt": 1789933436378,
+      "updatedAt": 1789933436378
+    },
+    {
+      "id": "3040e324-c8b9-47a3-8531-c81c1dcf7fca",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "回复流式展示给客户，客户感受到的主要是 TTFT",
+        "prefix": "015 = 0.6 秒比较延迟时要注意：\n看哪个指标取决于用法。",
+        "suffix": "；工单 JSON 要等完整生成才能交给代码，看的是总时长\n看 P"
+      },
+      "createdAt": 1789933453510,
+      "updatedAt": 1789933453510
+    },
+    {
+      "id": "4eb85d9f-5301-48ca-9f89-af95584f68a1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "工单 JSON 要等完整生成才能交给代码，看的是总时长",
+        "prefix": "标取决于用法。回复流式展示给客户，客户感受到的主要是 TTFT；",
+        "suffix": "\n看 P99，不只看平均值。同一个模型，高峰时段的延迟可能比平时"
+      },
+      "createdAt": 1789933456374,
+      "updatedAt": 1789933456374
+    },
+    {
+      "id": "e9753ed6-818a-4e2a-a0f4-91c47cab2e25",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "测的不是你的任务",
+        "prefix": "ot Arena 是真人偏好。为什么不能直接按榜单选模型？1. ",
+        "suffix": "。 MMLU 考的是学科知识，猫粮店客服需要的是「按退款政策回答"
+      },
+      "createdAt": 1789933731787,
+      "updatedAt": 1789933731787
+    },
+    {
+      "id": "de8d30d8-ddbf-4686-87a4-1922dc3af558",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "分数受测试设置影响",
+        "prefix": "老榜单上都接近满分，差一两分可能只是随机波动，没有区分度。4. ",
+        "suffix": "。 用几个示例、要不要思维链、用什么 prompt，都会改变分数"
+      },
+      "createdAt": 1789933746857,
+      "updatedAt": 1789933746857
+    },
+    {
+      "id": "971c0b17-95c6-4543-a7a3-b9c9ca45cf87",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "真人偏好有偏差",
+        "prefix": "而不只是模型本身。不同厂商报出来的分数，设置可能并不相同。5. ",
+        "suffix": "。 Chatbot Arena 的投票者会偏爱更长、排版更丰富的"
+      },
+      "createdAt": 1789933749964,
+      "updatedAt": 1789933749964
+    },
+    {
+      "id": "5954ae27-49f5-41df-a36e-f7fa722db0b4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "榜单不管成本和延迟",
+        "prefix": "arkdown」。榜单后来也加入了控制回答风格影响的排名。6. ",
+        "suffix": "。 排第一的模型可能比第五名贵十倍、慢三倍。那榜单有什么用？用来"
+      },
+      "createdAt": 1789933762400,
+      "updatedAt": 1789933762400
+    },
+    {
+      "id": "2a37e380-7d7e-4ec8-baed-923f63366964",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "用来缩小候选范围",
+        "prefix": "延迟。 排第一的模型可能比第五名贵十倍、慢三倍。那榜单有什么用？",
+        "suffix": "：\n先用硬约束（价格区间、上下文长度、是否支持结构化输出、数据合"
+      },
+      "createdAt": 1789933768253,
+      "updatedAt": 1789933768253
+    },
+    {
+      "id": "2be16db5-ae8a-4411-97fe-1448d2e7595b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "约束（延迟、成本、数据合规、需要的能力）→ 候选（比较了哪几个）→ 评测（多少条什么样的样本、什么指标）→ 取舍（为什么没选更强或更便宜的）→ 结果（质量、延迟、成本的数字）。",
+        "prefix": "。「为什么选 Gemini」这类问题的答法:把上面的过程套进去：",
+        "suffix": "如果当时没有正式评测，也要诚实说明当时的决策依据，以及现在回头看"
+      },
+      "createdAt": 1789933875514,
+      "updatedAt": 1789933875514
+    },
+    {
+      "id": "fe885c3e-5f3c-4da4-8b56-07f9adf3c1c5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "最强的开放权重模型通常落后闭源旗舰一段距离",
+        "prefix": "监控和运维（见 Inference）模型能力能用到最强的闭源模型",
+        "suffix": "成本结构按 token 付费，用多少付多少主要是 GPU 的固定"
+      },
+      "createdAt": 1789933895287,
+      "updatedAt": 1789933895287
+    },
+    {
+      "id": "7a0d7a6e-ce5a-4777-8eda-d76e49fb24fa",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "通过云平台（比如 Vertex AI、Amazon Bedrock、Azure）调用模型，数据可以留在指定的云区域，也更容易满足企业的合规要求",
+        "prefix": "开放权重模型要先在你的评测集上达标，省下的钱才有意义\n中间选项：",
+        "suffix": "；也有服务商专门托管开放权重模型，按 token 计费。怎么避免"
+      },
+      "createdAt": 1789934120127,
+      "updatedAt": 1789934120127
+    },
+    {
+      "id": "c1f5ac57-b075-4a6a-a8e0-27523f7a25d7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "LiteLLM 这类库提供了统一的调用方式",
+        "prefix": "抽象：业务代码调用自己封装的统一接口，不直接调用某家的 SDK。",
+        "suffix": "\n评测集要能跑在任何模型上：这是换模型时最有价值的资产\n依赖独有"
+      },
+      "createdAt": 1789934166102,
+      "updatedAt": 1789934166102
+    },
+    {
+      "id": "012703ea-f58c-4d0e-95af-beddf796d268",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "生产环境固定具体的模型版本",
+        "prefix": "Routing Level 4）\n模型版本升级要注意什么？1. ",
+        "suffix": "。 很多服务商提供「最新版」这样的别名，它指向的模型会在某天被悄"
+      },
+      "createdAt": 1789934218151,
+      "updatedAt": 1789934218151
+    },
+    {
+      "id": "b06e0755-31d7-4f14-aa25-c233d04409ad",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "生产环境要写带版本号或日期的具体模型名",
+        "prefix": "mpt，换了版本之后输出风格、格式遵守程度、拒答倾向都可能变化。",
+        "suffix": "，升级是你主动决定的事。2. 关注下线计划。 旧模型会被下线，服"
+      },
+      "createdAt": 1789934226443,
+      "updatedAt": 1789934226443
+    },
+    {
+      "id": "41541095-29b3-4053-ada0-0e4894bb41fd",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "客户感受到的是慢的那部分请求。要看 P99",
+        "prefix": "、多步调用都会放大真实成本。用真实数据跑一遍再算。只看平均延迟:",
+        "suffix": "，并且区分流式场景的 TTFT 和结构化输出的总时长。评测集太小"
+      },
+      "createdAt": 1789934350303,
+      "updatedAt": 1789934350303
+    }
+  ],
   "/docs/application/prompt-engineering": [
     {
       "id": "7bf8736b-305d-40ec-8813-3c39381a4743",
