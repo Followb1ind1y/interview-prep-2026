@@ -1034,6 +1034,358 @@
       },
       "createdAt": 1789695204508,
       "updatedAt": 1789695204508
+    },
+    {
+      "id": "cfc98828-cf2f-400d-8759-d1fcf194388c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型每生成一个 token，都会给词表里的每个 token 打一个分数，叫 logit；logits 经过 softmax 变成概率，再按概率选出下一个 token",
+        "prefix": "ention & Transformer Level 6 讲过：",
+        "suffix": "。然后把这个 token 接到输入后面，重复这个过程。只靠 pr"
+      },
+      "createdAt": 1789873812484,
+      "updatedAt": 1789873812484
+    },
+    {
+      "id": "0daf923e-7167-41e2-b2f1-8b3cc1c37f80",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不合法的 token 概率也不是 0",
+        "prefix": "到输入后面，重复这个过程。只靠 prompt 为什么会出错？因为",
+        "suffix": "。约束解码怎么保证输出不越界？约束解码（constrained "
+      },
+      "createdAt": 1789873814712,
+      "updatedAt": 1789873814712
+    },
+    {
+      "id": "c4ed0563-6a55-4314-b735-10d38f35564e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把所有会让输出违反 schema 的 token 的 logit 设成负无穷",
+        "prefix": "ained decoding）：在每一步 softmax 之前，",
+        "suffix": "。负无穷经过 softmax 概率就是 0，这些 token 永"
+      },
+      "createdAt": 1789873820331,
+      "updatedAt": 1789873820331
+    },
+    {
+      "id": "0857fa8c-2a63-41d6-bb7f-3dca5cdb03d8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把上一次的输出和校验报错一起发回去，模型就知道错在哪",
+        "prefix": "次，而 temperature 又很低，模型大概率会犯同样的错。",
+        "suffix": "：def validate(text: str, custome"
+      },
+      "createdAt": 1789874207827,
+      "updatedAt": 1789874207827
+    },
+    {
+      "id": "0f92eba4-d9c9-4b73-8b31-e2da90ec4396",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "它发生在 inference 的 decoding 阶段，不是训练，也不只是 prompt",
+        "prefix": "，\"yes\"、123 会被排除；模型只会从剩下的合法选择里采样。",
+        "suffix": "。工程上通常不用自己写 token mask：Pydantic "
+      },
+      "createdAt": 1789874259525,
+      "updatedAt": 1789874259525
+    },
+    {
+      "id": "01fe4138-61db-469f-8533-ffaa0c39f8fe",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "工程上通常不用自己写 token mask：Pydantic → JSON Schema → Structured Output API 就够了",
+        "prefix": " 的 decoding 阶段，不是训练，也不只是 prompt。",
+        "suffix": "。约束解码是 Structured Output 常见的重要底层"
+      },
+      "createdAt": 1789874264564,
+      "updatedAt": 1789874264564
+    },
+    {
+      "id": "34067cc7-348f-418a-b565-1e85b390dce4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Pydantic 定义结构 → 调用模型 → 校验 → 带错误信息重试",
+        "prefix": "做的就是这件事:Python 的 Instructor 等库把「",
+        "suffix": "」封装好了。面试时可以提到用过这类库，但要能讲清楚它内部在做什么"
+      },
+      "createdAt": 1789874310977,
+      "updatedAt": 1789874310977
+    },
+    {
+      "id": "89b375ba-2983-4ffc-8b93-791a9504df6a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "重试请求比原请求更长：带上了上一次的输出和报错，input token 更多",
+        "prefix": "成本和平均延迟：只多了 5% 左右，看起来很便宜。但注意两点：\n",
+        "suffix": "\n尾部延迟变化很大。5% 的请求要调用两次模型。P99 延迟（最"
+      },
+      "createdAt": 1789874343130,
+      "updatedAt": 1789874343130
+    },
+    {
+      "id": "c1ed8300-f7a2-41cd-9ad4-56ef38d7e6c8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "如果失败率很高，重试就不是解决办法了：该回头改 prompt、改 schema（Level 5），或者换用 schema 约束",
+        "prefix": "，但最慢的那批用户会明显感到变慢（延迟指标见 Latency）\n",
+        "suffix": "。重试还是失败，怎么修复？方法一：用代码修语法。 适合只靠 pr"
+      },
+      "createdAt": 1789874376128,
+      "updatedAt": 1789874376128
+    },
+    {
+      "id": "f330074c-7872-4579-bf30-a01a318382be",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "regex",
+        "prefix": "ll and route to a human — don't ",
+        "suffix": " some random string of digits fr"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "使用正则表达式来匹配字符串模式",
+        "pos": "v.",
+        "note": "这里作动词用，指用正则表达式去查找或提取符合某个模式的字符串"
+      },
+      "createdAt": 1789874596440,
+      "updatedAt": 1789874596440
+    },
+    {
+      "id": "2006cd5f-b540-4af9-80af-afc68fb5cdf0",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "选最安全的处理方式，而不是最可能正确的那个",
+        "prefix": "0 里说的「不报错的错误」。最后都失败了，怎么兜底？兜底的原则：",
+        "suffix": "。在客服场景里：\n工单标记为「需要人工处理」，进入人工队列\n不能"
+      },
+      "createdAt": 1789874621029,
+      "updatedAt": 1789874621029
+    },
+    {
+      "id": "ca0c8dc4-b5e8-453c-b844-e94dcdbb9d20",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "schema 本身也是 prompt 的一部分",
+        "prefix": "Schema 设计与评估什么样的 schema，模型更容易填对？",
+        "suffix": "：字段名、描述、枚举值模型都看得到。同样的任务，schema 设"
+      },
+      "createdAt": 1789874812224,
+      "updatedAt": 1789874812224
+    },
+    {
+      "id": "67a361ed-83ec-45dc-8a13-a8f52b0ef104",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "字段名清楚，加 description",
+        "prefix": "的原则：第一版的问题原则type、txt、no 看不出是什么意思",
+        "suffix": "。模型靠名字和描述理解字段该填什么lvl 是 1 到 10 的整"
+      },
+      "createdAt": 1789875132035,
+      "updatedAt": 1789875132035
+    },
+    {
+      "id": "03c8097a-02f4-4184-aaa5-1ad98b0f21aa",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "能用枚举就不用自由数值或自由文本",
+        "prefix": "么lvl 是 1 到 10 的整数，6 和 7 的区别谁也说不清",
+        "suffix": "，每个取值的含义写进描述type 只能填一个意图，但客户消息同时"
+      },
+      "createdAt": 1789875135227,
+      "updatedAt": 1789875135227
+    },
+    {
+      "id": "04047023-c9fe-432e-8064-1fae1a1cfa92",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "嵌套越深越容易出错",
+        "prefix": "一条消息可能有多个意图就用数组info 多套了一层能扁平就扁平，",
+        "suffix": "，约束解码的编译也越慢（Level 3）days 让模型算物流停"
+      },
+      "createdAt": 1789875143177,
+      "updatedAt": 1789875143177
+    },
+    {
+      "id": "ad967302-a442-4298-b674-4dc5a120dfed",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "能用代码算的不要让模型算",
+        "prefix": "码的编译也越慢（Level 3）days 让模型算物流停滞了几天",
+        "suffix": "。日期差、金额合计、计数交给代码没有「其他」、没有 null给 "
+      },
+      "createdAt": 1789875149791,
+      "updatedAt": 1789875149791
+    },
+    {
+      "id": "8f6bf512-a7a9-4ace-9837-481c4ada8fd1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "一个 schema 只做一件事",
+        "prefix": "chema 留出口（Level 3），否则模型被迫乱选还有一条：",
+        "suffix": "。给客户看的回复和给代码用的工单分成两次输出，或者至少两个独立字"
+      },
+      "createdAt": 1789875160838,
+      "updatedAt": 1789875160838
+    },
+    {
+      "id": "fe037bce-fc9a-4427-98de-2e63632b1c78",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "schema 跟 prompt 一起加版本号",
+        "prefix": "ngineering Level 5 管理 prompt 一样：",
+        "suffix": "，日志里记录每个请求用的是哪个版本，不兼容的改动先通知下游再上线"
+      },
+      "createdAt": 1789875183359,
+      "updatedAt": 1789875183359
+    },
+    {
+      "id": "50a3ac7b-effa-4309-b5da-88405f45a8e0",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "评测集",
+        "prefix": "版本，不兼容的改动先通知下游再上线。怎么衡量结构化输出的质量？用",
+        "suffix": "。假设从线上抽了 200 条客户消息，人工标注了正确的工单，用 "
+      },
+      "createdAt": 1789875194216,
+      "updatedAt": 1789875194216
+    },
+    {
+      "id": "bf99e3cb-61b2-4a30-b1fd-08299576d18e",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "Parse rate",
+        "prefix": "s):MetricHow it's computedResult",
+        "suffix": "share that parses as JSON200 / 2"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "解析率，指能够成功解析输出的请求占总请求数的比例",
+        "pos": "n.",
+        "note": "在结构化输出场景中，parse rate越高说明模型输出越符合指定的格式要求"
+      },
+      "createdAt": 1789875217006,
+      "updatedAt": 1789875217006
+    },
+    {
+      "id": "1bf8ca0a-d388-4245-93a2-87208d327410",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "Schema-valid rate",
+        "prefix": "t parses as JSON200 / 200 = 100%",
+        "suffix": "share that passes Pydantic valid"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "指输出遵循指定schema结构的比例，用百分比表示有多少生成的输出符合预定的数据结构规范",
+        "pos": "n.",
+        "note": "rate作为指标名词，不是动词；schema-valid是形容词复合修饰，表示符合schema规范的"
+      },
+      "createdAt": 1789875225728,
+      "updatedAt": 1789875225728
+    },
+    {
+      "id": "ad126d86-fca5-483d-bc0d-e80aa19badcd",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "First-pass rate",
+        "prefix": "antic validation200 / 200 = 100%",
+        "suffix": "share that passes every check wi"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "首次通过率，指模型直接生成符合要求的结构化输出而无需多次尝试的概率",
+        "pos": "n.",
+        "note": "在结构化输出（Structured Output）场景中特指模型一次性生成符合schema的输出的成功率"
+      },
+      "createdAt": 1789875232322,
+      "updatedAt": 1789875232322
+    },
+    {
+      "id": "1a874171-8695-4159-8f0c-03c2f52b2ec5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "格式：输出一定符合 schema",
+        "prefix": "解码和微调怎么分工？两者解决的是不同的问题：约束解码微调解决什么",
+        "suffix": "内容：判断更准，写法更贴近任务需要什么推理框架或 API 支持，"
+      },
+      "createdAt": 1789875277237,
+      "updatedAt": 1789875277237
+    },
+    {
+      "id": "563de396-384a-41f5-81fa-fdde0db28fe0",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "内容：判断更准，写法更贴近任务",
+        "prefix": "不同的问题：约束解码微调解决什么格式：输出一定符合 schema",
+        "suffix": "需要什么推理框架或 API 支持，不需要数据标注数据、训练和部署"
+      },
+      "createdAt": 1789875280792,
+      "updatedAt": 1789875280792
+    },
+    {
+      "id": "0b507ea5-f042-4a8c-8f0b-cc98a9c63de2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "什么时候值得微调：prompt 和 schema 都优化过了，字段级准确率仍然不够",
+        "prefix": "屏蔽它想选的 token，Level 3 讲的质量副作用也更小。",
+        "suffix": "；请求量大，想用小模型省钱；手上有足够的标注数据（见 Fine-"
+      },
+      "createdAt": 1789875304499,
+      "updatedAt": 1789875304499
+    },
+    {
+      "id": "2bee3878-9d07-42c2-a5c7-4a140d5bf5d3",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "；请求量大，想用小模型省钱；手上有足够的标注数据",
+        "prefix": "prompt 和 schema 都优化过了，字段级准确率仍然不够",
+        "suffix": "（见 Fine-tuning）。字段名和推理字段要花多少钱？结构"
+      },
+      "createdAt": 1789875313062,
+      "updatedAt": 1789875313062
+    },
+    {
+      "id": "4e6684df-6e1a-437d-81ef-7d4afaba3e62",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "urgency 改成 u 省下的钱很少，准确率的损失可能更大",
+        "prefix": " 美元/月\n结论：\n字段名不值得为了省 token 牺牲清晰度。",
+        "suffix": "\n推理字段才是真正的成本大头，而且还增加延迟：如果每秒生成 50"
+      },
+      "createdAt": 1789875341525,
+      "updatedAt": 1789875341525
     }
   ],
   "/docs/llm": [

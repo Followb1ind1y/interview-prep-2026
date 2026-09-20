@@ -3,7 +3,7 @@ title: Structured Output
 titleEn: Structured Output
 description: 为什么应用层需要结构化输出、JSON Schema 与 Pydantic、三种让模型输出 JSON 的方式、约束解码的原理、校验重试与修复，以及 schema 设计和评估。
 descriptionEn: "Why applications need structured output, JSON Schema and Pydantic, three ways to get JSON from a model, how constrained decoding works, validation, retries, and repair, plus schema design and evaluation."
-date: 2026-09-14
+date: 2026-09-19
 keywords: ["structured output", "json", "json schema", "pydantic", "json mode", "constrained decoding", "grammar", "logits mask", "validation", "retry", "function calling", "schema design"]
 tier: A
 status: todo
@@ -24,7 +24,7 @@ mastery: { talk: 0, probe: 0 }
 | 0 · 为什么需要结构化输出 | 让模型「输出 JSON」会以哪些方式出错？为什么这些错误在生产环境里很致命？ | 20 min |
 | 1 · 先定义什么是「合法」 | JSON Schema 和 Pydantic 怎么描述期望的结构？语法合法、结构合法、语义正确有什么区别？ | 35 min |
 | 2 · 三种让模型输出 JSON 的方式 | 只靠 prompt、JSON mode、schema 约束各能保证到什么程度？工具调用和结构化输出是什么关系？ | 35 min |
-| 3 · 约束解码的原理 | 模型怎么做到「一定不输出 schema 之外的东西」？它有什么副作用？字段顺序为什么重要？ | 45 min |
+| 3 · 约束解码的原理（Optional） | 模型怎么做到「一定不输出 schema 之外的东西」？它有什么副作用？字段顺序为什么重要？ | 45 min |
 | 4 · 出错了怎么办 | 校验失败时怎么重试、修复、兜底？重试对成功率和延迟有什么影响？ | 40 min |
 | 5 · Schema 设计与评估 | 什么样的 schema 模型更容易填对？怎么衡量结构化输出的质量？什么时候该微调？ | 30 min |
 
@@ -37,7 +37,7 @@ mastery: { talk: 0, probe: 0 }
 - 自由文本输出的常见故障：多余文字、代码块包裹、字段缺失、类型或枚举值错误、截断
 - JSON Schema 的常用关键字；用 Pydantic 定义结构并生成 schema、做校验；语法、结构、语义三层合法性
 - 只靠 prompt、JSON mode、schema 约束三种方式的保证程度；工具调用的参数也是结构化输出
-- 约束解码：按语法状态屏蔽非法 token 的 logits；schema 编译成状态机；token 与字符不对齐的难点；对质量的影响；推理字段放在答案字段前面
+- （Optional）约束解码：按语法状态屏蔽非法 token 的 logits；schema 编译成状态机；token 与字符不对齐的难点；对质量的影响；推理字段放在答案字段前面
 - 生成 → 解析 → 校验 → 重试 / 修复 / 兜底的完整流程；带错误信息重试；截断检测；重试的成功率、延迟和副作用
 - schema 设计原则、字段描述、版本管理；解析率、结构合法率、字段级准确率；约束解码与微调的分工；字段名的 token 成本
 
@@ -56,7 +56,7 @@ This page assumes you've studied [Attention & Transformer](/docs/llm/transformer
 | 0 · Why structured output is needed | In what ways does "output JSON" go wrong, and why are those failures so damaging in production? | 20 min |
 | 1 · Define "valid" first | How do JSON Schema and Pydantic describe the expected structure? How do syntactically valid, schema-valid, and semantically correct differ? | 35 min |
 | 2 · Three ways to get JSON from a model | How much does each of prompting alone, JSON mode, and schema constraints guarantee? How does tool calling relate to structured output? | 35 min |
-| 3 · How constrained decoding works | How does a model guarantee it never outputs anything outside the schema? What are the side effects, and why does field order matter? | 45 min |
+| 3 · How constrained decoding works (Optional) | How does a model guarantee it never outputs anything outside the schema? What are the side effects, and why does field order matter? | 45 min |
 | 4 · When things go wrong | When validation fails, how do you retry, repair, and fall back? How do retries affect success rate and latency? | 40 min |
 | 5 · Schema design and evaluation | What kind of schema is easier for a model to fill correctly? How do you measure structured-output quality, and when should you fine-tune? | 30 min |
 
@@ -69,7 +69,7 @@ The page continues with the cat-food shop's support assistant from [Prompt Engin
 - common failures of free-text output: extra prose, code-fence wrapping, missing fields, wrong types or enum values, truncation
 - common JSON Schema keywords; defining structure with Pydantic, generating the schema, validating; the three layers of syntax, schema, and semantics
 - the guarantees of prompting alone, JSON mode, and schema constraints; tool-call arguments as structured output
-- constrained decoding: masking the logits of tokens the grammar disallows; compiling a schema into a state machine; the token–character mismatch; effects on quality; putting reasoning fields before answer fields
+- (Optional) constrained decoding: masking the logits of tokens the grammar disallows; compiling a schema into a state machine; the token–character mismatch; effects on quality; putting reasoning fields before answer fields
 - the full generate → parse → validate → retry / repair / fall back flow; retrying with the error message; detecting truncation; the success rate, latency, and side effects of retries
 - schema design principles, field descriptions, versioning; parse rate, schema-valid rate, field-level accuracy; how constrained decoding and fine-tuning divide the work; the token cost of field names
 
@@ -885,7 +885,21 @@ Arguments matching the schema only means the format is right. Whether `order_id`
 
 <Locale lang="zh">
 
-## Level 3 · 约束解码的原理
+## Level 3 · 约束解码的原理（Optional）
+
+<MyQuestion q="约束解码是什么？工程里真的要自己实现 token mask 吗？">
+
+一句话：**模型每生成下一个 token 时，schema 会禁掉当前不合法的选择。**
+
+```
+Transformer → next-token probabilities → JSON Schema 约束 → 屏蔽非法 token → sampling → next token
+```
+
+例如 `passed: bool` 已经生成到 `{"passed":` 时，`true` 和 `false` 可以保留，`"yes"`、`123` 会被排除；模型只会从剩下的合法选择里采样。它发生在 **inference 的 decoding 阶段**，不是训练，也不只是 prompt。
+
+工程上通常不用自己写 token mask：`Pydantic → JSON Schema → Structured Output API` 就够了。约束解码是 Structured Output 常见的重要底层技术之一，但不同 provider 的具体实现未必公开或完全相同。面试时记住这条链即可：`Inference → Decoding → Constrained Decoding → Structured Output → Tool Calling / LLM-as-Judge`。
+
+</MyQuestion>
 
 ### 先回忆：模型每一步是怎么选 token 的？
 
@@ -1045,7 +1059,21 @@ class Ticket(BaseModel):
 
 <Locale lang="en">
 
-## Level 3 · How constrained decoding works
+## Level 3 · How constrained decoding works (Optional)
+
+<MyQuestion q="What is constrained decoding, and do engineers implement token masks themselves?">
+
+In one sentence: **when the model generates its next token, the schema removes choices that would be invalid at that point.**
+
+```
+Transformer → next-token probabilities → JSON Schema constraint → mask invalid tokens → sampling → next token
+```
+
+For `passed: bool`, after `{"passed":`, `true` and `false` remain while `"yes"` and `123` are removed; sampling only sees the valid choices. This happens during **inference-time decoding**, not training, and it is more than prompt engineering.
+
+Engineers usually do not implement token masks directly: `Pydantic → JSON Schema → Structured Output API` is the normal interface. Constrained decoding is an important common implementation technique behind Structured Output, but provider internals may differ or be undisclosed. For interviews, keep this chain: `Inference → Decoding → Constrained Decoding → Structured Output → Tool Calling / LLM-as-Judge`.
+
+</MyQuestion>
 
 ### First, a refresher: how does the model pick each token?
 
@@ -1913,7 +1941,7 @@ schema design · versioning · field-level accuracy · fine-tune + constrain · 
 7. 用了 schema 约束，为什么还要校验？（Why validate even with schema constraints?）
 8. 工具调用和结构化输出是什么关系？（How does tool calling relate to structured output?）
 
-**Level 3 — 约束解码的原理**
+**Level 3 — 约束解码的原理（Optional）**
 
 9. 约束解码是怎么工作的？（How does constrained decoding work?）
 10. 怎么把 JSON Schema 变成每一步可以选的 token？难点在哪？（How is a JSON Schema turned into the set of allowed tokens at each step, and what's hard about it?）
@@ -1964,7 +1992,7 @@ Answer out loud first, then check against the matching Level.
 7. Why validate even with schema constraints?
 8. How does tool calling relate to structured output?
 
-**Level 3 — How constrained decoding works**
+**Level 3 — How constrained decoding works (Optional)**
 
 9. How does constrained decoding work?
 10. How is a JSON Schema turned into the set of allowed tokens at each step, and what's hard about it?
