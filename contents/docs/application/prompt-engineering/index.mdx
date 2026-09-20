@@ -3,7 +3,7 @@ title: Prompt Engineering
 titleEn: Prompt Engineering
 description: prompt 到底是什么、好 prompt 由哪些部分组成、示例怎么选、怎么让模型想清楚、指令优先级与注入，以及怎么像管理代码一样评估和迭代 prompt。
 descriptionEn: "What a prompt really is, what a good prompt is made of, how to choose examples, how to get the model to think things through, instruction hierarchy and injection, and how to evaluate and iterate on prompts like code."
-date: 2026-09-14
+date: 2026-09-19
 keywords: ["prompt engineering", "system prompt", "few-shot", "zero-shot", "delimiters", "xml tags", "chain of thought", "prompt chaining", "instruction hierarchy", "prompt injection", "prompt template", "prompt evaluation"]
 tier: A
 status: todo
@@ -739,6 +739,23 @@ With fixed examples, prefix caching makes this noticeably cheaper. If examples k
 
 </Note>
 
+<MyQuestion q="普通模型和推理模型有什么区别？都必须用 thinking 标签吗？ChatGPT 显示的 Thinking 就是完整思维链吗？">
+
+**不是标签的区别。** 普通模型和推理模型都会逐 token 生成文本；普通模型也可以在同一次调用里先写步骤、再给答案。`<thinking>`、`<answer>` 或 JSON 字段只是你规定的**输出格式**，方便后端把「中间过程」和「给用户的答案」分开；它们不会在模型内部划出一个真正独立的「思考区」。只有在你需要解析、保存或隐藏这段文字时，才值得要求固定标签（更稳妥的是 schema）。
+
+如果任务需要多步，先区分两种情况：
+
+```
+同一次调用内的推导：  先写计算 / 判断 → 再写结论        （普通模型可用显式 CoT）
+跨系统的工作流：        查订单 → 查政策 → 判断 → 发回复  （多次调用、工具或代码）
+```
+
+**推理模型的关键差别**是它经过训练和推理时的预算机制，更擅长把额外计算留给困难的多步问题。它通常会在最终答案前完成自己的内部推理；调用时优先给清楚的任务、数据和输出格式，不必再强迫它把过程包进 `<thinking>`。不同厂商是否暴露、压缩或完全不返回这部分过程，取决于产品接口。
+
+ChatGPT 界面里看到的 **Thinking** 可以帮助你理解它正在处理问题，但**不等于完整、逐 token 的真实思维链**，也不能当作审计记录。要验证一个结论，仍应看可复算的事实、工具结果或代码规则，而不是只相信展示出来的解释。
+
+</MyQuestion>
+
 ### 什么时候不需要让模型写推理过程？
 
 - **简单任务**：「我的订单什么时候到」分到「物流查询」，一眼就能判断，写推理只是浪费
@@ -853,6 +870,23 @@ reasoning first:
 The model generates left to right. If the conclusion is written first, any reasoning afterward can only rationalize a conclusion that's already fixed — it doesn't help. For the same reason, a `reasoning` field in structured output belongs before the `answer` field (see [Structured Output](/docs/application/structured-output) Level 3).
 
 </Note>
+
+<MyQuestion q="How do regular and reasoning models differ? Do both need thinking tags, and is ChatGPT Thinking a full chain of thought?">
+
+**Tags are not the difference.** Both regular and reasoning models generate text token by token. A regular model can also write steps before its answer in one call. `<thinking>`, `<answer>`, or JSON fields are only an **output contract**: they help your application separate intermediate text from user-facing text. They do not create a separate internal "thinking area." Use a fixed tag — preferably a schema — only when you need to parse, store, or hide that text.
+
+For multi-step work, distinguish two cases:
+
+```
+Reasoning within one call:  write calculations / judgments first → then the conclusion  (explicit CoT can help a regular model)
+Workflow across systems:    fetch order → fetch policy → decide → send reply           (multiple calls, tools, or code)
+```
+
+**Reasoning models differ** in training and inference-budgeting designed to spend extra computation on difficult multi-step problems. They generally do their own internal reasoning before the final answer. Give them a clear task, data, and output contract; you usually do not need to force that process into `<thinking>`. Whether a provider exposes, summarizes, or entirely withholds it is a product/API decision.
+
+The **Thinking** shown in ChatGPT can be useful progress context, but it is **not a complete, token-by-token, auditable chain of thought**. Verify a conclusion with reproducible facts, tool results, or code rules rather than treating the displayed explanation as proof.
+
+</MyQuestion>
 
 ### When is written reasoning unnecessary?
 
