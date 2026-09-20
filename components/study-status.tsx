@@ -39,7 +39,22 @@ export function StudyStatusIcon({
           />
         </svg>
       ) : (
-        <span aria-hidden className="size-1.5 rounded-full bg-current opacity-90" />
+        <svg aria-hidden className="size-2.5" fill="none" viewBox="0 0 10 10">
+          <circle
+            className="opacity-30"
+            cx="5"
+            cy="5"
+            r="3.35"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          />
+          <path
+            d="M5 1.65a3.35 3.35 0 0 1 3.35 3.35"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeWidth="1.5"
+          />
+        </svg>
       )}
     </span>
   )
