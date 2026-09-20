@@ -7,6 +7,7 @@ import { Footer } from '@/components/navigation/footer'
 import { Navbar } from '@/components/navigation/navbar'
 import { SelectionTranslator } from '@/components/translate/selection-translator'
 import { isLocale } from '@/lib/i18n/types'
+import { getStudyProgress } from '@/lib/study-progress'
 import { Providers } from '@/providers'
 import { Settings } from '@/types/settings'
 
@@ -65,7 +66,7 @@ export const metadata: Metadata = {
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
-  const cookieStore = await cookies()
+  const [cookieStore, progress] = await Promise.all([cookies(), getStudyProgress('docs')])
   const rawLocale = cookieStore.get('locale')?.value
   const locale = isLocale(rawLocale) ? rawLocale : 'zh'
 
@@ -78,7 +79,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     >
       <body className="antialiased">
         <Providers locale={locale}>
-          <Navbar />
+          <Navbar progress={progress} />
           <main className="h-auto px-5 sm:px-8">{children}</main>
           <Footer />
           <SelectionTranslator />

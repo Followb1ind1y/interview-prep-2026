@@ -10,11 +10,12 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 import { AnnotationLayer } from '@/components/annotate/layer'
 import { annotationRoot, describe } from '@/lib/annotate/anchor'
 import {
+  ANNOTATIONS_SAVED_EVENT,
   addAnnotation,
   editable,
   findSavedTranslation,
@@ -40,6 +41,7 @@ const AnnotateContext = createContext<AnnotateContextValue | null>(null)
 
 export function AnnotateProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const getSnapshot = useCallback(() => getAnnotations(pathname), [pathname])
   const annotations = useSyncExternalStore(subscribe, getSnapshot, getServerAnnotations)
   const { locale } = useI18n()
@@ -62,6 +64,12 @@ export function AnnotateProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     migrateLegacyStorage()
   }, [])
+
+  useEffect(() => {
+    const refreshProgress = () => router.refresh()
+    window.addEventListener(ANNOTATIONS_SAVED_EVENT, refreshProgress)
+    return () => window.removeEventListener(ANNOTATIONS_SAVED_EVENT, refreshProgress)
+  }, [router])
 
   const canAnnotate = useCallback(
     (range: Range) => {

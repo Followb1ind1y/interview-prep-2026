@@ -12,6 +12,7 @@ import { isCollectionId } from '@/lib/collections'
 import { companiesPageTocs } from '@/lib/companies-data'
 import { getDocument } from '@/lib/markdown'
 import { AllPageRoutes } from '@/lib/pageroutes'
+import { getStudyLevelProgress } from '@/lib/study-progress'
 import { Settings } from '@/types/settings'
 
 interface PageProps {
@@ -31,6 +32,10 @@ export default async function CollectionPage({ params }: PageProps) {
 
   const { frontmatter, content } = res
   const isProfile = collection === 'resume'
+  const levelProgress = await getStudyLevelProgress(
+    `/${[collection, ...slug].join('/')}`,
+    annotations
+  )
   const tocs =
     collection === 'companies' && companiesPageTocs[pathName]
       ? companiesPageTocs[pathName]
@@ -72,6 +77,7 @@ export default async function CollectionPage({ params }: PageProps) {
       <TableOfContents
         collection={collection}
         frontmatter={frontmatter}
+        levelProgress={levelProgress}
         pathName={pathName}
         tocs={{ tocs }}
       />

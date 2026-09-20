@@ -4,6 +4,7 @@ import path from 'node:path'
 import { readAnnotationPages } from '@/lib/annotate/file'
 import { COLLECTION_IDS } from '@/lib/collections'
 import { type DayCount, readGitActivity } from '@/lib/git-activity'
+import { getAnnotationStudyLevel, type StudySourceCache } from '@/lib/study-level'
 import devActivity from '@/public/search-data/dev-activity.json'
 
 /** Counted per activity type so the heatmap can explain a day's shade. */
@@ -60,35 +61,6 @@ function toDay(value: string | Date | undefined): string | null {
 }
 
 /**
- * Saved annotations have no DOM position. Locate their quoted text in the source and use the
- * preceding Level heading. Only course pages count: home/resume annotations are not study work.
- */
-async function levelForAnnotation(
-  pagePath: string,
-  exactQuote: string,
-  sourceByPage: Map<string, Promise<string | null>>
-): Promise<string | null> {
-  if (!pagePath.startsWith('/docs/') || !exactQuote) return null
-
-  let source = sourceByPage.get(pagePath)
-  if (!source) {
-    const file = path.join(process.cwd(), 'contents', pagePath.slice(1), 'index.mdx')
-    source = fs.readFile(file, 'utf-8').catch(() => null)
-    sourceByPage.set(pagePath, source)
-  }
-
-  const content = await source
-  if (!content) return null
-
-  const quoteIndex = content.indexOf(exactQuote)
-  if (quoteIndex < 0) return null
-
-  const headings = [...content.slice(0, quoteIndex).matchAll(/^#{2,3}\s+Level\s+(\d+)\b/gm)]
-  const level = headings.at(-1)?.[1]
-  return level === undefined ? null : `${pagePath}#level-${level}`
-}
-
-/**
  * Commits per day. In development read git directly so today's commits show up right away;
  * the deployed serverless function has no .git directory, so production uses the snapshot
  * scripts/content.ts writes at build time. Imported rather than read with fs, so it is bundled
@@ -122,14 +94,14 @@ export async function getActivityDays(): Promise<ActivityDay[]> {
 
   // Several highlights/notes in the same Level on one day are one study record.
   const studiedLevelsByDay = new Map<string, Set<string>>()
-  const sourceByPage = new Map<string, Promise<string | null>>()
+  const sourceByPage: StudySourceCache = new Map()
   for (const [pagePath, list] of Object.entries(await readAnnotationPages())) {
     for (const item of list) {
       const day = dayFormatter.format(item.createdAt)
-      const level = await levelForAnnotation(pagePath, item.quote.exact, sourceByPage)
-      if (!level) continue
+      const level = await getAnnotationStudyLevel(pagePath, item.quote.exact, sourceByPage)
+      if (level === null) continue
       const levels = studiedLevelsByDay.get(day) ?? new Set<string>()
-      levels.add(level)
+      levels.add(`${pagePath}#level-${level}`)
       studiedLevelsByDay.set(day, levels)
     }
   }

@@ -5,12 +5,14 @@ import { usePathname } from 'next/navigation'
 import { LuChevronDown, LuChevronRight } from 'react-icons/lu'
 
 import { Anchor } from '@/components/anchor'
+import { StudyStatusIcon } from '@/components/study-status'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { SheetClose } from '@/components/ui/sheet'
 import { useI18n } from '@/lib/i18n/provider'
 import { localize } from '@/lib/i18n/types'
-import { isRoute, type Paths } from '@/lib/paths'
+import { isRoute, type Paths, type StudyStatus } from '@/lib/paths'
+import { type StudyProgress } from '@/lib/study-progress'
 import { cn } from '@/lib/utils'
 
 function sectionState(path: string, href?: string) {
@@ -19,7 +21,36 @@ function sectionState(path: string, href?: string) {
   return { inSection: path === href || onChild, onChild }
 }
 
-export function SubLink(props: Paths & { isSheet: boolean; level: number }) {
+function getRouteStatus(
+  route: Extract<Paths, { href: string }>,
+  progress: StudyProgress
+): StudyStatus | undefined {
+  if (!route.items) return progress[route.href]
+
+  const descendantStatuses = route.items
+    .filter(isRoute)
+    .flatMap((item) => getRouteStatuses(item, route.href, progress))
+
+  if (descendantStatuses.length === 0) return progress[route.href]
+  if (descendantStatuses.every((status) => status === 'done')) return 'done'
+  if (descendantStatuses.some((status) => status === 'doing' || status === 'done')) return 'doing'
+  return progress[route.href]
+}
+
+function getRouteStatuses(
+  route: Extract<Paths, { href: string }>,
+  parentHref: string,
+  progress: StudyProgress
+): StudyStatus[] {
+  const href = `${parentHref}${route.href}`
+  if (!route.items) return progress[href] ? [progress[href]] : []
+
+  return route.items.filter(isRoute).flatMap((item) => getRouteStatuses(item, href, progress))
+}
+
+export function SubLink(
+  props: Paths & { isSheet: boolean; level: number; progress: StudyProgress }
+) {
   const path = usePathname()
   const { locale } = useI18n()
   const itemHref = isRoute(props) ? props.href : undefined
@@ -33,12 +64,16 @@ export function SubLink(props: Paths & { isSheet: boolean; level: number }) {
 
   if (!isRoute(props)) return
 
-  const { title, href, items, noLink, level, isSheet } = props
+  const { title, href, items, noLink, level, isSheet, progress } = props
   const label = localize(title, locale)
+  const status = getRouteStatus(props, progress)
 
   const Comp = (
     <Anchor activeClassName="text-primary text-sm font-semibold" href={href}>
-      {label}
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="truncate">{label}</span>
+        {(status === 'doing' || status === 'done') && <StudyStatusIcon status={status} />}
+      </span>
     </Anchor>
   )
 
@@ -87,6 +122,7 @@ export function SubLink(props: Paths & { isSheet: boolean; level: number }) {
                 href: `${href}${innerLink.href}`,
                 level: level + 1,
                 isSheet,
+                progress,
               }
 
               return <SubLink key={modifiedItems.href} {...modifiedItems} />

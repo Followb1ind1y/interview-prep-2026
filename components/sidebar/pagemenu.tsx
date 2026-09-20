@@ -8,8 +8,15 @@ import { isCollectionId } from '@/lib/collections'
 import { useI18n } from '@/lib/i18n/provider'
 import { localize } from '@/lib/i18n/types'
 import { getCollectionRoutes } from '@/lib/pageroutes'
+import { type StudyProgress } from '@/lib/study-progress'
 
-export function PageMenu({ isSheet = false }) {
+export function PageMenu({
+  isSheet = false,
+  progress = {},
+}: {
+  isSheet?: boolean
+  progress?: StudyProgress
+}) {
   const path = usePathname()
   const { locale } = useI18n()
   const collection = path.split('/')[1]
@@ -36,6 +43,7 @@ export function PageMenu({ isSheet = false }) {
                 href: `/${collection}${item.href}`,
                 level: 0,
                 isSheet,
+                progress,
               }}
             />
           </div>

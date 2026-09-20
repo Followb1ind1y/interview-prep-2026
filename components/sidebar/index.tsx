@@ -15,21 +15,22 @@ import {
   SheetHeader,
   SheetTrigger,
 } from '@/components/ui/sheet'
+import { type StudyProgress } from '@/lib/study-progress'
 
-export function Sidebar() {
+export function Sidebar({ progress }: { progress: StudyProgress }) {
   return (
     <aside
       aria-label="Page navigation"
       className="sticky top-26 hidden h-screen w-60 shrink-0 flex-col md:flex"
     >
       <ScrollArea className="h-full" type="scroll">
-        <PageMenu />
+        <PageMenu progress={progress} />
       </ScrollArea>
     </aside>
   )
 }
 
-export function SheetLeft() {
+export function SheetLeft({ progress }: { progress: StudyProgress }) {
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -49,7 +50,7 @@ export function SheetLeft() {
           <div className="mx-0 mt-3 flex flex-col gap-2.5 px-5">
             <NavMenu isSheet />
             <Separator className="my-2" />
-            <PageMenu isSheet />
+            <PageMenu isSheet progress={progress} />
           </div>
         </ScrollArea>
       </SheetContent>

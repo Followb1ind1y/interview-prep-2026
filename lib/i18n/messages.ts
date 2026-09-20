@@ -54,6 +54,8 @@ export const messages = {
       updated: '更新于',
       myQuestion: '我的问题',
       questionPending: '还没解答，下次 /study 会在这里补上。',
+      statusDoing: '学习中',
+      statusDone: '已完成',
     },
     translate: {
       title: '划词翻译',
@@ -149,6 +151,8 @@ export const messages = {
       updated: 'Updated',
       myQuestion: 'My question',
       questionPending: 'Not answered yet — the next /study run fills it in here.',
+      statusDoing: 'In progress',
+      statusDone: 'Completed',
     },
     translate: {
       title: 'Translate selection',

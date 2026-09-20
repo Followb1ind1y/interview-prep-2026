@@ -1,4 +1,325 @@
 {
+  "/docs/application/model-routing": [
+    {
+      "id": "0332dffe-9bd8-4c93-a6e7-70e7d3ccfaf8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "让每个请求去它该去的模型",
+        "prefix": "求，适合的模型不一样。那么一个线上系统就不应该只接一个模型，而是",
+        "suffix": "：简单的问题走便宜又快的小模型，难的问题交给强模型，主模型出故障"
+      },
+      "createdAt": 1789936857018,
+      "updatedAt": 1789936857018
+    },
+    {
+      "id": "ed3eb11b-59db-468f-90de-7b589e979ed3",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "路由的思路是：每个请求去它该去的模型",
+        "prefix": "流失的恰恰是这批客户只接一个模型，就只能在「贵」和「差」之间选。",
+        "suffix": "。路由能省多少钱？假设能完美地把简单问题分给 X、中等问题分给 "
+      },
+      "createdAt": 1789936874632,
+      "updatedAt": 1789936874632
+    },
+    {
+      "id": "c67b4b66-527a-4653-a447-0050f7cd846f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "请求发出前",
+        "prefix": "由有哪几种方式？方式什么时候决定怎么决定本页 Level静态路由",
+        "suffix": "按任务类型或固定规则Level 1动态路由请求发出前用分类器预测"
+      },
+      "createdAt": 1789936901443,
+      "updatedAt": 1789936901443
+    },
+    {
+      "id": "5b6365cc-0cbc-47a3-af72-ceba5110d568",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "按任务类型或固定规则",
+        "prefix": "方式？方式什么时候决定怎么决定本页 Level静态路由请求发出前",
+        "suffix": "Level 1动态路由请求发出前用分类器预测这个请求难不难Lev"
+      },
+      "createdAt": 1789936903589,
+      "updatedAt": 1789936903589
+    },
+    {
+      "id": "3d54caa4-43bb-4d05-9d3f-30054a7b7d35",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "用分类器预测这个请求难不难",
+        "prefix": "由请求发出前按任务类型或固定规则Level 1动态路由请求发出前",
+        "suffix": "Level 2级联看到回答之后先让便宜模型答，检查不通过再升级L"
+      },
+      "createdAt": 1789936908426,
+      "updatedAt": 1789936908426
+    },
+    {
+      "id": "a2a6ff0b-0c27-4a68-b918-7bfd76ada230",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "先让便宜模型答，检查不通过再升级",
+        "prefix": "求发出前用分类器预测这个请求难不难Level 2级联看到回答之后",
+        "suffix": "Level 3降级兜底出故障的时候主模型超时、限流、不可用时切到"
+      },
+      "createdAt": 1789936915012,
+      "updatedAt": 1789936915012
+    },
+    {
+      "id": "f98ecafc-e7f8-45fe-a62c-c4ac04d4dfad",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "输入类型",
+        "prefix": "   return \"model-x\"\n常见的规则依据：依据例子",
+        "suffix": "带图片的消息走支持图片的模型输入长度超过小模型上下文窗口的，走长"
+      },
+      "createdAt": 1789936940677,
+      "updatedAt": 1789936940677
+    },
+    {
+      "id": "d8bd75f6-c2ee-41ae-8fc9-7ca097563429",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "输入长度",
+        "prefix": "\"\n常见的规则依据：依据例子输入类型带图片的消息走支持图片的模型",
+        "suffix": "超过小模型上下文窗口的，走长上下文模型用户等级VIP 客户、企业"
+      },
+      "createdAt": 1789937032671,
+      "updatedAt": 1789937032671
+    },
+    {
+      "id": "1ef2cc30-67c1-45dc-a99b-6a7e8b372175",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "关键词",
+        "prefix": "下文窗口的，走长上下文模型用户等级VIP 客户、企业客户走强模型",
+        "suffix": "出现「投诉」「律师」等词，走强模型语言某个模型在某种语言上明显更"
+      },
+      "createdAt": 1789937035005,
+      "updatedAt": 1789937035005
+    },
+    {
+      "id": "437a36ff-ae13-41cc-8cf2-af6952908bae",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "动态路由是在静态路由的基础上，处理规则判断不了的那部分请求",
+        "prefix": "定性的规则（图片、超长输入）应该一直保留，因为它们几乎不会出错。",
+        "suffix": "。面试里说「先用规则处理确定的情况，剩下的交给分类器」，比一上来"
+      },
+      "createdAt": 1789937058531,
+      "updatedAt": 1789937058531
+    },
+    {
+      "id": "943e3cce-3d39-490f-ae2f-910ea995da61",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "在调用主模型之前，先让一个路由器看一眼请求，预测它该去哪个模型",
+        "prefix": "么？\n\n\n\nLevel 2 · 动态路由分类器路由是怎么工作的？",
+        "suffix": "：客户消息 → 路由器：「这条消息难吗？」 → 难：S\n    "
+      },
+      "createdAt": 1789937074095,
+      "updatedAt": 1789937074095
+    },
+    {
+      "id": "f1c4fd20-a4e1-40d9-bf97-19d3dd4e1b5c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "增加成本和延迟",
+        "prefix": "x不需要训练，改 prompt 就能调整每个请求多一次模型调用，",
+        "suffix": "embedding 近邻把消息转成向量，找标注过的样本里最像的 "
+      },
+      "createdAt": 1789937084698,
+      "updatedAt": 1789937084698
+    },
+    {
+      "id": "2b9800f8-208b-4bf6-a0b1-68b02dab871b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "用小 LLM 判断",
+        "prefix": "    → 不难：X\n路由器常见的三种做法：做法怎么判断优点缺点",
+        "suffix": "给 X 一个 prompt：「判断这条客服消息是否复杂」，用结构"
+      },
+      "createdAt": 1789937088241,
+      "updatedAt": 1789937088241
+    },
+    {
+      "id": "680cf3b2-3606-47eb-addd-55b86324e17c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "训练一个小分类器",
+        "prefix": "（见 Embedding）便宜，加新样本就能改进需要一批标注样本",
+        "suffix": "用标注数据训练一个专门的小模型，输出「难」的概率最快最便宜，毫秒"
+      },
+      "createdAt": 1789937097758,
+      "updatedAt": 1789937097758
+    },
+    {
+      "id": "639961bc-efb1-4672-80df-878e0456b44f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "embedding 近邻",
+        "prefix": "改 prompt 就能调整每个请求多一次模型调用，增加成本和延迟",
+        "suffix": "把消息转成向量，找标注过的样本里最像的 k 条，看它们多数是难还"
+      },
+      "createdAt": 1789937107091,
+      "updatedAt": 1789937107091
+    },
+    {
+      "id": "40111efc-b6bd-434d-82f7-414dd273c3ac",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "精确率（precision）",
+        "prefix": "0840850合计1009001,000两个衡量路由器的指标：\n",
+        "suffix": "：判为「难」的请求里，真的难的比例。90 / 150 = 0.6"
+      },
+      "createdAt": 1789937189867,
+      "updatedAt": 1789937189867
+    },
+    {
+      "id": "120bea9a-02ba-4581-b2d4-884b0bf2d819",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "召回率（recall）",
+        "prefix": "= 0.60。精确率低，意味着很多钱花在了不需要 S 的请求上\n",
+        "suffix": "：所有真的难的请求里，被找出来的比例。90 / 100 = 0."
+      },
+      "createdAt": 1789937196188,
+      "updatedAt": 1789937196188
+    },
+    {
+      "id": "b138f88e-9a8e-46d3-a8dc-a4015bd0feac",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "分类器通常输出一个「难」的概率，比如 0.73。阈值决定概率多高才送去 S",
+        "prefix": "，占路由总成本的三分之一以上。提高精确率能明显省钱\n阈值怎么定？",
+        "suffix": "：\n阈值调低（比如 0.3）：更多请求去 S，召回率上升、漏判变"
+      },
+      "createdAt": 1789937386452,
+      "updatedAt": 1789937386452
+    },
+    {
+      "id": "8548c1ae-9673-4802-9f32-e30306cca9a8",
+      "kind": "note",
+      "locale": "zh",
+      "quote": {
+        "exact": "cascade",
+        "prefix": "的？Level 2 的路由器要在看到回答之前猜请求难不难。级联（",
+        "suffix": "）换了个思路：先让便宜的模型答，看了回答再决定要不要升级。客户消"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "级联，按顺序尝试的意思，这里指逐步升级的路由策略",
+        "pos": "n.",
+        "note": "在ML语境中cascade特指让便宜/快的模型先处理，若不满意则升级到更强模型的策略"
+      },
+      "createdAt": 1789937414936,
+      "updatedAt": 1789937414936
+    },
+    {
+      "id": "f476232f-704b-481f-b210-ab36332f23af",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "流式回复不适合级联",
+        "prefix": "慢。被升级的恰恰是难题，对应的往往是最着急的客户。还有一个限制：",
+        "suffix": "。X 的回答已经一个字一个字显示给客户了，检查不通过时没法收回。"
+      },
+      "createdAt": 1789937776414,
+      "updatedAt": 1789937776414
+    },
+    {
+      "id": "1f9b9a6c-d04d-4f08-bbc1-944eec1af667",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型说「90% 确定」的回答里，真的大约 90% 是对的。模型自报的置信度通常校准得很差，而且经常过度自信",
+        "prefix": "说的置信度？一个信号有用的前提是校准（calibration）：",
+        "suffix": "：答错的时候，一样会说自己很确定。小模型尤其分不清自己知道什么、"
+      },
+      "createdAt": 1789937844357,
+      "updatedAt": 1789937844357
+    },
+    {
+      "id": "5628644b-eb2a-4610-8196-56790e0256d2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型下线",
+        "prefix": "返回 429 错误\n服务不可用：服务商故障，返回 5xx 错误\n",
+        "suffix": "：旧版本到期停用（见 Model Selection Level"
+      },
+      "createdAt": 1789937897026,
+      "updatedAt": 1789937897026
+    },
+    {
+      "id": "01cdf039-4398-4d0e-b1b1-9330b7df818e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "服务不可用",
+        "prefix": "了每分钟的请求数或 token 数上限，服务返回 429 错误\n",
+        "suffix": "：服务商故障，返回 5xx 错误\n模型下线：旧版本到期停用（见 "
+      },
+      "createdAt": 1789937898651,
+      "updatedAt": 1789937898651
+    },
+    {
+      "id": "872f0403-c472-4996-a338-733698ba1776",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "限流",
+        "prefix": "外部模型服务，一定会遇到这些情况：\n超时：服务变慢，迟迟不返回\n",
+        "suffix": "：超过了每分钟的请求数或 token 数上限，服务返回 429 "
+      },
+      "createdAt": 1789937900809,
+      "updatedAt": 1789937900809
+    },
+    {
+      "id": "a2f7c3f7-9702-498f-b011-3f56dd4eeb5d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "超时",
+        "prefix": "模型服务出故障时怎么办？调用外部模型服务，一定会遇到这些情况：\n",
+        "suffix": "：服务变慢，迟迟不返回\n限流：超过了每分钟的请求数或 token"
+      },
+      "createdAt": 1789937902718,
+      "updatedAt": 1789937902718
+    },
+    {
+      "id": "24c193ff-0ce1-4701-9966-5eb4510ca281",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "降级兜底就是提前准备一条备用链路",
+        "prefix": "到期停用（见 Model Selection Level 4）\n",
+        "suffix": "：主模型出问题时，自动按顺序换下一个。FALLBACK_CHAI"
+      },
+      "createdAt": 1789937907193,
+      "updatedAt": 1789937907193
+    }
+  ],
   "/docs/application/model-selection": [
     {
       "id": "1739a7cd-b2f4-40cb-b680-5c8aa7c3bc14",

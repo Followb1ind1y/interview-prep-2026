@@ -19,6 +19,7 @@ const ENDPOINT = '/api/annotations'
 const LEGACY_STORAGE_KEY = 'followblindly-annotations'
 const CHANNEL_NAME = 'followblindly-annotations'
 const EMPTY: Annotation[] = []
+export const ANNOTATIONS_SAVED_EVENT = 'followblindly-annotations-saved'
 
 let pages: AnnotationPages = {}
 /**
@@ -51,6 +52,7 @@ async function send(op: AnnotationOp): Promise<boolean> {
       method: 'POST',
     })
     if (!response.ok) throw new Error(`${response.status} ${await response.text()}`)
+    window.dispatchEvent(new Event(ANNOTATIONS_SAVED_EVENT))
     return true
   } catch (error) {
     console.error('[annotate] 没能写进 contents/site/annotations.json，刷新后这次改动会丢失', error)
@@ -69,7 +71,10 @@ function commit(op: AnnotationOp) {
 export function subscribe(listener: () => void) {
   if (listeners.size === 0 && editable && typeof BroadcastChannel !== 'undefined') {
     channel = new BroadcastChannel(CHANNEL_NAME)
-    channel.onmessage = (event: MessageEvent<AnnotationOp>) => apply(event.data)
+    channel.onmessage = (event: MessageEvent<AnnotationOp>) => {
+      apply(event.data)
+      window.dispatchEvent(new Event(ANNOTATIONS_SAVED_EVENT))
+    }
   }
   listeners.add(listener)
   return () => {

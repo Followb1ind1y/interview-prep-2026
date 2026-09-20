@@ -15,3 +15,5 @@ export type Paths =
 export function isRoute(node: Paths): node is Extract<Paths, { href: string; title: I18nText }> {
   return 'title' in node && 'href' in node
 }
+
+export type StudyStatus = 'todo' | 'doing' | 'done'
