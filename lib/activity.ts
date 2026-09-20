@@ -1,19 +1,15 @@
 import { type Dirent, promises as fs } from 'node:fs'
 import path from 'node:path'
-import grayMatter from 'gray-matter'
 
-import timeline from '@/contents/site/timeline.json'
 import { readAnnotationPages } from '@/lib/annotate/file'
 import { COLLECTION_IDS } from '@/lib/collections'
 import { type DayCount, readGitActivity } from '@/lib/git-activity'
 import devActivity from '@/public/search-data/dev-activity.json'
 
-/** Counted per source so the heatmap tooltip can show what a day was made of. */
+/** Counted per activity type so the heatmap can explain a day's shade. */
 export interface ActivityBreakdown {
-  annotations: number
   commits: number
-  milestones: number
-  notes: number
+  studyLevels: number
 }
 
 export interface ActivityDay {
@@ -64,6 +60,35 @@ function toDay(value: string | Date | undefined): string | null {
 }
 
 /**
+ * Saved annotations have no DOM position. Locate their quoted text in the source and use the
+ * preceding Level heading. Only course pages count: home/resume annotations are not study work.
+ */
+async function levelForAnnotation(
+  pagePath: string,
+  exactQuote: string,
+  sourceByPage: Map<string, Promise<string | null>>
+): Promise<string | null> {
+  if (!pagePath.startsWith('/docs/') || !exactQuote) return null
+
+  let source = sourceByPage.get(pagePath)
+  if (!source) {
+    const file = path.join(process.cwd(), 'contents', pagePath.slice(1), 'index.mdx')
+    source = fs.readFile(file, 'utf-8').catch(() => null)
+    sourceByPage.set(pagePath, source)
+  }
+
+  const content = await source
+  if (!content) return null
+
+  const quoteIndex = content.indexOf(exactQuote)
+  if (quoteIndex < 0) return null
+
+  const headings = [...content.slice(0, quoteIndex).matchAll(/^#{2,3}\s+Level\s+(\d+)\b/gm)]
+  const level = headings.at(-1)?.[1]
+  return level === undefined ? null : `${pagePath}#level-${level}`
+}
+
+/**
  * Commits per day. In development read git directly so today's commits show up right away;
  * the deployed serverless function has no .git directory, so production uses the snapshot
  * scripts/content.ts writes at build time. Imported rather than read with fs, so it is bundled
@@ -86,36 +111,37 @@ export async function getActivityDays(): Promise<ActivityDay[]> {
 
   const bump = (day: string | null, source: keyof ActivityBreakdown, amount = 1) => {
     if (!day) return
-    const entry = days.get(day) ?? { annotations: 0, commits: 0, milestones: 0, notes: 0 }
+    const entry = days.get(day) ?? { commits: 0, studyLevels: 0 }
     entry[source] += amount
     days.set(day, entry)
-  }
-
-  for (const id of COLLECTION_IDS) {
-    const files = await walkMdx(path.join(process.cwd(), 'contents', id))
-    for (const file of files) {
-      const { data } = grayMatter(await fs.readFile(file, 'utf-8'))
-      bump(toDay(data.date), 'notes')
-    }
-  }
-
-  for (const item of timeline) {
-    bump(toDay(item.date), 'milestones')
   }
 
   for (const day of getCommitDays()) {
     bump(toDay(day.date), 'commits', day.count)
   }
 
-  // Highlights, notes, and saved translations are study work too — one each, on the day created
-  for (const list of Object.values(await readAnnotationPages())) {
-    for (const item of list) bump(dayFormatter.format(item.createdAt), 'annotations')
+  // Several highlights/notes in the same Level on one day are one study record.
+  const studiedLevelsByDay = new Map<string, Set<string>>()
+  const sourceByPage = new Map<string, Promise<string | null>>()
+  for (const [pagePath, list] of Object.entries(await readAnnotationPages())) {
+    for (const item of list) {
+      const day = dayFormatter.format(item.createdAt)
+      const level = await levelForAnnotation(pagePath, item.quote.exact, sourceByPage)
+      if (!level) continue
+      const levels = studiedLevelsByDay.get(day) ?? new Set<string>()
+      levels.add(level)
+      studiedLevelsByDay.set(day, levels)
+    }
+  }
+
+  for (const [day, levels] of studiedLevelsByDay) {
+    bump(day, 'studyLevels', levels.size)
   }
 
   return [...days.entries()]
     .map(([date, breakdown]) => ({
       breakdown,
-      count: breakdown.annotations + breakdown.commits + breakdown.milestones + breakdown.notes,
+      count: breakdown.studyLevels + breakdown.commits,
       date,
     }))
     .sort((a, b) => a.date.localeCompare(b.date))

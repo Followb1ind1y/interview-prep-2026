@@ -6,6 +6,10 @@ import { useI18n } from '@/lib/i18n/provider'
 import { cn } from '@/lib/utils'
 
 interface ActivityDay {
+  breakdown: {
+    commits: number
+    studyLevels: number
+  }
   count: number
   date: string
 }
@@ -14,11 +18,10 @@ const WEEKDAYS_ZH = ['日', '一', '二', '三', '四', '五', '六']
 const WEEKDAYS_EN = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 /**
- * Minimum count to reach shade 1–4. Fixed buckets instead of "relative to the busiest day":
- * one bulk day (e.g. 80 note pages created at once) would otherwise wash every normal study
- * day out to the palest shade.
+ * Minimum records to reach shade 1–4. A record is one studied Level (deduped within the day)
+ * or one commit, so ordinary study sessions can still produce a visible gradient.
  */
-const LEVEL_MINIMUMS = [1, 3, 6, 12]
+const LEVEL_MINIMUMS = [1, 2, 4, 6]
 
 function daysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate()
@@ -34,8 +37,8 @@ export function HomeHeatmap({ activity }: { activity: ActivityDay[] }) {
   const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() })
 
   const countMap = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const day of activity) map.set(day.date, day.count)
+    const map = new Map<string, ActivityDay>()
+    for (const day of activity) map.set(day.date, day)
     return map
   }, [activity])
 
@@ -43,12 +46,12 @@ export function HomeHeatmap({ activity }: { activity: ActivityDay[] }) {
     const first = new Date(cursor.year, cursor.month, 1)
     const total = daysInMonth(cursor.year, cursor.month)
     const offset = first.getDay()
-    const result: { date: string | null; count: number }[] = []
+    const result: { activity?: ActivityDay; date: string | null }[] = []
 
-    for (let i = 0; i < offset; i++) result.push({ date: null, count: 0 })
+    for (let i = 0; i < offset; i++) result.push({ date: null })
     for (let day = 1; day <= total; day++) {
       const date = `${cursor.year}-${String(cursor.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      result.push({ date, count: countMap.get(date) ?? 0 })
+      result.push({ activity: countMap.get(date), date })
     }
     return result
   }, [cursor, countMap])
@@ -111,15 +114,21 @@ export function HomeHeatmap({ activity }: { activity: ActivityDay[] }) {
             <div
               className={cn(
                 'aspect-square rounded-[4px] border',
-                cell.date ? `heat-${levelFor(cell.count)}` : 'border-transparent bg-transparent'
+                cell.date
+                  ? `heat-${levelFor(cell.activity?.count ?? 0)}`
+                  : 'border-transparent bg-transparent'
               )}
               key={cell.date ?? `empty-${i}`}
               title={
-                cell.date
+                cell.date && cell.activity
                   ? locale === 'zh'
-                    ? `${cell.date} · ${cell.count} 条更新`
-                    : `${cell.date} · ${cell.count} updates`
-                  : undefined
+                    ? `${cell.date} · ${cell.activity.breakdown.studyLevels} 个学习 Level · ${cell.activity.breakdown.commits} 次提交 · 共 ${cell.activity.count} 条记录`
+                    : `${cell.date} · ${cell.activity.breakdown.studyLevels} study levels · ${cell.activity.breakdown.commits} commits · ${cell.activity.count} records`
+                  : cell.date
+                    ? locale === 'zh'
+                      ? `${cell.date} · 无记录`
+                      : `${cell.date} · No records`
+                    : undefined
               }
             />
           ))}
