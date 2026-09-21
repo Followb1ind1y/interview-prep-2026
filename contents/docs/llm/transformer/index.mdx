@@ -3,7 +3,7 @@ title: Attention & Transformer
 titleEn: Attention & Transformer
 description: 从 Encoder / Decoder 讲起，一步步搭出 attention、Transformer 和今天的 LLM，再落到 KV cache 和长上下文成本。
 descriptionEn: Start from encoders and decoders, build up attention, the Transformer, and today's LLMs step by step, then land on the KV cache and long-context cost.
-date: 2026-09-14
+date: 2026-09-20
 keywords: ["attention", "transformer", "encoder", "decoder", "self-attention", "qkv", "positional encoding", "rope", "kv cache", "gqa", "decoder-only"]
 tier: A
 status: todo
@@ -238,6 +238,76 @@ token ids        [2, 5]         整数，tokenizer 的输出，还没变成向�
 正确答案 cats 的预测概率 0.9  →  loss = -ln 0.9 = 0.105    接近正确
 ```
 
+<MyQuestion q="LLM 最常用什么 Loss？它怎样和 Softmax、反向传播连起来？">
+
+对于 LLM，最核心、最常见的 Loss Function 是 **Cross-Entropy Loss（交叉熵损失）**。如果在复习 Transformer 或 LLM Fundamentals，优先把它理解透就够了。
+
+**1. Cross-Entropy Loss：预测正确 token 的概率够不够高**
+
+LLM 做的是 next-token prediction：
+
+```
+logits → softmax → P(next token)
+```
+
+假设词表只有 `cat / dog / apple`，模型的预测概率是 `[0.1, 0.7, 0.2]`，而真实的下一个 token 是 `dog`。把真实答案写成 one-hot 向量，就是 `y = [0, 1, 0]`：只有正确答案的位置是 1。
+
+```
+L = -Σ_i y_i log p_i
+```
+
+因为 `dog` 是唯一 `y_i = 1` 的位置，其他项都会变成 0，所以式子实际上就是：
+
+```
+L = -ln P(dog) = -ln(0.7) ≈ 0.357
+```
+
+如果模型只给正确答案 `dog` 1% 的概率：
+
+```
+L = -ln(0.01) ≈ 4.605
+```
+
+所以最简单的理解是：**正确 token 的概率越高，Loss 越小。** 训练的目标就是不断调整模型参数，让正确的 next token 概率越来越高。
+
+**2. 为什么 Softmax 经常和 Cross Entropy 一起出现？**
+
+它们在一条训练链路里分工不同：
+
+```
+输入 tokens → Transformer → Wx + b → logits → softmax → probabilities → Cross Entropy
+Loss → Backpropagation → 更新 W、b 和 Transformer 的其他参数
+```
+
+- **Softmax**：把 logits 转成一个概率分布。
+- **Cross Entropy**：衡量这个概率分布和正确答案之间差多少。
+- **Backpropagation**：根据 Loss 计算梯度，并据此调整参数。
+
+工程实现里通常不会手动先算 Softmax、再算 Cross Entropy。PyTorch 的 `CrossEntropyLoss` 等接口直接接收 **logits**，内部等价于 `log-softmax + NLL loss`，这样数值更稳定。
+
+**3. 不同 LLM 训练阶段会用不同的 Loss / Objective**
+
+- **Pre-training**：Cross Entropy / NLL；目标是预测下一个 token。
+- **SFT**：Cross Entropy；目标是学习目标回答。
+- **Reward Model**：pairwise ranking loss 等；目标是学习人类偏好。
+- **RLHF / PPO**：policy objective 加 KL penalty 等；目标是优化回答策略，同时别偏离原模型太远。
+- **DPO**：DPO loss；目标是让 preferred response 的得分高于 rejected response。
+- **Embedding / Retrieval**：contrastive loss；目标是拉近相关文本、推远不相关文本。
+
+其中，在标准 LLM next-token prediction 里，**NLL（Negative Log-Likelihood）和 Cross Entropy 基本可以看成同一件事的两种表述**。
+
+**4. 最该记住的整体链路**
+
+```
+Input Tokens → Transformer → Logits → Softmax → P(token)
+P(token) + Ground Truth → Cross Entropy Loss
+Loss → Backpropagation → 更新 Transformer 参数
+```
+
+最核心的一句话是：**LLM Pretraining = Next Token Prediction + Cross Entropy Loss**。面试时再顺着接到 Backpropagation、Gradient Descent / AdamW 和 Pretraining，就形成了一条完整链路。
+
+</MyQuestion>
+
 **梯度要从最后一层一层层往回传**，每经过一层都要乘上一些系数。层数很多时，如果这些系数总是小于 1，传到最前面的层时梯度已经接近 0，前面的参数几乎学不到东西。**这就是后面常说的「训不动」**，Level 5 的残差连接专门解决它。
 
 <Note title="LLM 预训练就是这四步做到极致">
@@ -406,6 +476,76 @@ P(correct answer "cats") = 0.2  →  loss = -ln 0.2 = 1.609    quite wrong
 P(correct answer "cats") = 0.5  →  loss = -ln 0.5 = 0.693
 P(correct answer "cats") = 0.9  →  loss = -ln 0.9 = 0.105    nearly right
 ```
+
+<MyQuestion q="What loss does an LLM usually use, and how do softmax and backprop connect to it?">
+
+For LLMs, the central and most common loss function is **cross-entropy loss**. If you are reviewing Transformer or LLM fundamentals, this is the one to understand deeply first.
+
+**1. Cross-entropy loss: did the model assign enough probability to the correct token?**
+
+An LLM performs next-token prediction:
+
+```
+logits → softmax → P(next token)
+```
+
+Suppose the vocabulary is `cat / dog / apple`, the model predicts `[0.1, 0.7, 0.2]`, and the real next token is `dog`. The one-hot target is `y = [0, 1, 0]`: only the correct answer has a 1.
+
+```
+L = -Σ_i y_i log p_i
+```
+
+`dog` is the only position where `y_i = 1`; every other term becomes zero. So this reduces to:
+
+```
+L = -ln P(dog) = -ln(0.7) ≈ 0.357
+```
+
+If the model gives the correct answer `dog` only 1% probability:
+
+```
+L = -ln(0.01) ≈ 4.605
+```
+
+The simple intuition is: **the higher the probability on the correct token, the lower the loss.** Training continually adjusts model parameters to raise that probability.
+
+**2. Why do softmax and cross-entropy usually appear together?**
+
+They have separate jobs in one training path:
+
+```
+input tokens → Transformer → Wx + b → logits → softmax → probabilities → cross-entropy
+loss → backpropagation → update W, b, and the rest of the Transformer parameters
+```
+
+- **Softmax** turns logits into a probability distribution.
+- **Cross-entropy** measures the gap between that distribution and the correct answer.
+- **Backpropagation** uses the loss to compute gradients and update parameters.
+
+In production code, you normally do not manually run softmax and then cross-entropy. APIs such as PyTorch's `CrossEntropyLoss` take **logits** directly; internally they are equivalent to `log-softmax + NLL loss`, which is numerically more stable.
+
+**3. Different LLM training stages use different losses or objectives**
+
+- **Pre-training**: cross-entropy / NLL; predict the next token.
+- **SFT**: cross-entropy; learn target answers.
+- **Reward model**: pairwise ranking loss and similar objectives; learn human preferences.
+- **RLHF / PPO**: a policy objective plus a KL penalty; improve the response policy without drifting too far from the base model.
+- **DPO**: DPO loss; score the preferred response above the rejected one.
+- **Embedding / retrieval**: contrastive loss; bring relevant text closer and push unrelated text apart.
+
+For standard LLM next-token prediction, **NLL (negative log-likelihood) and cross-entropy are effectively two ways to describe the same thing**.
+
+**4. The full chain to remember**
+
+```
+Input Tokens → Transformer → Logits → Softmax → P(token)
+P(token) + Ground Truth → Cross-Entropy Loss
+Loss → Backpropagation → update Transformer parameters
+```
+
+The key sentence is: **LLM pretraining = next-token prediction + cross-entropy loss.** From there, you can naturally continue to backpropagation, gradient descent / AdamW, and pretraining in an interview.
+
+</MyQuestion>
 
 **Gradients flow backward from the last layer toward the first**, getting multiplied by some factors at every layer along the way. With many layers, if those factors are usually below 1, the gradient is close to zero by the time it reaches the early layers, and those parameters barely learn. **That's what people mean when they say a deep network "won't train"** — the residual connections in Level 5 exist to fix it.
 

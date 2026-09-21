@@ -1,4 +1,30 @@
 {
+  "/docs/agent/loop": [
+    {
+      "id": "d7e758fb-af6c-44cc-bc62-c432030ba1ab",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型查看当前状态、选择下一步",
+        "prefix": "的名字。它是一个由 harness（运行与编排层） 驱动的系统：",
+        "suffix": "；harness 安全地执行允许的工具调用，把真实结果放回状态；"
+      },
+      "createdAt": 1789951629369,
+      "updatedAt": 1789951629369
+    },
+    {
+      "id": "28274d82-2742-4897-a784-19cb6106be03",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "harness 安全地执行允许的工具调用，把真实结果放回状态",
+        "prefix": "ss（运行与编排层） 驱动的系统：模型查看当前状态、选择下一步；",
+        "suffix": "；直到任务完成或被安全地停止。这一页先不讲复杂的 Plannin"
+      },
+      "createdAt": 1789951637544,
+      "updatedAt": 1789951637544
+    }
+  ],
   "/docs/application/model-routing": [
     {
       "id": "0332dffe-9bd8-4c93-a6e7-70e7d3ccfaf8",
@@ -4279,6 +4305,246 @@
       },
       "createdAt": 1789951177293,
       "updatedAt": 1789951177293
+    },
+    {
+      "id": "29b774ea-6263-4d2f-ae46-8f0d3a0abb2b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "「学习」就是调整这些数",
+        "prefix": "关键认识：\n神经网络的「参数」基本就是这些 W 和 b 里的数，",
+        "suffix": "\n一次可以处理很多 token：把 n 个 token 的向量排"
+      },
+      "createdAt": 1789951672788,
+      "updatedAt": 1789951672788
+    },
+    {
+      "id": "83069bf4-1e54-4f00-83b1-551bd0726229",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把 n 个 token 的向量排成 [n, d] 的矩阵，乘同一个 W",
+        "prefix": " 里的数，「学习」就是调整这些数\n一次可以处理很多 token：",
+        "suffix": "，每个 token 都按同一套规则变换。Level 3 的 W_"
+      },
+      "createdAt": 1789951679346,
+      "updatedAt": 1789951679346
+    },
+    {
+      "id": "793e31c9-0b31-4a1a-9fa5-5bf222c2fbae",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型经常先给一堆候选打分，再需要把分数变成「加起来等于 1 的概率」",
+        "prefix": " 就是三个这样的线性层\nSoftmax：怎么把一组分数变成概率？",
+        "suffix": "。这一步就是 softmax：softmax(xᵢ) = e^x"
+      },
+      "createdAt": 1789952198369,
+      "updatedAt": 1789952198369
+    },
+    {
+      "id": "9464ca4c-8c28-4712-b560-032739c8c343",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "全部是正数",
+        "prefix": "  = [0.659, 0.242, 0.099]\n三个性质：\n",
+        "suffix": "（e 的任何次方都大于 0）\n加起来等于 1，可以当概率或权重用"
+      },
+      "createdAt": 1789952204058,
+      "updatedAt": 1789952204058
+    },
+    {
+      "id": "fec89b7a-130f-4611-9aef-aaed75d49f3a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "加起来等于 1，可以当概率或权重用",
+        "prefix": ".099]\n三个性质：\n全部是正数（e 的任何次方都大于 0）\n",
+        "suffix": "\n大小顺序不变，但差距被放大：原始分数 2.0 只是 1.0 的"
+      },
+      "createdAt": 1789952211979,
+      "updatedAt": 1789952211979
+    },
+    {
+      "id": "b79177ac-852f-4ba6-bde9-9d947669428c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "大小顺序不变，但差距被放大",
+        "prefix": "e 的任何次方都大于 0）\n加起来等于 1，可以当概率或权重用\n",
+        "suffix": "：原始分数 2.0 只是 1.0 的 2 倍，softmax 后"
+      },
+      "createdAt": 1789952221387,
+      "updatedAt": 1789952221387
+    },
+    {
+      "id": "4891b7d3-425d-4248-8eb4-f0414ca774eb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "张量就是多维数组",
+        "prefix": "[batch, seq_len, d_model] 是什么意思？",
+        "suffix": "，形状写出每一维有多长：标量     5            "
+      },
+      "createdAt": 1789952243300,
+      "updatedAt": 1789952243300
+    },
+    {
+      "id": "8cdf830d-c95a-4e12-9f3c-58a9d917d5c1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "一次同时喂进去几句话。一起算是为了让 GPU 并行，句子之间互不影响",
+        "prefix": "eq_len, d_model]：维度例子里的值含义batch2",
+        "suffix": "seq_len5每句话有几个 tokend_model768每个"
+      },
+      "createdAt": 1789952267994,
+      "updatedAt": 1789952267994
+    },
+    {
+      "id": "ea890903-207b-4195-ba66-6996a9555e59",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每句话有几个 token",
+        "prefix": "。一起算是为了让 GPU 并行，句子之间互不影响seq_len5",
+        "suffix": "d_model768每个 token 的向量有多少个数（模型的「"
+      },
+      "createdAt": 1789952272445,
+      "updatedAt": 1789952272445
+    },
+    {
+      "id": "dfeea51a-437a-475e-8875-42c2f7032b92",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每个 token 的向量有多少个数（模型的「宽度」）",
+        "prefix": "影响seq_len5每句话有几个 tokend_model768",
+        "suffix": "一句话经过前几步，形状是这样变的：token ids      "
+      },
+      "createdAt": 1789952276970,
+      "updatedAt": 1789952276970
+    },
+    {
+      "id": "3911ce31-a65b-4905-879a-53159a464986",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "两句话长短不一怎么办？把短的补上 <pad> 凑成一样长，才能排进同一个张量",
+        "prefix": ", 5, 768]    每个 id 变成一个 768 维向量\n",
+        "suffix": "。Level 4 的 padding mask 就是专门处理这些"
+      },
+      "createdAt": 1789952296485,
+      "updatedAt": 1789952296485
+    },
+    {
+      "id": "b49655ff-12c8-4856-a9b5-0dd3624830ad",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每个 id 变成一个 768 维向量",
+        "prefix": "\n查 embedding 后   [2, 5, 768]    ",
+        "suffix": "\n两句话长短不一怎么办？把短的补上 <pad> 凑成一样长，才能"
+      },
+      "createdAt": 1789952327483,
+      "updatedAt": 1789952327483
+    },
+    {
+      "id": "1ba3be3a-b8c8-4661-8255-aaab422cbfeb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "参数（所有 W 里的数）一开始是随机的",
+        "prefix": "状，边读边跟着写。「训练」到底在做什么？loss 和梯度是什么？",
+        "suffix": "。训练就是反复做下面这四步：① 前向计算   把输入喂进模型，得"
+      },
+      "createdAt": 1789952335712,
+      "updatedAt": 1789952335712
+    },
+    {
+      "id": "68f02480-4093-4a60-b464-ade37a7323c1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把输入喂进模型，得到预测",
+        "prefix": "数）一开始是随机的。训练就是反复做下面这四步：① 前向计算   ",
+        "suffix": "。例：下一个词是 \"cats\" 的概率 = 0.2\n② 算 lo"
+      },
+      "createdAt": 1789952346625,
+      "updatedAt": 1789952346625
+    },
+    {
+      "id": "9eccca7e-21a6-448f-8e85-30bb5c4b2eac",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "前向计算",
+        "prefix": "所有 W 里的数）一开始是随机的。训练就是反复做下面这四步：① ",
+        "suffix": "   把输入喂进模型，得到预测。例：下一个词是 \"cats\" 的"
+      },
+      "createdAt": 1789952351124,
+      "updatedAt": 1789952351124
+    },
+    {
+      "id": "b83f7ebd-9bb0-40fe-9a85-53b8224594b8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "用一个数衡量「错了多少」",
+        "prefix": "词是 \"cats\" 的概率 = 0.2\n② 算 loss    ",
+        "suffix": "\n③ 算梯度     对每个参数，算出「往哪个方向调一点，los"
+      },
+      "createdAt": 1789952354743,
+      "updatedAt": 1789952354743
+    },
+    {
+      "id": "6c592af6-8595-41ac-bb0c-069c20246686",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "对每个参数，算出「往哪个方向调一点，loss 会变小」（反向传播）",
+        "prefix": " loss    用一个数衡量「错了多少」\n③ 算梯度     ",
+        "suffix": "\n④ 更新参数   每个参数朝让 loss 变小的方向挪一小步\n"
+      },
+      "createdAt": 1789952360557,
+      "updatedAt": 1789952360557
+    },
+    {
+      "id": "42e74bc8-d3e0-48d7-92a1-0ad75893365c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每个参数朝让 loss 变小的方向挪一小步",
+        "prefix": "个方向调一点，loss 会变小」（反向传播）\n④ 更新参数   ",
+        "suffix": "\n\n回到 ①，重复几百万到几万亿次\nLoss 的例子：预测下一个"
+      },
+      "createdAt": 1789952363515,
+      "updatedAt": 1789952363515
+    },
+    {
+      "id": "eb517b2e-9be5-49c6-bad8-df182320a98c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "算梯度",
+        "prefix": " 0.2\n② 算 loss    用一个数衡量「错了多少」\n③ ",
+        "suffix": "     对每个参数，算出「往哪个方向调一点，loss 会变小」"
+      },
+      "createdAt": 1789952369173,
+      "updatedAt": 1789952369173
+    },
+    {
+      "id": "101e41fa-26ef-4709-a32f-793c5aea3680",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "让模型在每个位置预测下一个 token，用上面的 loss 反复更新参数",
+        "prefix": "连接专门解决它。LLM 预训练就是这四步做到极致:在海量文本上，",
+        "suffix": "。怎么训、训多少数据见 Training；这一页只需要你知道「参"
+      },
+      "createdAt": 1789952670999,
+      "updatedAt": 1789952670999
     }
   ],
   "/docs/overview": [

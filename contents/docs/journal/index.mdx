@@ -39,6 +39,7 @@ Spend about 5 minutes a day, then stop. Detailed reasoning belongs on the matchi
 
 <Locale lang="zh">
 
+- 在 [Attention & Transformer](/docs/llm/transformer) Level 0 的 Loss 例子后补充 Cross-Entropy：用 `cat / dog / apple` 手算正确 token 的负对数，并串起 logits、softmax、反向传播和常见训练目标
 - 审察 Agent Engineering 九页对照 Tokenization / Prompt Engineering：结构齐全但篇幅偏薄；按优先级补全 [Reliability](/docs/agent/reliability)（durable execution / 并发）、[Security](/docs/agent/security)（MCP·computer use·SSRF·TOCTOU）、[Tool Calling](/docs/agent/tool-calling)（wire transcript 与协议边界）、[Multi-Agent](/docs/agent/multi-agent) fan-out、[Workflow vs Agent](/docs/agent/workflow-vs-agent) 架构案例，并给 Memory / Planning / ReAct / Loop 补边界、量感与末级自测
 - 将 [Agent Loop](/docs/agent/loop) 从提纲扩写为第一批三层教学课件：用采购谈判助手贯穿模型 / harness / 工具 / 环境的边界，逐轮走 Observe → Decide → Act → observation，并用验收条件、trace、步骤 / 时间 / 成本 / 批准边界解释如何结束与诊断空转；后续 Tool Calling、ReAct、Planning、Memory 等页面待确认本页讲法后再继续
 - 将 [Tool Calling](/docs/agent/tool-calling) 扩写为四层课件：schema 只约束调用形状，应用仍须完成业务语义与授权校验；用 call id、统一结果、写前重验、timeout 与 idempotency 串起安全执行和可评测 trace
@@ -56,6 +57,7 @@ Spend about 5 minutes a day, then stop. Detailed reasoning belongs on the matchi
 
 <Locale lang="en">
 
+- Added a Cross-Entropy question after the Level 0 Loss example in [Attention & Transformer](/docs/llm/transformer): hand-computes the correct token's negative log with `cat / dog / apple`, then connects logits, softmax, backpropagation, and common training objectives
 - Audited all nine Agent Engineering pages against Tokenization / Prompt Engineering: structure present but thin; filled priority gaps in [Reliability](/docs/agent/reliability) (durable execution / concurrency), [Security](/docs/agent/security) (MCP · computer use · SSRF · TOCTOU), [Tool Calling](/docs/agent/tool-calling) (wire transcript and protocol boundaries), [Multi-Agent](/docs/agent/multi-agent) fan-out, and [Workflow vs Agent](/docs/agent/workflow-vs-agent) architecture cases; also added Memory / Planning / ReAct / Loop boundaries, scale numbers, and final-level self-checks
 - Expanded [Agent Loop](/docs/agent/loop) from an outline into the first three-level teaching module: a procurement-negotiation assistant distinguishes model / harness / tools / environment, walks Observe → Decide → Act → observation round by round, and uses acceptance conditions, traces, and step / time / cost / approval boundaries to explain ending and diagnosing a spinning loop; Tool Calling, ReAct, Planning, Memory, and later pages await confirmation of this teaching style
 - Expanded [Tool Calling](/docs/agent/tool-calling) into four levels: schemas constrain call shape while applications still enforce business semantics and authorization; call ids, normalized results, write-time revalidation, timeout, and idempotency connect safe execution to evaluable traces
