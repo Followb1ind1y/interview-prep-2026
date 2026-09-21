@@ -35,6 +35,40 @@ Spend about 5 minutes a day, then stop. Detailed reasoning belongs on the matchi
 
 </Locale>
 
+## 2026-09-20
+
+<Locale lang="zh">
+
+- 将 [Agent Loop](/docs/agent/loop) 从提纲扩写为第一批三层教学课件：用采购谈判助手贯穿模型 / harness / 工具 / 环境的边界，逐轮走 Observe → Decide → Act → observation，并用验收条件、trace、步骤 / 时间 / 成本 / 批准边界解释如何结束与诊断空转；后续 Tool Calling、ReAct、Planning、Memory 等页面待确认本页讲法后再继续
+- 将 [Tool Calling](/docs/agent/tool-calling) 扩写为四层课件：schema 只约束调用形状，应用仍须完成业务语义与授权校验；用 call id、统一结果、写前重验、timeout 与 idempotency 串起安全执行和可评测 trace
+- 将 [ReAct](/docs/agent/react) 扩写为三层课件：用同一采购场景说明 observation 怎样改变下一步，区分 ReAct 轨迹、Tool Calling 合同与 Agent Loop 运行时，并将自由文本 Thought 迁移为结构化状态、策略门与可审核摘要
+- 将 [Workflow vs Agent](/docs/agent/workflow-vs-agent) 扩写为完整三层判断页：以控制流归属为定义，用可预测性、风险、可验证性、成本和评测选择架构，并给出 agent 负责理解、workflow 负责验证与副作用的混合边界
+- 生成 [Planning](/docs/agent/planning) Level 0–2 第一批：目标 / 验收 / 约束 / 停止条件、依赖驱动拆解、Plan-and-Execute 与动态决策的混用；后续补 Replanning、Verification and Reflection、Long-Horizon Planning
+- 生成 [Memory](/docs/agent/memory) Level 0–2 第一批：context / history / memory 边界、五类记忆与 source of truth、写入 / 检索 / 更正治理；后续补 RAG 评测、长程 compaction、隔离和安全
+- 补完 [Planning](/docs/agent/planning) Level 3–5：以局部失效和计划版本实现 Replanning，以外部 acceptance check 区分 Verification 与 Reflection，并用可核验 checkpoint、压缩和 handoff 治理长程任务
+- 补完 [Memory](/docs/agent/memory) Level 3–5：检索先做 scope / freshness / 来源过滤并分别评测 retrieval、grounded use 与 outcome；压缩保留 source 与不确定性；隔离、删除、注入防护和动态 source-of-truth 复核在模型外强制
+- 生成 [Multi-Agent](/docs/agent/multi-agent)：先以独立性、可验证交付物和协调收益判断是否拆分，区分 router / supervisor / specialist，并用有范围和来源的 handoff、single-agent baseline 与协调指标控制复杂度
+- 生成 [Agent Reliability](/docs/agent/reliability)：定义 success / controlled failure / unknown outcome，以进展规则和多类 hard limit 防空转，按错误语义使用 retry / fallback / circuit breaker / handoff，并用 fault injection、trace 和 SLO 验证
+- 生成 [Agent Security](/docs/agent/security)：从 threat model 开始，将直接 / 间接注入、工具和子 agent 输出视为不可信数据；以最小权限、server-side 授权、可信确认、文件与网络 sandbox、对抗评测限制 blast radius
+
+</Locale>
+
+<Locale lang="en">
+
+- Expanded [Agent Loop](/docs/agent/loop) from an outline into the first three-level teaching module: a procurement-negotiation assistant distinguishes model / harness / tools / environment, walks Observe → Decide → Act → observation round by round, and uses acceptance conditions, traces, and step / time / cost / approval boundaries to explain ending and diagnosing a spinning loop; Tool Calling, ReAct, Planning, Memory, and later pages await confirmation of this teaching style
+- Expanded [Tool Calling](/docs/agent/tool-calling) into four levels: schemas constrain call shape while applications still enforce business semantics and authorization; call ids, normalized results, write-time revalidation, timeout, and idempotency connect safe execution to evaluable traces
+- Expanded [ReAct](/docs/agent/react) into three levels: the procurement scenario shows how an observation changes the next step, separates a ReAct trajectory from a Tool Calling contract and Agent Loop runtime, and moves free-text Thought into structured state, policy gates, and reviewable summaries
+- Expanded [Workflow vs Agent](/docs/agent/workflow-vs-agent) into a complete three-level decision page: control-flow ownership defines the distinction; predictability, risk, verifiability, cost, and evals choose the architecture; a hybrid assigns interpretation to agents and validation plus side effects to workflows
+- Generated the first Planning batch, Levels 0–2: goal / acceptance / constraints / stops, dependency-driven decomposition, and combining plan-and-execute with dynamic decisions; Replanning, Verification and Reflection, and Long-Horizon Planning follow after review
+- Generated the first Memory batch, Levels 0–2: context / history / memory boundaries, five memory types and source of truth, and governance for write / retrieval / correction; RAG evaluation, long-horizon compaction, isolation, and safety follow after review
+- Completed Planning Levels 3–5: Replanning uses local invalidation and plan versions; external acceptance checks distinguish Verification from Reflection; checkable checkpoints, compaction, and handoffs govern long-horizon tasks
+- Completed Memory Levels 3–5: retrieval filters scope, freshness, and provenance before separately evaluating retrieval, grounded use, and outcome; compaction retains sources and uncertainty; isolation, deletion, injection resistance, and dynamic source-of-truth revalidation are enforced outside the model
+- Generated [Multi-Agent](/docs/agent/multi-agent): independence, verifiable deliverables, and coordination benefit decide whether to split; router / supervisor / specialist roles, scoped provenance-rich handoffs, single-agent baselines, and coordination metrics contain complexity
+- Generated [Agent Reliability](/docs/agent/reliability): defines success / controlled failure / unknown outcome; progress rules and multiple hard limits prevent spinning; error semantics select retry / fallback / circuit breaker / handoff; fault injection, traces, and SLOs verify behavior
+- Generated [Agent Security](/docs/agent/security): starts with a threat model, treats direct / indirect injection plus tool and subagent output as untrusted data, and limits blast radius with least privilege, server-side authorization, trusted confirmation, filesystem and network sandboxing, and adversarial evaluation
+
+</Locale>
+
 ## 2026-09-14
 
 <Locale lang="zh">

@@ -1,56 +1,392 @@
 ---
 title: Memory
 titleEn: Memory
-description: 不只 short / long-term。五种 memory 各自解决什么问题。
-descriptionEn: Not just short/long-term. Five memory types and the problems they solve.
-date: 2026-09-07
-keywords: ["memory", "episodic", "semantic memory", "procedural"]
+description: Agent memory 不是聊天记录：区分工作状态、事件、稳定事实、技能与外部真相，并治理写入和检索。
+descriptionEn: "Agent memory is not chat history: separate working state, events, stable facts, skills, and external truth; govern writes and retrieval."
+date: 2026-09-20
+keywords: ["agent memory", "working memory", "episodic memory", "semantic memory", "procedural memory", "retrieval", "context"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-Memory 到底解决什么问题：跨轮次的一致性、个性化、技能复用，而不是「存聊天记录」。
+Agent memory 要解决的是：在有限 context window 中，跨步骤和跨会话仍能拿到**正确、相关、可追溯**的状态。它不是“把聊天记录越存越多”。完整历史会变贵、变慢，并让模型更难找到真正重要的事实。
+
+本页继续采购谈判助手。它需要记住当前 case 的下一步和已查事实，也可能需要知道用户的批准角色、过去的例外处理和怎样创建审核草稿；但“最新报价”和“当前政策”仍必须从权威系统读取，不能因为曾被记住就当作真相。
+
+## 这一页怎么学
+
+| 部分 | 回答的问题 | 时长 |
+| --- | --- | --- |
+| Level 0 · Memory 解决什么 | context、conversation history、working state 与 persistent memory 有什么区别？ | 25 min |
+| Level 1 · 存的不是同一种东西 | working、episodic、semantic、procedural、external memory 各解决什么？ | 35 min |
+| Level 2 · 写入和读取都要治理 | 什么值得写、怎样检索、如何更正、何时回到 source of truth？ | 40 min |
+| Level 3 · Retrieval and RAG Evaluation | 怎样取回正确的证据，并评测“取到”和“用对”两件事？ | 35 min |
+| Level 4 · Compaction and Long-Horizon Memory | 如何跨 context window 续接任务，又不把压缩摘要当新真相？ | 30 min |
+| Level 5 · Isolation, Safety, and Evaluation | 怎样隔离租户、抵抗污染、支持删除，并评测记忆行为？ | 35 min |
 
 ## 需要掌握
 
-- Conversation Memory（对话记忆）
-- Working Memory（工作记忆）
-- Episodic Memory（情景记忆）
-- Semantic Memory（语义记忆）
-- Procedural Memory（程序性记忆）
-- External Memory（外部记忆）
+- context 是本轮模型看到的 token；memory 是经过治理、按需取回的外部状态
+- conversation history 不是 working memory，更不是可靠长期记忆
+- 区分当前任务状态、发生过的事件、稳定事实、操作技能和权威外部数据
+- memory 写入要有来源、范围、置信度、更新时间 / TTL 与所有者
+- retrieval 要按任务选择最小高信号内容，并在动态事实处回到 source of truth
 
-## 机制
+</Locale>
 
-```
-Conversation  当前对话
-Working       当前任务的草稿
-Episodic      发生过的事件
-Semantic      稳定的事实 / 偏好
-Procedural    怎么做（技能、playbook）
-External      文件、数据库、检索
-```
+<Locale lang="en">
 
-## 三级回答
+Agent memory solves this problem: across steps and sessions, a model with a finite context window can still access **correct, relevant, traceable** state. It is not “store more chat history.” Full history becomes expensive and slow and makes important facts harder to find.
 
-### Level 1 — 定义
+The procurement assistant continues as the example. It needs the next action and checked facts for the current case; it may need to know a user's approval role, past exception outcomes, and how to create a review draft. But the latest quote and current policy must still come from their authoritative systems, not be treated as truth because they were remembered once.
 
-Memory 是跨步骤、跨会话仍然要能用的状态，不等于把历史全部塞进 prompt。
+## How to work through this page
 
-### Level 2 — 机制
+| Part | Question it answers | Time |
+| --- | --- | --- |
+| Level 0 · What does memory solve? | How do context, conversation history, working state, and persistent memory differ? | 25 min |
+| Level 1 · Stored things are not one kind | What do working, episodic, semantic, procedural, and external memory each solve? | 35 min |
+| Level 2 · Govern both write and read | What is worth writing, how do you retrieve it, how do you correct it, and when do you return to source of truth? | 40 min |
+| Level 3 · Retrieval and RAG Evaluation | How do you retrieve correct evidence and evaluate both getting it and using it correctly? | 35 min |
+| Level 4 · Compaction and Long-Horizon Memory | How do you continue across context windows without treating a summary as new truth? | 30 min |
+| Level 5 · Isolation, Safety, and Evaluation | How do you isolate tenants, resist pollution, support deletion, and evaluate memory behavior? | 35 min |
 
-工作记忆放当前的计划；情景记忆可以被检索；语义记忆是用户 / 企业层面的事实；程序性记忆是工具的用法。外部记忆就是 RAG / 文件。
+## Must know
 
-### Level 3 — 工程
+- context is the tokens the model sees this turn; memory is governed external state retrieved when needed
+- conversation history is neither working memory nor reliable long-term memory
+- distinguish current-task state, events that occurred, stable facts, procedural skills, and authoritative external data
+- memory writes need source, scope, confidence, update time or TTL, and owner
+- retrieval should select the smallest high-signal content for the task and return to source of truth for dynamic facts
 
-乱写记忆会造成上下文污染和错误的个性化。写入前要过滤，读取时要检索，而不是只追加不删的日志。
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · Memory 解决什么：不是把 context window 当硬盘
+
+### Context、history 与 memory 为什么不同？
+
+**Context** 是这一次模型推理实际看到的 token：system instructions、当前用户消息、选择出的工具定义、最近 observation 和取回的记忆。它短暂、容量有限，而且每多放一个 token 都有成本和注意力代价。
+
+**Conversation history** 是发生过的消息记录。它可以是 context 的候选来源，但不应默认全部塞回模型：早期的报价可能已过期，冗长的工具输出可能掩盖当前任务，且历史本身没有判断“哪条仍然真”。
+
+**Memory** 是为了未来任务有选择地保存并取回的外部状态。它要有类型、来源、作用范围和更新规则。**Working state** 则是当前任务的短期进度，例如“已读 Q-817；下一步查 Net 45 政策；尚未创建草稿”，任务结束后通常可压缩、过期或删除。
+
+~~~
+context:      this inference sees selected tokens now
+history:      what was said or returned before
+working state: current case progress and next milestone
+memory:       persisted, governed information retrieved when useful
+~~~
+
+### 为什么全量历史会让 agent 更差？
+
+上下文不是越长越好。把每个聊天回合、全部工具结果和过期计划都放进 prompt，会增加 token 成本和延迟，也会产生 context pollution：正确的新事实被旧事实、相似案例和无关细节淹没。更大 context window 不是不选择的理由。
+
+在 Acme 场景中，当前报价和现行政策应通过工具按需加载；工作状态只保留当前 case 的 milestone；过去案例只有在“这次是否存在已批准的相同例外”这个问题出现时才检索。每种信息有不同的进入 context 条件。
+
+<Note title="自测：到这里你应该能回答">
+
+- 为什么 conversation history 只是 memory 的候选来源？
+- 当前 Q-817 的读取结果应放 working state、长期 memory，还是两者都不是？
+- 什么是 context pollution？给一个采购例子。
+- 为什么更大的 context window 不能替代 memory 设计？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · What memory solves: a context window is not a hard drive
+
+### Why do context, history, and memory differ?
+
+**Context** is the tokens the model actually sees in this inference: system instructions, the current user message, selected tool definitions, recent observations, and retrieved memory. It is temporary, capacity-limited, and every additional token costs money and attention.
+
+**Conversation history** is a record of messages that occurred. It may be a candidate source for context, but should not all be passed back by default: an old quote can expire, long tool output can hide the task, and history has not decided which facts remain true.
+
+**Memory** is external state deliberately persisted and selectively retrieved for future work. It needs a type, source, scope, and update rules. **Working state** is short-lived progress for the current task: “Q-817 read; next check Net 45 policy; no draft created.” It can usually be compacted, expired, or deleted when the task ends.
+
+~~~
+context:       selected tokens this inference sees now
+history:       what was said or returned before
+working state: current case progress and next milestone
+memory:        persisted, governed information retrieved when useful
+~~~
+
+### Why can full history make an agent worse?
+
+More context is not automatically better. Passing every turn, all tool results, and stale plans into a prompt adds token cost and latency and creates context pollution: current correct facts are drowned out by old facts, similar cases, and irrelevant detail. A larger context window is not a reason to stop selecting.
+
+For Acme, the current quote and active policy should be loaded through tools when needed; working state retains only the current case milestone; a past case is retrieved only when the question is “does an approved exception like this exist?” Each type has different conditions for entering context.
+
+<Note title="Self-check: you should now be able to answer">
+
+- Why is conversation history only a candidate source for memory?
+- Should the current Q-817 result belong in working state, long-term memory, or neither?
+- What is context pollution? Give a procurement example.
+- Why can a larger context window not replace memory design?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 存的不是同一种东西：按问题选记忆类型
+
+### 五类记忆各解决什么问题？
+
+这些类别是设计用的，不要求一个数据库对应一种名字。关键是每类数据有不同的更新、检索和可信规则：
+
+| 类型 | Acme 例子 | 主要用途 | 典型生命周期 |
+| --- | --- | --- | --- |
+| Working | 已读报价、当前计划、剩余预算 | 当前任务不丢进度 | task 结束即过期 |
+| Episodic | 上次例外由谁批准、结果如何 | 回顾发生过的案例 | 可检索，可能保留审计期 |
+| Semantic | 用户是采购经理、组织的谈判偏好 | 跨任务稳定事实 / 偏好 | 有 owner，可更新 |
+| Procedural | 怎样创建审核草稿、批准流程 | 可复用的操作方法 | 版本化的 skill / playbook |
+| External | 最新报价、政策、订单状态 | 权威、动态的业务真相 | 按需读取，不复制为真相 |
+
+Working memory 常被放在 agent state、任务数据库或结构化 notes 里；procedural memory 常是版本化的 instructions、skills 或 playbook；external memory 是 CRM、数据库、文件和搜索系统。它们都可以在需要时进入 context，但不是同一个数据治理问题。
+
+### 为什么“用户记忆”和“业务真相”要分开？
+
+“用户偏好邮件简洁”可以是 semantic memory，只要有来源和允许更新的方式；“用户有权批准 10% 折扣”是动态权限，应从 IAM 或当前 case policy 读取。把后者写成长期偏好，一旦角色变更就会越权。
+
+同理，过去的成功谈判可以是 episodic evidence，帮助 agent 提出候选策略；它不能覆盖最新政策。**记忆提供相关线索，source of truth 决定当前可执行事实。**
+
+<Note title="自测：到这里你应该能回答">
+
+- 当前计划与上次批准的例外，分别属于哪类？
+- 为什么审核草稿流程更像 procedural memory 而非 semantic memory？
+- 哪些数据绝不能只靠长期 memory 决定？
+- 同一事实可以在什么条件下既是 episodic evidence 又需要 source-of-truth 复核？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Stored things are not one kind: choose a memory type by the problem
+
+### What does each of the five memory types solve?
+
+These categories guide design; they do not require one database per label. Each type has different update, retrieval, and trust rules:
+
+| Type | Acme example | Main use | Typical lifetime |
+| --- | --- | --- | --- |
+| Working | read quote, current plan, remaining budget | retain progress for current task | expires with task |
+| Episodic | who approved the last exception and its outcome | revisit events and cases | retrievable; may retain for audit |
+| Semantic | user is procurement manager, organization negotiation preference | stable facts and preferences across tasks | owned and updateable |
+| Procedural | how to create a review draft, approval process | reusable operating method | versioned skill or playbook |
+| External | latest quote, policy, order status | authoritative dynamic business truth | read on demand; not copied as truth |
+
+Working memory may live in agent state, a task database, or structured notes. Procedural memory often means versioned instructions, skills, or playbooks. External memory means CRM, databases, files, and search systems. All can enter context when needed, but they are not the same data-governance problem.
+
+### Why separate user memory from business truth?
+
+“The user prefers concise email” can be semantic memory if it has provenance and an allowed update path. “The user may approve a 10% discount” is dynamic authorization and must come from IAM or current case policy. Making it a long-term preference can become an authorization bypass after a role change.
+
+Likewise, a successful past negotiation can be episodic evidence that helps an agent propose a strategy; it cannot override current policy. **Memory supplies relevant clues; source of truth decides executable current facts.**
+
+<Note title="Self-check: you should now be able to answer">
+
+- Which types are the current plan and a previously approved exception?
+- Why is a review-draft procedure procedural rather than semantic memory?
+- Which data must never be decided solely from long-term memory?
+- Under what conditions can one fact be episodic evidence but still need source-of-truth verification?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 写入和读取都要治理：记住前先问是否值得，使用前先问是否仍然真
+
+### 什么应该写入 memory？
+
+不要让模型把每一句对话、每个 tool result 或自己的猜测自动写入。一个候选记忆至少要回答：
+
+~~~
+provenance: 谁或哪个系统提供？
+scope:      哪个用户、组织、case 或 agent 可用？
+type:       working / episodic / semantic / procedural / external reference？
+confidence: 已验证、用户自述、推断，还是模型提议？
+freshness: 何时更新？是否有 TTL 或失效事件？
+owner:      谁可以更正、删除或批准写入？
+~~~
+
+例如“Q-817 的价格是 10.15”适合成为当前任务的 working fact，并保留来源链接；它不应成为无期限 semantic memory。相反，“采购经理已明确选择简洁摘要”若用户同意保存，可成为 scoped semantic memory。模型提出的“供应商可能接受 Net 30”只是一项假设，不应写入事实记忆。
+
+### 怎样读取、纠错并避免污染？
+
+读取时先由当前目标决定 query，再按 scope、权限、时间新鲜度和来源过滤，最后只把少量高信号内容放进 context。对于报价、权限、订单与政策等动态信息，memory 最多提供 identifier 或过去线索；执行前必须回到外部权威系统复核。
+
+错误写入必须可更正：保留 source 和版本，支持覆盖、撤销或过期，不把旧值静默留在向量库里。用户也应能查看、修改或删除其稳定偏好；多租户系统必须防止一个组织的记忆被另一个组织检索。
+
+<Note title="写入与读取都要评测" type="warning">
+
+只测“有没有检索到相似文本”不够。要测：不该写的猜测是否被拒绝；正确 scope 是否被选中；过期信息是否被排除；动态事实是否被复核；更正后旧记忆是否不再影响行为。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+- 为什么模型猜测不能直接写进 semantic memory？
+- 为 Q-817 写一个合格 memory record 至少需要哪些 metadata？
+- 从 memory 读出“可批准折扣”后，执行前还要做什么？
+- 怎样让一个错误偏好可以被删除且不继续影响 agent？
+
+</Note>
+
+## Level 3 · Retrieval and RAG Evaluation：取到相似内容，不等于取到可行动证据
+
+### 一次可靠 retrieval 要经过哪些选择？
+
+RAG 是把外部资料按当前 query 取回并放入 context 的一种模式，不是 memory 的同义词。对“Acme 是否有可批准例外”，检索链至少要做这些事：
+
+~~~
+current goal
+  → build query from vendor, contract class, requested exception
+  → filter by tenant, permission, document type, freshness
+  → retrieve candidate policies and past approved cases
+  → rank and select a small evidence set with source metadata
+  → use evidence to decide whether to query the authoritative policy system
+~~~
+
+关键词检索擅长精确 id、日期和条款；语义检索擅长“package flexibility”这类不同措辞的相似含义。实际系统可组合它们，但无论排序方式如何，都不能跳过 scope、权限和来源过滤。记忆里找回的过去案例是线索，当前政策系统才决定今天是否可执行。
+
+### 怎样评测 retrieval，而不只看相似度？
+
+先建立带标准答案的固定 cases：正确政策藏在多份相似文档中、过期例外与现行政策冲突、同名供应商属于不同租户、query 里出现精确 quote id。分别测：
+
+- **retrieval quality**：关键证据是否在候选和最终 context 中，错误或过期资料是否被排除；
+- **grounded use**：agent 是否引用正确来源、是否把 evidence 与当前目标连起来；
+- **outcome**：是否回到 source of truth、是否阻断了不允许的写入、最终业务状态是否正确；
+- **efficiency**：取回 token、延迟和无关文档数量是否受控。
+
+只计算向量相似度或只看最终回答，都会漏掉“取对了却用错”“取错了却碰巧答对”和跨租户泄露。
+
+<Note title="自测：到这里你应该能回答">
+
+- RAG 与 agent memory 的关系是什么？
+- 为什么检索前后都要做 scope 和权限控制？
+- 精确 quote id 与模糊业务措辞分别适合什么检索信号？
+- 怎样区分 retrieval quality、grounded use 与最终 outcome？
+
+</Note>
+
+## Level 4 · Compaction and Long-Horizon Memory：压缩历史，不压缩掉事实来源
+
+### context 快满时应保存什么？
+
+Compaction 是把即将失效的长 history 变成下一个 context 可用的任务状态。它不是把整段对话“改写得更短”，而是保留下一步需要核验的内容：
+
+~~~
+goal, acceptance condition, and constraints
+completed milestones and current plan version
+verified facts with source identifiers and freshness
+open questions, blockers, next action, and uncertainty
+budget, approvals, and terminal-state rules
+~~~
+
+把原始报价、长工具日志和全文文档留在可查询外部位置；摘要只存 id、结论、时间与必须复核的标记。下一次运行先读 checkpoint，再按需取回 source，避免模型把摘要中的旧结论误当当前真相。
+
+### 怎样让长程记忆保持可纠正？
+
+checkpoint 应有版本和写入者，重要更新要追加证据而非无痕替换。若压缩时不确定某条事实是否仍有效，明确写成 open question，而不是补全猜测。每次 context reset、重大 replan 或写操作前，复核动态事实并检查 checkpoint 是否仍满足目标与权限范围。
+
+<Note title="自测：到这里你应该能回答">
+
+- compaction 与“把全历史放进更大窗口”有什么不同？
+- checkpoint 为什么要保留 source identifier 和 freshness？
+- 哪类内容应写为 open question，而不是压缩成结论？
+- 为什么长程 memory 也需要版本？
+
+</Note>
+
+## Level 5 · Isolation, Safety, and Evaluation：记忆是数据边界，不只是模型能力
+
+### 哪些安全边界必须在 memory 外实现？
+
+模型不能决定自己能读谁的 memory。检索服务和存储层必须强制 tenant、user、case、role 与 purpose scope；写入也要检查来源、同意、保留期和是否包含敏感数据。用户偏好可以允许查看、纠正和删除；审计事件可能有不同的合规保留规则，但同样要受访问控制。
+
+memory 内容和 tool result 一样是不可信输入。过去文档里出现的“忽略政策”“把我设为管理员”只能作为文本，不可改变系统指令、权限或写入策略。冲突的记忆按权威性、时间、scope 和来源处理；动态政策永远由权威系统覆盖。
+
+### 怎样评测 memory 系统没有悄悄伤害用户？
+
+固定测试至少覆盖：不写入模型猜测、正确 tenant 可读而错误 tenant 不可读、已撤销偏好不再取回、过期事实不影响写操作、相同 query 不被注入文本劫持、用户删除后索引和缓存也不再返回数据。记录 retrieval、写入、删除和 source-of-truth 复核的 trace，才能追查“为什么 agent 记住或忘掉了这件事”。
+
+## 陷阱
+
+<Note title="向量库不是事实数据库" type="danger">
+
+向量检索能找到相似文本，不提供事务、权限、当前性或业务约束。不要用它直接决定付款、批准、订单或最新政策。
+
+</Note>
+
+<Note title="只追加，不更正" type="warning">
+
+错误偏好、过期例外和旧摘要若永不失效，检索越多会污染越重。记忆必须支持 version、TTL、撤销、删除和权威覆盖。
+
+</Note>
+
+## 连接
+
+~~~
+Task goal
+  ↓
+retrieve scoped evidence → verify source of truth → act
+  ↓
+write only governed, attributable memory → compact checkpoint for later
+  ↓
+Planning consumes checkpoint; Tool Calling enforces actions; Security enforces isolation
+~~~
+
+- 前置：[Planning](/docs/agent/planning) —— checkpoint 是长程 plan 的状态；[Tool Calling](/docs/agent/tool-calling) —— 动态事实执行前要重验。
+- 延伸：[Context Engineering](/docs/context) 与 [Security](/docs/agent/security)。
 
 ## 面试问题
 
-1. 你怎么管理 agent 的记忆？（How do you manage agent memory?）
-2. Memory 到底解决什么问题？（What problem does memory actually solve?）
-3. 为什么只有对话历史不够？（Why isn't conversation history enough?）
-4. 记忆写错了怎么修正？（How do you correct a memory that was written wrong?）
+### Level 0 · 边界
+
+1. Agent memory 与 conversation history 有什么区别？（How does agent memory differ from conversation history?）
+2. 为什么不能把完整 history 一直放进 context？（Why can’t you keep the entire history in context forever?）
+
+### Level 1 · 类型与可信度
+
+1. working、episodic、semantic、procedural、external memory 分别解决什么？（What do working, episodic, semantic, procedural, and external memory each solve?）
+2. 为什么最新业务数据不能由 memory 直接决定？（Why must current business data not be decided directly from memory?）
+
+### Level 2 · 生命周期
+
+1. 你如何设计 memory 的写入条件与 metadata？（How do you design memory write criteria and metadata?）
+2. 怎样纠正一条错误的 agent memory？（How do you correct an incorrect agent memory?）
+
+### Level 3 · Retrieval and RAG
+
+1. RAG 与 agent memory 的关系是什么？（How do RAG and agent memory relate?）
+2. 如何评测检索到正确证据，而不是只看相似度？（How do you evaluate retrieval of correct evidence rather than only similarity?）
+
+### Level 4 · 长程记忆
+
+1. context compaction 后哪些信息必须保留？（Which information must remain after context compaction?）
+2. 如何避免摘要变成未经复核的事实？（How do you prevent a summary from becoming an unverified fact?）
+
+### Level 5 · 隔离与安全
+
+1. memory 系统怎样实现多租户隔离和用户删除？（How does a memory system implement tenant isolation and user deletion?）
+2. 为什么向量库不能充当 source of truth？（Why can a vector store not be a source of truth?）
 
 ## 我的答案
 
@@ -58,54 +394,189 @@ Memory 是跨步骤、跨会话仍然要能用的状态，不等于把历史全�
 
 <Locale lang="en">
 
-What memory really solves: consistency across turns, personalization, and reusing skills — not "storing the chat log."
+## Level 2 · Govern both writing and reading: ask whether it is worth storing, then whether it remains true
 
-## Must know
+### What should be written to memory?
 
-- Conversation Memory
-- Working Memory
-- Episodic Memory
-- Semantic Memory
-- Procedural Memory
-- External Memory
+Do not let a model automatically write every conversation sentence, every tool result, or its own guess. A candidate memory should at least answer:
 
-## Mechanism
+~~~
+provenance: who or which system supplied it?
+scope:      which user, organization, case, or agent may use it?
+type:       working / episodic / semantic / procedural / external reference?
+confidence: verified, user-stated, inferred, or model-proposed?
+freshness:  when does it update; is there a TTL or invalidation event?
+owner:      who may correct, delete, or approve it?
+~~~
 
-```
-Conversation  the current conversation
-Working       scratchpad for the current task
-Episodic      events that happened
-Semantic      stable facts / preferences
-Procedural    how to do things (skills, playbooks)
-External      files, databases, retrieval
-```
+“Q-817 costs 10.15” can be a working fact for the current task with a source link; it should not become indefinite semantic memory. “The procurement manager explicitly prefers concise summaries” may become scoped semantic memory if the user agrees. “The vendor may accept Net 30” is a hypothesis, not a fact to store.
 
-## Three-level answers
+### How do you retrieve, correct, and avoid pollution?
 
-### Level 1 — Definition
+Start retrieval from the current goal, then filter by scope, authority, freshness, and source. Put only a few high-signal items into context. For dynamic data such as quotes, permissions, orders, and policy, memory can provide an identifier or historical clue at most; before action, return to the authoritative external system.
 
-Memory is state that has to stay usable across steps and sessions. It isn't the same as stuffing all history into the prompt.
+An incorrect write must be correctable: preserve source and version, support overwrite, revocation, or expiration, and do not silently leave the old value in a vector store. Users should be able to view, edit, or delete stable preferences. A multi-tenant system must prevent one organization’s memory from being retrieved by another.
 
-### Level 2 — Mechanism
+<Note title="Evaluate both write and read" type="warning">
 
-Working memory holds the current plan; episodic memory is retrievable; semantic memory holds user and company facts; procedural memory is how to use tools. External memory is RAG or files.
+Testing whether similar text was retrieved is insufficient. Test whether unsupported guesses are rejected, the correct scope is selected, stale information is excluded, dynamic facts are revalidated, and an old correction no longer affects behavior.
 
-### Level 3 — Engineering
+</Note>
 
-Careless writes cause context pollution and wrong personalization. Filter before writing and retrieve when reading — don't treat memory as an append-only log.
+<Note title="Self-check: you should now be able to answer">
+
+- Why may a model guess not go directly into semantic memory?
+- Which metadata does a valid Q-817 memory record need at minimum?
+- After memory says “discount may be approved,” what must happen before execution?
+- How do you make an incorrect preference deletable and unable to influence the agent afterward?
+
+</Note>
+
+## Level 3 · Retrieval and RAG Evaluation: similar text is not necessarily actionable evidence
+
+### Which choices make retrieval reliable?
+
+RAG is a pattern for retrieving external material for the current query and placing it in context; it is not a synonym for memory. For “does Acme have an approvable exception,” the retrieval path should at least do this:
+
+~~~
+current goal
+  → build query from vendor, contract class, requested exception
+  → filter by tenant, permission, document type, freshness
+  → retrieve candidate policies and past approved cases
+  → rank and select a small evidence set with source metadata
+  → use evidence to decide whether to query the authoritative policy system
+~~~
+
+Keyword search is strong for exact ids, dates, and terms. Semantic retrieval helps with differently worded but similar meaning, such as package flexibility. Systems may combine them, but neither ranking method may bypass scope, authorization, or source filtering. A remembered past case is a clue; the current policy system decides what can execute today.
+
+### How do you evaluate retrieval instead of only similarity?
+
+Build fixed cases with known answers: the correct policy among similar documents, an expired exception that conflicts with current policy, same-named vendors in different tenants, and a query with an exact quote id. Score:
+
+- **retrieval quality**: does the selected context contain key evidence and exclude wrong or stale material?
+- **grounded use**: does the agent cite the appropriate source and connect it to the current goal?
+- **outcome**: does it return to source of truth, block disallowed writes, and reach correct business state?
+- **efficiency**: are retrieved tokens, latency, and irrelevant documents controlled?
+
+Vector similarity alone and final-answer-only evaluation both miss “retrieved correctly but used incorrectly,” “retrieved incorrectly but answered luckily,” and cross-tenant leakage.
+
+<Note title="Self-check: you should now be able to answer">
+
+- How do RAG and agent memory relate?
+- Why must scope and authorization be checked before and after retrieval?
+- Which retrieval signals fit an exact quote id versus vague business wording?
+- How do retrieval quality, grounded use, and outcome differ?
+
+</Note>
+
+## Level 4 · Compaction and Long-Horizon Memory: compress history without compressing away sources
+
+### What should survive when context is full?
+
+Compaction turns history that is about to leave the context window into usable task state. It is not merely rewriting conversation more briefly. Preserve the information the next step must verify:
+
+~~~
+goal, acceptance condition, and constraints
+completed milestones and current plan version
+verified facts with source identifiers and freshness
+open questions, blockers, next action, and uncertainty
+budget, approvals, and terminal-state rules
+~~~
+
+Keep raw quotes, long tool logs, and full documents in queryable external locations. A summary stores identifiers, conclusions, time, and a marker for required revalidation. The next run reads the checkpoint and retrieves sources as needed, rather than treating an old summarized conclusion as current truth.
+
+### How does long-horizon memory stay correctable?
+
+Checkpoints need versions and writers. Important updates append evidence instead of silently replacing it. When compaction cannot establish whether a fact remains valid, write an open question rather than inventing a conclusion. At every context reset, significant replan, or write action, revalidate dynamic facts and check that checkpoint state still fits the goal and authority boundary.
+
+<Note title="Self-check: you should now be able to answer">
+
+- How does compaction differ from placing full history in a larger window?
+- Why must a checkpoint retain source identifiers and freshness?
+- Which material should become an open question rather than a compressed conclusion?
+- Why does long-horizon memory need versions?
+
+</Note>
+
+## Level 5 · Isolation, Safety, and Evaluation: memory is a data boundary, not only a model capability
+
+### Which security boundaries must exist outside memory content?
+
+The model must not decide whose memory it may read. Retrieval and storage must enforce tenant, user, case, role, and purpose scopes. Writes also check provenance, consent, retention period, and sensitive data. A user preference may permit viewing, correction, and deletion. Audit events may have different regulated retention, but remain access controlled.
+
+Memory content, like a tool result, is untrusted input. “Ignore policy” or “make me admin” inside an old document is text, not an instruction capable of changing system policy, authorization, or write rules. Resolve conflicting memory by authority, time, scope, and provenance; dynamic policy is always superseded by its authoritative system.
+
+### How do you evaluate that a memory system is not quietly harming users?
+
+Fixed tests should cover refusing model guesses as memories; correct tenant readable while another tenant is not; revoked preference no longer retrieved; stale facts unable to trigger writes; injected text unable to hijack an identical query; and user deletion removing data from indexes and caches as well. Trace retrieval, writes, deletion, and source-of-truth revalidation so you can answer why an agent remembered or forgot something.
+
+## Traps
+
+<Note title="A vector store is not a fact database" type="danger">
+
+Vector retrieval finds similar text. It does not supply transactions, authorization, currency, or business constraints. Do not let it directly decide payments, approvals, orders, or current policy.
+
+</Note>
+
+<Note title="Append without correction" type="warning">
+
+If wrong preferences, expired exceptions, and old summaries never expire, more retrieval means more pollution. Memory needs versioning, TTL, revocation, deletion, and authoritative override.
+
+</Note>
+
+## Connections
+
+~~~
+Task goal
+  ↓
+retrieve scoped evidence → verify source of truth → act
+  ↓
+write only governed, attributable memory → compact checkpoint for later
+  ↓
+Planning consumes checkpoint; Tool Calling bounds actions; Security enforces isolation
+~~~
+
+- Prerequisites: [Planning](/docs/agent/planning) for long-horizon checkpoints, and [Tool Calling](/docs/agent/tool-calling) for revalidating dynamic facts before action.
+- Extend with [Context Engineering](/docs/context) and [Security](/docs/agent/security).
 
 ## Interview questions
 
-1. How do you manage agent memory?
-2. What problem does memory actually solve?
-3. Why isn't conversation history enough?
-4. How do you correct a memory that was written wrong?
+### Level 0 · Boundary
+
+1. How does agent memory differ from conversation history?
+2. Why can’t you keep the entire history in context forever?
+
+### Level 1 · Types and trust
+
+1. What do working, episodic, semantic, procedural, and external memory each solve?
+2. Why must current business data not be decided directly from memory?
+
+### Level 2 · Lifecycle
+
+1. How do you design memory write criteria and metadata?
+2. How do you correct an incorrect agent memory?
+
+### Level 3 · Retrieval and RAG
+
+1. How do RAG and agent memory relate?
+2. How do you evaluate retrieval of correct evidence rather than only similarity?
+
+### Level 4 · Long-horizon memory
+
+1. Which information must remain after context compaction?
+2. How do you prevent a summary from becoming an unverified fact?
+
+### Level 5 · Isolation and safety
+
+1. How does a memory system implement tenant isolation and user deletion?
+2. Why can a vector store not be a source of truth?
 
 ## My answer
 
 </Locale>
 
--
+- 30s：
+- 2min：
 
 <Locale lang="zh">
 

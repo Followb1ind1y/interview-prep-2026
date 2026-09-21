@@ -1,70 +1,299 @@
 ---
 title: Workflow vs Agent
 titleEn: Workflow vs Agent
-description: 非常重要的判断题。流程确定就用 workflow。不要为了 Agent 而 Agent。
-descriptionEn: If the path is deterministic, use a workflow. Do not agent-wash.
-date: 2026-09-07
-keywords: ["workflow vs agent", "deterministic"]
+description: 控制流预先由代码决定，还是让模型在运行时决定？用不确定性、风险与评测选择。
+descriptionEn: "Should code predefine control flow or should a model decide at runtime? Choose with uncertainty, risk, and evals."
+date: 2026-09-20
+keywords: ["workflow", "agent", "control flow", "deterministic", "orchestration", "human approval"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-固定流程通常更便宜、更可预测。2026 年的面试资料特别强调这一点。
+Workflow vs Agent 不是“传统系统 vs 智能系统”的二选一，也不是看产品名称。真正的问题是：**下一步控制流能否在开发时可靠地写进代码，还是必须根据运行时未知信息由模型判断？** 大多数生产产品同时有两者。
+
+贯穿例子仍是采购谈判助手。读取报价、算是否低于价格上限、写入审核记录，都有明确规则，应该是 workflow；面对一封非标准供应商邮件，判断它在谈价格、付款还是交期，并决定该读哪些资料、怎样解释冲突，才可能需要受限 agent。
+
+## 这一页怎么学
+
+| 部分 | 回答的问题 | 时长 |
+| --- | --- | --- |
+| Level 0 · 控制流是谁决定的 | workflow 和 agent 的准确边界是什么？ | 20 min |
+| Level 1 · 怎么选择 | 不确定性、风险、成本、可验证性怎样形成判断？ | 30 min |
+| Level 2 · 最常见的答案是混合 | 怎样让 agent 只处理开放决策，让 workflow 把住事实与副作用？ | 35 min |
+| 陷阱 · 面试问题 | 能否用项目例子解释“为什么不该 agent-wash”？ | 15 min |
+
+本页建立在 [Agent Loop](/docs/agent/loop) 和 [Tool Calling](/docs/agent/tool-calling) 之后：你已经知道 agent 的 loop 会带来工具、状态、成本和风险；现在要决定值不值得承担它们。
 
 ## 需要掌握
 
-能画出两种控制流，能举一个自己做过的「不该上 agent」的例子。
-
-## 机制
+- workflow 是代码预定义控制流，agent 是模型在边界内运行时选择下一步
+- “调用 LLM”不等于“用了 agent”；固定 prompt chaining / routing 仍可能是 workflow
+- 用路径可预测性、输入变化、工具副作用、质量标准和失败代价决定架构
+- 把确定的校验、授权、写入和停止条件放在 workflow 中
+- 用 hybrid 把开放理解、检索与解释交给 agent，但不把权限交给它
 
 </Locale>
 
 <Locale lang="en">
 
-A fixed flow is usually cheaper and more predictable. Interview prep material in 2026 stresses this a lot.
+Workflow vs Agent is not “traditional system versus intelligent system,” and it is not a product label. The real question is: **can code reliably define the next control-flow step during development, or must a model decide from unknown runtime information?** Most production products contain both.
+
+The procurement-negotiation assistant remains the example. Reading a quote, comparing it with a price ceiling, and writing a review record follow explicit rules and belong in a workflow. Interpreting an unusual vendor email, deciding whether it concerns price, payment, or delivery, and choosing which records to inspect may need a bounded agent.
+
+## How to work through this page
+
+| Part | Question it answers | Time |
+| --- | --- | --- |
+| Level 0 · Who owns control flow? | What is the precise boundary between workflow and agent? | 20 min |
+| Level 1 · How do you choose? | How do uncertainty, risk, cost, and verifiability form a decision? | 30 min |
+| Level 2 · The common answer is hybrid | How do you let an agent handle open decisions while a workflow owns facts and side effects? | 35 min |
+| Traps · Interview questions | Can you explain “do not agent-wash” using a project example? | 15 min |
+
+This page follows [Agent Loop](/docs/agent/loop) and [Tool Calling](/docs/agent/tool-calling): you already know that loops bring tools, state, cost, and risk. Now decide whether they are worth it.
 
 ## Must know
 
-Draw both control flows, and give an example from your own work where an agent was the wrong call.
-
-## Mechanism
+- a workflow has code-defined control flow; an agent chooses its next step at runtime within boundaries
+- calling an LLM does not make a system an agent; fixed prompt chaining or routing can still be workflow
+- choose architecture with path predictability, input variation, tool side effects, quality criteria, and failure cost
+- keep deterministic validation, authorization, writes, and stop conditions in workflows
+- use hybrids for open interpretation, retrieval, and explanation without giving the agent authority
 
 </Locale>
 
-```
-Workflow
-A → B → C → D
-
-Agent
-A → LLM decides → B
-                  ↓
-                  C
-                  ↓
-                  A again
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 控制流是谁决定的？
 
-### Level 1 — 定义
+### Workflow 和 Agent 的最小差别是什么？
 
-Workflow 的路径是预先定义好的。Agent 由模型在运行时选择下一步。
+Workflow 的路径由开发者预先编码：输入到达后，系统按已知条件执行 A → B → C。某一步可以调用模型，但“下一步是什么”仍由代码、规则或固定路由决定。比如“提取报价字段 → 校验字段 → 比较 10.20 阈值 → 生成审核记录”就是 workflow。
 
-### Level 2 — 机制
+Agent 则把一部分控制流交给模型：模型根据当前任务、工具结果和约束选择下一步。它可能先读取报价，也可能先读政策、询问用户，或在信息不足时停止。这个选择只有在运行时看到真实输入后才知道。
 
-确定性的步骤（抽取字段 → 校验 → 写库）用 workflow。只有分支取决于未知环境和工具结果时，才需要 agent。
+~~~
+Workflow: user input → parse → validate → policy check → write review record
 
-### Level 3 — 工程
+Agent:    user input → model chooses read quote / read policy / ask user
+                        ↓
+                      tool observation → model chooses again
+~~~
 
-Agent 的代价是延迟、成本和结果不可复现。能用 workflow 解决的，就不要再包一层「智能」。
+所以判断关键不是“是否用 LLM”，而是“控制流的可变部分由谁拥有”。一个 LLM 分类器把邮件路由到三个固定队列，通常仍是 workflow；一个模型自己选择队列、工具、次数和何时结束，才接近 agent。
+
+### 为什么确定路径不该伪装成 Agent？
+
+对确定任务套一个 loop，通常只增加模型调用、延迟、不可复现性和错误面。更糟的是，它会模糊责任：当审核记录写错时，你无法知道是业务规则错、工具错还是模型临场选择错。
+
+workflow 的好处不是“笨”，而是它让每个条件可测试、每个副作用可审计、每次重跑更一致。若产品已知道所有正常分支，优先把分支写成代码；让模型负责它真正擅长的模糊语言理解或开放检索。
+
+<Note title="自测：到这里你应该能回答">
+
+- 为什么固定三步 prompt chaining 可能仍是 workflow？
+- 采购助手中哪三个步骤不应交给 agent？
+- “模型可以调用工具”为什么不足以定义 agent？
+- 你会用哪一个问题判断控制流是否应由模型决定？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Who owns control flow?
+
+### What is the minimal difference between a workflow and an agent?
+
+In a workflow, developers encode the path in advance: after input arrives, the system follows known conditions through A → B → C. A step may call a model, but code, rules, or a fixed router still own what comes next. “Extract quote fields → validate → compare with 10.20 → create a review record” is a workflow.
+
+An agent gives a model part of the control flow. From the current task, tool results, and constraints, it chooses the next step. It may read the quote first, read policy first, ask the user, or stop for missing information. That choice becomes known only after seeing runtime input.
+
+~~~
+Workflow: user input → parse → validate → policy check → write review record
+
+Agent:    user input → model chooses read quote / read policy / ask user
+                        ↓
+                      tool observation → model chooses again
+~~~
+
+The key is not “does it call an LLM?” but “who owns the variable part of control flow?” An LLM classifier that sends email to three fixed queues is usually still a workflow. A model choosing queues, tools, number of turns, and completion is agent-like.
+
+### Why should a deterministic path not be disguised as an agent?
+
+Putting a loop around a deterministic task usually adds model calls, latency, nondeterminism, and failure surface. Worse, it blurs responsibility: when a review record is wrong, you cannot tell whether business rules, tools, or a model's momentary choice failed.
+
+The value of a workflow is not that it is “dumb.” Each condition is testable, each side effect auditable, and repeats are more consistent. When all normal branches are known, encode them; reserve a model for genuinely ambiguous language or open retrieval.
+
+<Note title="Self-check: you should now be able to answer">
+
+- Why can a fixed three-step prompt chain still be a workflow?
+- Which three procurement-assistant steps should not be delegated to an agent?
+- Why is “the model can call tools” insufficient to define an agent?
+- Which one question would you ask to decide whether the model should own control flow?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 怎么选择：不确定性值得付出多少控制成本？
+
+### 用什么维度作架构判断？
+
+先看任务，不要先选框架。下面五个问题从上到下判断：
+
+1. **路径是否可预先枚举？** 若能写清正常和异常分支，选 workflow。
+2. **下一步是否取决于开放文本或未知环境？** 若要解释一封从未见过的邮件、动态寻找资料或在多个合理工具间权衡，agent 才有价值。
+3. **成功能否用明确规则验证？** 清晰验收条件适合 workflow gate；开放质量可由 agent 提议，但仍要评测或人工复核。
+4. **副作用和失败代价多高？** 越接近发送承诺、付款、删改数据，越应缩小 agent 的自主范围。
+5. **多次模型调用的准确率提升是否值得成本和延迟？** 用真实评测比较，不要因为“看起来聪明”就假设值得。
+
+以供应商邮件为例：抽取日期和金额、检查权限、创建审核记录都可验证且路径固定；判断“对方说的 package flexibility 能否换取付款条款”涉及语义、谈判上下文与未知资料，适合让 agent 研究后提出草案，但不能自动承诺。
+
+### 为什么要把“可验证”与“可预测”分开？
+
+一个任务可以路径不确定但结果易验证。例如 coding agent 不知道要改哪几个文件，但测试能验证最终行为；这可以使用 agent 加测试 gate。反过来，路径固定但结果难判，例如创意文案的质量，仍可用 workflow 组织多轮生成和人工审批。
+
+因此不是“开放任务一定 agent、规则任务一定 workflow”的口号，而是：把模型自由度限制在确实需要它的区域，并为每个高价值输出建立独立的验证方式。
+
+<Note title="面试加分：先给决策，再说例外" type="tip">
+
+回答架构题时先说“默认从最简单的 workflow 开始，用评测证明不够再增加 agent 自主性”。再补充例外：未知环境、开放任务分解与多轮工具探索是 agent 的合理成本。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+- 为什么“模型准确率高”本身仍不足以选择 agent？
+- 给一个路径不确定但结果可验证的例子。
+- 给一个路径固定但需要人工质量判断的例子。
+- 在供应商邮件场景中，agent 最多应该拥有哪一种权限？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · How do you choose: how much control cost is uncertainty worth?
+
+### Which dimensions should drive the architecture decision?
+
+Start from the task, not the framework. Ask these five questions in order:
+
+1. **Can the path be enumerated in advance?** If normal and exceptional branches can be written clearly, use a workflow.
+2. **Does the next step depend on open text or an unknown environment?** Interpreting an unseen email, finding relevant material dynamically, or weighing several plausible tools is where an agent earns its cost.
+3. **Can success be verified with clear rules?** Clear acceptance fits workflow gates. An agent may propose quality judgments, but they still need evals or human review.
+4. **How consequential are side effects and failures?** The closer the action is to commitments, payments, deletion, or modification, the smaller the agent's autonomy should be.
+5. **Does extra model accuracy justify extra cost and latency?** Compare with realistic evals; do not assume it is worthwhile because it looks intelligent.
+
+For a vendor email, extracting dates and amounts, checking authority, and creating a review record are verifiable, fixed-path steps. Deciding whether “package flexibility” can trade for payment terms involves semantics, negotiation context, and unknown materials. An agent may research and draft, but must not commit.
+
+### Why separate “verifiable” from “predictable”?
+
+A task can have an uncertain path but an easy-to-verify result. A coding agent may not know which files need changing, while tests can verify final behavior; use an agent with test gates. Conversely, a fixed path can end in a hard-to-judge result, such as creative copy; a workflow can organize several drafts and human approval.
+
+The principle is not “open task means agent; rules mean workflow.” Restrict model freedom to the region that needs it, and design independent verification for every high-value output.
+
+<Note title="Interview bonus: state the default, then the exception" type="tip">
+
+For an architecture question, lead with: “Start with the simplest workflow and add agent autonomy only when evals show it is necessary.” Then add the exception: an unknown environment, open decomposition, and multi-turn tool exploration can justify an agent.
+
+</Note>
+
+<Note title="Self-check: you should now be able to answer">
+
+- Why is high model accuracy alone still insufficient reason to choose an agent?
+- Give an example with an unpredictable path but verifiable result.
+- Give an example with a fixed path but a result requiring human quality judgment.
+- In the vendor-email scenario, what authority should the agent have at most?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 混合架构：让 Agent 理解，让 Workflow 负责
+
+### 一个安全的 hybrid 怎样分界？
+
+最实用的设计常是先后两层。agent 做开放的、可逆的认知工作；workflow 做确定的、受权限保护的事实处理和副作用：
+
+~~~
+vendor email
+  ↓
+workflow: authenticate user, redact sensitive fields, load allowed case state
+  ↓
+agent: classify intent, retrieve relevant policy, propose a next negotiation move
+  ↓
+workflow: validate quoted terms against current database and policy
+  ↓
+human approval for commitment
+  ↓
+workflow: send approved message and persist an audit record
+~~~
+
+agent 的输出应该是提案、结构化候选参数或澄清问题，而不是绕开验证直接执行。即便 agent 误读邮件，后续 gate 仍能阻断不满足政策的操作。若输入只落在少数明确类别，甚至第一步也可退化成一个固定 router。
+
+### 怎样测试“该不该上 agent”？
+
+用同一组固定案例让两种方案比赛：正常邮件、信息缺失、冲突政策、边界价格、恶意文本、工具超时。分别量化最终业务状态、人工接管率、错误副作用、P95 延迟和每任务成本。只有 agent 在关键指标上的改善足以抵偿代价，才保留它。
+
+这样架构选择从个人偏好变成可复盘的产品决策。上线后也保留 routing、agent 版本、工具调用、gate 拒绝原因和最终结果；否则无法发现模型升级是否让“灵活性”变成了回归。
+
+## 陷阱
+
+<Note title="LLM workflow 也需要工程治理" type="warning">
+
+固定路径不代表无风险。prompt injection、错误抽取、模型版本漂移、下游失败仍存在；区别在于 workflow 让你能把检测、重试和审批放到确定位置。
+
+</Note>
+
+<Note title="不要把 Agent 当作缺需求的替代品" type="danger">
+
+若业务方说不清允许什么副作用、谁有批准权、什么算成功，先补产品与政策定义。让 agent 在模糊授权里自主探索，会放大而不是解决需求缺口。
+
+</Note>
+
+## 连接
+
+~~~
+Task constraints and evals
+        ↓
+Workflow owns validation, policy, writes, and audit
+        ↕ bounded handoff
+Agent owns ambiguous interpretation, exploration, and drafts
+        ↓
+Tool Calling / Reliability / Security enforce the boundary
+~~~
+
+- 前置：[Agent Loop](/docs/agent/loop) 和 [Tool Calling](/docs/agent/tool-calling)。
+- 后续：[Planning](/docs/agent/planning) —— agent 在开放路径里怎样拆任务；[Reliability](/docs/agent/reliability) —— 怎样治理失败路径。
 
 ## 面试问题
 
-1. Agent 和 workflow 怎么选？（Agent vs workflow?）
-2. 什么时候不应该用 agent？（When should you not use an agent?）
-3. 同一个产品里怎么混用两者？（How do you mix both in the same product?）
-4. 你的项目里哪一段其实是 workflow？（Which part of your project is really a workflow?）
+### Level 0 · 定义
+
+1. Workflow 与 agent 的控制流差别是什么？（What is the control-flow difference between a workflow and an agent?）
+2. 为什么调用 LLM 不等于使用 agent？（Why does calling an LLM not mean you are using an agent?）
+
+### Level 1 · 决策
+
+1. 你会用哪些维度决定 workflow 还是 agent？（Which dimensions decide workflow versus agent?）
+2. 举一个路径不确定、但结果能确定验证的任务。（Give a task with an uncertain path but verifiable outcome.）
+
+### Level 2 · 落地
+
+1. 怎样设计 workflow + agent 的混合系统？（How do you design a workflow-plus-agent hybrid?）
+2. 怎样用 eval 证明 agent 值得它的成本？（How do evals prove an agent is worth its cost?）
 
 ## 我的答案
 
@@ -72,32 +301,86 @@ Agent 的代价是延迟、成本和结果不可复现。能用 workflow 解决�
 
 <Locale lang="en">
 
-## Three-level answers
+## Level 2 · Hybrid architecture: let an agent understand; let a workflow be responsible
 
-### Level 1 — Definition
+### Where does a safe hybrid draw the boundary?
 
-A workflow follows a predefined path. An agent lets the model pick the next step at runtime.
+The most useful design often has two layers. An agent performs open, reversible cognitive work; a workflow handles deterministic, permission-protected facts and side effects:
 
-### Level 2 — Mechanism
+~~~
+vendor email
+  ↓
+workflow: authenticate user, redact sensitive fields, load allowed case state
+  ↓
+agent: classify intent, retrieve relevant policy, propose a next negotiation move
+  ↓
+workflow: validate quoted terms against current database and policy
+  ↓
+human approval for commitment
+  ↓
+workflow: send approved message and persist an audit record
+~~~
 
-Deterministic steps (extract fields → validate → write to the DB) belong in a workflow. You only need an agent when branching depends on an unknown environment and tool results.
+The agent should emit a proposal, structured candidate parameters, or a clarification question; it should not directly execute past validation. Even when it misreads an email, later gates block actions that fail policy. If inputs fall into only a few clear categories, the first step can also degrade into a fixed router.
 
-### Level 3 — Engineering
+### How do you test whether an agent is warranted?
 
-An agent costs you latency, money, and reproducibility. If a workflow solves it, don't wrap it in a layer of "intelligence."
+Let both designs compete on the same fixed cases: normal email, missing information, conflicting policy, boundary price, hostile text, and tool timeout. Measure final business state, human-handoff rate, erroneous side effects, P95 latency, and cost per completed task. Retain the agent only when improvement on the metrics that matter offsets its cost.
+
+This turns architecture selection from personal preference into a reviewable product decision. In production, retain routing choice, agent version, tool calls, gate rejection reason, and outcome; otherwise a model upgrade can turn “flexibility” into an invisible regression.
+
+## Traps
+
+<Note title="An LLM workflow still needs engineering governance" type="warning">
+
+A fixed path is not risk-free. Prompt injection, incorrect extraction, model-version drift, and downstream failure remain; the difference is that a workflow gives you known locations for detection, retries, and approval.
+
+</Note>
+
+<Note title="Do not use an agent as a substitute for missing requirements" type="danger">
+
+If the business cannot say which side effects are allowed, who approves them, or what success means, define product policy first. Letting an agent explore under ambiguous authorization amplifies the gap instead of solving it.
+
+</Note>
+
+## Connections
+
+~~~
+Task constraints and evals
+        ↓
+Workflow owns validation, policy, writes, and audit
+        ↕ bounded handoff
+Agent owns ambiguous interpretation, exploration, and drafts
+        ↓
+Tool Calling / Reliability / Security enforce the boundary
+~~~
+
+- Prerequisites: [Agent Loop](/docs/agent/loop) and [Tool Calling](/docs/agent/tool-calling).
+- Continue: [Planning](/docs/agent/planning) — how an agent decomposes work on an open path; [Reliability](/docs/agent/reliability) — how to govern failure paths.
 
 ## Interview questions
 
-1. Agent vs workflow?
-2. When should you not use an agent?
-3. How do you mix both in the same product?
-4. Which part of your project is really a workflow?
+### Level 0 · Definition
+
+1. What is the control-flow difference between a workflow and an agent?
+2. Why does calling an LLM not mean you are using an agent?
+
+### Level 1 · Decision
+
+1. Which dimensions decide workflow versus agent?
+2. Give a task with an uncertain path but verifiable outcome.
+
+### Level 2 · Implementation
+
+1. How do you design a workflow-plus-agent hybrid?
+2. How do evals prove an agent is worth its cost?
 
 ## My answer
 
 </Locale>
 
--
+- 30s：
+- 2min：
 
 <Locale lang="zh">
 

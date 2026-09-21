@@ -1,74 +1,431 @@
 ---
 title: Planning
 titleEn: Planning
-description: 任务分解、plan-and-execute、dynamic planning、replanning、reflection、verification。
-descriptionEn: Decomposition, plan-and-execute, replanning, reflection, verification.
-date: 2026-09-07
-keywords: ["planning", "replanning", "reflection", "verification"]
+description: 从目标与验收条件开始，把开放任务拆成有依赖、可验证、可重新规划的步骤。
+descriptionEn: "Start with goal and acceptance: decompose open work into dependent, verifiable, and revisable steps."
+date: 2026-09-20
+keywords: ["planning", "task decomposition", "plan and execute", "replanning", "verification", "agent"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-计划不是越长越好。执行失败时要能重新规划。
+Planning 不是让 agent 在开头写一张很长的待办清单。它是把一个开放目标转成**有验收条件、依赖关系、下一步证据和停止边界**的工作状态，并在事实变化时更新。没有这些内容的“计划”，通常只是看起来专业的文本。
+
+本页继续采购谈判助手：目标不是“帮我和 Acme 谈”，而是“基于有效报价与已批准政策，准备一份可审核的反报价草案；信息冲突时说明卡点，不发送承诺”。这句话让后续拆解、验证和重新规划都有判断标准。
+
+## 这一页怎么学
+
+| 部分 | 回答的问题 | 时长 |
+| --- | --- | --- |
+| Level 0 · 目标不是计划 | goal、acceptance condition、constraint、plan step 分别是什么？ | 25 min |
+| Level 1 · 怎样拆出可执行步骤 | 怎样按依赖和证据拆任务，而不是按看起来合理的顺序罗列？ | 35 min |
+| Level 2 · 什么时候先计划，什么时候边做边想 | plan-and-execute 和 ReAct 式动态规划如何选择和混用？ | 35 min |
+| Level 3 · Replanning | 什么观察真正需要改计划？怎样保留证据、只重算受影响部分？ | 30 min |
+| Level 4 · Verification and Reflection | 如何证明任务完成，并让反思产出可执行修复？ | 35 min |
+| Level 5 · Long-Horizon Planning | context 变长时，怎样用 checkpoint、预算和压缩维持任务连贯？ | 35 min |
 
 ## 需要掌握
 
-- task decomposition（任务分解）
-- plan-and-execute（先计划后执行）
-- dynamic planning（动态规划每一步）
-- replanning（重新规划）
-- reflection（反思）
-- verification（验证）
-
-## 机制
+- 先写可验证的目标、约束和停止条件，再谈计划
+- 每个步骤要有前置条件、预期证据、可执行 action 与失败路径
+- 按依赖而非时间顺序拆解；先得到会改变下游选择的事实
+- plan-and-execute 适合稳定任务骨架，ReAct 式动态决策适合未知信息
+- 计划是可修改的状态，不是对未来的承诺
 
 </Locale>
 
 <Locale lang="en">
 
-A longer plan isn't a better plan. When execution fails, the agent has to be able to replan.
+Planning is not asking an agent to write a long to-do list at the start. It turns an open goal into working state with **acceptance conditions, dependencies, evidence for the next step, and stop boundaries**, then updates that state when facts change. A “plan” without these is usually professional-looking text.
+
+The procurement assistant continues as the example. The goal is not “negotiate with Acme.” It is “prepare a reviewable counteroffer draft using a valid quote and approved policy; explain the blocker when information conflicts; never send a commitment.” That statement gives decomposition, verification, and replanning a standard to judge against.
+
+## How to work through this page
+
+| Part | Question it answers | Time |
+| --- | --- | --- |
+| Level 0 · A goal is not a plan | What are a goal, acceptance condition, constraint, and plan step? | 25 min |
+| Level 1 · Decompose executable steps | How do you decompose by dependencies and evidence instead of listing plausible actions? | 35 min |
+| Level 2 · When to plan first versus think while acting | How do plan-and-execute and ReAct-style dynamic planning differ and combine? | 35 min |
+| Level 3 · Replanning | Which observations truly require a plan change, and how do you preserve evidence while recomputing only affected work? | 30 min |
+| Level 4 · Verification and Reflection | How do you prove completion and make reflection produce an executable fix? | 35 min |
+| Level 5 · Long-Horizon Planning | As context grows, how do checkpoints, budgets, and compaction preserve coherence? | 35 min |
 
 ## Must know
 
-- task decomposition
-- plan-and-execute
-- dynamic planning
-- replanning
-- reflection
-- verification
-
-## Mechanism
+- define a verifiable goal, constraints, and stop conditions before planning
+- give every step preconditions, expected evidence, an executable action, and a failure path
+- decompose by dependencies rather than time order; obtain facts that alter downstream choices first
+- use plan-and-execute for a stable task skeleton and ReAct-style dynamic choice for unknown information
+- treat a plan as revisable state, not a promise about the future
 
 </Locale>
 
-```
-Goal → Plan → Execute step
-            → Observe
-            → Replan / Reflect / Verify
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 目标不是计划：先定义什么算完成
 
-### Level 1 — 定义
+### 为什么“帮我谈成”不能直接变成计划？
 
-把目标拆成可以执行的步骤，并根据反馈修改计划。
+“帮我谈成 Acme”同时缺少成功标准、边界和事实来源。模型可以据此生成十步漂亮计划，却仍不知道可以谈哪些条款、何时停止、是否允许发消息。目标越含糊，越容易让 agent 用更多动作掩盖没有推进。
 
-### Level 2 — 机制
+先把任务写成四块：
 
-Plan-and-execute 先定好计划再执行。Dynamic planning 每一步都重新思考。Reflection / verification 负责检查结果对不对。
+~~~
+Goal:       准备一份反报价审核草稿。
+Acceptance: 使用未过期报价；价格和条款符合政策；草稿状态为 review_required。
+Constraints: 不发送供应商承诺；只访问本 case；最多三次读取和一次草稿创建。
+Stop:       报价或政策缺失、冲突，或需要例外批准时，说明卡点并停止。
+~~~
 
-### Level 3 — 工程
+**Goal** 给方向；**acceptance condition** 定义可检查的完成；**constraints** 限制工具、权限和预算；**stop condition** 定义诚实地不继续的时机。计划只是选择怎样从当前状态到达这些条件的路径。
 
-过度规划会浪费 token。缺少验证环节的 coding agent 会很自信地交出错误代码。接到 Agentic Coding 里的反馈闭环。
+### 一个计划步骤至少应包含什么？
+
+好的步骤不只叫“查报价”。它需要：
+
+- action：调用或执行什么；
+- precondition：什么已知时才能做；
+- expected evidence：成功或失败后要得到哪类事实；
+- next decision：该事实会影响哪个分支；
+- fallback：拿不到证据时怎么办。
+
+例如“读取最新报价”的预期证据是报价编号、有效性、价格与付款条款；它不是为了完成待办，而是为了决定后续应查政策、创建草稿还是停止。
+
+<Note title="自测：到这里你应该能回答">
+
+- Goal、acceptance、constraint 与 stop 各自解决什么问题？
+- 为什么“生成一个反报价”不是足够的 acceptance condition？
+- 把“查报价”改写成带 expected evidence 的计划步骤。
+- 哪种缺失信息应直接触发 stop，而不是继续猜？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · A goal is not a plan: define completion first
+
+### Why can “help me negotiate” not become a plan directly?
+
+“Help me negotiate with Acme” lacks success criteria, boundaries, and sources of fact. A model can make a polished ten-step plan from it yet still not know which terms are negotiable, when to stop, or whether it may send a message. The vaguer the goal, the easier it is for an agent to hide lack of progress with more actions.
+
+Write the task in four parts first:
+
+~~~
+Goal:       prepare a reviewable counteroffer draft.
+Acceptance: use an unexpired quote; price and terms pass policy; draft status is review_required.
+Constraints: never send a vendor commitment; access only this case; at most three reads and one draft creation.
+Stop:       explain the blocker and stop if quote or policy is missing, conflicts, or requires exception approval.
+~~~
+
+The **goal** gives direction; an **acceptance condition** defines checkable completion; **constraints** bound tools, authority, and budget; a **stop condition** defines when not to continue. A plan is only a path from current state to those conditions.
+
+### What must a plan step contain?
+
+A useful step is more than “check the quote.” It has:
+
+- action: what to call or execute;
+- precondition: what must be known first;
+- expected evidence: which facts a success or failure should yield;
+- next decision: which branch those facts affect;
+- fallback: what happens when evidence cannot be obtained.
+
+For example, reading the latest quote should return id, validity, price, and payment terms. It is not a checkbox; it decides whether to read policy, create a draft, or stop.
+
+<Note title="Self-check: you should now be able to answer">
+
+- What problem do goal, acceptance, constraint, and stop each solve?
+- Why is “generate a counteroffer” not a sufficient acceptance condition?
+- Rewrite “check the quote” as a step with expected evidence.
+- Which missing information should trigger stop rather than further guessing?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 怎样拆解：先拿到会改变决策的事实
+
+### 为什么按依赖拆，而不是按想到的顺序列？
+
+计划的顺序应由信息和动作依赖决定。创建草稿依赖当前报价与政策；政策的适用范围又可能依赖供应商和合同类别。因此一个合理骨架是：
+
+~~~
+1. Read current quote       → evidence: id, expiry, price, payment terms
+2. Identify applicable rule → evidence: floor, allowed terms, approval threshold
+3. Compare and choose path  → pass / fail / ambiguous
+4. Create review draft      → only on pass, after write-time validation
+5. Verify terminal state    → draft id and review_required, or clear blocker
+~~~
+
+如果先写草稿再查政策，后续 observation 会迫使你撤销错误副作用；如果在报价未知前让模型详细规划谈判话术，它会在虚构条件上优化。**先拿高信息价值、会改变下游选择的事实。**
+
+### 如何让步骤之间能交接？
+
+把计划存为小而结构化的状态，而不是一大段 prose：
+
+~~~
+Step 2
+  depends_on: quote_id and contract_class
+  action: get_negotiation_policy
+  success_evidence: allowed terms and approval threshold
+  failure: missing policy → ask owner or stop
+  unlocks: compare-and-choose-path
+~~~
+
+这样可以让人或 agent 看见“为什么此刻不能执行 Step 4”。也让 [Tool Calling](/docs/agent/tool-calling) 的每个 result 精确更新计划状态，而不是只堆进聊天记录。
+
+<Note title="不要把子任务数量当作计划质量" type="warning">
+
+拆得太细会增加协调、模型调用和 context；拆得太粗又没有可验证中间证据。最小合适粒度是：一个步骤有明确 action，结果能改变下一步，失败能定位。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+- 为什么创建草稿必须依赖报价和政策，而不是只依赖模型判断？
+- 哪个步骤最先产生高信息价值？
+- 给 Step 2 写出一个 precondition、证据和 failure path。
+- 什么情况说明你的计划拆得过细？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · How do you decompose: get facts that change decisions first
+
+### Why decompose by dependencies rather than by the order you imagine?
+
+Plan order follows information and action dependencies. Draft creation depends on the current quote and policy; policy applicability may depend on vendor and contract class. A sound skeleton is:
+
+~~~
+1. Read current quote       → evidence: id, expiry, price, payment terms
+2. Identify applicable rule → evidence: floor, allowed terms, approval threshold
+3. Compare and choose path  → pass / fail / ambiguous
+4. Create review draft      → only on pass, after write-time validation
+5. Verify terminal state    → draft id and review_required, or clear blocker
+~~~
+
+Drafting before policy creates a side effect that a later observation must undo. Writing detailed negotiation language before the quote is known optimizes against imagined conditions. **Obtain high-information facts that change downstream choices first.**
+
+### How do steps hand off reliably?
+
+Store a plan as small, structured state rather than a large prose block:
+
+~~~
+Step 2
+  depends_on: quote_id and contract_class
+  action: get_negotiation_policy
+  success_evidence: allowed terms and approval threshold
+  failure: missing policy → ask owner or stop
+  unlocks: compare-and-choose-path
+~~~
+
+This lets a human or agent see why Step 4 cannot execute now. It also lets every [Tool Calling](/docs/agent/tool-calling) result update plan state precisely rather than merely adding text to chat history.
+
+<Note title="Do not treat subtask count as plan quality" type="warning">
+
+Overly fine decomposition adds coordination, model calls, and context. Overly coarse decomposition has no verifiable intermediate evidence. The smallest useful unit has a clear action, a result that changes the next step, and a localizable failure.
+
+</Note>
+
+<Note title="Self-check: you should now be able to answer">
+
+- Why must draft creation depend on quote and policy rather than only model judgment?
+- Which step yields high information value first?
+- Give Step 2 one precondition, evidence item, and failure path.
+- What indicates that your plan is decomposed too finely?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 先计划还是边做边想：Plan-and-Execute 与动态决策
+
+### 两种模式的差别是什么？
+
+Plan-and-execute 先生成一个相对稳定的任务骨架，再逐步执行；适合已知依赖、步骤较多、需要让人预览范围的工作。它不表示未来永不改变，而是减少每一步都从零思考的开销。
+
+ReAct 式动态决策则每收到 observation 就选择下一步；适合工具结果高度不确定、任务很短或固定大计划会很快失效的情况。例如报价已知但供应商邮件意图不清时，先读邮件、再选择检索哪条政策，可能比预写十步更有效。
+
+~~~
+Stable skeleton: validate case → obtain facts → evaluate policy → controlled write → verify
+Dynamic branch:   choose which fact to obtain or which clarification to ask next
+~~~
+
+最常见的答案是混合：用 plan 给出不可跳过的 milestones 和停止条件，让 agent 在 milestone 内动态选工具和检索顺序。这样既避免模型把整个任务锁死在过时大计划里，也避免它每轮忘记最终验收条件。
+
+<Note title="自测：到这里你应该能回答">
+
+- Plan-and-execute 何时有价值，何时是浪费？
+- ReAct 式决策为什么不等于“没有计划”？
+- 在采购例子中，哪些 milestone 必须固定，哪些选择可以动态？
+- 一个计划什么时候应被标为假设而非承诺？
+
+</Note>
+
+## Level 3 · Replanning：什么时候改计划，什么时候只修一步？
+
+### 什么 observation 真正触发 replan？
+
+不是每个工具返回都需要重写计划。重新规划只在原有假设、依赖或验收路径被实质改变时发生：
+
+- 前置条件失败，例如 Q-817 已过期；
+- 新事实让下游步骤失效，例如合同类别改变，原政策不再适用；
+- 已尝试的路径无法满足 acceptance condition；
+- 权限、预算或用户指令改变；
+- 同一可重试错误连续出现，说明需要换策略或停止。
+
+例如读取报价发现 Q-817 过期，正确做法不是丢掉整个任务再从头“想一遍”。保留目标、限制和已确认的用户权限；把“读取报价”标为 stale，取消依赖它的政策比较与草稿创建，重新读取有效报价后继续。这叫做**局部失效、局部重规划**。
+
+### 怎样避免 replan 变成无限循环？
+
+每次 replan 都应成为一个可观测事件：记录触发 observation、失效的假设、保留的事实、新计划版本和预算消耗。它还需要一个进展判断：新计划是否有望获得新证据或更接近验收条件？若只是在同一个 timeout 后重复同一 action，则应走 fallback 或人工接管，而不是反复生成“新计划”。
+
+~~~
+plan v1: read quote → check policy → create draft
+observation: Q-817 expired
+plan v2: read a valid quote → check applicable policy → create draft
+retained: goal, user authorization, no-send constraint
+invalidated: Q-817-derived comparison and any pending draft request
+~~~
+
+<Note title="自测：到这里你应该能回答">
+
+- 哪些事实变化应触发 replan，哪些只需更新 working state？
+- Q-817 过期时，哪些计划内容该保留，哪些必须失效？
+- 为什么每次 replan 都需要版本和触发证据？
+- 怎样判断 replan 是推进还是用不同文字描述同一空转？
+
+</Note>
+
+## Level 4 · Verification and Reflection：不要让 agent 自己宣布成功
+
+### Verification 和 Reflection 分别做什么？
+
+**Verification** 检查外部可观察状态是否满足 acceptance condition；**reflection** 分析预期与观察到的差异，提出下一步修复。它们不能互相替代。
+
+对反报价草稿，验证不是问模型“你完成了吗”，而是读取草稿系统并检查：草稿 id 是否存在、状态是否为 review_required、引用的报价是否仍有效、条款是否符合当前政策、是否没有发送供应商承诺。规则、数据库查询、测试和人工审核比模型自我报告更可靠。
+
+反思也不能是一句“我应该更仔细”。它应绑定证据：
+
+~~~
+expected: policy allows Net 30 only
+observed: draft request used Net 45 and validation rejected it
+cause class: stale state / wrong tool argument / policy changed / insufficient information
+repair: refresh policy, invalidate draft parameters, then re-evaluate
+~~~
+
+模型可以帮助归纳 trace、生成候选修复；但高风险结论要由确定性检查、独立 evaluator 或人工确认。把“反思输出”当成下一步 action 前，仍需经过同样的权限和验证门。
+
+### 怎样评测计划能力而不只看最终答案？
+
+建立固定环境：过期报价、政策更新、缺失批准、工具 timeout、已存在草稿、注入式工具文本。检查 agent 是否先获取关键证据、是否在触发条件下 replan、是否阻断错误写入、最终状态是否正确，以及步骤数、成本和人工接管率。一个恰好回答正确但靠猜测跳过验证的轨迹不能算通过。
+
+<Note title="自测：到这里你应该能回答">
+
+- 为什么“模型说已完成”不是 verification？
+- 给反报价任务写出两个外部可检查的 acceptance tests。
+- reflection 怎样从空话变成可执行修复？
+- 为什么最终答案正确仍可能是失败的 agent trajectory？
+
+</Note>
+
+## Level 5 · Long-Horizon Planning：跨 context window 保留任务，而不是保留所有原文
+
+### 长任务需要持久化什么？
+
+当工具调用和对话超过单次 context 容量时，完整 history 不应原样搬到新窗口。保留一个小而可校验的 checkpoint：
+
+~~~
+goal and acceptance condition
+current plan version and completed milestones
+facts with source pointers and freshness
+open questions, blockers, and next action
+budget, elapsed time, approvals, and terminal-state rules
+~~~
+
+每个 milestone 完成后更新 checkpoint；原始大工具结果保留在可查询外部存储，通过 identifier 按需取回。这样下一次模型推理能理解“已做到哪里、依据什么、下一步是什么”，又不会被过期中间文本压垮。
+
+### 如何避免长程计划悄悄偏离目标？
+
+设定 checkpoint gate：每隔若干重要 action、每次 context compaction、每次准备写外部状态前，都把当前事实重新对照 goal、acceptance 和预算。若任务持续没有新证据、预算接近上限或需要未知权限，就生成明确 handoff，而不是继续探索。
+
+长程任务的可靠性来自持续的状态维护和外部验证，不来自一开始写得更长的 plan。对于可拆分的独立研究，还可让子任务各自在干净 context 中工作，只把经过验证的摘要交回主计划。
+
+## 陷阱
+
+<Note title="把计划当成真相而不是假设" type="warning">
+
+计划只基于当时信息。环境、工具和用户目标一变，旧计划可能失效；应保留它的证据与版本，而不是执着执行或无痕覆盖。
+
+</Note>
+
+<Note title="用 reflection 替代验证" type="danger">
+
+模型能写出流畅的失败分析，却不能凭此证明数据库状态、测试结果或授权条件。外部 acceptance check 永远在自我反思之前。
+
+</Note>
+
+## 连接
+
+~~~
+Goal + acceptance + constraints
+        ↓
+Dependency plan and dynamic tool choice
+        ↓ observation
+Replan only affected work → verify external state → checkpoint progress
+        ↓
+Memory stores durable notes; Tool Calling executes bounded actions; Evals score trajectories
+~~~
+
+- 前置：[Agent Loop](/docs/agent/loop)、[Tool Calling](/docs/agent/tool-calling)、[ReAct](/docs/agent/react)。
+- 连接：[Memory](/docs/agent/memory) —— checkpoint 与可检索任务状态；[Reliability](/docs/agent/reliability) —— budget、timeout 和 handoff。
 
 ## 面试问题
 
-1. 什么时候需要显式的计划，什么时候直接用 ReAct？（When do you need an explicit plan, and when is ReAct enough?）
-2. 重新规划的触发条件是什么？（What should trigger replanning?）
-3. 怎么避免 reflection 变成空洞的自我表扬？（How do you keep reflection from turning into empty self-praise?）
-4. 验证该由模型来做，还是由测试 / 规则来做？（Should verification be done by the model, or by tests and rules?）
+### Level 0 · 目标与验收
+
+1. 为什么 agent 的目标必须有 acceptance condition？（Why must an agent goal have an acceptance condition?）
+2. 一个好计划步骤包含哪些字段？（What fields does a good plan step contain?）
+
+### Level 1 · 分解
+
+1. 怎样按依赖关系拆解 agent task？（How do you decompose an agent task by dependencies?）
+2. 怎样定义合适的子任务粒度？（How do you choose an appropriate subtask granularity?）
+
+### Level 2 · 模式选择
+
+1. Plan-and-execute 与 ReAct 式动态决策怎么选？（How do you choose between plan-and-execute and ReAct-style dynamic decisions?）
+2. 怎样混合固定 milestones 与动态工具选择？（How do you combine fixed milestones with dynamic tool choice?）
+
+### Level 3 · 重新规划
+
+1. 什么 observation 应触发 replan，而不是只更新状态？（Which observations should trigger replanning rather than only a state update?）
+2. 怎样只使计划中受影响的部分失效？（How do you invalidate only the affected part of a plan?）
+
+### Level 4 · 验证与反思
+
+1. verification 和 reflection 的职责差别是什么？（How do verification and reflection differ?）
+2. 怎样评测一条计划轨迹，而不只看最终文本？（How do you evaluate a planning trajectory beyond final text?）
+
+### Level 5 · 长程任务
+
+1. 一个长程 agent checkpoint 应保存什么？（What belongs in a long-horizon agent checkpoint?）
+2. 怎样防止 context compaction 让 agent 丢失目标？（How do you prevent context compaction from losing the goal?）
 
 ## 我的答案
 
@@ -76,32 +433,184 @@ Plan-and-execute 先定好计划再执行。Dynamic planning 每一步都重新�
 
 <Locale lang="en">
 
-## Three-level answers
+## Level 2 · Plan first or think while acting: plan-and-execute and dynamic choice
 
-### Level 1 — Definition
+### What is the difference between the two modes?
 
-Breaking a goal into executable steps and revising the plan based on feedback.
+Plan-and-execute generates a relatively stable task skeleton before running it. It fits known dependencies, many steps, and work whose scope a human should preview. It does not promise that the future never changes; it avoids rethinking from zero on every step.
 
-### Level 2 — Mechanism
+ReAct-style dynamic choice selects the next step after every observation. It fits highly uncertain tool outcomes, short tasks, or situations where a large plan becomes stale quickly. If the quote is known but email intent is unclear, reading the email and then choosing the next policy to retrieve can outperform prewriting ten steps.
 
-Plan-and-execute commits to a plan up front and then runs it. Dynamic planning rethinks at every step. Reflection and verification check whether the result is actually right.
+~~~
+Stable skeleton: validate case → obtain facts → evaluate policy → controlled write → verify
+Dynamic branch:   choose which fact to obtain or which clarification to ask next
+~~~
 
-### Level 3 — Engineering
+The common answer is a hybrid: a plan defines non-skippable milestones and stop conditions, while an agent dynamically chooses tools and retrieval order inside a milestone. This prevents both stale giant plans and agents that forget the final acceptance condition every turn.
 
-Over-planning burns tokens. A coding agent without verification will confidently ship broken code. This connects to the feedback loop in Agentic Coding.
+<Note title="Self-check: you should now be able to answer">
+
+- When is plan-and-execute valuable, and when is it waste?
+- Why does ReAct-style choice not mean “no plan”?
+- In the procurement example, which milestones must be fixed and which choices may be dynamic?
+- When should a plan be labeled a hypothesis rather than a commitment?
+
+</Note>
+
+## Level 3 · Replanning: when do you change a plan rather than repair one step?
+
+### Which observations truly trigger replanning?
+
+Not every tool result needs a new plan. Replan when the original assumptions, dependencies, or acceptance path changed materially:
+
+- a precondition failed, such as Q-817 expiring;
+- new evidence invalidates downstream work, such as a changed contract class making policy inapplicable;
+- the attempted path cannot reach the acceptance condition;
+- authority, budget, or the user instruction changes;
+- the same retryable failure repeats, so strategy must change or stop.
+
+When Q-817 is expired, do not discard the entire task and “think again” from zero. Retain the goal, constraints, and confirmed authorization. Mark quote retrieval stale, cancel policy comparison and draft work that depended on it, then retrieve a valid quote. This is **local invalidation and local replanning**.
+
+### How do you stop replanning from becoming an infinite loop?
+
+Make each replan observable: record the triggering observation, invalidated assumption, retained facts, new plan version, and budget spent. Ask whether the new plan can obtain new evidence or move closer to acceptance. If it merely repeats the same action after the same timeout, use a fallback or human handoff instead of generating a differently worded plan.
+
+~~~
+plan v1: read quote → check policy → create draft
+observation: Q-817 expired
+plan v2: read a valid quote → check applicable policy → create draft
+retained: goal, user authorization, no-send constraint
+invalidated: Q-817-derived comparison and pending draft request
+~~~
+
+<Note title="Self-check: you should now be able to answer">
+
+- Which changes trigger replanning, and which only update working state?
+- When Q-817 expires, what is retained and what is invalidated?
+- Why does every replan need a version and triggering evidence?
+- How do you tell progress from a differently worded spin?
+
+</Note>
+
+## Level 4 · Verification and Reflection: do not let an agent declare success
+
+### What do Verification and Reflection each do?
+
+**Verification** checks whether externally observable state meets the acceptance condition. **Reflection** analyzes the gap between expected and observed state and proposes a repair. They are not substitutes.
+
+For a counteroffer, do not ask the model “are you done?” Read the draft system and check that a draft id exists, status is review_required, its quote is valid, its terms pass current policy, and no commitment was sent. Rules, database queries, tests, and human review are more reliable than self-report.
+
+Reflection must also bind to evidence:
+
+~~~
+expected: policy allows Net 30 only
+observed: draft request used Net 45 and validation rejected it
+cause class: stale state / wrong argument / policy changed / missing information
+repair: refresh policy, invalidate draft parameters, then re-evaluate
+~~~
+
+The model can summarize traces and suggest repairs. High-risk conclusions still require deterministic checks, an independent evaluator, or human confirmation.
+
+### How do you evaluate planning rather than only its answer?
+
+Use fixed environments: expired quote, policy update, missing approval, timeout, pre-existing draft, and injected tool text. Score whether the agent gathers key evidence first, replans on real triggers, blocks invalid writes, reaches correct state, and stays within step and cost limits. A lucky final answer that skipped verification is not a passing trajectory.
+
+<Note title="Self-check: you should now be able to answer">
+
+- Why is “the model said it finished” not verification?
+- Give two external acceptance tests for the counteroffer task.
+- How does reflection become an executable repair instead of generic self-praise?
+- Why can a correct final answer still be an agent failure?
+
+</Note>
+
+## Level 5 · Long-Horizon Planning: preserve the task across context windows, not every raw word
+
+### What must persist in a long task?
+
+When tools and conversation exceed one context window, retain a small, checkable checkpoint rather than copying history:
+
+~~~
+goal and acceptance condition
+current plan version and completed milestones
+facts with source pointers and freshness
+open questions, blockers, and next action
+budget, elapsed time, approvals, and terminal-state rules
+~~~
+
+Update the checkpoint after meaningful milestones. Keep large raw results in queryable external storage and retrieve them by identifier when needed. The next inference then knows where work stands, what supports it, and what follows without being overwhelmed by stale intermediate text.
+
+### How do you prevent silent goal drift?
+
+At significant actions, context compaction, and before writes, compare state against goal, acceptance, and budget. When no new evidence arrives, budget runs low, or unknown authority is required, create an explicit handoff rather than explore indefinitely. Independent subproblems may also work in clean contexts and return only verified summaries to the main plan.
+
+## Traps
+
+<Note title="A plan is a hypothesis, not truth" type="warning">
+
+A plan reflects information available when it was made. Environment, tool, and user changes can invalidate it; retain evidence and versions rather than blindly executing or silently overwriting.
+
+</Note>
+
+<Note title="Reflection cannot replace verification" type="danger">
+
+A model can write fluent failure analysis, but that does not prove database state, test outcome, or authorization. External acceptance checks come before self-reflection.
+
+</Note>
+
+## Connections
+
+~~~
+Goal + acceptance + constraints
+        ↓
+Dependency plan and dynamic tool choice
+        ↓ observation
+Replan affected work → verify external state → checkpoint progress
+        ↓
+Memory stores durable notes; Tool Calling executes bounded actions; Evals score trajectories
+~~~
+
+- Prerequisites: [Agent Loop](/docs/agent/loop), [Tool Calling](/docs/agent/tool-calling), and [ReAct](/docs/agent/react).
+- Connect to [Memory](/docs/agent/memory) for checkpoints and retrievable task state, and [Reliability](/docs/agent/reliability) for budget, timeouts, and handoffs.
 
 ## Interview questions
 
-1. When do you need an explicit plan, and when is ReAct enough?
-2. What should trigger replanning?
-3. How do you keep reflection from turning into empty self-praise?
-4. Should verification be done by the model, or by tests and rules?
+### Level 0 · Goal and acceptance
+
+1. Why must an agent goal have an acceptance condition?
+2. What fields does a good plan step contain?
+
+### Level 1 · Decomposition
+
+1. How do you decompose an agent task by dependencies?
+2. How do you choose an appropriate subtask granularity?
+
+### Level 2 · Choosing a mode
+
+1. How do you choose between plan-and-execute and ReAct-style dynamic decisions?
+2. How do you combine fixed milestones with dynamic tool choice?
+
+### Level 3 · Replanning
+
+1. Which observations should trigger replanning rather than only a state update?
+2. How do you invalidate only the affected part of a plan?
+
+### Level 4 · Verification and Reflection
+
+1. How do verification and reflection differ?
+2. How do you evaluate a planning trajectory beyond final text?
+
+### Level 5 · Long-horizon tasks
+
+1. What belongs in a long-horizon agent checkpoint?
+2. How do you prevent context compaction from losing the goal?
 
 ## My answer
 
 </Locale>
 
--
+- 30s：
+- 2min：
 
 <Locale lang="zh">
 

@@ -1,86 +1,303 @@
 ---
 title: Agent Reliability
 titleEn: Agent Reliability
-description: max iterations、timeout、retry、circuit breaker、HITL、budget。很大的模块。
-descriptionEn: Max iterations, timeouts, retries, circuit breakers, HITL, budgets.
-date: 2026-09-07
-keywords: ["agent reliability", "circuit breaker", "human-in-the-loop", "timeout"]
+description: 让 agent 在成功、失败和不确定时都可控：验收、预算、重试、降级、人工接管与轨迹评测。
+descriptionEn: "Keep agents controlled in success, failure, and uncertainty: acceptance, budgets, retries, fallbacks, handoffs, and trajectory evals."
+date: 2026-09-20
+keywords: ["agent reliability", "timeout", "retry", "circuit breaker", "fallback", "human in the loop", "budget", "trace"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-可靠性不是加分项。没有这些，agent 就不能上生产。
+可靠性不是“模型偶尔答对”的同义词。可靠的 agent 在成功时得到可验证终态，在失败时不会无限花钱或重复副作用，在结果未知时会保守停止并留下可恢复的 trace。它是 Agent Loop、Tool Calling、Planning 的共同生产约束。
+
+贯穿例子：Acme 草稿只能在报价与政策都通过时创建。若工具超时，agent 不能假定失败后盲目重试；若预算耗尽或缺少批准，它应交出当前证据与卡点，而不是继续说“我再试一次”。
+
+## 这一页怎么学
+
+| 部分 | 回答的问题 | 时长 |
+| --- | --- | --- |
+| Level 0 · 可靠到底指什么 | 成功、失败、未知三种终态如何定义？ | 25 min |
+| Level 1 · 硬边界与进展 | step、time、token、cost、权限怎样共同阻止空转？ | 35 min |
+| Level 2 · 失败如何分类恢复 | 参数错、权限拒绝、暂时故障、timeout、下游熔断各怎么处理？ | 40 min |
+| Level 3 · 可靠性怎样被证明 | trace、故障注入、SLO 和人工接管怎样组成闭环？ | 35 min |
 
 ## 需要掌握
 
-- max iterations（最大迭代次数）
-- timeout（超时）
-- retry / exponential backoff（重试 / 指数退避）
-- circuit breaker（熔断）
-- tool failure（工具失败）
-- hallucinated tool arguments（幻觉出的工具参数）
-- infinite loops / stuck agents（死循环 / 卡住的 agent）
-- fallback（降级兜底）
-- human-in-the-loop（人工介入）
-- budget limits（预算上限）
-
-## 机制
+- 可靠性同时包含正确终态、受控失败、可恢复不确定性和可观测证据
+- 最大步骤、deadline、token / dollar budget、权限与批准是不同的硬边界
+- 区分模型修复、工具 retry、fallback、circuit breaker 与 human handoff
+- timeout 的语义是“结果未知”，写操作必须先查幂等状态
+- 评测完整 trajectory 和业务状态，而非只评最终自然语言
 
 </Locale>
 
 <Locale lang="en">
 
-Reliability isn't a bonus. Without these, an agent can't go to production.
+Reliability is not synonymous with a model occasionally answering correctly. A reliable agent reaches a verifiable terminal state on success, does not spend forever or repeat side effects on failure, and stops conservatively with a recoverable trace when outcome is unknown. It is a production constraint shared by Agent Loop, Tool Calling, and Planning.
+
+The Acme draft can be created only after quote and policy pass. If a tool times out, the agent may not assume failure and blindly retry. When budget ends or approval is missing, it hands over current evidence and blocker instead of saying “I will try again.”
+
+## How to work through this page
+
+| Part | Question it answers | Time |
+| --- | --- | --- |
+| Level 0 · What does reliable mean? | How do you define success, failure, and unknown terminal states? | 25 min |
+| Level 1 · Hard boundaries and progress | How do steps, time, tokens, cost, authority, and approval prevent spinning? | 35 min |
+| Level 2 · Classify and recover from failure | How do parameter error, permission denial, transient fault, timeout, and circuit breaking differ? | 40 min |
+| Level 3 · How do you prove reliability? | How do traces, fault injection, SLOs, and human handoff close the loop? | 35 min |
 
 ## Must know
 
-- max iterations
-- timeout
-- retry / exponential backoff
-- circuit breaker
-- tool failure
-- hallucinated tool arguments
-- infinite loops / stuck agents
-- fallback
-- human-in-the-loop
-- budget limits
-
-## Mechanism
+- reliability includes correct terminal state, controlled failure, recoverable uncertainty, and observable evidence
+- maximum steps, deadline, token or dollar budget, authority, and approval are distinct hard boundaries
+- distinguish model repair, tool retry, fallback, circuit breaker, and human handoff
+- a timeout means outcome is unknown; writes must first check idempotent state
+- evaluate full trajectories and business state, not only final natural language
 
 </Locale>
 
-```
-budget / max steps / timeout
-        ↓
-retry with backoff
-        ↓
-circuit breaker / fallback model
-        ↓
-human escalation
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 可靠到底指什么：正确完成、诚实失败、未知可恢复
 
-### Level 1 — 定义
+### Agent 的终态不只有成功和报错
 
-保证 agent 在失败、幻觉、卡住的时候，仍然停得下来、能降级、能转给人工。
+对反报价任务，**成功**不是“模型回复已完成”，而是外部系统确认存在符合政策、状态为 review_required 的草稿。**受控失败**是明确说明缺少报价、政策冲突、权限不足或预算耗尽，且没有产生错误副作用。**未知结果**常出现在写工具 timeout：服务端可能已创建草稿，只是响应没有回来。
 
-### Level 2 — 机制
+这三种状态需要不同处理：
 
-步数和预算是硬性限制。工具层的重试和模型层的降级要分开处理。熔断避免把下游服务打垮。
+~~~
+success:     verify external acceptance condition and return result
+controlled failure: return blocker, evidence, safe fallback or handoff
+unknown:     query idempotency or source of truth before any retry
+~~~
 
-### Level 3 — 工程
+把未知当失败会造成重复写入；把失败伪装成成功会伤害用户；把两者都继续重试会失去控制。可靠性首先是终态语义清楚。
 
-「你的 agent 循环了 20 步、花了 $0.50」：查是不是缺终止条件、工具是不是一直在失败、prompt 是不是在鼓励「再试一次」、有没有用相同参数重复调用。
+### 为什么最终文本正确仍可能不可靠？
+
+模型可能碰巧说对“Net 45 需要批准”，但未读取当前政策、未验证报价、或错误地创建并删除了草稿。用户看见的文本没有暴露错误业务状态、成本或安全事件。可靠性必须同时检查最终回答、工具轨迹、外部状态和副作用。
+
+<Note title="自测：到这里你应该能回答">
+
+- Acme 草稿任务的 success acceptance condition 是什么？
+- timeout 为什么应成为 unknown 而不是 failure？
+- 给一个最终回答正确、但 agent 仍不可靠的例子。
+- controlled failure 应返回哪些内容？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · What does reliable mean: correct completion, honest failure, recoverable unknown
+
+### An agent has more terminal states than success and error
+
+For a counteroffer, **success** is not “the model says done.” An external system confirms a policy-compliant draft with status review_required. **Controlled failure** clearly reports missing quote, policy conflict, insufficient authority, or exhausted budget without a wrong side effect. **Unknown outcome** commonly follows write timeout: the server may have created a draft while its response was lost.
+
+Each needs different handling:
+
+~~~
+success:            verify external acceptance condition and return result
+controlled failure: return blocker, evidence, safe fallback or handoff
+unknown:            query idempotency or source of truth before any retry
+~~~
+
+Treating unknown as failure duplicates writes. Calling failure success harms users. Retrying both forever loses control. Reliability starts with clear terminal semantics.
+
+### Why can a correct final text still be unreliable?
+
+The model may luckily say “Net 45 needs approval” without reading current policy, verifying quote, or after wrongly creating and deleting a draft. Final text hides incorrect business state, cost, and security events. Reliability checks final answer, tool trajectory, external state, and side effects together.
+
+<Note title="Self-check: you should now be able to answer">
+
+- What is the success acceptance condition for an Acme draft?
+- Why should timeout become unknown rather than failure?
+- Give one case with correct final text but unreliable agent behavior.
+- What should controlled failure return?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 硬边界与进展：让 loop 有出口
+
+### 为什么只设 max steps 不够？
+
+不同边界防不同失控：
+
+- **max steps**：限制无终点的计划与重复 action；
+- **deadline / tool timeout**：限制用户等待与单个依赖卡住；
+- **token / dollar budget**：限制长 observation、昂贵模型和累计成本；
+- **权限和批准**：限制即使模型认为合理也不能发生的副作用；
+- **progress rule**：限制“每步都合法但没有获得新事实”的空转。
+
+例如 agent 连续三次以相同参数读取报价且得到同一 timeout，即便还有 step，也没有进展。harness 应产生一个明确终态：用 cached safe data、转固定 fallback、要求人工检查下游，或停止并报告。
+
+### 怎样把 progress 变成可观测条件？
+
+每步记录目标、action、规范化参数、结果摘要、状态变化和离 acceptance 的距离。进展可以是获得新的报价 id、缩小政策分支、通过一个 validation gate，或消除了一个 blocker；不是“模型写了更多文字”。连续相同 action 与参数、重复错误指纹、状态摘要不变，都是 stuck signal。
+
+<Note title="自测：到这里你应该能回答">
+
+- max steps、deadline、budget、approval 各保护什么？
+- 什么证据证明一次工具调用有进展？
+- 连续 timeout 时哪三种终态是合理的？
+- 为什么 progress 不能只靠模型自评？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Hard boundaries and progress: give a loop an exit
+
+### Why is maximum steps alone insufficient?
+
+Different boundaries prevent different loss of control:
+
+- **maximum steps** bounds endless plans and repeated actions;
+- **deadline / tool timeout** bounds user wait and one stuck dependency;
+- **token / dollar budget** bounds long observations, expensive models, and cumulative spend;
+- **authority and approval** bound side effects that must not happen even when a model thinks they are sensible;
+- **progress rule** bounds legal-looking actions that acquire no new fact.
+
+If an agent reads the quote with identical arguments three times and gets the same timeout, more step capacity is not progress. The harness needs an explicit ending: a safe cached value, deterministic fallback, human check of the dependency, or stop with a report.
+
+### How do you turn progress into an observable condition?
+
+For each step record goal, action, normalized arguments, result summary, state change, and distance to acceptance. Progress can be a new quote id, narrowed policy branch, passed validation gate, or removed blocker — not more model prose. Identical actions and arguments, repeating error fingerprints, and unchanged state summaries are stuck signals.
+
+<Note title="Self-check: you should now be able to answer">
+
+- What do maximum steps, deadline, budget, and approval each protect?
+- Which evidence proves that a tool call made progress?
+- Which three terminal states are reasonable after repeated timeout?
+- Why cannot progress rely only on model self-assessment?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 失败如何分类恢复：不要把所有错误都叫 retry
+
+### 同一个失败动作为什么危险？
+
+处理首先看错误语义：
+
+| 结果 | 默认动作 | 为什么 |
+| --- | --- | --- |
+| 参数 / schema 错 | 返回字段错误，让模型修复或澄清 | 同样参数再试不会改变结果 |
+| 401 / 403 | 停止或请求批准 | 重试不能获得新权限 |
+| 429 / 临时 5xx | 有上限的退避 retry | 下游可能短暂恢复 |
+| read timeout | 可有限 retry 或降级读取 | 没有副作用，但仍受预算限制 |
+| write timeout | 先查幂等 key 和终态 | 结果可能已发生 |
+| 重复依赖故障 | circuit breaker + fallback / handoff | 保护下游和用户时间 |
+
+**模型修复**指根据语义错误改变下一步，例如读取缺失政策；**系统 retry**指在不改变语义的前提下重发短暂失败的请求。不要让两层都无限重试。
+
+### circuit breaker 和 fallback 何时出现？
+
+当同一依赖在一段窗口内持续失败，circuit breaker 暂停调用它，立即返回已知不可用状态或走安全 fallback，避免所有 agent 把下游压垮。fallback 必须与任务风险匹配：可以用只读缓存辅助解释，但不能用过期价格自动创建草稿；可以切换小模型做分类，但不能以此绕过授权。
+
+<Note title="自测：到这里你应该能回答">
+
+- 为什么 403 不该 retry，429 可以有限 retry？
+- write timeout 后的第一步是什么？
+- 模型 repair 和 transport retry 如何不同？
+- circuit breaker 如何保护用户和下游？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Classify and recover from failure: do not call every error retry
+
+### Why is one failure action dangerous?
+
+Start with error semantics:
+
+| Result | Default action | Why |
+| --- | --- | --- |
+| parameter / schema error | return field error; repair or clarify | same arguments will not change result |
+| 401 / 403 | stop or request approval | retry cannot obtain authority |
+| 429 / transient 5xx | bounded retry with backoff | dependency may recover |
+| read timeout | limited retry or degraded read | no side effect, but still budgeted |
+| write timeout | check idempotency key and terminal state | effect may already exist |
+| repeating dependency fault | circuit breaker plus fallback or handoff | protect dependency and user time |
+
+**Model repair** changes the next semantic step, such as reading missing policy. **System retry** resends one transient failed request without changing semantics. Do not let either loop forever.
+
+### When do circuit breaker and fallback appear?
+
+When one dependency fails repeatedly in a time window, a circuit breaker pauses calls and returns known unavailability or a safe fallback. This prevents all agents from overwhelming the dependency. A fallback must match task risk: a read-only cache may support explanation, but stale price cannot create a draft; a smaller model may classify, but cannot bypass authorization.
+
+<Note title="Self-check: you should now be able to answer">
+
+- Why should 403 not retry while 429 may retry within bounds?
+- What is the first action after a write timeout?
+- How do model repair and transport retry differ?
+- How does a circuit breaker protect users and dependencies?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 可靠性怎样被证明：从 trace 到故障注入与 SLO
+
+### trace 最少记录什么？
+
+每个 task 和 action 记录：目标与 agent 版本、计划版本、工具和脱敏参数、call id、时间、耗费 token / 成本、结果码、retry / fallback / circuit 状态、状态变化、批准与最终终态。trace 不只是 debug 日志；它让你能回答“为什么这个草稿创建了、为什么那个任务停了、哪种失败正在变多”。
+
+### 怎样在上线前和上线后验证？
+
+离线用固定模拟环境故障注入：过期报价、权限拒绝、政策更新、重复写请求、read / write timeout、下游 429、注入文本。检查 acceptance、错误副作用、未知结果处理、步骤数和成本。上线后监控任务成功率、正确业务终态率、P95 / P99 延迟、每成功任务成本、重试率、stuck rate、fallback 率和人工接管率，并为异常趋势设告警与 runbook。
+
+SLO 不应只写“模型可用率”。例如“95% 可自动完成的草稿任务在 90 秒内到达正确终态；高风险写入 100% 经过 server-side 验证；未知写入结果 100% 不自动重复提交”。这些目标把可靠性变成可测工程行为。
+
+## 陷阱
+
+<Note title="静默 fallback" type="warning">
+
+降级能保持服务，但若把过期数据、低置信答案或未完成任务伪装为正常成功，用户无法作出正确决定。fallback 必须标明证据、限制与下一步。
+
+</Note>
+
+<Note title="用监控替代事前边界" type="danger">
+
+发现异常以后再报警无法撤销已发送承诺或已删除的数据。预算、权限、幂等、验证和确认必须在 action 前；监控用于发现趋势和改进。
+
+</Note>
+
+## 连接
+
+- 前置：[Agent Loop](/docs/agent/loop) 的终止与进展、[Tool Calling](/docs/agent/tool-calling) 的幂等与错误合同。
+- 延伸：[Evaluation](/docs/evaluation) 评测 trajectory；[Security](/docs/agent/security) 限制副作用的 blast radius。
 
 ## 面试问题
 
-1. 怎么防止死循环？（How do you prevent infinite loops?）
-2. 工具调用失败了怎么办？（What if a tool fails?）
-3. 预算上限按 token、美元还是步数算？（Should budget limits be measured in tokens, dollars, or steps?）
-4. 哪些失败必须人工介入，哪些可以自动降级？（Which failures require a human in the loop, and which can fall back automatically?）
+1. 如何定义 agent 的 success、controlled failure 和 unknown outcome？（How do you define success, controlled failure, and unknown outcome for an agent?）
+2. 为什么 max steps 不足以防止空转？（Why are maximum steps insufficient to prevent spinning?）
+3. 403、429、read timeout 和 write timeout 分别如何处理？（How do you handle 403, 429, read timeout, and write timeout?）
+4. 怎样用 fault injection 和 SLO 证明 agent reliability？（How do fault injection and SLOs prove agent reliability?）
 
 ## 我的答案
 
@@ -88,32 +305,50 @@ human escalation
 
 <Locale lang="en">
 
-## Three-level answers
+## Level 3 · How do you prove reliability: traces, fault injection, and SLOs
 
-### Level 1 — Definition
+### What should a trace record at minimum?
 
-Making sure that when an agent fails, hallucinates, or gets stuck, it can still stop, degrade gracefully, and hand off to a human.
+For each task and action, record goal and agent version, plan version, tool and redacted arguments, call id, time, token or cost spend, result code, retry, fallback, and circuit state, state change, approval, and terminal status. A trace is not only a debug log. It answers why one draft was created, why another task stopped, and which failure is increasing.
 
-### Level 2 — Mechanism
+### How do you verify before and after launch?
 
-Step counts and budgets are hard limits. Tool-level retries and model-level fallbacks are handled separately. Circuit breakers keep you from hammering downstream services.
+Offline, inject faults into a fixed simulated environment: expired quote, permission denial, policy update, duplicate write, read or write timeout, downstream 429, and injected text. Check acceptance, erroneous side effects, unknown-outcome handling, steps, and cost. In production monitor success, correct business terminal state, P95 / P99 latency, cost per successful task, retry, stuck, fallback, and human-handoff rates; alert and maintain runbooks for abnormal trends.
 
-### Level 3 — Engineering
+An SLO should not say only “model availability.” For example: “95% of automatable draft tasks reach correct terminal state within 90 seconds; 100% of high-risk writes receive server-side validation; 100% of unknown write outcomes are not automatically resubmitted.” These make reliability measurable engineering behavior.
 
-"Your agent loops for 20 steps and costs $0.50": check for a missing stop condition, a tool that keeps failing, a prompt that encourages "try again," and repeated calls with identical arguments.
+## Traps
+
+<Note title="Silent fallback" type="warning">
+
+Fallback can preserve service, but presenting stale data, low-confidence output, or unfinished work as normal success deprives users of correct choices. Mark evidence, limitation, and next step.
+
+</Note>
+
+<Note title="Monitoring instead of pre-action boundaries" type="danger">
+
+An alert after an unwanted commitment or deletion cannot undo it. Budget, authorization, idempotency, verification, and confirmation apply before action; monitoring finds trends and drives improvement.
+
+</Note>
+
+## Connections
+
+- Prerequisites: termination and progress in [Agent Loop](/docs/agent/loop), plus idempotency and error contracts in [Tool Calling](/docs/agent/tool-calling).
+- Continue to [Evaluation](/docs/evaluation) for trajectory evaluation and [Security](/docs/agent/security) for bounding side-effect blast radius.
 
 ## Interview questions
 
-1. How do you prevent infinite loops?
-2. What if a tool fails?
-3. Should budget limits be measured in tokens, dollars, or steps?
-4. Which failures require a human in the loop, and which can fall back automatically?
+1. How do you define success, controlled failure, and unknown outcome for an agent?
+2. Why are maximum steps insufficient to prevent spinning?
+3. How do you handle 403, 429, read timeout, and write timeout?
+4. How do fault injection and SLOs prove agent reliability?
 
 ## My answer
 
 </Locale>
 
--
+- 30s：
+- 2min：
 
 <Locale lang="zh">
 

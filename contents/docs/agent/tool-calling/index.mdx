@@ -1,80 +1,444 @@
 ---
 title: Tool Calling
 titleEn: Tool Calling
-description: function calling、schema、选择、参数校验、执行、retry、timeout、幂等。
-descriptionEn: Function calling, schema, selection, validation, execution, retry, timeout, idempotency.
-date: 2026-09-07
-keywords: ["tool calling", "function calling", "idempotency"]
+description: 模型怎样请求工具；schema、业务校验、结果回传、重试与幂等怎样共同保护真实操作。
+descriptionEn: "How a model requests tools: schema, business validation, result return, retries, and idempotency for real operations."
+date: 2026-09-20
+keywords: ["tool calling", "function calling", "JSON Schema", "validation", "idempotency", "timeout", "tool result"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-这是 agent 能「做事」的接口。接到 Tariff / Gemini 的工具调用。
+Tool calling 是模型请求应用调用外部能力的协议，不是模型自己执行函数。模型按 schema 产出工具名和参数；harness 解析、校验、授权并执行；真实结果以 tool result 回到下一轮模型。它是 [Agent Loop](/docs/agent/loop) 里 Act 与 Observation 两端的接口契约。
+
+这一页继续使用 Acme 采购谈判助手：先读取最新报价和政策，只有同时满足业务规则时才创建待审核的反报价草稿。重点不是“让模型会调用函数”，而是“不让它用看似合法的 JSON 造成错误承诺”。
+
+## 这一页怎么学
+
+| 部分 | 回答的问题 | 时长 |
+| --- | --- | --- |
+| Level 0 · 请求不是执行 | function calling、schema、tool result 分别是什么？schema 能保证什么、不能保证什么？ | 25 min |
+| Level 1 · 一次安全调用 | 从工具定义到 call id、执行结果再回到模型，数据怎样流动？ | 35 min |
+| Level 2 · 写操作的防线 | 为什么 JSON 合法仍不够？校验、授权、幂等、超时和 retry 怎么协作？ | 40 min |
+| Level 3 · 工具作为产品接口 | 怎样设计工具、观测失败、控制工具数量，并用评测改进？ | 30 min |
+
+先读 [Agent Loop](/docs/agent/loop)：本页默认你已经理解 result → state → next context。贯穿例子里的金额和报价编号是教学数据，不是价格策略。
 
 ## 需要掌握
 
-- function calling（函数调用）
-- tool schema（工具 schema）
-- tool selection（工具选择）
-- tool arguments（工具参数）
-- validation（校验）
-- execution（执行）
-- tool result（工具结果）
-- retry / timeout（重试 / 超时）
-- idempotency（幂等）
-
-## 机制
+- function / tool calling 是模型选择并填充调用请求，不是模型直接执行 API
+- 工具定义的 name、description、JSON Schema 与业务规则分别约束什么
+- 区分 JSON 可解析、schema 有效、业务语义有效、已授权四层检查
+- 用 call id 将某个 tool result 准确关联回其请求
+- 为写操作设计幂等键，解释“超时后结果未知”为什么不能盲目 retry
+- 按错误类型决定修复参数、有限重试、降级、人工接管或停止
 
 </Locale>
 
 <Locale lang="en">
 
-This is the interface that lets an agent actually do things. Tie it to the Tariff / Gemini tools.
+Tool calling is a protocol for a model to request that an application use an external capability; it is not the model executing a function. The model emits a tool name and arguments from a schema; the harness parses, validates, authorizes, and executes it; a real tool result returns to the model on its next turn. It is the interface for both Act and Observation in the [Agent Loop](/docs/agent/loop).
+
+This page continues the Acme procurement-negotiation assistant. It first reads the latest quote and policy, then creates a reviewable counteroffer draft only when the business rules pass. The point is not merely “make a model call a function”; it is “do not let plausible JSON create a wrong commitment.”
+
+## How to work through this page
+
+| Part | Question it answers | Time |
+| --- | --- | --- |
+| Level 0 · A request is not execution | What are function calling, a schema, and a tool result? What can a schema guarantee, and what can it not? | 25 min |
+| Level 1 · One safe call | How does data move from tool definition to call id, execution result, and back to the model? | 35 min |
+| Level 2 · Defenses for writes | Why is valid JSON still insufficient? How do validation, authorization, idempotency, timeouts, and retries work together? | 40 min |
+| Level 3 · Tools as product interfaces | How do you design tools, observe failures, control tool count, and improve them with evals? | 30 min |
+
+Read [Agent Loop](/docs/agent/loop) first: this page assumes that you understand result → state → next context. Amounts and quote identifiers in the running example are teaching data, not pricing policy.
 
 ## Must know
 
-- function calling
-- tool schema
-- tool selection
-- tool arguments
-- validation
-- execution
-- tool result
-- retry / timeout
-- idempotency
-
-## Mechanism
+- function / tool calling means the model selects and fills a request; it does not execute an API
+- what a tool name, description, JSON Schema, and business rule each constrain
+- the difference between parseable JSON, schema validity, business-semantic validity, and authorization
+- how a call id attaches one tool result to the correct request
+- how to design idempotency keys for writes, and why an unknown timeout outcome must not be blindly retried
+- how error type determines parameter repair, bounded retry, fallback, human handoff, or stop
 
 </Locale>
 
-```
-LLM → choose tool + args → validate
-    → execute → tool result → LLM
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 请求不是执行：schema 到底保护了什么？
 
-### Level 1 — 定义
+### Function calling 在一次 agent loop 里做了什么？
 
-模型输出结构化的工具名和参数，由运行时去执行，再把结果喂回给模型。
+模型看到用户目标、当前状态和可用工具后，可以输出 final answer，或一个结构化 tool-call request：
 
-### Level 2 — 机制
+~~~
+name = "get_latest_quote"
+arguments = { "vendor": "Acme" }
+call_id = "call_42"
+~~~
 
-Schema 限制了能调用的范围。校验挡住模型幻觉出来的参数。超时和重试要考虑幂等，避免重复下单、重复写入。
+模型只是说“请应用替我运行这个能力”。harness 才是实际调用数据库、HTTP API 或内部服务的一方；它执行后必须把结果作为与 call_42 对应的 tool result 传回。若缺少 executor，或没有把结果送回模型，所谓“工具”只是 prompt 里的文字说明。
 
-### Level 3 — 工程
+工具分两类会帮助你判断风险：read tool 读取事实，例如 get_latest_quote；write tool 改变环境，例如 create_counteroffer_draft。前者也可能泄露敏感数据，后者一定需要更强的授权和重复执行防护。
 
-工具失败不是「再问一次模型」就完事。要分类处理：参数错误、下游 5xx、权限问题、超时。工具太多会降低选择准确率，这部分转到 Context Construction。
+### Tool schema 与业务规则为什么不是一回事？
+
+schema 是给模型和程序共用的输入合同。它应写清名称、用途、参数名、类型、必填项、枚举和描述：
+
+~~~json
+{
+  "name": "create_counteroffer_draft",
+  "description": "Create a reviewable draft only; never send a vendor commitment.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "quote_id": { "type": "string" },
+      "unit_price": { "type": "number", "minimum": 0 },
+      "payment_terms": { "type": "string", "enum": ["Net 30", "Net 45"] }
+    },
+    "required": ["quote_id", "unit_price", "payment_terms"],
+    "additionalProperties": false
+  }
+}
+~~~
+
+这能拦住“缺少 quote_id”或“价格是文字而不是数字”等结构问题；在支持严格 schema 的模型配置中，也能显著减少不合 schema 的调用。但它不知道 Q-817 是否真的存在、10.10 是否仍高于最低可接受价、当前用户是否有权限，或同一草稿是否已经创建。这些都要由应用在执行前查真实状态。
+
+<Note title="四层不是重复校验" type="warning">
+
+1. **语法**：arguments 能否解析为 JSON？
+2. **schema**：类型、必填字段、范围和枚举是否正确？
+3. **业务语义**：报价存在且未过期、价格和付款条款符合当前政策吗？
+4. **权限 / 风险**：此用户、此 session 能创建草稿吗？该动作是否需要批准？
+
+模型的输出即使在前两层完全正确，后两层仍可能失败。不要把 Structured Outputs 当作授权系统或数据库约束。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+- 模型输出 create_counteroffer_draft 后，谁真正执行它？谁能证明它成功？
+- 为什么 additionalProperties false 不能阻止用户越权创建草稿？
+- 给一个“JSON 合法但业务不合法”的 Acme 例子。
+- read tool 和 write tool 的共同风险与不同风险是什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · A request is not execution: what does a schema actually protect?
+
+### What does function calling do inside one agent loop?
+
+After seeing the user goal, current state, and allowed tools, the model can produce a final answer or a structured tool-call request:
+
+~~~
+name = "get_latest_quote"
+arguments = { "vendor": "Acme" }
+call_id = "call_42"
+~~~
+
+The model has only said, “please run this capability for me.” The harness calls a database, HTTP API, or internal service. It must return the result as the tool result for call_42. Without an executor — or without returning the result — a “tool” is merely text in a prompt.
+
+Two categories make risk easier to reason about: a read tool retrieves facts, such as get_latest_quote; a write tool changes the environment, such as create_counteroffer_draft. Reads can still expose sensitive data; writes always need stronger authorization and replay protection.
+
+### Why are a tool schema and a business rule different things?
+
+A schema is the shared input contract for the model and program. It specifies name, purpose, parameter names, types, required fields, enums, and descriptions:
+
+~~~json
+{
+  "name": "create_counteroffer_draft",
+  "description": "Create a reviewable draft only; never send a vendor commitment.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "quote_id": { "type": "string" },
+      "unit_price": { "type": "number", "minimum": 0 },
+      "payment_terms": { "type": "string", "enum": ["Net 30", "Net 45"] }
+    },
+    "required": ["quote_id", "unit_price", "payment_terms"],
+    "additionalProperties": false
+  }
+}
+~~~
+
+This catches a missing quote_id or a text value in place of a number. With compatible strict-schema configurations, it also greatly reduces calls that do not match the schema. It does **not** know whether Q-817 exists, 10.10 is still above the permitted floor, the user is authorized, or the draft already exists. The application must read real state before execution.
+
+<Note title="The four layers are not redundant" type="warning">
+
+1. **syntax**: can arguments parse as JSON?
+2. **schema**: are types, required fields, ranges, and enums valid?
+3. **business semantics**: does the quote exist and remain current; do price and terms satisfy policy?
+4. **authorization / risk**: may this user and session create a draft; does this action need approval?
+
+The first two can be perfect while the latter two fail. Do not mistake Structured Outputs for an authorization system or database constraint.
+
+</Note>
+
+<Note title="Self-check: you should now be able to answer">
+
+- After the model emits create_counteroffer_draft, who executes it and who can prove success?
+- Why can additionalProperties false not stop an unauthorized draft?
+- Give one Acme example that is valid JSON but invalid business action.
+- What risks do read and write tools share, and how do their risks differ?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 一次安全调用：请求、执行、结果如何闭环？
+
+### 为什么 call id 和统一结果结构很重要？
+
+一个模型回合可能请求多个工具；并行执行时结果顺序还可能变化。因此 tool result 不能只写“成功了”，必须带回它对应的 call_id。harness 也应返回机器可处理、模型可理解的稳定结构，而不是把下游原始错误页整个塞进 context。
+
+~~~
+1. model request:  call_42 → get_latest_quote(vendor="Acme")
+2. harness:        parse + schema validation + authorization
+3. tool execution: query procurement service
+4. tool result:    call_42 → { ok: true, data: Q-817 / 10.15 / Net 45 }
+5. next model turn: use that observation to decide whether policy must be checked
+~~~
+
+结果既要携带模型继续判断所需的事实，也不要泄露内部 stack trace、秘钥或无关客户数据。失败时也要统一，例如返回失败状态、错误码 QUOTE_NOT_FOUND 和不可重试标志；这样模型和 harness 才能各自做正确的下一步。
+
+### 从选择工具到落库，harness 应怎样分责？
+
+1. 模型选择 get_latest_quote，因为当前状态没有报价；harness 只允许该 session 可访问的供应商范围。
+2. 模型从 Q-817 / 10.15 / Net 45 发现付款条款可能不合格，选择 get_negotiation_policy；而不是假装知道政策。
+3. 只有政策和报价都通过，模型才可请求 create_counteroffer_draft。harness 再一次读取当前报价、执行业务规则和批准检查后，创建一条带 idempotency key 的草稿记录。
+
+第 3 步不能相信第 1 步的旧结果。用户可能在两次调用之间更新报价，另一个 worker 也可能已创建草稿。**读时得到的 observation 是决策线索；写时重新验证的真实状态才是提交依据。**
+
+<Note title="并行不等于任意并行" type="tip">
+
+get_latest_quote 与 get_negotiation_policy 若互不依赖，可以并行以降低等待时间。创建草稿依赖两者的结果且会写状态，不能因为模型一次请求了两个 tool call 就与它们并行。并行计划仍属于 harness 的风险控制，而不只是模型偏好。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+- 为什么 tool result 必须回传 call id，尤其是并行调用时？
+- 为什么统一错误码比把完整 HTTP 500 页面给模型更有用？
+- “读时验证”和“写前重新验证”分别在防什么？
+- 哪两个读取动作可并行？为什么创建草稿不应并行？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · One safe call: how do request, execution, and result close the loop?
+
+### Why do call ids and a stable result shape matter?
+
+One model turn may request several tools, and parallel execution can change result order. A tool result therefore cannot merely say “success”; it must return the matching call_id. The harness should also return a stable structure that software can process and the model can understand, rather than dumping a downstream error page into context.
+
+~~~
+1. model request:  call_42 → get_latest_quote(vendor="Acme")
+2. harness:        parse + schema validation + authorization
+3. tool execution: query procurement service
+4. tool result:    call_42 → { ok: true, data: Q-817 / 10.15 / Net 45 }
+5. next model turn: use that observation to decide whether policy must be checked
+~~~
+
+A result needs the facts required for the model's next decision but should not leak an internal stack trace, secret, or unrelated customer data. Failures should also be stable: return a failure status, the code QUOTE_NOT_FOUND, and a non-retryable flag, so the model and harness can each take the appropriate next action.
+
+### How should a harness divide responsibility from tool selection to a write?
+
+1. The model selects get_latest_quote because state has no quote; the harness limits it to vendors the session may access.
+2. From Q-817 / 10.15 / Net 45, the model recognizes that terms may fail and selects get_negotiation_policy; it does not pretend to know policy.
+3. Only if quote and policy pass may the model request create_counteroffer_draft. The harness reads current state again, applies business and approval checks, then creates a draft record with an idempotency key.
+
+Do not trust the result of step 1 at step 3. A user may update a quote between calls, or another worker may create the draft. **A read observation guides a decision; current state revalidated at write time is the basis for commit.**
+
+<Note title="Parallel does not mean arbitrarily parallel" type="tip">
+
+get_latest_quote and get_negotiation_policy can run in parallel only if neither depends on the other. Draft creation depends on their results and writes state, so it must not be parallelized merely because the model requested multiple calls in one turn. Parallel planning remains harness-level risk control, not just a model preference.
+
+</Note>
+
+<Note title="Self-check: you should now be able to answer">
+
+- Why must a tool result return its call id, especially with parallel calls?
+- Why is a normalized error code more useful than giving the model a whole HTTP 500 page?
+- What do “validate on read” and “revalidate before write” each prevent?
+- Which reads can run in parallel, and why should draft creation not?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 写操作的防线：重试前先问是否已经发生
+
+### 为什么 timeout 是最危险的重试场景？
+
+参数错误和下游错误不能混为一谈：
+
+- **参数 / schema 错误**：不重试同一请求；把具体字段错误放回 observation，让模型修复、向用户澄清或停止。
+- **401 / 403**：不让模型“换一种写法”绕过权限；停止或请求相应批准。
+- **429、暂时性 5xx、网络故障**：可以有限、带退避地 retry，但先看剩余预算。
+- **timeout**：最危险。请求可能尚未到服务端，也可能服务端已经创建草稿、只是响应丢了。盲目重试会重复写入。
+
+幂等指同一个逻辑请求重复到达，得到同一个可预期结果，而不是产生第二个副作用。它必须被设计到写 API 和持久层。
+
+~~~
+idempotency_key = hash(task_id, quote_id, intended_terms)
+
+create_draft(key):
+  if a draft already exists for key: return that existing draft
+  otherwise: atomically create it and store key → draft_id
+~~~
+
+timeout 后，harness 应先用 key 查“是否已完成”；若完成，返回已有草稿；若明确未发生才可重试。无法确认时，安全答案通常是停止并让人核对，而不是“再试一次”。
+
+### 为什么模型重试和系统重试要分开？
+
+模型收到 INVALID_PAYMENT_TERMS 后可以修改下一步，例如读取政策或向用户提问；这是**语义修复**。harness 对确定的临时网络错误做一次指数退避 retry，是**传输修复**。两者若都无限重试，会把一次故障放大为成本、重复副作用和不可读 trace。
+
+为每个工具设定是否可重试、最大次数、超时、是否写操作、幂等键、失败后 fallback 与人工接管规则。模型只能在这些约束内选动作。
+
+<Note title="自测：到这里你应该能回答">
+
+- 为什么 timeout 不等同于“操作失败”？
+- 用于创建 Acme 草稿的 idempotency key 应与什么绑定？
+- 401、400、429、timeout 各自的默认处理为什么不同？
+- 模型修复参数与 harness retry 网络请求，为什么不应混成一件事？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Defenses for writes: before retrying, ask whether it already happened
+
+### Why is a timeout the most dangerous retry case?
+
+Parameter errors and downstream errors must not be treated alike:
+
+- **parameter / schema error**: do not retry the same request; return a precise field error so the model can repair it, clarify with the user, or stop.
+- **401 / 403**: do not let the model “try another wording” to bypass authorization; stop or request the appropriate approval.
+- **429, transient 5xx, network failure**: a bounded retry with backoff may be safe, subject to remaining budget.
+- **timeout**: most dangerous. The request may never have reached the service, or the service may have created the draft and only the response was lost. Blind retry can duplicate a write.
+
+Idempotency means the same logical request can arrive repeatedly with one predictable result, rather than a second side effect. It must be designed into the write API and persistence layer.
+
+~~~
+idempotency_key = hash(task_id, quote_id, intended_terms)
+
+create_draft(key):
+  if a draft already exists for key: return that existing draft
+  otherwise: atomically create it and store key → draft_id
+~~~
+
+After a timeout, the harness first looks up whether the key completed. If so, return the existing draft; retry only when it is known not to have happened. If outcome cannot be established, the safe result is usually to stop and ask a person to check — not “try again.”
+
+### Why separate model retry from system retry?
+
+After INVALID_PAYMENT_TERMS, the model can change its next step — read policy or ask the user. That is **semantic repair**. A harness performing one exponential-backoff retry for a known transient network error is **transport repair**. If both retry forever, one failure becomes cost, duplicate side effects, and an unreadable trace.
+
+For each tool, define whether it is retryable, its maximum attempts, timeout, whether it writes, its idempotency key, fallback, and human-handoff rule. The model chooses only inside those constraints.
+
+<Note title="Self-check: you should now be able to answer">
+
+- Why is a timeout not the same as “the operation failed”?
+- What should an idempotency key for an Acme draft bind to?
+- Why do 401, 400, 429, and timeout have different default handling?
+- Why should model parameter repair and a harness network retry not be one mechanism?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 工具作为产品接口：少而清晰，可观测且可评测
+
+### 怎样让模型更容易选对工具？
+
+好的工具是窄而完整的业务能力，不是把内部数据库的每个 CRUD endpoint 暴露出去。名称说动作，description 说明何时使用、不能做什么、必填信息和副作用；输入只保留决策所需字段，输出返回下一步需要的事实。
+
+create_counteroffer_draft 比含 operation 选择项的万能工具更安全、更容易选。万能工具把创建、发送、批准和删除等风险混进一个 schema，既加大模型选择和填参难度，也难以做最小权限控制。
+
+工具越多，定义和结果占用的 context 越多，模型也越难找到正确能力。按任务、用户权限和当前状态只暴露相关工具；大量工具可通过搜索或渐进发现加载，而不是全量塞进每轮 prompt。
+
+### trace 与 eval 怎样让工具调用持续变好？
+
+每次调用至少记录：任务 / agent 版本、工具与规范化参数（敏感字段脱敏）、call id、校验结果、重试次数、耗时、结果码、是否副作用成功，以及最后任务是否达成。这样一次“没创建草稿”才可以定位为选择错工具、参数错、政策拒绝、权限拒绝、下游慢，还是模型没正确利用结果。
+
+评测不只检查最终回答。为模拟工具环境准备固定场景：过期报价、同名供应商、已存在草稿、权限不足、timeout 后已成功、注入在工具结果里等；分别评估选择、参数、是否阻断写入、最终业务状态与成本。真实生产的工具接口要像产品 API 一样有 contract test 和版本管理。
+
+## 陷阱
+
+<Note title="严格 schema 不等于安全执行" type="danger">
+
+严格 schema 可以降低格式不匹配，但无法替代权限、当前状态读取、业务规则、批准和幂等。任何把模型输出直接映射为数据库写入的设计，都是把概率性文本生成放在了权限边界内。
+
+</Note>
+
+<Note title="把完整下游错误和所有工具都塞给模型" type="warning">
+
+原始错误可能泄露细节、浪费 token、诱导模型在错误方向反复尝试；过大的工具集也会降低选择准确率。返回稳定、最小、可行动的 observation，并按需提供工具。
+
+</Note>
+
+## 连接
+
+~~~
+JSON Schema / Structured Output
+             ↓ 约束请求的形状
+Tool Calling → validation → execution → normalized result
+             ↓
+Agent Loop / ReAct：根据 observation 选择下一步
+             ↓
+Reliability：timeout、budget、retry、circuit breaker
+Security：least privilege、approval、untrusted tool output
+~~~
+
+- 前置：[Structured Output](/docs/application/structured-output) —— schema 解决“输出形状”，不是“业务正确性”。
+- 下一页：[ReAct](/docs/agent/react) —— 为什么 observation 回来后，下一轮决策会改变。
+- 生产边界：[Reliability](/docs/agent/reliability) 与 [Security](/docs/agent/security)。
 
 ## 面试问题
 
-1. Tool calling 是怎么工作的？（How does tool calling work?）
-2. MCP 和 function calling 有什么区别？细节见 MCP 页。（How is MCP different from function calling? Details on the MCP page.）
-3. 怎么防止模型幻觉出工具参数？（How do you prevent hallucinated tool arguments?）
-4. 工具必须幂等吗？不幂等的话怎么办？（Do tools have to be idempotent, and what do you do when they aren't?）
-5. 工具调用失败了怎么办？（What if a tool fails?）
+### Level 0 · 合同与边界
+
+1. Function calling 的完整生命周期是什么？（What is the complete lifecycle of function calling?）
+2. JSON Schema 能保证什么，不能保证什么？（What can and cannot a JSON Schema guarantee?）
+3. 为什么模型输出工具请求不能直接写数据库？（Why must a model tool request not write directly to a database?）
+
+### Level 1 · 闭环与并发
+
+1. call id 解决什么问题？（What problem does a call id solve?）
+2. 为什么 tool result 要结构化并最小化？（Why should a tool result be structured and minimal?）
+3. 什么时候可以并行调用工具？（When may tool calls run in parallel?）
+
+### Level 2 · 正确性与恢复
+
+1. 幂等是什么？timeout 后怎样避免重复创建？（What is idempotency, and how do you avoid duplicates after timeout?）
+2. 怎样区分模型修复和系统 retry？（How do you distinguish model repair from system retry?）
+3. 400、403、429、5xx 和 timeout 分别怎么处理？（How would you handle 400, 403, 429, 5xx, and timeout?）
+
+### Level 3 · 工具设计
+
+1. 怎样设计一个好工具，而不是万能 CRUD 工具？（How do you design a good tool rather than a universal CRUD tool?）
+2. 你会记录哪些 trace 字段来排查失败？（Which trace fields would you record to debug failures?）
+3. 如何评估 tool calling，而不只看最终文本？（How do you evaluate tool calling beyond the final text?）
 
 ## 我的答案
 
@@ -82,33 +446,85 @@ Schema 限制了能调用的范围。校验挡住模型幻觉出来的参数。�
 
 <Locale lang="en">
 
-## Three-level answers
+## Level 3 · Tools as product interfaces: narrow, observable, and evaluable
 
-### Level 1 — Definition
+### How do you make correct tool selection easier for a model?
 
-The model outputs a structured tool name and arguments, the runtime executes the call, and the result gets fed back to the model.
+A good tool is a narrow but complete business capability, not every internal database CRUD endpoint. Its name states the action; its description says when to use it, what it cannot do, required information, and side effects. Inputs contain only fields needed for the decision; outputs carry facts needed for the next step.
 
-### Level 2 — Mechanism
+create_counteroffer_draft is safer and easier to select than one universal tool with several operations. The latter mixes risks and permissions in one schema, makes selection and arguments harder, and prevents least-privilege execution.
 
-The schema limits what can be called. Validation blocks hallucinated arguments. Timeouts and retries have to respect idempotency so you don't place an order twice or write the same record twice.
+More tools consume context through definitions and results, and make the right capability harder to find. Expose only tools relevant to the task, user authority, and current state. Very large libraries should use search or progressive discovery rather than placing every tool in every prompt.
 
-### Level 3 — Engineering
+### How do traces and evals continuously improve tool use?
 
-A tool failure isn't fixed by "just ask the model again." Classify it: bad arguments, downstream 5xx, permissions, timeout. Too many tools lower selection accuracy — that's a Context Construction problem.
+For every call, record at least task / agent version, tool plus normalized arguments with sensitive data redacted, call id, validation outcome, retries, latency, result code, whether a side effect succeeded, and final task outcome. Then “no draft was created” can be localized to wrong selection, bad arguments, policy denial, authorization denial, a slow dependency, or failure to use a result.
+
+Evals should not inspect only final wording. Build fixed simulated-tool scenarios: an expired quote, same-name vendors, an existing draft, insufficient authority, a timeout that actually succeeded, and injection text in a tool result. Score selection, arguments, whether a write was blocked, final business state, and cost. A production tool interface needs contract tests and versioning like any product API.
+
+## Traps
+
+<Note title="Strict schema is not safe execution" type="danger">
+
+Strict schema can reduce format mismatches; it cannot replace authorization, current-state reads, business rules, approval, or idempotency. Directly mapping a model output into a database write puts probabilistic text generation inside the permission boundary.
+
+</Note>
+
+<Note title="Dumping raw downstream errors and every tool into the model" type="warning">
+
+Raw errors can leak detail, waste tokens, and send the model into repeated bad attempts. A huge tool set also lowers selection accuracy. Return stable, minimal, actionable observations and expose tools on demand.
+
+</Note>
+
+## Connections
+
+~~~
+JSON Schema / Structured Output
+             ↓ constrains request shape
+Tool Calling → validation → execution → normalized result
+             ↓
+Agent Loop / ReAct: choose the next step from observation
+             ↓
+Reliability: timeout, budget, retry, circuit breaker
+Security: least privilege, approval, untrusted tool output
+~~~
+
+- Prerequisite: [Structured Output](/docs/application/structured-output) — a schema solves output shape, not business correctness.
+- Next: [ReAct](/docs/agent/react) — why the next decision changes after an observation returns.
+- Production boundaries: [Reliability](/docs/agent/reliability) and [Security](/docs/agent/security).
 
 ## Interview questions
 
-1. How does tool calling work?
-2. How is MCP different from function calling? Details on the MCP page.
-3. How do you prevent hallucinated tool arguments?
-4. Do tools have to be idempotent, and what do you do when they aren't?
-5. What if a tool fails?
+### Level 0 · Contract and boundary
+
+1. What is the complete lifecycle of function calling?
+2. What can and cannot a JSON Schema guarantee?
+3. Why must a model tool request not write directly to a database?
+
+### Level 1 · Closed loop and concurrency
+
+1. What problem does a call id solve?
+2. Why should a tool result be structured and minimal?
+3. When may tool calls run in parallel?
+
+### Level 2 · Correctness and recovery
+
+1. What is idempotency, and how do you avoid duplicates after timeout?
+2. How do you distinguish model repair from system retry?
+3. How would you handle 400, 403, 429, 5xx, and timeout?
+
+### Level 3 · Tool design
+
+1. How do you design a good tool rather than a universal CRUD tool?
+2. Which trace fields would you record to debug failures?
+3. How do you evaluate tool calling beyond the final text?
 
 ## My answer
 
 </Locale>
 
--
+- 30s：
+- 2min：
 
 <Locale lang="zh">
 

@@ -1,72 +1,511 @@
 ---
 title: Agent Loop
 titleEn: Agent Loop
-description: Observe → Reason → Act。必须理解为什么需要 loop。
-descriptionEn: Observe → Reason → Act. Why the loop exists.
-date: 2026-09-07
-keywords: ["agent loop", "observe", "reason", "act"]
+description: 从一次 LLM 调用到 Observe → Decide → Act：状态怎样回来，loop 为什么必须停止。
+descriptionEn: "From one LLM call to Observe → Decide → Act: how state comes back and why the loop must stop."
+date: 2026-09-20
+keywords: ["agent loop", "observe", "decide", "act", "harness", "tool calling", "termination"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-Agent 的定义从 loop 开始，而不是从框架名开始。
+Agent 不是“更长的 prompt”，也不是某个框架的名字。它是一个由 **harness（运行与编排层）** 驱动的系统：模型查看当前状态、选择下一步；harness 安全地执行允许的工具调用，把真实结果放回状态；直到任务完成或被安全地停止。
+
+这一页先不讲复杂的 Planning、Memory 或 Multi-Agent。先把最小闭环讲清楚：**模型不会自己调用 API，也不会天然知道工具做完后的世界发生了什么。** 这两个空白正是 agent loop 要填上的部分。
+
+## 这一页怎么学
+
+全页用一个采购谈判助手贯穿：用户说“查 Acme 的最新报价；若单价不高于 10.20 且付款条款为 Net 30，就准备下一轮报价，否则说明卡点。”助手可以读取报价、读取谈判政策、创建草稿；它不能直接发出承诺。
+
+| 部分 | 回答的问题 | 时长 |
+| --- | --- | --- |
+| Level 0 · 最小积木 | 一次 LLM 调用和 agent 分别是什么？模型、工具、环境、harness 各做什么？ | 25 min |
+| Level 1 · 状态如何走一圈 | Observe、Decide、Act 具体传递什么？为什么工具结果必须回来？ | 35 min |
+| Level 2 · 让 loop 正确结束 | 什么叫完成和进展？何时让人接管？最大步数为什么不是可选项？ | 35 min |
+| 陷阱 · 面试问题 | 能否不背框架名，画出数据流并指出失败点？ | 20 min |
+
+建议先把 Level 1 的三轮例子手写成状态变化，再读 Level 2。之后的 [Tool Calling](/docs/agent/tool-calling) 会把“工具调用请求如何被校验与执行”拆细；[ReAct](/docs/agent/react) 会讨论一种常见的 loop 记录格式，而不是另一个必须背的 Agent 定义。
 
 ## 需要掌握
 
-必须能画出并解释这个循环。
-
-## 机制
+- 区分 LLM、Agent、harness、tool 和 environment，不把它们混成“模型做了一切”
+- 画出 `observe → decide → act → observation` 的数据流，并说清楚谁执行工具
+- 解释为什么一次性生成答案无法根据真实工具结果纠错
+- 用采购谈判例子走完至少两轮：每轮新增了什么事实、为什么下一步会变
+- 设计正常完成、要求人工批准、达到预算 / 超时 / 最大步数这几类停止条件
+- 用“是否产生新状态、是否接近验收条件”判断 loop 是否在空转
 
 </Locale>
 
 <Locale lang="en">
 
-Defining an agent starts with the loop, not with a framework name.
+An agent is neither a longer prompt nor the name of a framework. It is a system driven by a **harness**, or runtime/orchestration layer: the model sees the current state and chooses a next step; the harness safely executes permitted tools and returns real results to that state; the system continues until the task finishes or stops safely.
+
+This page deliberately postpones complex planning, memory, and multi-agent designs. First build the minimal closed loop: **a model does not execute an API call by itself, and it does not automatically know what changed after a tool ran.** The agent loop fills those two gaps.
+
+## How to work through this page
+
+One procurement-negotiation assistant runs through the whole page. A user says: “Check Acme's latest quote. If unit price is at most 10.20 and payment is Net 30, prepare the next counteroffer; otherwise explain the blocker.” The assistant may read quotes and policy and create a draft; it may not send a commitment itself.
+
+| Part | Question it answers | Time |
+| --- | --- | --- |
+| Level 0 · Minimum building blocks | What is one LLM call versus an agent? What do the model, tools, environment, and harness each do? | 25 min |
+| Level 1 · One trip around the loop | What flows through Observe, Decide, and Act? Why must a tool result come back? | 35 min |
+| Level 2 · Ending a loop correctly | What count as completion and progress? When should a human take over? Why is a step limit mandatory? | 35 min |
+| Traps · Interview questions | Can you draw the data flow and name failure points without reciting framework names? | 20 min |
+
+First write out the three rounds in Level 1 as changing state, then read Level 2. [Tool Calling](/docs/agent/tool-calling) later unpacks how a tool request is validated and executed. [ReAct](/docs/agent/react) covers one common way to record a loop, not a different definition of an agent.
 
 ## Must know
 
-You must be able to draw and explain this loop.
-
-## Mechanism
+- distinguish an LLM, agent, harness, tool, and environment rather than saying “the model does everything”
+- draw `observe → decide → act → observation`, including who actually executes a tool
+- explain why a one-shot answer cannot correct itself from a real tool result
+- walk the procurement example through at least two rounds: what new fact arrived and why it changed the next step
+- design normal completion, human approval, and budget / timeout / maximum-step stop conditions
+- detect spinning with “did state change?” and “did we move closer to the acceptance condition?”
 
 </Locale>
 
+---
+
+<Locale lang="zh">
+
+## Level 0 · 最小积木：谁在做决定，谁在改变世界？
+
+### 一次 LLM 调用为什么还不是 Agent？
+
+一次调用是：把 prompt 交给模型，模型生成一段文字或一个结构化的工具调用请求，然后这一次推理结束。它很适合总结、分类、改写等“输入已经足够、答案可以直接生成”的任务。
+
+Agent 在这之外加上了 **状态、可执行动作和反馈回路**。目标不变，但它可以根据刚刚查到的真实信息决定下一步。因此，最小 Agent 不是“会思考的模型”，而是“模型在受控环境中多次作出下一步决策”的系统。
+
+以贯穿例子为例，直接问模型“Acme 能不能接受？”有一个根本问题：模型并没有看到最新报价，也不能替你读取采购系统。它最多生成一个看起来合理的猜测。Agent 则可以先请求读取报价，再根据结果决定是否读取政策、创建草稿或停止。
+
+<Note title="先选对复杂度" type="tip">
+
+如果报价、规则和下一步已经完全确定，例如“每晚把所有过期报价标记为过期”，这是 workflow，不需要让模型在每一步自由选择。只有下一步取决于未知信息、文本语义或工具结果时，loop 才带来价值。[Workflow vs Agent](/docs/agent/workflow-vs-agent) 会专门比较这个判断。
+
+</Note>
+
+### 模型、harness、tool、environment 分别是什么？
+
+- **Model（模型）**：根据当前 context 生成自然语言、结构化结果，或“我要调用哪个工具、参数是什么”的请求。它提出动作，不应被当成执行者或事实来源。
+- **Harness（运行与编排层）**：应用代码。它保存状态、组装下一轮 context、检查权限和参数、调用工具、记录 trace，并决定何时强制停止。
+- **Tool（工具）**：一份受约束的能力，例如 `get_latest_quote`、查数据库、搜索文档或创建草稿。工具返回的是 observation（观察结果）。
+- **Environment（环境）**：工具接触到的真实世界及其状态，例如采购数据库、文件、网页和可写入的草稿系统。
+
+一个简单记法是：**模型提议，harness 把关并编排，工具执行，环境给出真相与副作用。** 模型输出里写了“已创建草稿”不等于草稿真的存在；只有工具的成功结果才能证明环境已改变。
+
+<Note title="Reason 不等于公开原始思维链" type="warning">
+
+在图里把中间步骤写成 Reason / Decide，意思是“模型基于当前状态选择下一步”。工程上应依赖可观察的决策、工具调用、结果和验收条件来调试，而不是要求或存储模型的原始内部推理文本。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+- 同一个模型什么时候只是一次调用，什么时候成为 Agent 系统的一部分？
+- 用户说“查一下再告诉我”，为什么模型直接回答不可靠？
+- 工具调用请求和工具执行结果，哪个能证明外部状态真的变了？
+- 哪一层负责权限、参数校验、最大步数和 trace？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Minimum building blocks: who decides and who changes the world?
+
+### Why is one LLM call not an agent yet?
+
+One call sends a prompt to a model; the model generates text or a structured request to call a tool; then that inference ends. It is a great fit for summarization, classification, and rewriting, where the input is already sufficient and an answer can be generated directly.
+
+An agent adds **state, executable actions, and a feedback loop**. The goal stays the same, but the system can choose its next step from newly retrieved facts. So a minimal agent is not “a model that thinks”; it is a system in which a model makes multiple next-step decisions in a controlled environment.
+
+In the running example, asking a model directly “Will Acme accept?” has a fundamental flaw: the model has not seen the latest quote and cannot read the procurement system for you. It can only make a plausible guess. An agent can request the quote first, then decide whether to check policy, create a draft, or stop.
+
+<Note title="Choose the right amount of complexity" type="tip">
+
+If the quote, rules, and next step are fully specified — for example, “mark all expired quotes every night” — use a workflow. There is no reason to let a model freely choose each step. A loop earns its cost only when the next step depends on unknown information, language semantics, or tool outcomes. [Workflow vs Agent](/docs/agent/workflow-vs-agent) compares this choice in depth.
+
+</Note>
+
+### What are the model, harness, tool, and environment?
+
+- **Model**: produces natural language, structured output, or a request naming a tool and arguments from the current context. It proposes an action; it is neither the executor nor the source of truth.
+- **Harness**: application code that stores state, assembles the next context, checks authorization and arguments, invokes tools, records a trace, and enforces stopping rules.
+- **Tool**: a constrained capability, such as `get_latest_quote`, a database query, document search, or draft creation. Its result becomes an observation.
+- **Environment**: the real systems and state reached by the tools: a procurement database, files, websites, or a writable draft system.
+
+An easy rule is: **the model proposes; the harness governs and orchestrates; tools execute; the environment supplies truth and side effects.** A model message saying “I created the draft” does not prove a draft exists. Only a successful tool result proves that the environment changed.
+
+<Note title="Reason does not mean exposing raw chain of thought" type="warning">
+
+Reason / Decide in a diagram means “the model selects a next step from current state.” In production, debug with observable decisions, tool calls, results, and acceptance criteria — not by requiring or storing raw internal reasoning text.
+
+</Note>
+
+<Note title="Self-check: you should now be able to answer">
+
+- When is the same model merely a one-shot call, and when is it part of an agent system?
+- Why is a direct answer unreliable when the user says “check and then tell me”?
+- Which proves that external state changed: a tool-call request or a tool result?
+- Which layer owns authorization, argument validation, maximum steps, and traces?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 状态如何走一圈：Observe → Decide → Act
+
+### Observe 到底在“观察”什么？
+
+Observe 不是一定要看屏幕。它是 harness 为下一次模型推理准备的**当前可用状态**：用户目标、对话与工具结果、允许使用的工具、持久化业务状态，以及预算与权限等约束。
+
+采购例子刚开始时，harness 可以组装出下面的快照。这里 `draft` 为 `false` 不是模型猜出来的，而是应用从环境读到的状态。
+
+```json
+{
+  "goal": "核对 Acme 报价；满足价格和付款条件才准备反报价",
+  "deal_state": { "vendor": "Acme", "latest_quote": "unknown", "draft": false },
+  "allowed_tools": ["get_latest_quote", "get_negotiation_policy", "create_counteroffer_draft"],
+  "constraints": ["不能发送承诺", "最多 5 次工具调用"]
+}
 ```
-Observe
- ↓
-Reason
- ↓
-Act
- ↓
-Observe
- ↓
-Reason
- ↓
-Act
+
+Observe 的关键不是“把所有历史原样塞回 prompt”。每一轮只选择下一个决定真正需要的事实：错误信息、工具结果、批准状态、文件摘要等。历史无限增长会挤占 context window，并让模型更难找出当前事实；如何挑选、压缩和隔离这些内容，是后面的 Context Engineering 问题。
+
+### Decide 与 Act 怎样把新事实带回模型？
+
+第一轮模型看到 `latest_quote: unknown`，合理的决策是请求：
+
+```text
+get_latest_quote(vendor="Acme")
+```
+
+这只是**请求**。harness 要验证参数和权限，真正执行工具；工具回来的 observation 才是：
+
+```text
+unit_price = 10.15
+payment_terms = "Net 45"
+quote_id = "Q-817"
+```
+
+harness 把结果追加进状态，开启下一轮 Observe。现在模型有了一个新事实：价格达标，但付款条款不达标。因此它不应该创建反报价，而应请求读取政策，弄清 `Net 45` 是否可接受、能否用别的条款交换。这就是 loop 的价值：**上一轮 Action 改变了下一轮模型能依据什么作决定。**
+
+第二轮若政策结果说“只有 Net 30 才能创建此类草稿”，模型就会选择一个终止性的用户回复，例如“价格满足，但 Net 45 不符合政策；需要你批准例外或与供应商谈付款条款。”它不会为了凑满五步继续调用工具。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · One trip around the loop: Observe → Decide → Act
+
+### What does Observe actually observe?
+
+Observe does not necessarily mean looking at a screen. It is the **current usable state** that the harness prepares for the next model inference: the user goal, conversation and tool results, allowed tools, persistent business state, and constraints such as budget and permissions.
+
+At the start of the procurement example, the harness can assemble this snapshot. `draft: false` is not something the model guessed; it is state the application read from the environment.
+
+```json
+{
+  "goal": "Check Acme's quote; create a counteroffer draft only if price and payment conditions pass",
+  "deal_state": { "vendor": "Acme", "latest_quote": "unknown", "draft": false },
+  "allowed_tools": ["get_latest_quote", "get_negotiation_policy", "create_counteroffer_draft"],
+  "constraints": ["Do not send commitments", "At most 5 tool calls"]
+}
+```
+
+Observe does not mean dumping every past message into the prompt unchanged. Each round selects the facts needed for the next decision: errors, tool results, approval state, and file summaries. Unlimited history consumes the context window and makes current facts harder to find. Selecting, compressing, and isolating it is the later Context Engineering problem.
+
+### How do Decide and Act return a new fact to the model?
+
+On the first round, the model sees `latest_quote: unknown`, so a sensible decision is:
+
+```text
+get_latest_quote(vendor="Acme")
+```
+
+That is only a **request**. The harness validates its arguments and authority and actually runs the tool. The resulting observation is:
+
+```text
+unit_price = 10.15
+payment_terms = "Net 45"
+quote_id = "Q-817"
+```
+
+The harness appends that result to state and begins the next Observe. The model now has a new fact: price passes, but payment terms do not. It should not create a counteroffer yet; it should request the policy to find out whether `Net 45` is acceptable or tradeable. This is the value of the loop: **an Action changes what the next model decision can be based on.**
+
+If the second tool result says that only Net 30 permits this draft, the model chooses a terminal user reply: “The price passes, but Net 45 fails policy; I need your approval for an exception or a negotiation on payment terms.” It does not keep calling tools merely to use all five steps.
+
+</Locale>
+
+```text
+user goal + durable state + constraints
+                 │
+                 ▼
+          Observe: build context
+                 │
+                 ▼
+         Decide: model returns
+          final answer OR tool request
+                 │                 │
+                 │                 ▼
+                 │        Act: harness validates
+                 │        and executes the tool
+                 │                 │
+                 ▼                 ▼
+            return to user   observation → state → Observe
 ```
 
 <Locale lang="zh">
 
-## 三级回答
+### 最小 loop 的伪代码是什么样？
 
-### Level 1 — 定义
+下面故意省略了并发、多工具调用和流式输出，只保留责任边界。最容易犯的错误是把 `execute` 写成“相信模型已经做完了”，或者执行完却忘记把结果放回下一轮 context。
 
-Agent 在环境里循环：观察状态、做决定、执行动作、再看结果。
+```python
+state = initial_state(user_request)
 
-### Level 2 — 机制
+for step in range(MAX_STEPS):
+    response = model(context=build_context(state), tools=allowed_tools(state))
+    if response.is_final:
+        return response.message
 
-没有 loop，就只是一次 LLM 调用。工具结果、检索内容、代码输出都必须回到模型，模型才能纠错和继续。
+    call = validate_tool_request(response.tool_call, state)
+    result = execute(call)                 # harness / tool touches the environment
+    state = add_observation(state, call, result)
 
-### Level 3 — 工程
+return safe_stop("step limit reached", state)
+```
 
-Loop 会带来死循环、费用和延迟问题，所以必须有最大迭代次数、超时和预算。典型题：「你的 agent 偶尔会循环 20 步，每次请求花 $0.50，怎么排查和修复？」
+真实系统还要处理工具超时、重复调用、写操作确认和可恢复 trace；它们放在 [Reliability](/docs/agent/reliability) 和 [Security](/docs/agent/security)。但即使只有两个工具，`result → state → next context` 也不能省掉，否则它不是闭环。
+
+<Note title="自测：到这里你应该能回答">
+
+- 第一轮拿到 `10.15 / Net 45` 后，状态相较第一轮新增了什么？
+- 为什么不能让模型只看最初 prompt，就断言“可以创建草稿”？
+- `get_latest_quote` 的请求、执行、结果，分别由谁产生或负责？
+- 若工具返回超时，下一轮 observation 应包含什么，模型可以做哪些不同选择？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+### What does minimal loop pseudocode look like?
+
+This intentionally omits concurrency, multiple tool calls, and streaming. It keeps only the responsibility boundary. A common mistake is writing `execute` as though the model already performed the action, or executing the tool but failing to return its result in the next context.
+
+```python
+state = initial_state(user_request)
+
+for step in range(MAX_STEPS):
+    response = model(context=build_context(state), tools=allowed_tools(state))
+    if response.is_final:
+        return response.message
+
+    call = validate_tool_request(response.tool_call, state)
+    result = execute(call)                 # harness / tool touches the environment
+    state = add_observation(state, call, result)
+
+return safe_stop("step limit reached", state)
+```
+
+Production systems also need to handle tool timeouts, repeat calls, confirmation for writes, and recoverable traces. Those belong in [Reliability](/docs/agent/reliability) and [Security](/docs/agent/security). But even with two tools, `result → state → next context` is indispensable; without it, the system is not closed-loop.
+
+<Note title="Self-check: you should now be able to answer">
+
+- After receiving `10.15 / Net 45` on round one, what state is new compared with round zero?
+- Why can the model not look only at the initial prompt and assert that a draft is allowed?
+- Who produces or owns the request, execution, and result for `get_latest_quote`?
+- If the tool times out, what should the next observation contain, and what different choices can the model make?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 让 loop 正确结束：完成、进展与安全停止
+
+### 什么情况应当停止，而不是再来一轮？
+
+Loop 的目的不是“尽可能多地调用工具”，而是用有限步骤达到一个验收条件（acceptance condition）。在例子中，验收条件不是“调用了报价工具”，而是以下之一：
+
+- 已基于最新报价和政策创建了**可审核的草稿**；
+- 发现明确的业务卡点，并向用户说明缺少什么批准或信息；
+- 用户拒绝继续，或涉及不可自动执行的高风险动作；
+- 系统到达步骤、时间、token 或成本预算，不能再安全推进。
+
+正常完成应由明确的结果表示，例如结构化的 `final`、创建草稿工具的成功 observation，或等待人工批准的状态。不要只用“模型这次没调用工具”当作唯一成功信号：它可能真的完成了，也可能是不知道下一步、上下文被挤掉，或者工具定义写得不清楚。
+
+<Note title="外部副作用要分级" type="danger">
+
+“模型要求调用写工具”不等于“马上执行写操作”。发送谈判承诺、修改订单、付款、删除数据等动作，harness 应在执行前做授权、业务规则校验、幂等检查；必要时把 loop 停在“等待用户批准”。模型的概率性决策不能绕过系统权限。
+
+</Note>
+
+### 怎样判断它在推进，还是在空转？
+
+每一轮都记录至少四件事：本轮目标、工具名与规范化参数、结果摘要、以及为什么这一步让任务离验收条件更近。观察下面的对比：
+
+```text
+有进展：read_quote(Acme) → 得到 Q-817 / Net 45
+        read_policy(Net 45) → 得到 “必须 Net 30”
+        final → 明确卡点并请求批准
+
+空转：  read_quote(Acme) → 超时
+        read_quote(Acme) → 同样超时
+        read_quote(Acme) → 同样超时
+```
+
+第二段不是“模型更努力了”，而是没有新增事实。harness 可以检测连续相同的工具和参数、重复的错误指纹、状态摘要不变、或剩余预算不足；达到阈值就停止、换确定性 fallback，或交给人。这样 trace 才能回答“为什么花了钱却没完成”，也才能把问题分到模型决策、工具可靠性、权限还是缺失状态。
+
+### 为什么最大步数、时间和预算都需要？
+
+- **最大步数**限制错误重试和没有终点的规划；
+- **超时**限制一次工具或整次任务占用用户等待时间；
+- **token / 成本预算**限制长 observation、长上下文和昂贵模型调用；
+- **权限与批准边界**限制即使“看似成功”也不应发生的副作用。
+
+这些是兜底，不是任务成功的定义。好的 loop 会在碰到硬上限前，基于验收条件主动结束；硬上限负责把异常路径变成诚实、可恢复的失败，而不是静默地继续烧钱。
+
+<Note title="自测：到这里你应该能回答">
+
+- 对贯穿例子写出一个成功验收条件和两个合理的非成功终止状态。
+- 为什么“模型没有 tool call”不能单独证明任务成功？
+- 怎样用 trace 区分模型选错工具、工具本身超时和业务不允许？
+- 最大步数、超时、预算、人工批准分别防住什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Ending a loop correctly: completion, progress, and safe stopping
+
+### When should a loop stop rather than take another turn?
+
+The goal of a loop is not “call as many tools as possible.” It is to reach an acceptance condition in bounded steps. In the running example, the condition is not “the quote tool was called.” It is one of these:
+
+- a **reviewable draft** was created from the latest quote and policy;
+- a concrete business blocker was found and the user was told which approval or information is missing;
+- the user declines to continue, or the next action is too high-risk to automate;
+- the system reaches its step, time, token, or cost budget and can no longer progress safely.
+
+Normal completion should have an explicit result: a structured `final`, a successful draft-creation observation, or a state awaiting human approval. Do not treat “the model made no tool call this time” as the only success signal. It may have finished, but it may also be stuck, have lost context, or have unclear tool definitions.
+
+<Note title="Classify external side effects" type="danger">
+
+“The model requested a write tool” does not mean “execute the write immediately.” Before a negotiation commitment, order change, payment, or deletion, the harness should check authorization, business rules, and idempotency; when necessary, it stops at “awaiting user approval.” A probabilistic model decision must not bypass system permissions.
+
+</Note>
+
+### How do you tell progress from spinning?
+
+For every round, record at least four items: its goal, tool name plus normalized arguments, summarized result, and why that step moved the task closer to acceptance. Compare these traces:
+
+```text
+Progress: read_quote(Acme) → Q-817 / Net 45
+          read_policy(Net 45) → “Net 30 required”
+          final → states the blocker and requests approval
+
+Spinning:  read_quote(Acme) → timeout
+           read_quote(Acme) → same timeout
+           read_quote(Acme) → same timeout
+```
+
+The second trace is not the model trying harder; it has acquired no new fact. A harness can detect identical consecutive tools and arguments, repeated error fingerprints, an unchanged state summary, or insufficient remaining budget. At a threshold, it stops, switches to a deterministic fallback, or hands off to a person. A useful trace then localizes the cause to model choice, tool reliability, authorization, or missing state.
+
+### Why do maximum steps, time, and budget all matter?
+
+- **maximum steps** bound bad retries and plans with no end;
+- **timeouts** bound how long one tool or the entire task occupies the user;
+- **token / cost budgets** bound long observations, growing context, and expensive model calls;
+- **authorization and approval boundaries** bound side effects that should not happen even if they look successful.
+
+These are fallbacks, not the definition of success. A good loop ends proactively on its acceptance condition before hitting a hard limit. The hard limit turns an exceptional path into an honest, recoverable failure instead of silently spending more money.
+
+<Note title="Self-check: you should now be able to answer">
+
+- Write one successful acceptance condition and two sensible non-success terminal states for the running example.
+- Why does “the model made no tool call” not prove success by itself?
+- How would a trace distinguish a bad model tool choice, a tool timeout, and a disallowed business action?
+- What do maximum steps, timeouts, budgets, and human approval each protect against?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note title="把工具定义交给模型，不等于给了系统能力" type="warning">
+
+工具 schema 只让模型知道“可以请求什么”。没有 executor、鉴权、参数校验、错误处理和结果回传时，它只是文本描述，不是可靠的行动能力。
+
+</Note>
+
+<Note title="Observe 不是原样塞满聊天记录" type="warning">
+
+上一轮所有 tool output 都放进 context，短期可能有效，长任务会越来越慢、越来越贵，也更容易抓不住当前事实。状态要按下一步决策来筛选和总结。
+
+</Note>
+
+<Note title="能循环不代表能自我纠错" type="warning">
+
+Loop 只提供“看到结果后再次决策”的机会。工具返回错数据、验收条件写错、模型误读 observation，都会让它持续而自信地做错。必须用 trace 和针对性评测验证。
+
+</Note>
+
+## 连接
+
+```text
+LLM inference（一次生成）
+        ↓ 加入状态、工具、harness
+Agent Loop（Observe → Decide → Act）
+        ├── Tool Calling：动作请求的 schema、校验与执行
+        ├── ReAct：如何把 action / observation 组织进上下文
+        ├── Planning：任务分解与重规划
+        ├── Context Engineering：每轮究竟把哪些状态放回模型
+        └── Reliability / Security：什么时候停止，哪些动作绝不能自动做
+```
+
+- 先读：[LLM Inference](/docs/llm/inference) —— 每一轮 loop 都是一轮新的模型推理，token、TTFT 和 context 会累加成成本与延迟。
+- 下一页：[Tool Calling](/docs/agent/tool-calling) —— 把这一页的“请求 → 校验 → 执行 → observation”落到 schema、超时和幂等。
+- 对照：[Workflow vs Agent](/docs/agent/workflow-vs-agent) —— 决定到底需不需要让模型选择下一步。
+- 生产边界：[Reliability](/docs/agent/reliability) 与 [Security](/docs/agent/security) —— trace、circuit breaker、权限、注入与人工介入。
 
 ## 面试问题
 
-1. 什么是 agent？（What is an agent?）
-2. 解释一下 agent loop。（Explain the agent loop.）
-3. 为什么需要 agent loop，而不是一次生成完？（Why do you need an agent loop instead of generating everything in one pass?）
-4. 怎么发现 loop 在空转？（How do you detect that the loop is spinning without making progress?）
+### Level 0 · 定义与边界
+
+1. 什么是 Agent？它和一次 LLM 调用有什么区别？（What is an agent, and how does it differ from one LLM call?）
+2. 模型、harness、tool、environment 分别负责什么？（What do the model, harness, tool, and environment each own?）
+3. 为什么模型说“我已经创建了草稿”不能证明草稿真的存在？（Why does a model saying “I created the draft” not prove that it exists?）
+
+### Level 1 · 闭环机制
+
+1. 解释 Observe → Decide → Act → Observation 的一次完整循环。（Explain one complete Observe → Decide → Act → Observation cycle.）
+2. 为什么工具结果必须返回模型，而不能只由后端保存？（Why must a tool result return to the model rather than remain only in the backend?）
+3. 如果工具超时，下一轮 agent 应该看到什么、可以做什么？（After a tool timeout, what should the next turn see and do?）
+
+### Level 2 · 生产与诊断
+
+1. 你如何定义一个 agent task 的 acceptance condition 和停止条件？（How do you define acceptance and stop conditions for an agent task?）
+2. agent 连续 20 步、花费很高，怎样判断它在推进还是空转？（An agent runs 20 expensive steps. How do you tell progress from spinning?）
+3. 为什么最大步数、超时、预算和人工批准不能互相替代？（Why are maximum steps, timeouts, budgets, and human approval not substitutes?）
 
 ## 我的答案
 
@@ -74,32 +513,70 @@ Loop 会带来死循环、费用和延迟问题，所以必须有最大迭代次
 
 <Locale lang="en">
 
-## Three-level answers
+## Traps
 
-### Level 1 — Definition
+<Note title="Giving a tool definition to a model is not giving the system a capability" type="warning">
 
-An agent runs in a loop inside an environment: observe the state, decide, act, then look at the result.
+A tool schema tells a model only what it may request. Without an executor, authorization, argument validation, error handling, and result return, it is a text description — not reliable agency.
 
-### Level 2 — Mechanism
+</Note>
 
-Without the loop, it's just a single LLM call. Tool results, retrieved content, and code output all have to flow back to the model so it can correct itself and keep going.
+<Note title="Observe is not a raw dump of chat history" type="warning">
 
-### Level 3 — Engineering
+Putting every prior tool output into context may work briefly. On a long task it becomes slower and more expensive, and the current fact becomes harder to find. State needs selection and summarization for the next decision.
 
-The loop brings infinite loops, cost, and latency with it, so you need max iterations, timeouts, and budgets. Classic question: "Your agent occasionally loops for 20 steps and costs $0.50 per request. How do you debug and fix it?"
+</Note>
+
+<Note title="Being able to loop does not mean being able to self-correct" type="warning">
+
+A loop only creates another chance to decide after seeing a result. Wrong tool data, a wrong acceptance condition, or a misread observation can still drive confident repeated failure. Verify with traces and targeted evaluations.
+
+</Note>
+
+## Connections
+
+```text
+LLM inference (one generation)
+        ↓ add state, tools, and a harness
+Agent Loop (Observe → Decide → Act)
+        ├── Tool Calling: schema, validation, and execution of action requests
+        ├── ReAct: organizing actions and observations in context
+        ├── Planning: task decomposition and replanning
+        ├── Context Engineering: which state returns to the model each round
+        └── Reliability / Security: when to stop and which actions must never be automatic
+```
+
+- Read first: [LLM Inference](/docs/llm/inference) — every loop round is a new model inference, so tokens, TTFT, and context accumulate into cost and latency.
+- Next: [Tool Calling](/docs/agent/tool-calling) — turn this page's “request → validate → execute → observation” into schemas, timeouts, and idempotency.
+- Compare: [Workflow vs Agent](/docs/agent/workflow-vs-agent) — decide whether a model should choose the next step at all.
+- Production boundaries: [Reliability](/docs/agent/reliability) and [Security](/docs/agent/security) — traces, circuit breakers, authorization, injection, and human intervention.
 
 ## Interview questions
 
-1. What is an agent?
-2. Explain the agent loop.
-3. Why do you need an agent loop instead of generating everything in one pass?
-4. How do you detect that the loop is spinning without making progress?
+### Level 0 · Definition and boundaries
+
+1. What is an agent, and how does it differ from one LLM call?
+2. What do the model, harness, tool, and environment each own?
+3. Why does a model saying “I created the draft” not prove that it exists?
+
+### Level 1 · Closed-loop mechanics
+
+1. Explain one complete Observe → Decide → Act → Observation cycle.
+2. Why must a tool result return to the model rather than remain only in the backend?
+3. After a tool timeout, what should the next turn see and do?
+
+### Level 2 · Production and diagnosis
+
+1. How do you define acceptance and stop conditions for an agent task?
+2. An agent runs 20 expensive steps. How do you tell progress from spinning?
+3. Why are maximum steps, timeouts, budgets, and human approval not substitutes?
 
 ## My answer
 
 </Locale>
 
--
+- 30s：
+- 2min：
 
 <Locale lang="zh">
 
