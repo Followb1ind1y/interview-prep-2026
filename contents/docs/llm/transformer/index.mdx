@@ -252,21 +252,15 @@ logits → softmax → P(next token)
 
 假设词表只有 `cat / dog / apple`，模型的预测概率是 `[0.1, 0.7, 0.2]`，而真实的下一个 token 是 `dog`。把真实答案写成 one-hot 向量，就是 `y = [0, 1, 0]`：只有正确答案的位置是 1。
 
-```
-L = -Σ_i y_i log p_i
-```
+<Latex formula="L = -\sum_i y_i \log p_i" />
 
 因为 `dog` 是唯一 `y_i = 1` 的位置，其他项都会变成 0，所以式子实际上就是：
 
-```
-L = -ln P(dog) = -ln(0.7) ≈ 0.357
-```
+<Latex formula="L = -\ln P(\text{dog}) = -\ln(0.7) \approx 0.357" />
 
 如果模型只给正确答案 `dog` 1% 的概率：
 
-```
-L = -ln(0.01) ≈ 4.605
-```
+<Latex formula="L = -\ln(0.01) \approx 4.605" />
 
 所以最简单的理解是：**正确 token 的概率越高，Loss 越小。** 训练的目标就是不断调整模型参数，让正确的 next token 概率越来越高。
 
@@ -295,16 +289,6 @@ Loss → Backpropagation → 更新 W、b 和 Transformer 的其他参数
 - **Embedding / Retrieval**：contrastive loss；目标是拉近相关文本、推远不相关文本。
 
 其中，在标准 LLM next-token prediction 里，**NLL（Negative Log-Likelihood）和 Cross Entropy 基本可以看成同一件事的两种表述**。
-
-**4. 最该记住的整体链路**
-
-```
-Input Tokens → Transformer → Logits → Softmax → P(token)
-P(token) + Ground Truth → Cross Entropy Loss
-Loss → Backpropagation → 更新 Transformer 参数
-```
-
-最核心的一句话是：**LLM Pretraining = Next Token Prediction + Cross Entropy Loss**。面试时再顺着接到 Backpropagation、Gradient Descent / AdamW 和 Pretraining，就形成了一条完整链路。
 
 </MyQuestion>
 
@@ -491,21 +475,15 @@ logits → softmax → P(next token)
 
 Suppose the vocabulary is `cat / dog / apple`, the model predicts `[0.1, 0.7, 0.2]`, and the real next token is `dog`. The one-hot target is `y = [0, 1, 0]`: only the correct answer has a 1.
 
-```
-L = -Σ_i y_i log p_i
-```
+<Latex formula="L = -\sum_i y_i \log p_i" />
 
 `dog` is the only position where `y_i = 1`; every other term becomes zero. So this reduces to:
 
-```
-L = -ln P(dog) = -ln(0.7) ≈ 0.357
-```
+<Latex formula="L = -\ln P(\text{dog}) = -\ln(0.7) \approx 0.357" />
 
 If the model gives the correct answer `dog` only 1% probability:
 
-```
-L = -ln(0.01) ≈ 4.605
-```
+<Latex formula="L = -\ln(0.01) \approx 4.605" />
 
 The simple intuition is: **the higher the probability on the correct token, the lower the loss.** Training continually adjusts model parameters to raise that probability.
 
@@ -534,16 +512,6 @@ In production code, you normally do not manually run softmax and then cross-entr
 - **Embedding / retrieval**: contrastive loss; bring relevant text closer and push unrelated text apart.
 
 For standard LLM next-token prediction, **NLL (negative log-likelihood) and cross-entropy are effectively two ways to describe the same thing**.
-
-**4. The full chain to remember**
-
-```
-Input Tokens → Transformer → Logits → Softmax → P(token)
-P(token) + Ground Truth → Cross-Entropy Loss
-Loss → Backpropagation → update Transformer parameters
-```
-
-The key sentence is: **LLM pretraining = next-token prediction + cross-entropy loss.** From there, you can naturally continue to backpropagation, gradient descent / AdamW, and pretraining in an interview.
 
 </MyQuestion>
 

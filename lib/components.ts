@@ -2,6 +2,7 @@ import { CompaniesOverview, CompaniesTemplate } from '@/components/companies/pag
 import { Card, CardGrid } from '@/components/markdown/card'
 import { FileTree } from '@/components/markdown/filetree'
 import { File, Folder } from '@/components/markdown/filetree/component'
+import { Latex } from '@/components/markdown/latex'
 import { Route } from '@/components/markdown/link'
 import { Locale } from '@/components/markdown/locale'
 import { Mermaid } from '@/components/markdown/mermaid'
@@ -22,6 +23,7 @@ export const components = {
   Folder,
   File,
   Locale,
+  Latex,
   Mermaid,
   MyQuestion,
   Note,
