@@ -4212,6 +4212,73 @@
       },
       "createdAt": 1789435280296,
       "updatedAt": 1789435280296
+    },
+    {
+      "id": "f0a49f7c-46d1-449b-af58-f6f01825a344",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每个 token 最后都会变成一个向量（embedding），里面的数字编码了这个词的意思",
+        "prefix": "像不像」？向量就是一串数字。 Tokenization 里讲过，",
+        "suffix": "。点积：两个向量对应位置相乘，再全部加起来。[1, 2] · ["
+      },
+      "createdAt": 1789950964140,
+      "updatedAt": 1789950964140
+    },
+    {
+      "id": "6a939bca-8f18-4ee8-9fc5-caa76b52395f",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "embedding",
+        "prefix": "ventually becomes a vector (its ",
+        "suffix": "), and those numbers encode what"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "嵌入，指一个词被转换成数字向量的过程或结果，这个向量编码了词的语义信息",
+        "pos": "n.",
+        "note": "也可作动词embedding用，表示将文本转换为向量的过程"
+      },
+      "createdAt": 1789951050301,
+      "updatedAt": 1789951050301
+    },
+    {
+      "id": "f200578a-4a09-43af-ba29-31873f4f1303",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "后面 attention 的「打分」就是点积",
+        "prefix": "住这一点就够了：点积是模型用来衡量「两个向量有多相关」的工具。 ",
+        "suffix": "。点积也会受数值大小影响:方向不变，只要向量里的数整体变大，点积"
+      },
+      "createdAt": 1789951114656,
+      "updatedAt": 1789951114656
+    },
+    {
+      "id": "8cb86306-2eca-4582-b1d0-2c3d6115066b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "只要向量里的数整体变大，点积也会跟着变大",
+        "prefix": "tion 的「打分」就是点积。点积也会受数值大小影响:方向不变，",
+        "suffix": "。[2, 4] · [4, 2] = 16，是 [1, 2] ·"
+      },
+      "createdAt": 1789951172909,
+      "updatedAt": 1789951172909
+    },
+    {
+      "id": "7f3d25c3-66e1-426b-8c83-1e701de4f414",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "除以 √d_k」就是为了处理这个问题。",
+        "prefix": " [2, 1] 的 4 倍，但方向完全一样。Level 3 里「",
+        "suffix": "矩阵乘法：为什么说「线性层」就是一次矩阵乘法？矩阵是一张数字表，"
+      },
+      "createdAt": 1789951177293,
+      "updatedAt": 1789951177293
     }
   ],
   "/docs/overview": [

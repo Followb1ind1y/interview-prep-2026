@@ -236,6 +236,28 @@ worker 输出、摘要和子 agent 的消息也可能携带错误或注入内容
 
 </Note>
 
+### 一次 fan-out / fan-in 轨迹长什么样？
+
+下面三个 specialist 可并行；历史 worker 超时，政策与报价冲突时 supervisor 不投票：
+
+~~~
+t0 supervisor fan-out
+   ├── W1 quote:    return Q-817 / 10.15 / Net 45     (ok, 1.2s)
+   ├── W2 policy:   return "Net 30 required" + source (ok, 1.8s)
+   └── W3 history:  TIMEOUT after 8s                 (optional evidence)
+
+t1 supervisor reconcile
+   - quote + policy conflict on payment → blocker, not draft
+   - history missing → note "no approved Net 45 exception found in budget"
+   - do NOT majority-vote "history might have allowed it"
+
+t2 terminal
+   controlled failure / handoff: need user approval for Net 45 exception
+   shared budget remaining: 2 steps; cancel any late history retry
+~~~
+
+**共享预算**按 task 记账，不让每个 worker 各自花光全额。**Straggler**（最慢的那个）若只提供可选证据，应设软超时后继续；若提供关键路径证据，才阻塞。**部分失败**时，能独立完成的分支继续，缺证据写进终态，而不是整单重跑。
+
 ## Level 3 · 先证明拆分值得：评测系统而不是欣赏架构图
 
 ### 怎样和单 agent 做公平比较？
@@ -248,6 +270,17 @@ worker 输出、摘要和子 agent 的消息也可能携带错误或注入内容
 - 是否发生越权、跨 scope 泄露或未经验证的写入。
 
 只有并行的独立探索确实提高成功率或缩短关键路径，且收益抵消协调成本，才保留 multi-agent。否则将 worker 合并回单 agent，或改为固定 workflow。
+
+教学量感（示意）：单 agent baseline 完成率 82%、P95 45s、每成功任务 $0.40；三 worker 方案完成率 88%、P95 38s、成本 $0.95，但协调失败率从 3% 升到 11%。若产品更在意正确终态且能接受成本，可以保留；若延迟改善不足以抵消协调事故，就该合并。
+
+<Note title="自测：到这里你应该能回答">
+
+- 和单 agent 公平比较时，哪些变量必须固定？
+- 上面示意数字里，什么情况下你会拒绝 multi-agent？
+- handoff 丢失率和冲突率分别在测什么？
+- 为什么架构图漂亮不能当作上线理由？
+
+</Note>
 
 ## 陷阱
 
@@ -318,6 +351,28 @@ Worker output, summaries, and subagent messages can contain error or injected co
 
 </Note>
 
+### What does one fan-out / fan-in trajectory look like?
+
+Three specialists may run in parallel. History times out; when policy and quote conflict, the supervisor does not vote:
+
+~~~
+t0 supervisor fan-out
+   ├── W1 quote:    return Q-817 / 10.15 / Net 45     (ok, 1.2s)
+   ├── W2 policy:   return "Net 30 required" + source (ok, 1.8s)
+   └── W3 history:  TIMEOUT after 8s                 (optional evidence)
+
+t1 supervisor reconcile
+   - quote + policy conflict on payment → blocker, not draft
+   - history missing → note "no approved Net 45 exception found in budget"
+   - do NOT majority-vote "history might have allowed it"
+
+t2 terminal
+   controlled failure / handoff: need user approval for Net 45 exception
+   shared budget remaining: 2 steps; cancel any late history retry
+~~~
+
+**Shared budget** is accounted per task so each worker cannot spend the whole allowance. A **straggler** that only supplies optional evidence gets a soft timeout and work continues; only critical-path evidence blocks. On **partial failure**, finish independent branches and record the evidence gap in the terminal state instead of rerunning the whole job.
+
 ## Level 3 · Prove splitting is worthwhile: evaluate a system, not an architecture diagram
 
 ### How do you compare fairly with one agent?
@@ -330,6 +385,17 @@ Use the same fixed task set and authority for a single agent, workflow, and mult
 - unauthorized action, cross-scope leakage, or unverified writes.
 
 Keep multi-agent only when parallel independent exploration improves success or critical path enough to pay for coordination. Otherwise merge workers back into one agent or a fixed workflow.
+
+Teaching-scale numbers: single-agent baseline 82% completion, P95 45s, $0.40 per success; three-worker design 88% completion, P95 38s, $0.95 cost, but coordination failures rise from 3% to 11%. Keep it if correct terminal state matters more than spend; reject it if latency gains do not pay for coordination incidents.
+
+<Note title="Self-check: you should now be able to answer">
+
+- Which variables must stay fixed in a fair single-agent comparison?
+- Given the teaching numbers above, when would you reject multi-agent?
+- What do handoff-loss rate and conflict rate each measure?
+- Why is a pretty architecture diagram not a launch reason?
+
+</Note>
 
 ## Traps
 

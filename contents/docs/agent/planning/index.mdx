@@ -360,11 +360,32 @@ budget, elapsed time, approvals, and terminal-state rules
 
 每个 milestone 完成后更新 checkpoint；原始大工具结果保留在可查询外部存储，通过 identifier 按需取回。这样下一次模型推理能理解“已做到哪里、依据什么、下一步是什么”，又不会被过期中间文本压垮。
 
+局部重规划时，状态对象可以像这样差分，而不是整页重写：
+
+~~~
+plan_version: 1 → 2
+invalidated: [create_draft]   # Net 45 failed policy
+kept: [quote Q-817 verified]
+added: [request_exception_or_renegotiate_payment]
+evidence: policy_id=P-Net30, checked_at=...
+~~~
+
+依赖图也要画出来：`read_quote → read_policy → create_draft` 是串行关键路径；“查三份独立历史材料”才是可并行边。不要把名字不同的步骤都当成可并行。
+
 ### 如何避免长程计划悄悄偏离目标？
 
 设定 checkpoint gate：每隔若干重要 action、每次 context compaction、每次准备写外部状态前，都把当前事实重新对照 goal、acceptance 和预算。若任务持续没有新证据、预算接近上限或需要未知权限，就生成明确 handoff，而不是继续探索。
 
 长程任务的可靠性来自持续的状态维护和外部验证，不来自一开始写得更长的 plan。对于可拆分的独立研究，还可让子任务各自在干净 context 中工作，只把经过验证的摘要交回主计划。
+
+<Note title="自测：到这里你应该能回答">
+
+- checkpoint 最少保留哪些字段？为什么不能只保留聊天摘要？
+- plan v1 → v2 的 diff 里，什么该 keep、什么该 invalidate？
+- 哪条依赖边可以并行，哪条必须串行？
+- context compaction 前后怎样防止目标漂移？
+
+</Note>
 
 ## 陷阱
 
@@ -543,6 +564,15 @@ Update the checkpoint after meaningful milestones. Keep large raw results in que
 ### How do you prevent silent goal drift?
 
 At significant actions, context compaction, and before writes, compare state against goal, acceptance, and budget. When no new evidence arrives, budget runs low, or unknown authority is required, create an explicit handoff rather than explore indefinitely. Independent subproblems may also work in clean contexts and return only verified summaries to the main plan.
+
+<Note title="Self-check: you should now be able to answer">
+
+- Which fields must a checkpoint keep, and why is a chat summary alone insufficient?
+- In a plan v1 → v2 diff, what should be kept versus invalidated?
+- Which dependency edges may run in parallel, and which must stay serial?
+- How do you prevent goal drift across context compaction?
+
+</Note>
 
 ## Traps
 

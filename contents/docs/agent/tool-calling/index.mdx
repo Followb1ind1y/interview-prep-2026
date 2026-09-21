@@ -24,7 +24,8 @@ Tool calling 是模型请求应用调用外部能力的协议，不是模型自�
 | Level 0 · 请求不是执行 | function calling、schema、tool result 分别是什么？schema 能保证什么、不能保证什么？ | 25 min |
 | Level 1 · 一次安全调用 | 从工具定义到 call id、执行结果再回到模型，数据怎样流动？ | 35 min |
 | Level 2 · 写操作的防线 | 为什么 JSON 合法仍不够？校验、授权、幂等、超时和 retry 怎么协作？ | 40 min |
-| Level 3 · 工具作为产品接口 | 怎样设计工具、观测失败、控制工具数量，并用评测改进？ | 30 min |
+| Level 3 · 协议轨迹与边界 | 消息角色、并行乱序、MCP / computer use 边界是什么？ | 30 min |
+| Level 4 · 工具作为产品接口 | 怎样设计工具、观测失败、控制工具数量，并用评测改进？ | 30 min |
 
 先读 [Agent Loop](/docs/agent/loop)：本页默认你已经理解 result → state → next context。贯穿例子里的金额和报价编号是教学数据，不是价格策略。
 
@@ -33,9 +34,10 @@ Tool calling 是模型请求应用调用外部能力的协议，不是模型自�
 - function / tool calling 是模型选择并填充调用请求，不是模型直接执行 API
 - 工具定义的 name、description、JSON Schema 与业务规则分别约束什么
 - 区分 JSON 可解析、schema 有效、业务语义有效、已授权四层检查
-- 用 call id 将某个 tool result 准确关联回其请求
+- 用 call id 将某个 tool result 准确关联回其请求；并行乱序时仍靠 id 对齐
 - 为写操作设计幂等键，解释“超时后结果未知”为什么不能盲目 retry
 - 按错误类型决定修复参数、有限重试、降级、人工接管或停止
+- 分清 function calling、MCP 与 computer use：协议 / 连接 / GUI 自动化各管一层
 
 </Locale>
 
@@ -52,7 +54,8 @@ This page continues the Acme procurement-negotiation assistant. It first reads t
 | Level 0 · A request is not execution | What are function calling, a schema, and a tool result? What can a schema guarantee, and what can it not? | 25 min |
 | Level 1 · One safe call | How does data move from tool definition to call id, execution result, and back to the model? | 35 min |
 | Level 2 · Defenses for writes | Why is valid JSON still insufficient? How do validation, authorization, idempotency, timeouts, and retries work together? | 40 min |
-| Level 3 · Tools as product interfaces | How do you design tools, observe failures, control tool count, and improve them with evals? | 30 min |
+| Level 3 · Protocol trajectory and boundaries | What are message roles, out-of-order parallelism, and MCP / computer-use boundaries? | 30 min |
+| Level 4 · Tools as product interfaces | How do you design tools, observe failures, control tool count, and improve them with evals? | 30 min |
 
 Read [Agent Loop](/docs/agent/loop) first: this page assumes that you understand result → state → next context. Amounts and quote identifiers in the running example are teaching data, not pricing policy.
 
@@ -61,9 +64,10 @@ Read [Agent Loop](/docs/agent/loop) first: this page assumes that you understand
 - function / tool calling means the model selects and fills a request; it does not execute an API
 - what a tool name, description, JSON Schema, and business rule each constrain
 - the difference between parseable JSON, schema validity, business-semantic validity, and authorization
-- how a call id attaches one tool result to the correct request
+- how a call id attaches one tool result to the correct request, including out-of-order parallel results
 - how to design idempotency keys for writes, and why an unknown timeout outcome must not be blindly retried
 - how error type determines parameter repair, bounded retry, fallback, human handoff, or stop
+- the boundary among function calling, MCP, and computer use
 
 </Locale>
 
@@ -367,7 +371,115 @@ For each tool, define whether it is retryable, its maximum attempts, timeout, wh
 
 <Locale lang="zh">
 
-## Level 3 · 工具作为产品接口：少而清晰，可观测且可评测
+## Level 3 · 协议轨迹与边界：消息怎么走，MCP / computer use 放哪
+
+### 一轮真实的 wire transcript 长什么样？
+
+下面用消息角色把“请求 → 结果 → 再决策”写清楚。注意：tool result 必须带回 call_id；并行时结果顺序可以乱，但对齐靠 id。
+
+~~~
+user: Check Acme quote; create draft only if price ≤ 10.20 and Net 30.
+
+assistant (tool_calls):
+  call_42 get_latest_quote({ "vendor": "Acme" })
+  call_43 get_negotiation_policy({ "vendor": "Acme", "topic": "payment" })
+      ↑ independent reads; harness may run in parallel
+
+tool (call_43): { "ok": true, "data": { "payment": "Net 30 required" } }
+tool (call_42): { "ok": true, "data": { "quote_id": "Q-817", "unit_price": 10.15, "payment_terms": "Net 45" } }
+      ↑ results arrived out of order; call_id still binds each result
+
+assistant (tool_calls):
+  # policy fails on Net 45 → do NOT create draft
+  (final) "Price passes, payment fails Net 30 policy; need approval or renegotiate terms."
+~~~
+
+若模型同时请求了 `create_counteroffer_draft`，harness 仍应拒绝或串行化到两个只读结果之后，并在写前重验当前报价。**并行是 harness 的调度决策，不是模型 JSON 的自动放行。**
+
+### Function calling、MCP、computer use 差在哪？
+
+| | Function calling | MCP | Computer use |
+| --- | --- | --- | --- |
+| 主要问题 | 模型如何结构化请求一个已知工具 | 应用如何发现 / 连接远程工具与资源 | 如何操作没有 API 的 GUI |
+| 合同 | JSON Schema + call / result 消息 | host–client–server 协议 | 截图 / DOM / 键鼠动作 |
+| 授权 | 仍由 harness + 下游服务负责 | 协议不替代 policy；server 输出不可信 | 更依赖 sandbox、确认与人工监督 |
+
+一句话：**function calling 是模型侧接口；MCP 是工具侧连接协议；computer use 是脆弱的最后手段。** 三者都可以出现在同一产品里，但权限、超时、幂等和结果规范化仍由 harness 统一落地。细节见 [MCP](/docs/ai-native/mcp)。
+
+<Note title="面试加分：tool-choice 与 strict schema" type="tip">
+
+生产里常配合 `tool_choice`（强制 / 禁止 / 自动选工具）和严格 schema 模式，降低“该调工具却闲聊”或“参数类型飘”的概率。它们提高格式可靠性，仍不能代替业务校验与授权。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+- 并行两个 tool call 时，为什么 result 乱序仍然安全？
+- 模型一次请求了读写混合的多个 call，harness 该怎么做？
+- MCP 解决了什么，故意没解决什么？
+- 什么情况下才考虑 computer use，而不是新做一个 API 工具？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Protocol trajectory and boundaries: how messages flow, where MCP and computer use sit
+
+### What does a real wire transcript look like?
+
+The message roles below make “request → result → next decision” explicit. Tool results must return call_id. Parallel results may arrive out of order; alignment still uses the id.
+
+~~~
+user: Check Acme quote; create draft only if price ≤ 10.20 and Net 30.
+
+assistant (tool_calls):
+  call_42 get_latest_quote({ "vendor": "Acme" })
+  call_43 get_negotiation_policy({ "vendor": "Acme", "topic": "payment" })
+      ↑ independent reads; harness may run them in parallel
+
+tool (call_43): { "ok": true, "data": { "payment": "Net 30 required" } }
+tool (call_42): { "ok": true, "data": { "quote_id": "Q-817", "unit_price": 10.15, "payment_terms": "Net 45" } }
+      ↑ out-of-order results; call_id still binds each one
+
+assistant (tool_calls):
+  # policy fails on Net 45 → do NOT create draft
+  (final) "Price passes, payment fails Net 30 policy; need approval or renegotiate terms."
+~~~
+
+If the model also requested `create_counteroffer_draft`, the harness should still deny it or serialize it after both reads, then revalidate the live quote before writing. **Parallelism is a harness scheduling decision, not automatic permission from model JSON.**
+
+### How do function calling, MCP, and computer use differ?
+
+| | Function calling | MCP | Computer use |
+| --- | --- | --- | --- |
+| Primary question | how the model structuredly requests a known tool | how an app discovers / connects remote tools and resources | how to operate a GUI without an API |
+| Contract | JSON Schema plus call / result messages | host–client–server protocol | screenshot / DOM / keyboard-mouse actions |
+| Authorization | still owned by harness and downstream services | protocol does not replace policy; server output is untrusted | depends more on sandbox, confirmation, and human oversight |
+
+One line: **function calling is the model-side interface; MCP is the tool-connection protocol; computer use is a fragile last resort.** A product may use all three, but permission, timeout, idempotency, and normalized results still land in one harness. Details: [MCP](/docs/ai-native/mcp).
+
+<Note title="Interview bonus: tool-choice and strict schema" type="tip">
+
+Production systems often combine `tool_choice` (force / forbid / auto) with strict schema modes to reduce “should have called a tool but chatted” or drifting argument types. They improve format reliability; they still do not replace business validation or authorization.
+
+</Note>
+
+<Note title="Self-check: you should now be able to answer">
+
+- Why are out-of-order parallel tool results still safe?
+- If one model turn mixes read and write calls, what should the harness do?
+- What does MCP solve, and what does it deliberately not solve?
+- When would you consider computer use instead of a new API tool?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 工具作为产品接口：少而清晰，可观测且可评测
 
 ### 怎样让模型更容易选对工具？
 
@@ -382,6 +494,15 @@ create_counteroffer_draft 比含 operation 选择项的万能工具更安全、�
 每次调用至少记录：任务 / agent 版本、工具与规范化参数（敏感字段脱敏）、call id、校验结果、重试次数、耗时、结果码、是否副作用成功，以及最后任务是否达成。这样一次“没创建草稿”才可以定位为选择错工具、参数错、政策拒绝、权限拒绝、下游慢，还是模型没正确利用结果。
 
 评测不只检查最终回答。为模拟工具环境准备固定场景：过期报价、同名供应商、已存在草稿、权限不足、timeout 后已成功、注入在工具结果里等；分别评估选择、参数、是否阻断写入、最终业务状态与成本。真实生产的工具接口要像产品 API 一样有 contract test 和版本管理。
+
+<Note title="自测：到这里你应该能回答">
+
+- 为什么窄工具比万能 CRUD 工具更安全、更好选？
+- trace 里哪几个字段能区分“选错工具”和“权限拒绝”？
+- 工具集太大时，你怎样降低选择错误率？
+- 评测 tool calling 时，为什么最终自然语言不够？
+
+</Note>
 
 ## 陷阱
 
@@ -412,7 +533,7 @@ Security：least privilege、approval、untrusted tool output
 
 - 前置：[Structured Output](/docs/application/structured-output) —— schema 解决“输出形状”，不是“业务正确性”。
 - 下一页：[ReAct](/docs/agent/react) —— 为什么 observation 回来后，下一轮决策会改变。
-- 生产边界：[Reliability](/docs/agent/reliability) 与 [Security](/docs/agent/security)。
+- 生产边界：[Reliability](/docs/agent/reliability) 与 [Security](/docs/agent/security)；协议层见 [MCP](/docs/ai-native/mcp)。
 
 ## 面试问题
 
@@ -434,7 +555,12 @@ Security：least privilege、approval、untrusted tool output
 2. 怎样区分模型修复和系统 retry？（How do you distinguish model repair from system retry?）
 3. 400、403、429、5xx 和 timeout 分别怎么处理？（How would you handle 400, 403, 429, 5xx, and timeout?）
 
-### Level 3 · 工具设计
+### Level 3 · 协议与边界
+
+1. 画出一轮含并行 tool call 的消息轨迹。（Draw one turn with parallel tool calls as a message transcript.）
+2. Function calling、MCP、computer use 各解决什么？（What do function calling, MCP, and computer use each solve?）
+
+### Level 4 · 工具设计
 
 1. 怎样设计一个好工具，而不是万能 CRUD 工具？（How do you design a good tool rather than a universal CRUD tool?）
 2. 你会记录哪些 trace 字段来排查失败？（Which trace fields would you record to debug failures?）
@@ -446,7 +572,7 @@ Security：least privilege、approval、untrusted tool output
 
 <Locale lang="en">
 
-## Level 3 · Tools as product interfaces: narrow, observable, and evaluable
+## Level 4 · Tools as product interfaces: narrow, observable, and evaluable
 
 ### How do you make correct tool selection easier for a model?
 
@@ -461,6 +587,15 @@ More tools consume context through definitions and results, and make the right c
 For every call, record at least task / agent version, tool plus normalized arguments with sensitive data redacted, call id, validation outcome, retries, latency, result code, whether a side effect succeeded, and final task outcome. Then “no draft was created” can be localized to wrong selection, bad arguments, policy denial, authorization denial, a slow dependency, or failure to use a result.
 
 Evals should not inspect only final wording. Build fixed simulated-tool scenarios: an expired quote, same-name vendors, an existing draft, insufficient authority, a timeout that actually succeeded, and injection text in a tool result. Score selection, arguments, whether a write was blocked, final business state, and cost. A production tool interface needs contract tests and versioning like any product API.
+
+<Note title="Self-check: you should now be able to answer">
+
+- Why is a narrow tool safer and easier to select than universal CRUD?
+- Which trace fields separate “wrong tool” from “permission denied”?
+- How do you reduce selection error when the tool set is large?
+- Why is final natural language insufficient when evaluating tool calling?
+
+</Note>
 
 ## Traps
 
@@ -491,7 +626,7 @@ Security: least privilege, approval, untrusted tool output
 
 - Prerequisite: [Structured Output](/docs/application/structured-output) — a schema solves output shape, not business correctness.
 - Next: [ReAct](/docs/agent/react) — why the next decision changes after an observation returns.
-- Production boundaries: [Reliability](/docs/agent/reliability) and [Security](/docs/agent/security).
+- Production boundaries: [Reliability](/docs/agent/reliability) and [Security](/docs/agent/security); protocol layer in [MCP](/docs/ai-native/mcp).
 
 ## Interview questions
 
@@ -513,7 +648,12 @@ Security: least privilege, approval, untrusted tool output
 2. How do you distinguish model repair from system retry?
 3. How would you handle 400, 403, 429, 5xx, and timeout?
 
-### Level 3 · Tool design
+### Level 3 · Protocol and boundaries
+
+1. Draw one turn with parallel tool calls as a message transcript.
+2. What do function calling, MCP, and computer use each solve?
+
+### Level 4 · Tool design
 
 1. How do you design a good tool rather than a universal CRUD tool?
 2. Which trace fields would you record to debug failures?

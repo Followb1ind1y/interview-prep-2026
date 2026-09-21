@@ -249,6 +249,42 @@ agent 的输出应该是提案、结构化候选参数或澄清问题，而不�
 
 这样架构选择从个人偏好变成可复盘的产品决策。上线后也保留 routing、agent 版本、工具调用、gate 拒绝原因和最终结果；否则无法发现模型升级是否让“灵活性”变成了回归。
 
+### 三个架构判断案例（逐维结论）
+
+| 场景 | 路径可枚举？ | 结果可验证？ | 副作用风险 | 结论 |
+| --- | --- | --- | --- | --- |
+| A. 每晚把过期报价标为 expired | 是 | 是（DB 状态） | 低（字段更新） | **纯 workflow** |
+| B. 解读非标准供应商邮件并起草回复 | 否 | 部分（政策可验证，语气需人审） | 中（误发承诺） | **agent 理解 + workflow 校验 + 人工发送** |
+| C. 根据测试失败自动改代码直到绿 | 否 | 是（测试门） | 高（改生产？） | **受限 coding agent + 测试 gate + 禁止直接部署** |
+
+案例 B 的 hybrid 分界：agent 可检索政策、提出草稿参数；workflow 校验金额与 Net 条款；发送必须人工批准。案例 C 说明“路径不确定但结果可验证”仍可上 agent，前提是验证门足够硬。
+
+### 一组 baseline 数字怎样证明“该不该上 agent”？
+
+用同一 50 封邮件集比较：
+
+~~~
+workflow-only router:
+  correct business state 76% | human handoff 18% | P95 8s | $0.05/task
+
+hybrid agent + gates:
+  correct business state 91% | human handoff 9%  | P95 42s | $0.55/task
+~~~
+
+若产品瓶颈是错误业务状态，hybrid 值得；若 SLA 要求 10 秒内响应且多数邮件落在固定类别，先把 router / workflow 做好。数字是教学示意——面试里要能说出**你自己会测的指标**，而不是背框架名。
+
+
+**Durable workflow 与 agent 不是互斥。** 编排层可以用确定性状态机 / 队列保证重试与审计，只在某个节点调用受限 agent 做开放理解；agent 的输出再回到 workflow gate。控制流的“骨架”仍是 workflow，模型只拥有被圈出的决策窗口。
+
+<Note title="自测：到这里你应该能回答">
+
+- 案例 A/B/C 为什么分别得出不同架构？
+- 上面示意数字里，什么 SLA 会让你退回 workflow-only？
+- durable workflow 里嵌一个 agent 节点时，谁拥有重试与审计？
+- hybrid 中 agent 的输出为什么必须是提案而不是直接执行？
+
+</Note>
+
 ## 陷阱
 
 <Note title="LLM workflow 也需要工程治理" type="warning">
@@ -328,6 +364,42 @@ The agent should emit a proposal, structured candidate parameters, or a clarific
 Let both designs compete on the same fixed cases: normal email, missing information, conflicting policy, boundary price, hostile text, and tool timeout. Measure final business state, human-handoff rate, erroneous side effects, P95 latency, and cost per completed task. Retain the agent only when improvement on the metrics that matter offsets its cost.
 
 This turns architecture selection from personal preference into a reviewable product decision. In production, retain routing choice, agent version, tool calls, gate rejection reason, and outcome; otherwise a model upgrade can turn “flexibility” into an invisible regression.
+
+### Three architecture decisions (dimension by dimension)
+
+| Scenario | Path enumerable? | Outcome verifiable? | Side-effect risk | Decision |
+| --- | --- | --- | --- | --- |
+| A. Nightly mark expired quotes | yes | yes (DB state) | low (field update) | **pure workflow** |
+| B. Interpret nonstandard vendor email and draft a reply | no | partial (policy verifiable; tone needs review) | medium (wrong commitment) | **agent interprets + workflow validates + human sends** |
+| C. Patch code from failing tests until green | no | yes (test gate) | high (prod changes?) | **bounded coding agent + test gate + no direct deploy** |
+
+In B, the hybrid boundary is: agent may retrieve policy and propose draft parameters; workflow validates amounts and Net terms; send requires human approval. C shows that an uncertain path with a hard verification gate can still warrant an agent.
+
+### How do baseline numbers prove whether an agent is warranted?
+
+Compare the same 50-email set:
+
+~~~
+workflow-only router:
+  correct business state 76% | human handoff 18% | P95 8s | $0.05/task
+
+hybrid agent + gates:
+  correct business state 91% | human handoff 9%  | P95 42s | $0.55/task
+~~~
+
+If the product bottleneck is wrong business state, hybrid is worth it. If SLA demands sub-10s responses and most mail falls in fixed classes, finish the router / workflow first. Numbers are teaching-scale — in an interview, name **the metrics you would measure**, not a framework brand.
+
+
+**Durable workflow and agent are not mutually exclusive.** An orchestration layer can keep retries and audit in a deterministic state machine / queue, and invoke a bounded agent only at a node that needs open interpretation; agent output then returns to a workflow gate. The skeleton of control flow remains workflow; the model owns only the circled decision window.
+
+<Note title="Self-check: you should now be able to answer">
+
+- Why do cases A/B/C yield different architectures?
+- Which SLA in the teaching numbers would push you back to workflow-only?
+- When a durable workflow embeds an agent node, who owns retry and audit?
+- In a hybrid, why must agent output be a proposal rather than direct execution?
+
+</Note>
 
 ## Traps
 

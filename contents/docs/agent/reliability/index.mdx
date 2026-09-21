@@ -24,7 +24,8 @@ mastery: { talk: 0, probe: 0 }
 | Level 0 · 可靠到底指什么 | 成功、失败、未知三种终态如何定义？ | 25 min |
 | Level 1 · 硬边界与进展 | step、time、token、cost、权限怎样共同阻止空转？ | 35 min |
 | Level 2 · 失败如何分类恢复 | 参数错、权限拒绝、暂时故障、timeout、下游熔断各怎么处理？ | 40 min |
-| Level 3 · 可靠性怎样被证明 | trace、故障注入、SLO 和人工接管怎样组成闭环？ | 35 min |
+| Level 3 · 崩溃后怎样接上 | checkpoint、replay、at-least-once 与幂等如何配合？ | 35 min |
+| Level 4 · 可靠性怎样被证明 | concurrent 副作用、trace、故障注入、SLO 怎样组成闭环？ | 40 min |
 
 ## 需要掌握
 
@@ -32,6 +33,8 @@ mastery: { talk: 0, probe: 0 }
 - 最大步骤、deadline、token / dollar budget、权限与批准是不同的硬边界
 - 区分模型修复、工具 retry、fallback、circuit breaker 与 human handoff
 - timeout 的语义是“结果未知”，写操作必须先查幂等状态
+- 进程崩溃后靠 durable checkpoint + 幂等重放恢复，而不是“让模型从头再猜一遍”
+- 并发 worker / 重复提交用条件写、锁或业务唯一键防 race；高风险写失败时要有补偿或人工接管
 - 评测完整 trajectory 和业务状态，而非只评最终自然语言
 
 </Locale>
@@ -49,7 +52,8 @@ The Acme draft can be created only after quote and policy pass. If a tool times 
 | Level 0 · What does reliable mean? | How do you define success, failure, and unknown terminal states? | 25 min |
 | Level 1 · Hard boundaries and progress | How do steps, time, tokens, cost, authority, and approval prevent spinning? | 35 min |
 | Level 2 · Classify and recover from failure | How do parameter error, permission denial, transient fault, timeout, and circuit breaking differ? | 40 min |
-| Level 3 · How do you prove reliability? | How do traces, fault injection, SLOs, and human handoff close the loop? | 35 min |
+| Level 3 · How do you resume after a crash? | How do checkpoint, replay, at-least-once delivery, and idempotency work together? | 35 min |
+| Level 4 · How do you prove reliability? | How do concurrent side effects, traces, fault injection, and SLOs close the loop? | 40 min |
 
 ## Must know
 
@@ -57,6 +61,8 @@ The Acme draft can be created only after quote and policy pass. If a tool times 
 - maximum steps, deadline, token or dollar budget, authority, and approval are distinct hard boundaries
 - distinguish model repair, tool retry, fallback, circuit breaker, and human handoff
 - a timeout means outcome is unknown; writes must first check idempotent state
+- after process crash, resume from a durable checkpoint with idempotent replay — do not ask the model to “start over from memory”
+- concurrent workers and duplicate submits need conditional writes, locks, or business unique keys; high-impact write failures need compensation or human handoff
 - evaluate full trajectories and business state, not only final natural language
 
 </Locale>
@@ -261,7 +267,143 @@ When one dependency fails repeatedly in a time window, a circuit breaker pauses 
 
 <Locale lang="zh">
 
-## Level 3 · 可靠性怎样被证明：从 trace 到故障注入与 SLO
+## Level 3 · 崩溃后怎样接上：checkpoint、replay 与 at-least-once
+
+### 为什么“进程挂了再开一轮对话”不够？
+
+生产 agent 可能跑在 serverless 函数、容器或本地 IDE 里。任意一步都可能因 OOM、部署、网络或人工中断而消失。如果状态只活在进程内存或模型上下文里，恢复时只能让用户重说一遍，或者让模型根据残缺聊天记录再猜——两者都会重复写副作用、丢失验收进度。
+
+**Durable execution** 的意思是：把任务状态写到进程外的存储，使新进程能从明确的 checkpoint 继续。对 Acme 草稿任务，最低限度要持久化：
+
+~~~
+task_id, goal, acceptance, plan_version
+verified facts: quote_id, policy_id, freshness
+pending / completed tool calls with call_id and idempotency key
+budgets remaining, approval status, terminal state
+~~~
+
+恢复时 harness 先读 checkpoint，再决定“已经完成的工具不重做”“结果未知的写操作先查幂等”“还没做的下一步才交给模型”。模型负责决策，不负责记住自己是否已经写过库。
+
+### at-least-once 和 exactly-once 在面试里怎么说？
+
+多数消息队列和重放机制实际是 **at-least-once**：同一写请求可能被送达两次。系统无法凭空保证“全世界只执行一次”，只能用业务层幂等逼近 **effectively once**：
+
+1. 客户端 / harness 生成稳定的 idempotency key（绑定 task_id、quote_id、动作类型）；
+2. 下游按 key 做唯一约束或条件写；
+3. 重放时若 key 已成功，返回同一结果，而不是再插一行。
+
+面试里说“我们做了 exactly-once”通常会被追问实现。更稳妥的说法是：**传输至少一次，业务效果靠幂等变成一次。**
+
+### 一次 crash 后的恢复轨迹长什么样？
+
+~~~
+t0  create_counteroffer_draft(call_71, key=draft:case-9:Q-817) → timeout
+t1  process crash before tool result is appended to model context
+t2  new worker loads checkpoint: call_71 status = UNKNOWN
+t3  harness queries draft by idempotency key → draft D-441 already exists
+t4  observation returned as SUCCESS with draft_id=D-441 (no second insert)
+t5  model continues from verified draft, not from a guessed retry
+~~~
+
+如果第 3 步查不到记录，才允许在预算内有限重试；若仍未知，进入 controlled failure 或人工接管，而不是第三、第四次盲写。
+
+<Note title="Checkpoint 不是聊天日志全量落盘" type="tip">
+
+全量消息重放会又贵又难审计。持久化的是**可恢复的任务状态与工具证据**；长文本 observation 可以压缩，但 quote_id、policy_id、幂等结果和验收距离不能丢。压缩细节见 [Memory](/docs/agent/memory) 与 [AI-Native Compaction](/docs/ai-native/compaction)。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+- 崩溃恢复时，为什么不能只把旧 transcript 塞回模型？
+- Acme 草稿的 checkpoint 最少应包含哪些字段？
+- at-least-once 如何与 idempotency key 一起变成 effectively once？
+- write timeout 后 crash，恢复的第一步查什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · How do you resume after a crash: checkpoint, replay, and at-least-once
+
+### Why is “start another chat after the process dies” insufficient?
+
+A production agent may run in a serverless function, container, or local IDE. Any step can vanish from OOM, deploy, network loss, or human interrupt. If state lives only in process memory or model context, recovery forces the user to repeat work or asks the model to guess from a partial transcript — both duplicate side effects and lose acceptance progress.
+
+**Durable execution** means writing task state outside the process so a new worker can continue from an explicit checkpoint. For an Acme draft, persist at least:
+
+~~~
+task_id, goal, acceptance, plan_version
+verified facts: quote_id, policy_id, freshness
+pending / completed tool calls with call_id and idempotency key
+budgets remaining, approval status, terminal state
+~~~
+
+On resume the harness reads the checkpoint first, then decides: completed tools are not redone; writes with unknown outcome are checked for idempotency; only unfinished next steps go to the model. The model decides; it does not remember whether it already wrote to the database.
+
+### How should you talk about at-least-once versus exactly-once in an interview?
+
+Most queues and replay paths are **at-least-once**: the same write may be delivered twice. You cannot invent a guarantee that “the world executes once.” You approximate **effectively once** with business idempotency:
+
+1. client / harness mint a stable idempotency key bound to task_id, quote_id, and action type;
+2. downstream enforces uniqueness or a conditional write on that key;
+3. replay of a successful key returns the same result instead of inserting again.
+
+Saying “we have exactly-once” usually invites a follow-up. Safer wording: **transport is at least once; business effect becomes once through idempotency.**
+
+### What does one post-crash recovery trajectory look like?
+
+~~~
+t0  create_counteroffer_draft(call_71, key=draft:case-9:Q-817) → timeout
+t1  process crash before the tool result is appended to model context
+t2  new worker loads checkpoint: call_71 status = UNKNOWN
+t3  harness queries draft by idempotency key → draft D-441 already exists
+t4  observation returned as SUCCESS with draft_id=D-441 (no second insert)
+t5  model continues from the verified draft, not from a guessed retry
+~~~
+
+Only if step 3 finds nothing may you retry within budget. If outcome remains unknown, enter controlled failure or human handoff — not a third or fourth blind write.
+
+<Note title="A checkpoint is not a full chat dump" type="tip">
+
+Replaying every message is expensive and hard to audit. Persist **recoverable task state and tool evidence**. Long observations may be compacted, but quote_id, policy_id, idempotent outcomes, and distance to acceptance must survive. See [Memory](/docs/agent/memory) and [AI-Native Compaction](/docs/ai-native/compaction).
+
+</Note>
+
+<Note title="Self-check: you should now be able to answer">
+
+- Why is stuffing the old transcript back into the model not enough after a crash?
+- Which fields must an Acme draft checkpoint contain at minimum?
+- How do at-least-once delivery and an idempotency key become effectively once?
+- After a write timeout then crash, what do you query first on resume?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 可靠性怎样被证明：并发、trace、故障注入与 SLO
+
+### 并发与副作用：两个 worker 抢同一个草稿怎么办？
+
+可靠性不只是单线程 retry。常见事故是两个 agent worker、一次用户双击、或 timeout 后的重放，同时对同一 case 发起创建草稿：
+
+~~~
+Worker A: read quote Q-817 → create draft with key=draft:case-9:Q-817
+Worker B: read quote Q-817 → create draft with same key a few ms later
+~~~
+
+没有业务唯一键时会出现两份 review_required 草稿，审核人不知道哪份有效。正确做法是：
+
+- **唯一约束 / 条件写**：`(case_id, quote_id, action)` 或显式 idempotency key 在数据库层互斥；
+- **乐观锁**：写前带 `expected_version`，冲突则返回当前真相给模型，而不是静默覆盖；
+- **取消与 deadline 传播**：父任务超时或用户取消时，未完成的子工具调用也必须停止，避免“主任务已失败、子写入仍成功”；
+- **补偿（compensation）**：若已发出不可幂等副作用（例如误发邮件），用明确的反操作或人工 runbook，而不是再让模型“试着撤回”。
+
+不要用“加一把全局大锁”当默认方案：它会把吞吐压成单点。优先让副作用本身可幂等，再用窄范围锁保护真正的竞态窗口。
 
 ### trace 最少记录什么？
 
@@ -269,9 +411,20 @@ When one dependency fails repeatedly in a time window, a circuit breaker pauses 
 
 ### 怎样在上线前和上线后验证？
 
-离线用固定模拟环境故障注入：过期报价、权限拒绝、政策更新、重复写请求、read / write timeout、下游 429、注入文本。检查 acceptance、错误副作用、未知结果处理、步骤数和成本。上线后监控任务成功率、正确业务终态率、P95 / P99 延迟、每成功任务成本、重试率、stuck rate、fallback 率和人工接管率，并为异常趋势设告警与 runbook。
+离线用固定模拟环境故障注入：过期报价、权限拒绝、政策更新、重复写请求、read / write timeout、下游 429、进程中途 kill、双 worker 竞态、注入文本。检查 acceptance、错误副作用、未知结果处理、步骤数和成本。上线后监控任务成功率、正确业务终态率、P95 / P99 延迟、每成功任务成本、重试率、stuck rate、fallback 率和人工接管率，并为异常趋势设告警与 runbook。
+
+量感参考（教学数字，不是行业标准）：一个 Acme 草稿任务若平均 4 次工具调用、每次模型回合约 3k input + 0.4k output token，在中等价模型上大约是数十美分到一两美元量级；P95 目标常落在 30–90 秒，取决于下游。若加两轮盲目 retry 就把成本和延迟近似翻倍——所以预算和 circuit breaker 是产品指标，不只是工程洁癖。
 
 SLO 不应只写“模型可用率”。例如“95% 可自动完成的草稿任务在 90 秒内到达正确终态；高风险写入 100% 经过 server-side 验证；未知写入结果 100% 不自动重复提交”。这些目标把可靠性变成可测工程行为。
+
+<Note title="自测：到这里你应该能回答">
+
+- 两个 worker 同时创建草稿，数据库层至少需要什么约束？
+- 父任务取消后，为什么还要传播 cancellation？
+- fault injection 至少应覆盖哪几类故障？
+- 为什么“模型可用率 99.9%”不是合格的 agent SLO？
+
+</Note>
 
 ## 陷阱
 
@@ -287,16 +440,34 @@ SLO 不应只写“模型可用率”。例如“95% 可自动完成的草稿任
 
 </Note>
 
+<Note title="把 exactly-once 当成队列配置项" type="danger">
+
+队列的“exactly once”交付声明不能替代业务幂等。面试里应能画出 idempotency key → 唯一约束 → 重放返回同一结果 这条链。
+
+</Note>
+
 ## 连接
 
 - 前置：[Agent Loop](/docs/agent/loop) 的终止与进展、[Tool Calling](/docs/agent/tool-calling) 的幂等与错误合同。
-- 延伸：[Evaluation](/docs/evaluation) 评测 trajectory；[Security](/docs/agent/security) 限制副作用的 blast radius。
+- 延伸：[Evaluation](/docs/evaluation) 评测 trajectory；[Security](/docs/agent/security) 限制副作用的 blast radius；[AI-Native Agent State](/docs/ai-native/agent-state) 的持久化状态。
 
 ## 面试问题
 
+### Level 0–1 · 终态与边界
+
 1. 如何定义 agent 的 success、controlled failure 和 unknown outcome？（How do you define success, controlled failure, and unknown outcome for an agent?）
 2. 为什么 max steps 不足以防止空转？（Why are maximum steps insufficient to prevent spinning?）
-3. 403、429、read timeout 和 write timeout 分别如何处理？（How do you handle 403, 429, read timeout, and write timeout?）
+
+### Level 2 · 错误语义
+
+1. 403、429、read timeout 和 write timeout 分别如何处理？（How do you handle 403, 429, read timeout, and write timeout?）
+2. 模型 repair 和系统 retry 有什么区别？（How do model repair and system retry differ?）
+
+### Level 3–4 · 恢复与证明
+
+1. 进程崩溃后如何恢复一个进行到一半的 agent 任务？（How do you resume a half-finished agent task after a process crash?）
+2. 为什么说 at-least-once + 幂等，而不是直接说 exactly-once？（Why say at-least-once plus idempotency instead of claiming exactly-once?）
+3. 两个 worker 同时写同一草稿，你怎样防重复？（How do you prevent duplicate drafts from two concurrent workers?）
 4. 怎样用 fault injection 和 SLO 证明 agent reliability？（How do fault injection and SLOs prove agent reliability?）
 
 ## 我的答案
@@ -305,7 +476,25 @@ SLO 不应只写“模型可用率”。例如“95% 可自动完成的草稿任
 
 <Locale lang="en">
 
-## Level 3 · How do you prove reliability: traces, fault injection, and SLOs
+## Level 4 · How do you prove reliability: concurrency, traces, fault injection, and SLOs
+
+### Concurrency and side effects: what if two workers race on one draft?
+
+Reliability is more than single-threaded retry. A common incident is two agent workers, a double click, or a timeout replay creating a draft for the same case:
+
+~~~
+Worker A: read quote Q-817 → create draft with key=draft:case-9:Q-817
+Worker B: read quote Q-817 → create draft with the same key a few ms later
+~~~
+
+Without a business uniqueness constraint you get two review_required drafts and no clear source of truth. Prefer:
+
+- **unique constraint / conditional write** on `(case_id, quote_id, action)` or an explicit idempotency key;
+- **optimistic locking** with `expected_version` so conflict returns current truth to the model instead of silent overwrite;
+- **cancellation and deadline propagation** so child tool calls stop when the parent times out or the user cancels — avoiding “parent failed, child write still succeeded”;
+- **compensation** when a non-idempotent side effect already happened (for example a mistaken email): an explicit reverse action or human runbook, not another model guess at “undo.”
+
+A global lock is a poor default; it serializes throughput. Make side effects idempotent first, then protect only the true race window with a narrow lock.
 
 ### What should a trace record at minimum?
 
@@ -313,9 +502,20 @@ For each task and action, record goal and agent version, plan version, tool and 
 
 ### How do you verify before and after launch?
 
-Offline, inject faults into a fixed simulated environment: expired quote, permission denial, policy update, duplicate write, read or write timeout, downstream 429, and injected text. Check acceptance, erroneous side effects, unknown-outcome handling, steps, and cost. In production monitor success, correct business terminal state, P95 / P99 latency, cost per successful task, retry, stuck, fallback, and human-handoff rates; alert and maintain runbooks for abnormal trends.
+Offline, inject faults into a fixed simulated environment: expired quote, permission denial, policy update, duplicate write, read or write timeout, downstream 429, mid-task process kill, dual-worker race, and injected text. Check acceptance, erroneous side effects, unknown-outcome handling, steps, and cost. In production monitor success, correct business terminal state, P95 / P99 latency, cost per successful task, retry, stuck, fallback, and human-handoff rates; alert and maintain runbooks for abnormal trends.
+
+Teaching-scale numbers (not industry benchmarks): an Acme draft with about four tool calls and ~3k input + 0.4k output tokens per model turn often costs tens of cents to about a dollar on a mid-tier model; P95 targets commonly land in 30–90 seconds depending on dependencies. Two blind retry rounds roughly double cost and latency — so budgets and circuit breakers are product metrics, not engineering vanity.
 
 An SLO should not say only “model availability.” For example: “95% of automatable draft tasks reach correct terminal state within 90 seconds; 100% of high-risk writes receive server-side validation; 100% of unknown write outcomes are not automatically resubmitted.” These make reliability measurable engineering behavior.
+
+<Note title="Self-check: you should now be able to answer">
+
+- What database constraint do two concurrent draft creators need at minimum?
+- Why must cancellation propagate after a parent task is cancelled?
+- Which fault classes should fault injection cover at least?
+- Why is “model availability 99.9%” not an adequate agent SLO?
+
+</Note>
 
 ## Traps
 
@@ -331,16 +531,34 @@ An alert after an unwanted commitment or deletion cannot undo it. Budget, author
 
 </Note>
 
+<Note title="Treating exactly-once as a queue checkbox" type="danger">
+
+A queue's “exactly once” delivery claim does not replace business idempotency. In an interview you should be able to draw idempotency key → uniqueness constraint → replay returns the same result.
+
+</Note>
+
 ## Connections
 
 - Prerequisites: termination and progress in [Agent Loop](/docs/agent/loop), plus idempotency and error contracts in [Tool Calling](/docs/agent/tool-calling).
-- Continue to [Evaluation](/docs/evaluation) for trajectory evaluation and [Security](/docs/agent/security) for bounding side-effect blast radius.
+- Continue to [Evaluation](/docs/evaluation) for trajectory evaluation, [Security](/docs/agent/security) for bounding side-effect blast radius, and [AI-Native Agent State](/docs/ai-native/agent-state) for durable state.
 
 ## Interview questions
 
+### Levels 0–1 · Terminal state and boundaries
+
 1. How do you define success, controlled failure, and unknown outcome for an agent?
 2. Why are maximum steps insufficient to prevent spinning?
-3. How do you handle 403, 429, read timeout, and write timeout?
+
+### Level 2 · Error semantics
+
+1. How do you handle 403, 429, read timeout, and write timeout?
+2. How do model repair and system retry differ?
+
+### Levels 3–4 · Recovery and proof
+
+1. How do you resume a half-finished agent task after a process crash?
+2. Why say at-least-once plus idempotency instead of claiming exactly-once?
+3. How do you prevent duplicate drafts from two concurrent workers?
 4. How do fault injection and SLOs prove agent reliability?
 
 ## My answer

@@ -370,6 +370,8 @@ Loop 的目的不是“尽可能多地调用工具”，而是用有限步骤达
 
 第二段不是“模型更努力了”，而是没有新增事实。harness 可以检测连续相同的工具和参数、重复的错误指纹、状态摘要不变、或剩余预算不足；达到阈值就停止、换确定性 fallback，或交给人。这样 trace 才能回答“为什么花了钱却没完成”，也才能把问题分到模型决策、工具可靠性、权限还是缺失状态。
 
+量感（教学）：同一 Acme 任务若本可 2 次工具调用 + 1 次 final 结束（约 3 轮模型推理），空转重试 8 次会把 token / 延迟近似放大 3–4 倍，且仍无新事实。预算不是“省钱洁癖”，而是失败模式的硬边界。
+
 ### 为什么最大步数、时间和预算都需要？
 
 - **最大步数**限制错误重试和没有终点的规划；
@@ -426,6 +428,8 @@ Spinning:  read_quote(Acme) → timeout
 ```
 
 The second trace is not the model trying harder; it has acquired no new fact. A harness can detect identical consecutive tools and arguments, repeated error fingerprints, an unchanged state summary, or insufficient remaining budget. At a threshold, it stops, switches to a deterministic fallback, or hands off to a person. A useful trace then localizes the cause to model choice, tool reliability, authorization, or missing state.
+
+Teaching-scale numbers: the same Acme task may finish in two tool calls plus one final (about three model turns). Eight spinning retries roughly multiply tokens and latency by 3–4× with no new fact. Budgets are hard boundaries on failure modes, not thriftiness for its own sake.
 
 ### Why do maximum steps, time, and budget all matter?
 

@@ -251,6 +251,12 @@ owner:      谁可以更正、删除或批准写入？
 
 ## Level 3 · Retrieval and RAG Evaluation：取到相似内容，不等于取到可行动证据
 
+<Note title="本页不是 RAG 原理页" type="tip">
+
+这里只讲 **agent memory 怎样消费 retrieval**：scope、freshness、来源、与 source of truth 的边界。Chunking、embedding、ANN、BM25、hybrid、rerank 的机制与调参在 [RAG](/docs/rag) 专栏；Recall@K / faithfulness 等指标在 [RAG Eval](/docs/evaluation/rag-eval)。下面给一个最小手算，帮助你在面试里把“取到”和“用对”分开，然后立刻回到 memory 治理。
+
+</Note>
+
 ### 一次可靠 retrieval 要经过哪些选择？
 
 RAG 是把外部资料按当前 query 取回并放入 context 的一种模式，不是 memory 的同义词。对“Acme 是否有可批准例外”，检索链至少要做这些事：
@@ -277,12 +283,14 @@ current goal
 
 只计算向量相似度或只看最终回答，都会漏掉“取对了却用错”“取错了却碰巧答对”和跨租户泄露。
 
+最小手算：金标政策文档是 `P-Net30`。系统返回 top-3：`[P-Net45-old, P-Net30, Acme-brochure]`。则 Recall@3 = 1（金标在窗口内）；若只把 brochure 放进最终 context，**retrieval 过关但 grounded use 失败**。这就是为什么 memory / agent 评测要拆开三层指标。
+
 <Note title="自测：到这里你应该能回答">
 
-- RAG 与 agent memory 的关系是什么？
+- RAG 与 agent memory 的关系是什么？完整 RAG 机制应去哪学？
 - 为什么检索前后都要做 scope 和权限控制？
 - 精确 quote id 与模糊业务措辞分别适合什么检索信号？
-- 怎样区分 retrieval quality、grounded use 与最终 outcome？
+- 怎样区分 retrieval quality、grounded use 与最终 outcome？用上面 Recall@3 例子说明。
 
 </Note>
 
@@ -327,6 +335,17 @@ memory 内容和 tool result 一样是不可信输入。过去文档里出现的
 
 固定测试至少覆盖：不写入模型猜测、正确 tenant 可读而错误 tenant 不可读、已撤销偏好不再取回、过期事实不影响写操作、相同 query 不被注入文本劫持、用户删除后索引和缓存也不再返回数据。记录 retrieval、写入、删除和 source-of-truth 复核的 trace，才能追查“为什么 agent 记住或忘掉了这件事”。
 
+删除还必须让**派生副本**失效：向量索引、缓存摘要、hand-off 包里的旧片段。只删主库留下索引命中，等于没删。
+
+<Note title="自测：到这里你应该能回答">
+
+- 哪些边界必须在模型外强制，而不是写进 prompt？
+- 用户删除一条偏好后，还要清理什么？
+- memory 注入文本为什么不能升级为权限？
+- memory 安全评测最少覆盖哪几类负向 case？
+
+</Note>
+
 ## 陷阱
 
 <Note title="向量库不是事实数据库" type="danger">
@@ -354,7 +373,7 @@ Planning consumes checkpoint; Tool Calling enforces actions; Security enforces i
 ~~~
 
 - 前置：[Planning](/docs/agent/planning) —— checkpoint 是长程 plan 的状态；[Tool Calling](/docs/agent/tool-calling) —— 动态事实执行前要重验。
-- 延伸：[Context Engineering](/docs/context) 与 [Security](/docs/agent/security)。
+- 延伸：[Context Engineering](/docs/context)、[Security](/docs/agent/security)；RAG 机制见 [RAG](/docs/rag)，指标见 [RAG Eval](/docs/evaluation/rag-eval)。
 
 ## 面试问题
 
@@ -434,6 +453,12 @@ Testing whether similar text was retrieved is insufficient. Test whether unsuppo
 
 ## Level 3 · Retrieval and RAG Evaluation: similar text is not necessarily actionable evidence
 
+<Note title="This page is not a RAG fundamentals page" type="tip">
+
+Here we only cover **how agent memory consumes retrieval**: scope, freshness, provenance, and the source-of-truth boundary. Chunking, embeddings, ANN, BM25, hybrid search, and reranking live in the [RAG](/docs/rag) column; Recall@K / faithfulness live in [RAG Eval](/docs/evaluation/rag-eval). The tiny hand calculation below separates “retrieved” from “used correctly,” then returns to memory governance.
+
+</Note>
+
 ### Which choices make retrieval reliable?
 
 RAG is a pattern for retrieving external material for the current query and placing it in context; it is not a synonym for memory. For “does Acme have an approvable exception,” the retrieval path should at least do this:
@@ -460,12 +485,14 @@ Build fixed cases with known answers: the correct policy among similar documents
 
 Vector similarity alone and final-answer-only evaluation both miss “retrieved correctly but used incorrectly,” “retrieved incorrectly but answered luckily,” and cross-tenant leakage.
 
+Minimal hand calculation: gold policy doc is `P-Net30`. Top-3 returns `[P-Net45-old, P-Net30, Acme-brochure]`. Recall@3 = 1 (gold is in the window). If only the brochure enters final context, **retrieval passed but grounded use failed**. That is why memory / agent evals split three metric layers.
+
 <Note title="Self-check: you should now be able to answer">
 
-- How do RAG and agent memory relate?
+- How do RAG and agent memory relate, and where do full RAG mechanics live?
 - Why must scope and authorization be checked before and after retrieval?
 - Which retrieval signals fit an exact quote id versus vague business wording?
-- How do retrieval quality, grounded use, and outcome differ?
+- How do retrieval quality, grounded use, and outcome differ? Use the Recall@3 example.
 
 </Note>
 
@@ -509,6 +536,17 @@ Memory content, like a tool result, is untrusted input. “Ignore policy” or �
 ### How do you evaluate that a memory system is not quietly harming users?
 
 Fixed tests should cover refusing model guesses as memories; correct tenant readable while another tenant is not; revoked preference no longer retrieved; stale facts unable to trigger writes; injected text unable to hijack an identical query; and user deletion removing data from indexes and caches as well. Trace retrieval, writes, deletion, and source-of-truth revalidation so you can answer why an agent remembered or forgot something.
+
+Deletion must also invalidate **derived copies**: vector index entries, cached summaries, and old snippets in handoff packs. Deleting only the primary store while indexes still hit is not deletion.
+
+<Note title="Self-check: you should now be able to answer">
+
+- Which boundaries must be enforced outside the model rather than in a prompt?
+- After a user deletes a preference, what else must be cleaned up?
+- Why can injected memory text not escalate into authority?
+- Which negative cases should a memory safety eval cover at minimum?
+
+</Note>
 
 ## Traps
 
