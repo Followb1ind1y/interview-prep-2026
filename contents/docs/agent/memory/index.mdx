@@ -3,7 +3,7 @@ title: Memory
 titleEn: Memory
 description: Agent memory 不是聊天记录：区分工作状态、事件、稳定事实、技能与外部真相，并治理写入和检索。
 descriptionEn: "Agent memory is not chat history: separate working state, events, stable facts, skills, and external truth; govern writes and retrieval."
-date: 2026-09-20
+date: 2026-09-21
 keywords: ["agent memory", "working memory", "episodic memory", "semantic memory", "procedural memory", "retrieval", "context"]
 tier: A
 status: todo
@@ -16,6 +16,14 @@ mastery: { talk: 0, probe: 0 }
 Agent memory 要解决的是：在有限 context window 中，跨步骤和跨会话仍能拿到**正确、相关、可追溯**的状态。它不是“把聊天记录越存越多”。完整历史会变贵、变慢，并让模型更难找到真正重要的事实。
 
 本页继续采购谈判助手。它需要记住当前 case 的下一步和已查事实，也可能需要知道用户的批准角色、过去的例外处理和怎样创建审核草稿；但“最新报价”和“当前政策”仍必须从权威系统读取，不能因为曾被记住就当作真相。
+
+### 先从“手机备忘录不是银行余额”理解 memory
+
+你可以在备忘录写：“我喜欢在上午学习”“上次 Tokenization 学到 Level 2”。这类信息适合被记住，下次能帮上忙。
+
+但你不能因为备忘录上写“银行卡还有 500 元”就去付款；余额随时会变，必须去银行 App 查。Agent 也一样：偏好、上次进度、操作步骤可以记；**价格、库存、权限、订单状态**只能把记忆当线索，行动前必须再查权威系统。
+
+这就是全页最重要的区分：memory 帮你少忘事；它不负责保证世界现在仍然是那样。
 
 ## 这一页怎么学
 
@@ -43,6 +51,14 @@ Agent memory 要解决的是：在有限 context window 中，跨步骤和跨会
 Agent memory solves this problem: across steps and sessions, a model with a finite context window can still access **correct, relevant, traceable** state. It is not “store more chat history.” Full history becomes expensive and slow and makes important facts harder to find.
 
 The procurement assistant continues as the example. It needs the next action and checked facts for the current case; it may need to know a user's approval role, past exception outcomes, and how to create a review draft. But the latest quote and current policy must still come from their authoritative systems, not be treated as truth because they were remembered once.
+
+### Start with “a phone note is not a bank balance”
+
+A note such as “I prefer studying in the morning” or “I reached Tokenization Level 2 last time” is useful to remember for later.
+
+But a note saying “my account has 500 left” must not authorize a payment; the balance changes, so you open the banking app again. Agents work the same way: preferences, previous progress, and operating steps can be remembered. **Prices, inventory, permissions, and order status** are only clues in memory and must be checked in an authoritative system before action.
+
+That is the page's central distinction: memory helps the system avoid forgetting; it does not prove that the world is still the same.
 
 ## How to work through this page
 

@@ -23,6 +23,330 @@
       },
       "createdAt": 1789951637544,
       "updatedAt": 1789951637544
+    },
+    {
+      "id": "0c4ee270-5a85-43f9-a64d-957091607e8a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把 prompt 交给模型，模型生成一段文字或一个结构化的工具调用请求，然后这一次推理结束",
+        "prefix": "变世界？一次 LLM 调用为什么还不是 Agent？一次调用是：",
+        "suffix": "。它很适合总结、分类、改写等“输入已经足够、答案可以直接生成”的"
+      },
+      "createdAt": 1790038228986,
+      "updatedAt": 1790038228986
+    },
+    {
+      "id": "7cc8fa28-192b-4f0a-aefa-fb1bceebba58",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Agent 在这之外加上了 状态、可执行动作和反馈回路",
+        "prefix": "适合总结、分类、改写等“输入已经足够、答案可以直接生成”的任务。",
+        "suffix": "。目标不变，但它可以根据刚刚查到的真实信息决定下一步。因此，最小"
+      },
+      "createdAt": 1790038305980,
+      "updatedAt": 1790038305980
+    },
+    {
+      "id": "53b80afc-c120-4721-8133-7746fdd8bdc6",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型在受控环境中多次作出下一步决策”的系统",
+        "prefix": "决定下一步。因此，最小 Agent 不是“会思考的模型”，而是“",
+        "suffix": "。以贯穿例子为例，直接问模型“Acme 能不能接受？”有一个根本"
+      },
+      "createdAt": 1790038320708,
+      "updatedAt": 1790038320708
+    },
+    {
+      "id": "76d0f193-f440-4e6f-b8f3-f7c3795e5c44",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "只有下一步取决于未知信息、文本语义或工具结果时，loop 才带来价值",
+        "prefix": "为过期”，这是 workflow，不需要让模型在每一步自由选择。",
+        "suffix": "。Workflow vs Agent 会专门比较这个判断。模型、"
+      },
+      "createdAt": 1790038443742,
+      "updatedAt": 1790038443742
+    },
+    {
+      "id": "79e4bbbb-8870-4d3f-aa03-8b1f17af004c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "它提出动作，不应被当成执行者或事实来源",
+        "prefix": "自然语言、结构化结果，或“我要调用哪个工具、参数是什么”的请求。",
+        "suffix": "。\nHarness（运行与编排层）：应用代码。它保存状态、组装下"
+      },
+      "createdAt": 1790038530128,
+      "updatedAt": 1790038530128
+    },
+    {
+      "id": "2329ee74-ac24-4be0-891c-21b34784e657",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "它保存状态、组装下一轮 context、检查权限和参数、调用工具、记录 trace，并决定何时强制停止",
+        "prefix": "成执行者或事实来源。\nHarness（运行与编排层）：应用代码。",
+        "suffix": "。\nTool（工具）：一份受约束的能力，例如 get_lates"
+      },
+      "createdAt": 1790038543620,
+      "updatedAt": 1790038543620
+    },
+    {
+      "id": "4eda0449-a041-4e15-8c3d-eb6e462f913b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型提议，harness 把关并编排，工具执行，环境给出真相与副作用",
+        "prefix": "例如采购数据库、文件、网页和可写入的草稿系统。\n一个简单记法是：",
+        "suffix": "。 模型输出里写了“已创建草稿”不等于草稿真的存在；只有工具的成"
+      },
+      "createdAt": 1790038634873,
+      "updatedAt": 1790038634873
+    },
+    {
+      "id": "55813941-3b5d-4bb5-8ff0-9a5f2a6ab404",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "用户目标、对话与工具结果、允许使用的工具、持久化业务状态，以及预算与权限等约束",
+        "prefix": "屏幕。它是 harness 为下一次模型推理准备的当前可用状态：",
+        "suffix": "。采购例子刚开始时，harness 可以组装出下面的快照。这里 "
+      },
+      "createdAt": 1790040638328,
+      "updatedAt": 1790040638328
+    },
+    {
+      "id": "4e752e76-743f-4a2d-9e08-27f240b0b8d8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "这里 Tool 更像是 Agent 与 Environment 交互的接口",
+        "prefix": "→ Observation → LLM → Action ...",
+        "suffix": "。因此要区分：\nTool = 我能怎么操作世界\nEnvironm"
+      },
+      "createdAt": 1790040714118,
+      "updatedAt": 1790040714118
+    },
+    {
+      "id": "3cd2e627-00e6-4b43-ad6b-8ead83b89ce8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每一轮只选择下一个决定真正需要的事实",
+        "prefix": "Observe 的关键不是“把所有历史原样塞回 prompt”。",
+        "suffix": "：错误信息、工具结果、批准状态、文件摘要等。历史无限增长会挤占 "
+      },
+      "createdAt": 1790040760154,
+      "updatedAt": 1790040760154
+    },
+    {
+      "id": "f1147c64-9924-4c6d-a502-efa065071c65",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "harness 把结果追加进状态，开启下一轮 Observe",
+        "prefix": "s = \"Net 45\"\nquote_id = \"Q-817\"\n",
+        "suffix": "。现在模型有了一个新事实：价格达标，但付款条款不达标。因此它不应"
+      },
+      "createdAt": 1790040793101,
+      "updatedAt": 1790040793101
+    },
+    {
+      "id": "7ee54829-5565-4ec2-85c5-12cd0b1620a2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "执行工具",
+        "prefix": "Acme\")\n这只是请求。harness 要验证参数和权限，真正",
+        "suffix": "；工具回来的 observation 才是：unit_price"
+      },
+      "createdAt": 1790040805749,
+      "updatedAt": 1790040805749
+    },
+    {
+      "id": "c9f14f74-f1a6-4fa5-9b78-cb58c46e9c4a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "请求。harness 要验证参数和权限",
+        "prefix": "_latest_quote(vendor=\"Acme\")\n这只是",
+        "suffix": "，真正执行工具；工具回来的 observation 才是：uni"
+      },
+      "createdAt": 1790040808603,
+      "updatedAt": 1790040808603
+    },
+    {
+      "id": "2161be3a-312f-498a-9c79-a98868542801",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "上一轮 Action 改变了下一轮模型能依据什么作决定",
+        "prefix": "45 是否可接受、能否用别的条款交换。这就是 loop 的价值：",
+        "suffix": "。第二轮若政策结果说“只有 Net 30 才能创建此类草稿”，模"
+      },
+      "createdAt": 1790040824602,
+      "updatedAt": 1790040824602
+    },
+    {
+      "id": "7311ae88-e88c-4381-9b16-a5fdca8deb53",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "真实系统还要处理工具超时、重复调用、写操作确认和可恢复 trace",
+        "prefix": "op(\"step limit reached\", state)\n",
+        "suffix": "；它们放在 Reliability 和 Security。但即使"
+      },
+      "createdAt": 1790040911859,
+      "updatedAt": 1790040911859
+    },
+    {
+      "id": "8bf592af-6b13-4d06-a78c-26735e353157",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "有限步骤达到一个验收条件（acceptance condition",
+        "prefix": "不是再来一轮？Loop 的目的不是“尽可能多地调用工具”，而是用",
+        "suffix": "）。在例子中，验收条件不是“调用了报价工具”，而是以下之一：\n已"
+      },
+      "createdAt": 1790040930840,
+      "updatedAt": 1790040930840
+    },
+    {
+      "id": "0ed4cc9f-f46e-4e5f-aa14-06cce20dc9d2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "正常完成应由明确的结果表示，例如结构化的 final、创建草稿工具的成功 observation，或等待人工批准的状态",
+        "prefix": "\n系统到达步骤、时间、token 或成本预算，不能再安全推进。\n",
+        "suffix": "。不要只用“模型这次没调用工具”当作唯一成功信号：它可能真的完成"
+      },
+      "createdAt": 1790040981642,
+      "updatedAt": 1790040981642
+    },
+    {
+      "id": "08b5e386-45c0-4c86-a9d6-7b8c0097967d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型要求调用写工具”不等于“马上执行写操作",
+        "prefix": "一步、上下文被挤掉，或者工具定义写得不清楚。外部副作用要分级:“",
+        "suffix": "”。发送谈判承诺、修改订单、付款、删除数据等动作，harness"
+      },
+      "createdAt": 1790041000691,
+      "updatedAt": 1790041000691
+    },
+    {
+      "id": "78b7ca77-07aa-4267-9311-2aa66d49023c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "harness 应在执行前做授权、业务规则校验、幂等检查",
+        "prefix": "马上执行写操作”。发送谈判承诺、修改订单、付款、删除数据等动作，",
+        "suffix": "；必要时把 loop 停在“等待用户批准”。模型的概率性决策不能"
+      },
+      "createdAt": 1790041009715,
+      "updatedAt": 1790041009715
+    },
+    {
+      "id": "1c3f0d05-3e29-4e4d-8a19-09fa0cd457d7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "本轮目标、工具名与规范化参数、结果摘要、以及为什么这一步让任务离验收条件更近",
+        "prefix": "系统权限。怎样判断它在推进，还是在空转？每一轮都记录至少四件事：",
+        "suffix": "。观察下面的对比：有进展：read_quote(Acme) → "
+      },
+      "createdAt": 1790041041505,
+      "updatedAt": 1790041041505
+    },
+    {
+      "id": "cd3e7f9c-df98-46bd-bb4a-8ed518b415bf",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "最大步数限制错误重试和没有终点的规划",
+        "prefix": "癖”，而是失败模式的硬边界。为什么最大步数、时间和预算都需要？\n",
+        "suffix": "；\n超时限制一次工具或整次任务占用用户等待时间；\ntoken /"
+      },
+      "createdAt": 1790041067736,
+      "updatedAt": 1790041067736
+    },
+    {
+      "id": "6c5998c2-fc58-49fd-8c6b-18aa539ba8f1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "这些是兜底",
+        "prefix": "调用；\n权限与批准边界限制即使“看似成功”也不应发生的副作用。\n",
+        "suffix": "，不是任务成功的定义。好的 loop 会在碰到硬上限前，基于验收"
+      },
+      "createdAt": 1790041083990,
+      "updatedAt": 1790041083990
+    },
+    {
+      "id": "6c247e46-46f6-40c6-aae3-397a50a068da",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "好的 loop 会在碰到硬上限前，基于验收条件主动结束",
+        "prefix": "看似成功”也不应发生的副作用。\n这些是兜底，不是任务成功的定义。",
+        "suffix": "；硬上限负责把异常路径变成诚实、可恢复的失败，而不是静默地继续烧"
+      },
+      "createdAt": 1790041089124,
+      "updatedAt": 1790041089124
+    },
+    {
+      "id": "b1323cde-ee9a-4b15-aa3a-856351236c7a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "工具 schema 只让模型知道“可以请求什么",
+        "prefix": "分别防住什么？\n\n\n陷阱把工具定义交给模型，不等于给了系统能力:",
+        "suffix": "”。没有 executor、鉴权、参数校验、错误处理和结果回传时"
+      },
+      "createdAt": 1790041108279,
+      "updatedAt": 1790041108279
+    },
+    {
+      "id": "af4505bb-e5ab-4d7c-a0c7-4c4b5b70c4b0",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不是可靠的行动能力",
+        "prefix": "utor、鉴权、参数校验、错误处理和结果回传时，它只是文本描述，",
+        "suffix": "。Observe 不是原样塞满聊天记录:上一轮所有 tool o"
+      },
+      "createdAt": 1790041113304,
+      "updatedAt": 1790041113304
+    },
+    {
+      "id": "209677b6-9e01-4ea6-97e8-563846e871a2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "状态要按下一步决策来筛选和总结",
+        "prefix": "期可能有效，长任务会越来越慢、越来越贵，也更容易抓不住当前事实。",
+        "suffix": "。能循环不代表能自我纠错:Loop 只提供“看到结果后再次决策”"
+      },
+      "createdAt": 1790041121215,
+      "updatedAt": 1790041121215
+    },
+    {
+      "id": "f567bea6-c8e3-4377-9db8-6232ac82cbc3",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "必须用 trace 和针对性评测验证",
+        "prefix": "错、模型误读 observation，都会让它持续而自信地做错。",
+        "suffix": "。连接LLM inference（一次生成）\n        ↓"
+      },
+      "createdAt": 1790041253765,
+      "updatedAt": 1790041253765
     }
   ],
   "/docs/application/model-routing": [
@@ -4545,6 +4869,222 @@
       },
       "createdAt": 1789952670999,
       "updatedAt": 1789952670999
+    },
+    {
+      "id": "5b4bd597-bd6b-44dd-bdf2-d41b354557db",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "能处理任意长度、按顺序读的模型",
+        "prefix": " 咬 人」和「人 咬 狗」用的词一样，意思完全相反\n所以需要一种",
+        "suffix": "。在 Transformer 之前，主流答案是 RNN。RNN "
+      },
+      "createdAt": 1790039169187,
+      "updatedAt": 1790039169187
+    },
+    {
+      "id": "a60bcd32-5752-4779-9330-c45390e5c995",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "就用「旧记忆 + 新词」算出新记忆",
+        "prefix": "向量，叫 hidden state（隐藏状态） h。每读一个词，",
+        "suffix": "：h_t = tanh( W_h · h_(t-1)  +  W"
+      },
+      "createdAt": 1790039466340,
+      "updatedAt": 1790039466340
+    },
+    {
+      "id": "7f2af119-0b15-49a0-b56d-f2122140a334",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把输入句子从头读到尾，变成表示「这句话是什么意思」的向量",
+        "prefix": "译这件事可以拆成两个角色：\nEncoder（编码器）负责「读」：",
+        "suffix": "\nDecoder（解码器）负责「写」：拿着 encoder 给的"
+      },
+      "createdAt": 1790039472649,
+      "updatedAt": 1790039472649
+    },
+    {
+      "id": "da8d63ce-af25-4894-affb-db1bc79e786f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "拿着 encoder 给的表示，一个词一个词地生成输出",
+        "prefix": "「这句话是什么意思」的向量\nDecoder（解码器）负责「写」：",
+        "suffix": "\n用 RNN 实现的翻译流程：Encoder 读原文\n  我  "
+      },
+      "createdAt": 1790039478219,
+      "updatedAt": 1790039478219
+    },
+    {
+      "id": "058a7a79-cd13-4ecc-9afc-5f6c316a67f9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "h₃ 作为「整句话的意思」交给 decoder，常叫 context vector（上下文向量）c",
+        "prefix": "h₁\n  爱  →  h₂\n  猫  →  h₃   ← 读完。",
+        "suffix": "\n\nDecoder 写译文（每一步都带着 c）\n  输入 <bo"
+      },
+      "createdAt": 1790039674752,
+      "updatedAt": 1790039674752
+    },
+    {
+      "id": "5f4a9074-170f-490f-b305-0cb9332cae5a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每一步都带着 c",
+        "prefix": "ext vector（上下文向量）c\n\nDecoder 写译文（",
+        "suffix": "）\n  输入 <bos>   →  输出 I\n  输入 I   "
+      },
+      "createdAt": 1790039681364,
+      "updatedAt": 1790039681364
+    },
+    {
+      "id": "c4de34e1-527d-4412-a429-9790232dfeb5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每一步都把自己上一步生成的词当作这一步的输入",
+        "prefix": "结束」的特殊 token。注意 decoder 的一个关键特点：",
+        "suffix": "。这种「用自己的输出接着往下生成」的方式叫自回归（autoreg"
+      },
+      "createdAt": 1790039686919,
+      "updatedAt": 1790039686919
+    },
+    {
+      "id": "b0c2cca1-94cd-4643-bfc1-813e6dbdf62d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "「用自己的输出接着往下生成」的方式叫自回归（autoregressive），今天的 LLM 一个一个往外吐 token，就是这个模式",
+        "prefix": "一个关键特点：每一步都把自己上一步生成的词当作这一步的输入。这种",
+        "suffix": "。打个比方：encoder-decoder 就像交替传译的译员，"
+      },
+      "createdAt": 1790039700430,
+      "updatedAt": 1790039700430
+    },
+    {
+      "id": "5b34d36a-7f24-435a-bfc7-29ccf10f3f14",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "先把对方一整句话听完",
+        "prefix": "。打个比方：encoder-decoder 就像交替传译的译员，",
+        "suffix": "，再开口一个词一个词说出译文。Encoder 和 Decoder"
+      },
+      "createdAt": 1790039735191,
+      "updatedAt": 1790039735191
+    },
+    {
+      "id": "98528cdc-8aa3-4c5f-9e7c-9ab36af56eb1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不是某种具体结构",
+        "prefix": "一个词说出译文。Encoder 和 Decoder 是「角色」，",
+        "suffix": ":这里用 RNN 实现它们，Level 5 会换成 Transf"
+      },
+      "createdAt": 1790039739267,
+      "updatedAt": 1790039739267
+    },
+    {
+      "id": "ee60420d-5604-4850-91a1-d8487ea4340f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "「文本 → 整数 id」",
+        "prefix": "kenizer.encode 是 Tokenization 讲的",
+        "suffix": "；模型里的 Encoder 是读向量、产生上下文表示的神经网络。"
+      },
+      "createdAt": 1790039767436,
+      "updatedAt": 1790039767436
+    },
+    {
+      "id": "e1db3b9d-060c-40ad-bfb6-2490936b91d0",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "读向量、产生上下文表示的神经网络",
+        "prefix": "on 讲的「文本 → 整数 id」；模型里的 Encoder 是",
+        "suffix": "。面试里说混了会显得概念不清。这种设计有什么问题？硬伤 ①：信息"
+      },
+      "createdAt": 1790039776110,
+      "updatedAt": 1790039776110
+    },
+    {
+      "id": "c1206b6a-25dc-4c4b-936b-8b0fab519ed4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "句子越长，越早读到的词越容易被冲淡",
+        "prefix": "固定长度的向量 h₃（上面是 2 维，真实模型是几百到上千维）。",
+        "suffix": "。用上面的玩具 RNN 做个实验：把第一个词「我」换成「你」（向"
+      },
+      "createdAt": 1790039792790,
+      "updatedAt": 1790039792790
+    },
+    {
+      "id": "eb533243-ead2-4fd2-a309-bab44bfaa181",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "第一个词的影响被一层层稀释",
+        "prefix": "很直接：每读一个新词，旧记忆都要乘 0.5 再压一次 tanh，",
+        "suffix": "。真实 RNN 的参数是学出来的，LSTM、GRU 也加了「门」"
+      },
+      "createdAt": 1790039808781,
+      "updatedAt": 1790039808781
+    },
+    {
+      "id": "238595b5-0358-4a38-9d77-7bd79d5cfa30",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "「整句话必须压进一个向量」这个瓶颈一直在",
+        "prefix": " 的参数是学出来的，LSTM、GRU 也加了「门」来缓解遗忘，但",
+        "suffix": "。硬伤 ②：无法并行。 算 h₃ 必须等 h₂，算 h₂ 必须等"
+      },
+      "createdAt": 1790039817533,
+      "updatedAt": 1790039817533
+    },
+    {
+      "id": "bb8af42b-1154-4e9d-98a5-d40f353962de",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "无法并行",
+        "prefix": "缓解遗忘，但「整句话必须压进一个向量」这个瓶颈一直在。硬伤 ②：",
+        "suffix": "。 算 h₃ 必须等 h₂，算 h₂ 必须等 h₁。一句 1,0"
+      },
+      "createdAt": 1790039830155,
+      "updatedAt": 1790039830155
+    },
+    {
+      "id": "b975ee9f-8912-44d9-8a29-e29bf3b5c4fb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "attention 解决 ①（decoder 不再只靠一个向量）",
+        "prefix": "往下读:后面两个 Level 分别解决它们：Level 2 的 ",
+        "suffix": "，Level 3 的 self-attention 解决 ②（彻"
+      },
+      "createdAt": 1790039858936,
+      "updatedAt": 1790039858936
+    },
+    {
+      "id": "a52042a9-1f5d-44ca-bf46-039b48a8ba71",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "self-attention 解决 ②（彻底去掉 RNN 的逐步计算",
+        "prefix": "决 ①（decoder 不再只靠一个向量），Level 3 的 ",
+        "suffix": "）。两个解决方案合在一起，就是 Transformer。自测：到"
+      },
+      "createdAt": 1790039862837,
+      "updatedAt": 1790039862837
     }
   ],
   "/docs/overview": [

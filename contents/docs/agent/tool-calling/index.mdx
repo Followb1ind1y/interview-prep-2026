@@ -3,7 +3,7 @@ title: Tool Calling
 titleEn: Tool Calling
 description: 模型怎样请求工具；schema、业务校验、结果回传、重试与幂等怎样共同保护真实操作。
 descriptionEn: "How a model requests tools: schema, business validation, result return, retries, and idempotency for real operations."
-date: 2026-09-20
+date: 2026-09-21
 keywords: ["tool calling", "function calling", "JSON Schema", "validation", "idempotency", "timeout", "tool result"]
 tier: A
 status: todo
@@ -16,6 +16,20 @@ mastery: { talk: 0, probe: 0 }
 Tool calling 是模型请求应用调用外部能力的协议，不是模型自己执行函数。模型按 schema 产出工具名和参数；harness 解析、校验、授权并执行；真实结果以 tool result 回到下一轮模型。它是 [Agent Loop](/docs/agent/loop) 里 Act 与 Observation 两端的接口契约。
 
 这一页继续使用 Acme 采购谈判助手：先读取最新报价和政策，只有同时满足业务规则时才创建待审核的反报价草稿。重点不是“让模型会调用函数”，而是“不让它用看似合法的 JSON 造成错误承诺”。
+
+### 先用一次真实请求理解，不要先背 protocol
+
+用户说：“帮我看 Q-817 这份报价能不能接受。”模型不能真的翻数据库；它只能提出一个请求：get_latest_quote(quote_id="Q-817")。应用程序去查询，返回“价格 10.10、付款 30 天、报价仍有效”。模型再提出下一步请求。
+
+这里有一个特别重要的分工：
+
+~~~
+模型：我建议查 Q-817
+应用：检查你有没有权限，再真的去查
+数据库：返回目前真实的 Q-817
+~~~
+
+**tool calling 就是中间那张“申请单”，不是执行本身。** 后面的 schema、call id、retry 都是在让这张申请单不会被拿错、重复办或越权办。
 
 ## 这一页怎么学
 
@@ -46,6 +60,18 @@ Tool calling 是模型请求应用调用外部能力的协议，不是模型自�
 Tool calling is a protocol for a model to request that an application use an external capability; it is not the model executing a function. The model emits a tool name and arguments from a schema; the harness parses, validates, authorizes, and executes it; a real tool result returns to the model on its next turn. It is the interface for both Act and Observation in the [Agent Loop](/docs/agent/loop).
 
 This page continues the Acme procurement-negotiation assistant. It first reads the latest quote and policy, then creates a reviewable counteroffer draft only when the business rules pass. The point is not merely “make a model call a function”; it is “do not let plausible JSON create a wrong commitment.”
+
+### Start with one real request, not the protocol vocabulary
+
+A user says: “Can you check whether quote Q-817 is acceptable?” The model cannot query a database. It can only request get_latest_quote(quote_id="Q-817"). The application performs the query and returns “price 10.10, payment due in 30 days, quote still valid.” Only then can the model request a next step.
+
+~~~
+model:       I suggest looking up Q-817
+application: check permission, then actually look it up
+database:    return the current Q-817 facts
+~~~
+
+**Tool calling is the request form in the middle, not the execution.** Schema, call IDs, and retries later in this page make sure that form is not malformed, mixed up, repeated, or used beyond authority.
 
 ## How to work through this page
 

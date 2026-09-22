@@ -3,7 +3,7 @@ title: Agent Reliability
 titleEn: Agent Reliability
 description: 让 agent 在成功、失败和不确定时都可控：验收、预算、重试、降级、人工接管与轨迹评测。
 descriptionEn: "Keep agents controlled in success, failure, and uncertainty: acceptance, budgets, retries, fallbacks, handoffs, and trajectory evals."
-date: 2026-09-20
+date: 2026-09-21
 keywords: ["agent reliability", "timeout", "retry", "circuit breaker", "fallback", "human in the loop", "budget", "trace"]
 tier: A
 status: todo
@@ -16,6 +16,17 @@ mastery: { talk: 0, probe: 0 }
 可靠性不是“模型偶尔答对”的同义词。可靠的 agent 在成功时得到可验证终态，在失败时不会无限花钱或重复副作用，在结果未知时会保守停止并留下可恢复的 trace。它是 Agent Loop、Tool Calling、Planning 的共同生产约束。
 
 贯穿例子：Acme 草稿只能在报价与政策都通过时创建。若工具超时，agent 不能假定失败后盲目重试；若预算耗尽或缺少批准，它应交出当前证据与卡点，而不是继续说“我再试一次”。
+
+### 先从“转账后页面卡住”理解可靠性
+
+你点了“转账”，页面一直转圈，随后报超时。此时最危险的做法是再点一次：第一笔可能已经成功，只是页面没收到结果。正确做法是先查交易记录；确认没发生才重试。
+
+这正是 agent 的 **unknown（未知结果）**：不是成功，也不能当失败。可靠系统会留下请求编号和当前状态，暂停高风险动作，查到真实结果后才继续。后面看到 idempotency、checkpoint、retry 时，都可以先回到这个例子：
+
+~~~
+不可靠：超时 → “肯定没成功” → 再提交一次
+可靠：  超时 → “结果未知” → 查记录 → 决定重试或停止
+~~~
 
 ## 这一页怎么学
 
@@ -44,6 +55,17 @@ mastery: { talk: 0, probe: 0 }
 Reliability is not synonymous with a model occasionally answering correctly. A reliable agent reaches a verifiable terminal state on success, does not spend forever or repeat side effects on failure, and stops conservatively with a recoverable trace when outcome is unknown. It is a production constraint shared by Agent Loop, Tool Calling, and Planning.
 
 The Acme draft can be created only after quote and policy pass. If a tool times out, the agent may not assume failure and blindly retry. When budget ends or approval is missing, it hands over current evidence and blocker instead of saying “I will try again.”
+
+### Start with “the transfer page froze”
+
+You press “transfer money,” the page spins, then reports a timeout. Pressing again is dangerous: the first transfer may have succeeded even though the page never received the result. The correct move is to check transaction history first and retry only if it did not happen.
+
+That is an agent's **unknown outcome**: it is not success, but it is not safe to call failure either. A reliable system retains a request ID and current state, pauses the risky action, and checks the real result before continuing. Read idempotency, checkpoints, and retries through this example:
+
+~~~
+unreliable: timeout → “it definitely failed” → submit again
+reliable:   timeout → “outcome unknown” → check record → retry or stop
+~~~
 
 ## How to work through this page
 

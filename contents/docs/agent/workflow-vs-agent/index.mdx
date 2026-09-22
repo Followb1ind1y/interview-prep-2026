@@ -3,7 +3,7 @@ title: Workflow vs Agent
 titleEn: Workflow vs Agent
 description: 控制流预先由代码决定，还是让模型在运行时决定？用不确定性、风险与评测选择。
 descriptionEn: "Should code predefine control flow or should a model decide at runtime? Choose with uncertainty, risk, and evals."
-date: 2026-09-20
+date: 2026-09-21
 keywords: ["workflow", "agent", "control flow", "deterministic", "orchestration", "human approval"]
 tier: A
 status: todo
@@ -16,6 +16,14 @@ mastery: { talk: 0, probe: 0 }
 Workflow vs Agent 不是“传统系统 vs 智能系统”的二选一，也不是看产品名称。真正的问题是：**下一步控制流能否在开发时可靠地写进代码，还是必须根据运行时未知信息由模型判断？** 大多数生产产品同时有两者。
 
 贯穿例子仍是采购谈判助手。读取报价、算是否低于价格上限、写入审核记录，都有明确规则，应该是 workflow；面对一封非标准供应商邮件，判断它在谈价格、付款还是交期，并决定该读哪些资料、怎样解释冲突，才可能需要受限 agent。
+
+### 先用手机点外卖的直觉区分两者
+
+“满 30 元免配送费”是 **workflow**：程序知道要看订单金额，知道怎么算，也知道结果后显示什么。它不需要模型自由发挥。
+
+“用户写：汤洒了，能不能补偿？”可能需要 **agent**：模型要先理解这句话在说什么、判断该查订单还是配送记录、再生成合适解释。但“退款金额不能超过订单金额”“真的退款前必须二次确认”仍然必须是 workflow / 后端规则。
+
+一句最实用的判断：**看不懂人话时可以请模型帮忙；一旦要算钱、改状态或执行承诺，就交回确定的程序。** 后面所有采购例子都只是把“外卖订单”换成了“供应商报价”。
 
 ## 这一页怎么学
 
@@ -43,6 +51,14 @@ Workflow vs Agent 不是“传统系统 vs 智能系统”的二选一，也不�
 Workflow vs Agent is not “traditional system versus intelligent system,” and it is not a product label. The real question is: **can code reliably define the next control-flow step during development, or must a model decide from unknown runtime information?** Most production products contain both.
 
 The procurement-negotiation assistant remains the example. Reading a quote, comparing it with a price ceiling, and writing a review record follow explicit rules and belong in a workflow. Interpreting an unusual vendor email, deciding whether it concerns price, payment, or delivery, and choosing which records to inspect may need a bounded agent.
+
+### Use a food-delivery intuition before the architecture terms
+
+“Free delivery for orders above 30” is a **workflow**: code knows which number to read, how to calculate it, and what to display. There is no open decision for a model.
+
+“My soup spilled; can I get compensation?” may need an **agent**: the model first interprets the message, decides whether to inspect the order or delivery record, then explains the result. But “a refund cannot exceed the order value” and “ask before issuing a refund” must still be workflow / backend rules.
+
+A useful rule: **use a model to understand open-ended language; hand money, state changes, and commitments back to deterministic code.** The procurement examples later merely replace an order with a supplier quote.
 
 ## How to work through this page
 

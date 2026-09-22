@@ -3,7 +3,7 @@ title: Planning
 titleEn: Planning
 description: 从目标与验收条件开始，把开放任务拆成有依赖、可验证、可重新规划的步骤。
 descriptionEn: "Start with goal and acceptance: decompose open work into dependent, verifiable, and revisable steps."
-date: 2026-09-20
+date: 2026-09-21
 keywords: ["planning", "task decomposition", "plan and execute", "replanning", "verification", "agent"]
 tier: A
 status: todo
@@ -16,6 +16,19 @@ mastery: { talk: 0, probe: 0 }
 Planning 不是让 agent 在开头写一张很长的待办清单。它是把一个开放目标转成**有验收条件、依赖关系、下一步证据和停止边界**的工作状态，并在事实变化时更新。没有这些内容的“计划”，通常只是看起来专业的文本。
 
 本页继续采购谈判助手：目标不是“帮我和 Acme 谈”，而是“基于有效报价与已批准政策，准备一份可审核的反报价草案；信息冲突时说明卡点，不发送承诺”。这句话让后续拆解、验证和重新规划都有判断标准。
+
+### 先把 planning 想成出门办事，不是写待办
+
+“帮我买杯咖啡”不是好计划：哪一家、什么咖啡、预算多少、卖完怎么办，都不清楚。把它改成下面这样，才可以执行：
+
+~~~
+目标：在 15 分钟内买到一杯无糖拿铁。
+完成标准：订单已被店家确认，金额不超过 6 元。
+限制：不能替用户付款；缺货时先问用户，不要随便换。
+第一步：查最近门店是否营业。
+~~~
+
+Agent planning 也一样。它不是要预测所有未来步骤，而是每一步都知道“我想拿到什么事实；拿不到时怎么办”。把咖啡换成报价和政策，就是本页的采购故事。
 
 ## 这一页怎么学
 
@@ -43,6 +56,19 @@ Planning 不是让 agent 在开头写一张很长的待办清单。它是把一�
 Planning is not asking an agent to write a long to-do list at the start. It turns an open goal into working state with **acceptance conditions, dependencies, evidence for the next step, and stop boundaries**, then updates that state when facts change. A “plan” without these is usually professional-looking text.
 
 The procurement assistant continues as the example. The goal is not “negotiate with Acme.” It is “prepare a reviewable counteroffer draft using a valid quote and approved policy; explain the blocker when information conflicts; never send a commitment.” That statement gives decomposition, verification, and replanning a standard to judge against.
+
+### Treat planning like an errand, not a to-do list
+
+“Buy me coffee” is not an executable plan: which shop, which drink, what budget, and what happens when it is sold out? Make it concrete:
+
+~~~
+goal: get an unsweetened latte within 15 minutes
+done when: the shop confirms the order and it costs no more than 6
+constraint: do not pay for the user; ask before substituting an unavailable item
+first step: check whether the nearest shop is open
+~~~
+
+Agent planning works the same way. It does not predict every future step. Each step says “which fact am I trying to obtain, and what happens if I cannot?” The procurement story later swaps coffee availability for quotes and policy.
 
 ## How to work through this page
 

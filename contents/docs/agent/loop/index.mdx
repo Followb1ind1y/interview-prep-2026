@@ -3,7 +3,7 @@ title: Agent Loop
 titleEn: Agent Loop
 description: 从一次 LLM 调用到 Observe → Decide → Act：状态怎样回来，loop 为什么必须停止。
 descriptionEn: "From one LLM call to Observe → Decide → Act: how state comes back and why the loop must stop."
-date: 2026-09-20
+date: 2026-09-21
 keywords: ["agent loop", "observe", "decide", "act", "harness", "tool calling", "termination"]
 tier: A
 status: todo
@@ -16,6 +16,17 @@ mastery: { talk: 0, probe: 0 }
 Agent 不是“更长的 prompt”，也不是某个框架的名字。它是一个由 **harness（运行与编排层）** 驱动的系统：模型查看当前状态、选择下一步；harness 安全地执行允许的工具调用，把真实结果放回状态；直到任务完成或被安全地停止。
 
 这一页先不讲复杂的 Planning、Memory 或 Multi-Agent。先把最小闭环讲清楚：**模型不会自己调用 API，也不会天然知道工具做完后的世界发生了什么。** 这两个空白正是 agent loop 要填上的部分。
+
+### 先把贯穿例子翻成白话
+
+把它想成你正在做的谈判练习产品里的一个“小助理”。学员发来一句话：“帮我看看供应商这份洗发水报价能不能接受；可以的话，先替我写一封**待审核**的回复。”
+
+- **报价（quote）**：供应商开出的条件，例如“每瓶 10.10 元，30 天后付款”。
+- **Net 30**：收到货或发票后 30 天付款；它只是付款期限的行业写法。
+- **反报价（counteroffer）**：不立刻答应，而是提出自己的条件，例如“价格可以，但我们希望改为 45 天付款”。
+- **草稿（draft）**：保存给人检查的回复，**还没有发送**。这是本页所有写操作默认的安全终点。
+
+所以，这个 agent 的工作不是“替人拍板”。它每次只做一个小决定：先查真实报价、再查规则、最后最多创建草稿。后面看到 Acme、Q-817 或 Net 30 时，都把它们当作这个具体故事里的公司名、报价编号和付款期限；数字只是教学用，不需要有采购背景。
 
 ## 这一页怎么学
 
@@ -46,6 +57,17 @@ Agent 不是“更长的 prompt”，也不是某个框架的名字。它是一�
 An agent is neither a longer prompt nor the name of a framework. It is a system driven by a **harness**, or runtime/orchestration layer: the model sees the current state and chooses a next step; the harness safely executes permitted tools and returns real results to that state; the system continues until the task finishes or stops safely.
 
 This page deliberately postpones complex planning, memory, and multi-agent designs. First build the minimal closed loop: **a model does not execute an API call by itself, and it does not automatically know what changed after a tool ran.** The agent loop fills those two gaps.
+
+### Put the running example in plain language first
+
+Imagine a small helper in the negotiation-practice product. A learner says: “Check whether we can accept this shampoo supplier offer. If we can, write a reply **draft** for review.”
+
+- A **quote** is the supplier's offer, such as “10.10 per bottle, pay in 30 days.”
+- **Net 30** is simply the industry label for “payment is due 30 days later.”
+- A **counteroffer** is a reply with our own terms rather than an immediate yes.
+- A **draft** is saved for a person to inspect; it has **not** been sent.
+
+The agent is therefore not allowed to make the deal. It makes one small decision at a time: look up the real offer, check the rule, then at most create a draft. Treat Acme, Q-817, and Net 30 later in this page as a company name, an offer ID, and a payment period in this story. The numbers are teaching data; procurement background is not required.
 
 ## How to work through this page
 
@@ -100,6 +122,36 @@ Agent 在这之外加上了 **状态、可执行动作和反馈回路**。目标
 
 一个简单记法是：**模型提议，harness 把关并编排，工具执行，环境给出真相与副作用。** 模型输出里写了“已创建草稿”不等于草稿真的存在；只有工具的成功结果才能证明环境已改变。
 
+<MyQuestion q="Environment 是什么？">
+
+在 Agent 语境里，它更接近强化学习里的 environment：Agent 在其中行动，并从中得到下一轮观察结果。
+
+以一个 coding agent 为例：
+
+```yaml
+LLM
+ ↓
+Harness
+ ↓
+Tools: read_file / edit_file / terminal / git
+ ↓
+Environment: repo + filesystem + terminal + test results + OS
+```
+
+LLM 可能决定：“先读 `app.py`。”Tool 去执行 `read_file`，然后 environment 返回文件内容。LLM 根据这个新的 observation 再决定：“修改这个函数，然后跑 pytest。”
+
+所以可以把交互抽象成：**LLM → Action → Environment → Observation → LLM → Action ...**
+
+这里 Tool 更像是 **Agent 与 Environment 交互的接口**。因此要区分：
+
+> **Tool = 我能怎么操作世界**
+>
+> **Environment = 我正在操作的那个世界，以及它反馈给我的状态**
+
+Harness 则处在中间，负责整个 agent loop。完整地说：**Agent System = Model + Harness + Tools + Environment**；而真正的 **agentic loop** 是：**Observe environment → LLM decides → use tool/action → environment changes → observe again**。
+
+</MyQuestion>
+
 <Note title="Reason 不等于公开原始思维链" type="warning">
 
 在图里把中间步骤写成 Reason / Decide，意思是“模型基于当前状态选择下一步”。工程上应依赖可观察的决策、工具调用、结果和验收条件来调试，而不是要求或存储模型的原始内部推理文本。
@@ -143,6 +195,36 @@ If the quote, rules, and next step are fully specified — for example, “mark 
 - **Environment**: the real systems and state reached by the tools: a procurement database, files, websites, or a writable draft system.
 
 An easy rule is: **the model proposes; the harness governs and orchestrates; tools execute; the environment supplies truth and side effects.** A model message saying “I created the draft” does not prove a draft exists. Only a successful tool result proves that the environment changed.
+
+<MyQuestion q="What is the Environment?">
+
+It is closer to the reinforcement-learning idea of an environment: the world in which the agent acts and from which it receives the next observation.
+
+For a coding agent:
+
+```yaml
+LLM
+ ↓
+Harness
+ ↓
+Tools: read_file / edit_file / terminal / git
+ ↓
+Environment: repo + filesystem + terminal + test results + OS
+```
+
+The LLM may decide, “Read `app.py` first.” A tool executes `read_file`, and the environment returns the file contents. With that new observation, the LLM can decide, “Modify this function, then run pytest.”
+
+The interaction can therefore be abstracted as: **LLM → Action → Environment → Observation → LLM → Action ...**
+
+A Tool is the **interface through which an agent acts on the environment**. The distinction is:
+
+> **Tool = how I can operate on the world**
+>
+> **Environment = the world I am operating on, and the state it returns**
+
+The Harness sits in the middle and runs the agent loop. More completely: **Agent System = Model + Harness + Tools + Environment**. The **agentic loop** is: **Observe environment → LLM decides → use tool/action → environment changes → observe again**.
+
+</MyQuestion>
 
 <Note title="Reason does not mean exposing raw chain of thought" type="warning">
 

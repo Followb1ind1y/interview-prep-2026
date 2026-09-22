@@ -3,7 +3,7 @@ title: ReAct
 titleEn: ReAct
 description: Reasoning and Acting 怎样交替；从原始 Thought–Action–Observation 到可控的生产 agent。
 descriptionEn: "How reasoning and acting alternate: from Thought–Action–Observation to a controllable production agent."
-date: 2026-09-20
+date: 2026-09-21
 keywords: ["ReAct", "reasoning and acting", "observation", "agent loop", "tool calling", "trace"]
 tier: B
 status: todo
@@ -16,6 +16,18 @@ mastery: { talk: 0, probe: 0 }
 ReAct 是 Reasoning + Acting 的缩写：让模型在行动前作出下一步决策，在行动后读取 environment 的 observation，再决定下一步。它解释了为什么 agent 不能只靠一次性 Chain-of-Thought，也不能只靠盲目调用工具。
 
 但 ReAct 不是一个生产框架，更不是“把 Thought 原样展示给用户”。今天的系统通常保留它的核心闭环，同时用结构化 tool calling、显式状态、权限门和可观测 trace 替代自由文本的执行控制。本页的目标是会解释这个演化，而不是背三个单词。
+
+### 先看“上一轮结果改变下一步”这一件事
+
+用户说：“这份报价能接受吗？”如果模型一开始就回答“可以”，它是在猜。更实际的过程是：
+
+~~~
+第 1 轮：先查报价      → 结果：价格合适，但付款是 Net 15
+第 2 轮：再查付款规则  → 结果：只有 Net 30 或更长才可进入审核
+第 3 轮：创建草稿      → 草稿写“价格可接受；请将付款改为 Net 30”
+~~~
+
+这三轮就是 ReAct 最有用的直觉：**行动拿到新事实，新事实让下一步不同。** 不需要把它想成神秘的“深度思考”；它更像人做题时先查题目条件，再决定是否继续。
 
 ## 这一页怎么学
 
@@ -46,6 +58,18 @@ ReAct 是 Reasoning + Acting 的缩写：让模型在行动前作出下一步决
 ReAct is short for Reasoning + Acting: the model makes a next-step decision before acting, reads an observation from the environment afterward, and then decides again. It explains why an agent should neither rely on one-shot chain-of-thought nor call tools blindly.
 
 ReAct is not a production framework, nor a reason to show users raw Thought text. Modern systems keep its closed-loop idea but use structured tool calling, explicit state, policy gates, and observable traces instead of free-form text as execution control. The goal here is to explain that evolution, not memorize three words.
+
+### First see one thing: a result changes the next step
+
+A user asks, “Can we accept this offer?” If the model answers “yes” immediately, it is guessing. A realistic process is:
+
+~~~
+round 1: look up the quote     → price is fine, but payment is Net 15
+round 2: look up the rule      → only Net 30 or longer can enter review
+round 3: create a draft        → “Price works; please change payment to Net 30.”
+~~~
+
+That is the useful ReAct intuition: **an action obtains a new fact, and that fact changes the next step.** It is not mysterious “deep thinking”; it is like checking the conditions of a problem before deciding what to do.
 
 ## How to work through this page
 

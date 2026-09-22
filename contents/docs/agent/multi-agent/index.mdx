@@ -3,7 +3,7 @@ title: Multi-Agent
 titleEn: Multi-Agent
 description: 什么时候一个 agent 不够；怎样用明确任务、受限上下文和可验证交接避免多 agent 更差。
 descriptionEn: "When one agent is insufficient: use explicit tasks, bounded context, and verifiable handoffs so multiple agents are not worse."
-date: 2026-09-20
+date: 2026-09-21
 keywords: ["multi-agent", "supervisor", "router", "specialist", "parallelism", "coordination", "handoff"]
 tier: B
 status: todo
@@ -16,6 +16,18 @@ mastery: { talk: 0, probe: 0 }
 Multi-Agent 不是把一个 prompt 复制给五个模型后取多数票。它是把可独立验证的子任务交给拥有不同工具、上下文或权限边界的 worker，再由明确的编排层汇总。若任务高度共享上下文、步骤强依赖，拆分通常只会增加 token、延迟和协调错误。
 
 贯穿例子：采购谈判助手要准备 Acme 的反报价。一个 agent 足以读取单份报价和政策；只有当它需要同时研究多份供应商材料、合同规则和历史例外，并且这些研究可以相互独立时，才考虑并行 worker。
+
+### 先把 multi-agent 当成分工，不是模型开会
+
+想象你和两位同事要决定周末旅行：
+
+- 一个人查火车时间；
+- 一个人查酒店价格；
+- 你最后根据两份**带链接和价格**的结果做选择。
+
+这是有价值的分工，因为两件查询互不等待，而且每个人交回的东西可以核对。反过来，如果三个人都在写同一封邮件，最后还得你花时间合并三种语气，通常更慢也更乱。
+
+Agent 也是一样：只有“可以独立做 + 能拿证据验收”的小任务才值得拆。worker 不是更聪明的投票者，而是临时负责一个清楚的交付物；最终决定和写入仍由编排层负责。
 
 ## 这一页怎么学
 
@@ -43,6 +55,18 @@ Multi-Agent 不是把一个 prompt 复制给五个模型后取多数票。它是
 Multi-agent is not copying one prompt to five models and taking a vote. It assigns independently verifiable subtasks to workers with different tools, context, or permission boundaries, then uses explicit orchestration to combine them. When a task heavily shares context or has tightly dependent steps, splitting usually adds tokens, latency, and coordination failures.
 
 The procurement assistant remains the example. One agent can read one quote and policy. Consider parallel workers only when it must investigate vendor material, contract rules, and historical exceptions that can be researched independently.
+
+### Think of multi-agent as division of work, not a model meeting
+
+Imagine planning a weekend trip with two coworkers:
+
+- one checks train times;
+- one checks hotel prices;
+- you decide from results that include **links and prices**.
+
+That split helps because the searches do not wait for each other and each result can be checked. If three people all draft the same email, you still have to merge three voices; it is often slower and messier.
+
+Agents are the same. Split only a task that is both **independent and verifiable**. A worker is not an extra vote; it temporarily owns a clear deliverable. The orchestrator still owns the final decision and any write.
 
 ## How to work through this page
 
