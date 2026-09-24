@@ -361,6 +361,258 @@
       },
       "createdAt": 1790214773146,
       "updatedAt": 1790214773146
+    },
+    {
+      "id": "be214df6-7c45-4d3b-b628-9db9511d6e3a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型按 schema 产出工具名和参数；",
+        "prefix": "ing 是模型请求应用调用外部能力的协议，不是模型自己执行函数。",
+        "suffix": "harness 解析、校验、授权并执行；真实结果以 tool r"
+      },
+      "createdAt": 1790214785856,
+      "updatedAt": 1790214785856
+    },
+    {
+      "id": "0a770773-12d3-4711-9712-5cbd8dd34f83",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "harness 解析、校验、授权并执行",
+        "prefix": "，不是模型自己执行函数。模型按 schema 产出工具名和参数；",
+        "suffix": "；真实结果以 tool result 回到下一轮模型。它是 Ag"
+      },
+      "createdAt": 1790214789037,
+      "updatedAt": 1790214789037
+    },
+    {
+      "id": "5d332807-a387-42fb-93e0-9d770d5cea7d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "提出一个请求",
+        "prefix": " Q-817 这份报价能不能接受。”模型不能真的翻数据库；它只能",
+        "suffix": "：get_latest_quote(quote_id=\"Q-81"
+      },
+      "createdAt": 1790214905084,
+      "updatedAt": 1790214905084
+    },
+    {
+      "id": "cd346f29-b7f3-4f29-a90c-0f29eed4c21f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型只是说“请应用替我运行这个能力”",
+        "prefix": "\": \"Acme\" }\ncall_id = \"call_42\"\n",
+        "suffix": "。harness 才是实际调用数据库、HTTP API 或内部服"
+      },
+      "createdAt": 1790215080532,
+      "updatedAt": 1790215080532
+    },
+    {
+      "id": "5b4e0fb1-28fb-467c-a093-d3a09ac43c4e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "若缺少 executor，或没有把结果送回模型",
+        "prefix": "果作为与 call_42 对应的 tool result 传回。",
+        "suffix": "，所谓“工具”只是 prompt 里的文字说明。工具分两类会帮助"
+      },
+      "createdAt": 1790215092119,
+      "updatedAt": 1790215092119
+    },
+    {
+      "id": "b9a93fc4-95d7-4873-b7c2-19eae3772d9e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "write tool 改变环境",
+        "prefix": "d tool 读取事实，例如 get_latest_quote；",
+        "suffix": "，例如 create_counteroffer_draft。前者"
+      },
+      "createdAt": 1790215101215,
+      "updatedAt": 1790215101215
+    },
+    {
+      "id": "747b230a-de9b-4fc6-ab81-8cd9cd50381b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "read tool 读取事实",
+        "prefix": "”只是 prompt 里的文字说明。工具分两类会帮助你判断风险：",
+        "suffix": "，例如 get_latest_quote；write tool "
+      },
+      "createdAt": 1790215103833,
+      "updatedAt": 1790215103833
+    },
+    {
+      "id": "45a0193b-3c9e-4ae7-b6e2-3f0cdf24795b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "schema 是给模型和程序共用的输入合同",
+        "prefix": "复执行防护。Tool schema 与业务规则为什么不是一回事？",
+        "suffix": "。它应写清名称、用途、参数名、类型、必填项、枚举和描述：{\n  "
+      },
+      "createdAt": 1790215174448,
+      "updatedAt": 1790215174448
+    },
+    {
+      "id": "b25517ba-8794-4951-b322-1864ae768e64",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "必须带回它对应的 call_id",
+        "prefix": "序还可能变化。因此 tool result 不能只写“成功了”，",
+        "suffix": "。harness 也应返回机器可处理、模型可理解的稳定结构，而不"
+      },
+      "createdAt": 1790215232699,
+      "updatedAt": 1790215232699
+    },
+    {
+      "id": "be942a12-90c1-40e2-8635-7689d9976b34",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "parse + schema validation + authorization",
+        "prefix": "ndor=\"Acme\")\n2. harness:        ",
+        "suffix": "\n3. tool execution: query procur"
+      },
+      "createdAt": 1790215243704,
+      "updatedAt": 1790215243704
+    },
+    {
+      "id": "ab9298bd-87ff-4e28-9a56-a5d6a9970646",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "tool execution",
+        "prefix": "a validation + authorization\n3. ",
+        "suffix": ": query procurement service\n4. t"
+      },
+      "createdAt": 1790215253475,
+      "updatedAt": 1790215253475
+    },
+    {
+      "id": "8048bc49-598e-4dee-965c-ddddba9072ec",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "失败时也要统一，例如返回失败状态、错误码 QUOTE_NOT_FOUND 和不可重试标志",
+        "prefix": "实，也不要泄露内部 stack trace、秘钥或无关客户数据。",
+        "suffix": "；这样模型和 harness 才能各自做正确的下一步。从选择工具"
+      },
+      "createdAt": 1790215282655,
+      "updatedAt": 1790215282655
+    },
+    {
+      "id": "c946d6b6-7947-4822-afe3-6849a855c879",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "临时网络错误做一次指数退避 retry，是传输修复",
+        "prefix": "例如读取政策或向用户提问；这是语义修复。harness 对确定的",
+        "suffix": "。两者若都无限重试，会把一次故障放大为成本、重复副作用和不可读 "
+      },
+      "createdAt": 1790215425267,
+      "updatedAt": 1790215425267
+    },
+    {
+      "id": "d17912ee-f283-44d4-a7f7-9cad842395ac",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "语义修复",
+        "prefix": "T_TERMS 后可以修改下一步，例如读取政策或向用户提问；这是",
+        "suffix": "。harness 对确定的临时网络错误做一次指数退避 retry"
+      },
+      "createdAt": 1790215429555,
+      "updatedAt": 1790215429555
+    },
+    {
+      "id": "e111285d-8fc3-41eb-a20b-196a369a8b60",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "并行时结果顺序可以乱，但对齐靠 id。",
+        "prefix": "写清楚。注意：tool result 必须带回 call_id；",
+        "suffix": "user: Check Acme quote; create d"
+      },
+      "createdAt": 1790215764071,
+      "updatedAt": 1790215764071
+    },
+    {
+      "id": "ada6f826-3e91-49fb-82f2-75203bfce42c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型如何结构化请求一个已知工具",
+        "prefix": "ction callingMCPComputer use主要问题",
+        "suffix": "应用如何发现 / 连接远程工具与资源如何操作没有 API 的 G"
+      },
+      "createdAt": 1790215791282,
+      "updatedAt": 1790215791282
+    },
+    {
+      "id": "ec5a93cd-1a88-4125-aa9d-2e1e2fcf11ff",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "应用如何发现 / 连接远程工具与资源",
+        "prefix": "PComputer use主要问题模型如何结构化请求一个已知工具",
+        "suffix": "如何操作没有 API 的 GUI合同JSON Schema + "
+      },
+      "createdAt": 1790215800274,
+      "updatedAt": 1790215800274
+    },
+    {
+      "id": "439495a5-c918-460c-b53f-2f2b6e5f7f0e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "如何操作没有 API 的 GUI",
+        "prefix": "型如何结构化请求一个已知工具应用如何发现 / 连接远程工具与资源",
+        "suffix": "合同JSON Schema + call / result 消息"
+      },
+      "createdAt": 1790215810009,
+      "updatedAt": 1790215810009
+    },
+    {
+      "id": "bdce26c5-1968-4ce9-bae9-a836207f0777",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "工具越多，定义和结果占用的 context 越多，模型也越难找到正确能力",
+        "prefix": " schema，既加大模型选择和填参难度，也难以做最小权限控制。",
+        "suffix": "。按任务、用户权限和当前状态只暴露相关工具；大量工具可通过搜索或"
+      },
+      "createdAt": 1790216131593,
+      "updatedAt": 1790216131593
+    },
+    {
+      "id": "48505a2c-f3f1-47f5-8178-ed1b58ab281b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "按任务、用户权限和当前状态只暴露相关工具",
+        "prefix": "定义和结果占用的 context 越多，模型也越难找到正确能力。",
+        "suffix": "；大量工具可通过搜索或渐进发现加载，而不是全量塞进每轮 prom"
+      },
+      "createdAt": 1790216142805,
+      "updatedAt": 1790216142805
+    },
+    {
+      "id": "d5dc9c27-a220-4fb4-9a96-64e983c59afb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "大量工具可通过搜索或渐进发现加载，而不是全量塞进每轮 prompt",
+        "prefix": "型也越难找到正确能力。按任务、用户权限和当前状态只暴露相关工具；",
+        "suffix": "。trace 与 eval 怎样让工具调用持续变好？每次调用至少"
+      },
+      "createdAt": 1790216147846,
+      "updatedAt": 1790216147846
     }
   ],
   "/docs/application/model-routing": [
