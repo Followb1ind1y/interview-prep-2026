@@ -1,6 +1,8 @@
 'use client'
 
+import { StudyStatusIcon } from '@/components/study-status'
 import { useI18n } from '@/lib/i18n/provider'
+import { type StudyStatus } from '@/lib/paths'
 import { formatIsoDate } from '@/lib/utils'
 
 /** Frontmatter writes keywords as a YAML list, but a single string is tolerated. */
@@ -29,11 +31,13 @@ export function DocumentHeading({
   descriptionEn,
   date,
   keywords,
+  status,
 }: {
   date?: string | Date
   description?: string
   descriptionEn?: string
   keywords?: string | string[]
+  status?: StudyStatus
   title: string
   titleEn?: string
 }) {
@@ -45,7 +49,12 @@ export function DocumentHeading({
 
   return (
     <>
-      <h1 className="text-3xl font-semibold">{heading}</h1>
+      <h1 className="flex flex-wrap items-center gap-2.5 text-3xl font-semibold">
+        <span>{heading}</span>
+        {(status === 'doing' || status === 'done') && (
+          <StudyStatusIcon className="size-4" status={status} />
+        )}
+      </h1>
       {lead && <p className="mt-2 text-sm text-muted-foreground">{lead}</p>}
 
       {(day || tags.length > 0) && (

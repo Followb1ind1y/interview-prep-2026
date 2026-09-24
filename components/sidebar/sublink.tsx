@@ -11,41 +11,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { SheetClose } from '@/components/ui/sheet'
 import { useI18n } from '@/lib/i18n/provider'
 import { localize } from '@/lib/i18n/types'
-import { isRoute, type Paths, type StudyStatus } from '@/lib/paths'
-import { type StudyProgress } from '@/lib/study-progress'
+import { isRoute, type Paths } from '@/lib/paths'
+import { getRouteStudyStatus, type StudyProgress } from '@/lib/study-status'
 import { cn } from '@/lib/utils'
 
 function sectionState(path: string, href?: string) {
   if (!href) return { inSection: false, onChild: false }
   const onChild = path.startsWith(`${href}/`)
   return { inSection: path === href || onChild, onChild }
-}
-
-function getRouteStatus(
-  route: Extract<Paths, { href: string }>,
-  progress: StudyProgress
-): StudyStatus | undefined {
-  if (!route.items) return progress[route.href]
-
-  const descendantStatuses = route.items
-    .filter(isRoute)
-    .flatMap((item) => getRouteStatuses(item, route.href, progress))
-
-  if (descendantStatuses.length === 0) return progress[route.href]
-  if (descendantStatuses.every((status) => status === 'done')) return 'done'
-  if (descendantStatuses.some((status) => status === 'doing' || status === 'done')) return 'doing'
-  return progress[route.href]
-}
-
-function getRouteStatuses(
-  route: Extract<Paths, { href: string }>,
-  parentHref: string,
-  progress: StudyProgress
-): StudyStatus[] {
-  const href = `${parentHref}${route.href}`
-  if (!route.items) return progress[href] ? [progress[href]] : []
-
-  return route.items.filter(isRoute).flatMap((item) => getRouteStatuses(item, href, progress))
 }
 
 export function SubLink(
@@ -66,7 +39,7 @@ export function SubLink(
 
   const { title, href, items, noLink, level, isSheet, progress } = props
   const label = localize(title, locale)
-  const status = getRouteStatus(props, progress)
+  const status = getRouteStudyStatus(props, progress)
 
   const Comp = (
     <Anchor activeClassName="text-primary text-sm font-semibold" href={href}>

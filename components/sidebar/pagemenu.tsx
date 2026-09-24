@@ -8,7 +8,7 @@ import { isCollectionId } from '@/lib/collections'
 import { useI18n } from '@/lib/i18n/provider'
 import { localize } from '@/lib/i18n/types'
 import { getCollectionRoutes } from '@/lib/pageroutes'
-import { type StudyProgress } from '@/lib/study-progress'
+import { type StudyProgress } from '@/lib/study-status'
 
 export function PageMenu({
   isSheet = false,

@@ -349,6 +349,20 @@
       "updatedAt": 1790041253765
     }
   ],
+  "/docs/agent/tool-calling": [
+    {
+      "id": "67121b28-6e90-4ab9-a52b-0971041a0dba",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不是模型自己执行函数",
+        "prefix": "ltTool calling 是模型请求应用调用外部能力的协议，",
+        "suffix": "。模型按 schema 产出工具名和参数；harness 解析、"
+      },
+      "createdAt": 1790214773146,
+      "updatedAt": 1790214773146
+    }
+  ],
   "/docs/application/model-routing": [
     {
       "id": "0332dffe-9bd8-4c93-a6e7-70e7d3ccfaf8",

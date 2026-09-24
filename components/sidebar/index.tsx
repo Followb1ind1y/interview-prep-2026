@@ -15,7 +15,7 @@ import {
   SheetHeader,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { type StudyProgress } from '@/lib/study-progress'
+import { type StudyProgress } from '@/lib/study-status'
 
 export function Sidebar({ progress }: { progress: StudyProgress }) {
   return (

@@ -2,6 +2,7 @@ import { type ReactNode } from 'react'
 import { notFound } from 'next/navigation'
 
 import { Sidebar } from '@/components/sidebar'
+import { StudyProgressProvider } from '@/components/study-progress-provider'
 import { isCollectionId } from '@/lib/collections'
 import { getStudyProgress } from '@/lib/study-progress'
 
@@ -22,9 +23,11 @@ export default async function CollectionLayout({
   }
 
   return (
-    <div className="flex items-start gap-10 pt-10">
-      <Sidebar progress={progress} />
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
+    <StudyProgressProvider progress={progress}>
+      <div className="flex items-start gap-10 pt-10">
+        <Sidebar progress={progress} />
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
+    </StudyProgressProvider>
   )
 }

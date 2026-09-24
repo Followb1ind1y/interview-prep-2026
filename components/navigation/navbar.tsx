@@ -12,7 +12,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { SheetClose } from '@/components/ui/sheet'
 import { ModeToggle } from '@/components/ui/theme-toggle'
 import { useI18n } from '@/lib/i18n/provider'
-import { type StudyProgress } from '@/lib/study-progress'
+import { type StudyProgress } from '@/lib/study-status'
 import { GitHubLink, Navigations } from '@/settings/navigation'
 
 export function Navbar({ progress }: { progress: StudyProgress }) {

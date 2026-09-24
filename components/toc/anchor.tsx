@@ -10,7 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useI18n } from '@/lib/i18n/provider'
 import { type I18nText, type Locale, localize } from '@/lib/i18n/types'
-import { type StudyLevelProgress } from '@/lib/study-progress'
+import { type StudyLevelProgress } from '@/lib/study-status'
 import { cn } from '@/lib/utils'
 
 export interface TocItem {

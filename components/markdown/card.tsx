@@ -2,6 +2,7 @@ import { type PropsWithChildren } from 'react'
 import Image from 'next/image'
 import clsx from 'clsx'
 
+import { CardStudyStatus } from '@/components/markdown/card-study-status'
 import { Link } from '@/lib/transition'
 import { iconMap } from '@/settings/icons'
 
@@ -37,7 +38,7 @@ export function Card({
       className={clsx(
         'group relative flex overflow-hidden rounded-lg border bg-card text-card-foreground transition-colors duration-200 hover:bg-accent/40',
         variant === 'small'
-          ? 'items-center space-x-2 p-3'
+          ? 'items-center gap-2 p-3'
           : variant === 'image'
             ? 'h-full flex-col justify-between p-0'
             : 'h-full flex-col justify-between p-4',
@@ -70,12 +71,13 @@ export function Card({
         )}
         <div
           className={clsx(
-            'font-semibold transition-colors duration-200',
+            'flex items-center gap-2 font-semibold transition-colors duration-200',
             variant === 'small' ? 'text-sm' : variant === 'image' ? 'p-4 text-sm' : 'text-lg',
             className
           )}
         >
-          {title}
+          <span>{title}</span>
+          <CardStudyStatus href={href} />
         </div>
         {description && variant === 'normal' && (
           <p className="my-2! text-sm font-normal text-muted-foreground">{description}</p>

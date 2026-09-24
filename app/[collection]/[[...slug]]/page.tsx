@@ -12,7 +12,8 @@ import { isCollectionId } from '@/lib/collections'
 import { companiesPageTocs } from '@/lib/companies-data'
 import { getDocument } from '@/lib/markdown'
 import { AllPageRoutes } from '@/lib/pageroutes'
-import { getStudyLevelProgress } from '@/lib/study-progress'
+import { getStudyLevelProgress, getStudyProgress } from '@/lib/study-progress'
+import { resolveStudyStatus } from '@/lib/study-status'
 import { Settings } from '@/types/settings'
 
 interface PageProps {
@@ -24,25 +25,23 @@ export default async function CollectionPage({ params }: PageProps) {
   if (!isCollectionId(collection)) notFound()
 
   const pathName = slug.join('/')
-  const [res, annotations] = await Promise.all([
+  const pagePath = `/${[collection, ...slug].join('/')}`
+  const [res, annotations, progress] = await Promise.all([
     getDocument(collection, pathName),
-    getPageAnnotations(`/${[collection, ...slug].join('/')}`),
+    getPageAnnotations(pagePath),
+    getStudyProgress(collection),
   ])
   if (!res) notFound()
 
   const { frontmatter, content } = res
   const isProfile = collection === 'resume'
-  const levelProgress = await getStudyLevelProgress(
-    `/${[collection, ...slug].join('/')}`,
-    annotations
-  )
+  const levelProgress = await getStudyLevelProgress(pagePath, annotations)
+  const studyStatus = resolveStudyStatus(pagePath, progress, collection)
   const tocs =
     collection === 'companies' && companiesPageTocs[pathName]
       ? companiesPageTocs[pathName]
       : res.tocs
-  const seed = (
-    <AnnotationSeed annotations={annotations} path={`/${[collection, ...slug].join('/')}`} />
-  )
+  const seed = <AnnotationSeed annotations={annotations} path={pagePath} />
 
   if (isProfile) {
     return (
@@ -64,6 +63,7 @@ export default async function CollectionPage({ params }: PageProps) {
             description={frontmatter.description}
             descriptionEn={frontmatter.descriptionEn}
             keywords={frontmatter.keywords}
+            status={studyStatus}
             title={frontmatter.title}
             titleEn={frontmatter.titleEn}
           />

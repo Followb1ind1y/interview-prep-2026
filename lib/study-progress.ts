@@ -4,16 +4,18 @@ import { readAnnotationPages } from '@/lib/annotate/file'
 import { type Annotation } from '@/lib/annotate/types'
 import { type CollectionId } from '@/lib/collections'
 import { getCollectionPageRoutes } from '@/lib/pageroutes'
-import { type StudyStatus } from '@/lib/paths'
 import {
   getAnnotationStudyLevel,
   getLastStudyLevel,
   getStudyPageSource,
   type StudySourceCache,
 } from '@/lib/study-level'
+import {
+  type StudyLevelProgress,
+  type StudyProgress,
+} from '@/lib/study-status'
 
-export type StudyProgress = Partial<Record<string, StudyStatus>>
-export type StudyLevelProgress = Partial<Record<number, Extract<StudyStatus, 'done'>>>
+export type { StudyLevelProgress, StudyProgress } from '@/lib/study-status'
 
 /** A saved translation has an empty note; looking up one word is not a learning-progress signal. */
 function isLearningRecord(annotation: Annotation): boolean {

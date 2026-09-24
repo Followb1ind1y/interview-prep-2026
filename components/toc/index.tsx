@@ -2,7 +2,7 @@ import { TableAnchor, type TableAnchorProps } from '@/components/toc/anchor'
 import { BackToTop } from '@/components/toc/backtotop'
 import { Feedback } from '@/components/toc/feedback'
 import { type CollectionId } from '@/lib/collections'
-import { type StudyLevelProgress } from '@/lib/study-progress'
+import { type StudyLevelProgress } from '@/lib/study-status'
 import { Settings } from '@/types/settings'
 
 interface TableProps {
