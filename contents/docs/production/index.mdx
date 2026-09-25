@@ -3,7 +3,7 @@ title: Production AI
 titleEn: Production AI
 description: System Design 和 Agent Reliability 之间缺失的一层：API、延迟、成本、扩容、可观测、可靠。
 descriptionEn: The missing layer between system design and agent reliability.
-date: 2026-09-07
+date: 2026-09-24
 keywords: ["production", "ttft", "cost", "observability", "circuit breaker", "rate limit"]
 ---
 
@@ -20,12 +20,13 @@ keywords: ["production", "ttft", "cost", "observability", "circuit breaker", "ra
   <Card title="Reliability" description="降级兜底、熔断、优雅降级、升级到人工。" href="/docs/production/reliability" />
 </CardGrid>
 
-## 本专栏计划
+## 建议学习顺序
 
-1. API：对照 FastAPI + Gemini 流式输出
-2. 延迟：对照 Voice 项目的 1.2s，能拆出首 token / 检索 / 工具各占多少
-3. 成本：会算每天 10 万用户时月费的数量级
-4. 可观测性 + 可靠性：prompt 版本、token、失败都能追踪
+1. **请求先活下来：** API Engineering → Latency。画出一次 FastAPI + Gemini / RAG 请求，手算串并行关键路径、超时和首 token。
+2. **规模与账单：** Cost → Scaling。手算 10 万用户/天的模型费，补齐请求次数、峰值 QPS、并发与下游配额。
+3. **线上有据可查：** Observability → Reliability。用 trace 定位慢、贵、错和未知副作用，再设计安全降级与故障演练。
+
+六页均为 Level 0–4 的双语课件，沿用订单 `20240915` 和现行政策 `P-17 v3` 的教学案例。示意数字不是个人项目实测。读完后用 `/drill production/<页面 slug>` 练习，课件生成不计作掌握。
 
 </Locale>
 
@@ -42,11 +43,12 @@ This isn't a bookmark folder for system design questions — it's the engineerin
   <Card title="Reliability" description="Fallbacks, circuit breakers, graceful degradation, human escalation." href="/docs/production/reliability" />
 </CardGrid>
 
-## Plan for this column
+## Suggested order
 
-1. API: compare against FastAPI + Gemini streaming
-2. Latency: use the Voice project's 1.2s to break down TTFT / retrieval / tools
-3. Cost: estimate the monthly bill's order of magnitude at 100k users/day
-4. Observability + reliability: prompt versions, tokens, and failures are all traceable
+1. **Keep requests bounded:** API Engineering → Latency. Trace a FastAPI + Gemini/RAG request, timeouts, and the critical path.
+2. **Size usage and spend:** Cost → Scaling. Calculate monthly spend for 100k daily users, then peak QPS, concurrency, and provider limits.
+3. **Operate with evidence:** Observability → Reliability. Trace slow, expensive, wrong, and uncertain outcomes before designing fallbacks and drills.
+
+All six pages are bilingual Levels 0–4, using order `20240915` and current policy `P-17 v3` as a teaching case. Illustrative numbers are not personal project measurements. Practice with `/drill production/<page slug>`; generated notes do not count as mastery.
 
 </Locale>

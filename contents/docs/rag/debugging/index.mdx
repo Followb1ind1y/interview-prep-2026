@@ -1,66 +1,261 @@
 ---
-title: RAG Failure Diagnosis
-titleEn: RAG Failure Diagnosis
-description: 答案错了先查检索、排序、context，还是生成。这是 production thinking。
-descriptionEn: Wrong answer? Check retrieval, ranking, context, then generation.
-date: 2026-09-07
-keywords: ["rag debugging", "failure diagnosis"]
+title: Failure Diagnosis
+titleEn: Failure Diagnosis
+description: 按证据链定位 RAG 答错、漏答、越权与延迟故障。
+descriptionEn: Trace bad answers, misses, access failures, and latency by pipeline stage.
+date: 2026-09-24
+keywords: ['rag', 'debugging', 'trace', 'root cause']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-这是非常重要的一页。面试官问「RAG 答错了怎么办」时，要能自然地把这张图走一遍。
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 复现与分层 | 一个错误回答要先保存什么？ | 15–25 min |
+| 1 · 从源到候选 | 正确政策没进候选，应沿哪条链查？ | 15–25 min |
+| 2 · 从候选到回答 | 正确段在 Top-K，答案为什么仍错？ | 15–25 min |
+| 3 · 修复与回归 | 怎么把一次故障变成可靠改进？ | 15–25 min |
 
 ## 需要掌握
 
-按层排查，不要一上来就换模型。
+- 一个错误回答要先保存什么？
+- 正确政策没进候选，应沿哪条链查？
+- 正确段在 Top-K，答案为什么仍错？
+- 怎么把一次故障变成可靠改进？
 
-## 机制
+</Locale>
 
-```
-问题
- ↓
-正确的文档被检索到了吗？
- ↓
-没有 → 检索问题
-有
- ↓
-正确的 chunk 排在前面了吗？
- ↓
-没有 → 排序问题
-有
- ↓
-context 拼装对了吗？
- ↓
-不对 → 上下文问题
-对
- ↓
-模型用上 context 了吗？
- ↓
-没有 → 生成问题
-```
+<Locale lang="en">
 
-## 三级回答
+We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
 
-### Level 1 — 定义
+## How to study this page
 
-把「答错了」拆成检索 / 排序 / 上下文 / 生成四类故障。
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Reproduce and separate | What do you preserve for one wrong answer? | 15–25 min |
+| 1 · Source to candidates | How do you trace a missing policy before generation? | 15–25 min |
+| 2 · Candidates to answer | Why can an answer be wrong when Top-K is right? | 15–25 min |
+| 3 · Fix and regression | How does one failure become a reliable improvement? | 15–25 min |
 
-### Level 2 — 机制
+## Must know
 
-逐层看：检索回来的文档 id、它们的排名、实际拼进 prompt 的片段，以及模型有没有引用这些片段。对应指标：Recall@K 看检索，faithfulness 看生成。
+- What do you preserve for one wrong answer?
+- How do you trace a missing policy before generation?
+- Why can an answer be wrong when Top-K is right?
+- How does one failure become a reliable improvement?
 
-### Level 3 — 工程
+</Locale>
 
-「你的 RAG 检索召回率 90%，但答案准确率只有 70%，怎么诊断？」检索本身是够的，问题出在排序、context 拼装，或者生成时没有忠于证据。
+---
+
+<Locale lang="zh">
+
+## Level 0 · 复现与分层
+
+### 一个错误回答要先保存什么？
+
+固定用户问题、时间、租户、订单工具返回、索引版本、模型和提示版本；保存每阶段的候选 ID、过滤原因、重排名次、最终 context、回答主张和引用。没有这些，无法判断是源文、检索还是生成。注意日志脱敏和按权限访问。
+
+示例：客服说“订单 20240915 未发货，可以退款”，用户其实只说“没到”。先查订单 API 是否返回“运输中”，再看模型是否把“没到”误当状态。不要只凭最终答复猜检索坏了。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 缺少订单工具输出时为什么无法定位？
+2. 什么日志信息需要保护？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Reproduce and separate
+
+### What do you preserve for one wrong answer?
+
+Preserve query, timestamp, tenant, live order result, index and prompt versions, candidates, filter reasons, rerank order, final context, answer claims, and citations. Protect sensitive traces. For the refund error, first check whether the order API said “in transit”; the model may have inferred “not shipped” from “not arrived.”
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is diagnosis impossible without tool output?
+2. Which trace data needs protection?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 从源到候选
+
+### 正确政策没进候选，应沿哪条链查？
+
+依次问：现行 `P-17 v3` 原文有无该条？解析文本是否保留条件与表格列？段边界是否切断？embedding 是否截断、BM25 analyzer 是否认出编号？版本/ACL 过滤是否错误？ANN 相对精确基线是否漏检？最后看各路 Top-K。
+
+每一步都有可复现实物：源页、解析产物、chunk、索引版本、查询与原始排名。若政策根本没写，改搜索算法不会创造真实证据；需要内容所有者修文档或升级人工处理。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 正确条款在原文但不在 chunk，故障在哪？
+2. ANN 漏检如何验证？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Source to candidates
+
+### How do you trace a missing policy before generation?
+
+Walk source page → parsed text → chunk → embedding/lexical tokens → version and ACL filters → ANN versus exact baseline → per-branch Top-K. Keep artifacts at each step. If the source policy lacks the answer, retrieval tuning cannot manufacture valid evidence; route to content ownership or human review.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Where is the fault if source has the clause but no chunk does?
+2. How do you verify ANN misses?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 从候选到回答
+
+### 正确段在 Top-K，答案为什么仍错？
+
+核对融合是否将它挤出、重排是否降级、去重是否误删、token 预算是否裁掉、context 中是否还保留完整条件；再看模型是否引用支持的句子、是否与实时订单状态结合。若 `P-17 v3` 进了 prompt 但仍回答旧流程，属于证据使用或指令问题。
+
+用 [RAG Evaluation](/docs/evaluation/rag-eval) 分开报 candidate recall、context coverage、faithfulness、任务正确性。高总体 Recall@K 不代表这条失败样本的证据一定在 prompt；用 case trace 定位。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 正确段 Top-10 但没进 prompt，先查哪几步？
+2. 高总体 recall 能否证明单例生成故障？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Candidates to answer
+
+### Why can an answer be wrong when Top-K is right?
+
+Inspect fusion cutoff, rerank displacement, accidental deduplication, prompt-budget trimming, and whether the full condition survives. Then inspect grounded claims and live-state use. Report candidate recall, context coverage, faithfulness, and task correctness separately. Aggregate recall cannot prove the failed case had usable evidence in its prompt.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Where do you inspect when the right passage is Top-10 but absent from the prompt?
+2. Can high aggregate recall prove a generation fault for one case?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 修复与回归
+
+### 怎么把一次故障变成可靠改进？
+
+按根因只改一个主要环节，加入包含输入、期望证据 ID、业务状态和允许回答的回归样本；用同一批查询对比改前改后，防止修好“运输中”却破坏“未发货”。同时跑权限负例、过期政策、无答案样本。
+
+延迟故障拆成解析/索引新鲜度（离线）、query embedding、双路检索、重排、context、生成（在线）各段 P50/P95。若重排 P95 暴涨，可减少候选或选择性重排；必须重新看质量。线上异常按触发来源、索引/模型版本与用户影响回流评测集。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 修复单例为何要测相邻状态？
+2. P95 变慢时为何不能只删重排？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Fix and regression
+
+### How does one failure become a reliable improvement?
+
+Change the diagnosed layer, add a regression case with expected evidence IDs and live state, and compare before/after on the same queries. Include authorization negatives, stale documents, and no-answer cases. Split latency by online stage and track P50/P95; if reranking dominates tail latency, reduce candidates or route selectively, then recheck quality. Feed incidents back into the evaluation set.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why test neighboring order states after a fix?
+2. Why not drop reranking solely to improve P95?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+
+</Note>
+
+## 连接
+
+上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
 
 ## 面试问题
 
-1. RAG 答错了，你查什么？（RAG answer is wrong. What do you investigate?）
-2. 正确的文档检索到了，答案却错了，为什么？（Correct document retrieved but answer wrong. Why?）
-3. 没有答案的查询怎么处理？（How do you handle no-answer queries?）
-4. 怎么降低 RAG 的延迟？（How would you reduce RAG latency?）
-5. 怎么评测 RAG？（How do you evaluate RAG?）
+1. 一个错误回答要先保存什么？（What do you preserve for one wrong answer?）
+2. 正确政策没进候选，应沿哪条链查？（How do you trace a missing policy before generation?）
+3. 正确段在 Top-K，答案为什么仍错？（Why can an answer be wrong when Top-K is right?）
+4. 怎么把一次故障变成可靠改进？（How does one failure become a reliable improvement?）
+
+## 资料来源
+
+- [原始研究或官方文档](https://learn.microsoft.com/azure/search/hybrid-search-ranking)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+
+</Note>
+
+## Connections
+
+Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+
+## Interview questions
+
+1. What do you preserve for one wrong answer?
+2. How do you trace a missing policy before generation?
+3. Why can an answer be wrong when Top-K is right?
+4. How does one failure become a reliable improvement?
+
+## Sources
+
+- [Primary research or official documentation](https://learn.microsoft.com/azure/search/hybrid-search-ranking)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -68,64 +263,13 @@ context 拼装对了吗？
 
 <Locale lang="en">
 
-This page matters a lot. When an interviewer says "your RAG answer is wrong," you should walk through this diagram without thinking.
-
-## Must know
-
-Debug layer by layer. Don't start by swapping the model.
-
-## Mechanism
-
-```
-Question
- ↓
-Was the correct document retrieved?
- ↓
-NO → Retrieval problem
-YES
- ↓
-Was correct chunk ranked highly?
- ↓
-NO → Ranking problem
-YES
- ↓
-Was context constructed correctly?
- ↓
-NO → Context problem
-YES
- ↓
-Did LLM use the context?
- ↓
-NO → Generation problem
-```
-
-## Three-level answers
-
-### Level 1 — Definition
-
-Breaking "the answer is wrong" into four kinds of failure: retrieval, ranking, context, and generation.
-
-### Level 2 — Mechanism
-
-Check each layer: the retrieved document ids, their ranks, the snippets that actually went into the prompt, and whether the model cited them. The matching metrics: Recall@K for retrieval, faithfulness for generation.
-
-### Level 3 — Engineering
-
-"Your RAG has 90% retrieval recall but only 70% answer accuracy. Diagnose it." Retrieval is good enough — the problem is in ranking, context assembly, or generation that doesn't stick to the evidence.
-
-## Interview questions
-
-1. RAG answer is wrong. What do you investigate?
-2. Correct document retrieved but answer wrong. Why?
-3. How do you handle no-answer queries?
-4. How would you reduce RAG latency?
-5. How do you evaluate RAG?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

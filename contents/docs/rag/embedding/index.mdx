@@ -1,75 +1,261 @@
 ---
 title: Embedding
 titleEn: Embedding
-description: dense embedding、相似度、维度、normalization、query vs document。
-descriptionEn: Dense embeddings, similarity, dimensions, normalization, query vs document.
-date: 2026-09-07
-keywords: ["embedding", "cosine", "dense embedding"]
+description: 理解文本向量、相似度及模型选择对检索的真实影响。
+descriptionEn: Understand text vectors, similarity, and the practical effect of embedding choice.
+date: 2026-09-24
+keywords: ['rag', 'embedding', 'cosine', 'normalization']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-要能选模型，能解释相似度，能联系到多语言和垂直领域。
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 从词到向量 | embedding 是什么，为什么能找近义表达？ | 15–25 min |
+| 1 · 相似度手算 | cosine、dot product 与归一化有什么区别？ | 15–25 min |
+| 2 · 编码与批处理 | query 与 document 要怎样编码和更新？ | 15–25 min |
+| 3 · 模型选择 | 多语言和领域 embedding 如何评估？ | 15–25 min |
 
 ## 需要掌握
 
-- dense embedding（稠密向量）
-- cosine similarity / dot product / Euclidean（余弦相似度 / 点积 / 欧氏距离）
-- embedding dimension（向量维度）
-- normalization（归一化）
-- query / document embedding（查询向量 / 文档向量）
-- embedding 模型选型
-- 垂直领域 / 多语言 embedding
-
-## 机制
+- embedding 是什么，为什么能找近义表达？
+- cosine、dot product 与归一化有什么区别？
+- query 与 document 要怎样编码和更新？
+- 多语言和领域 embedding 如何评估？
 
 </Locale>
 
 <Locale lang="en">
 
-Be able to choose a model, explain similarity, and connect it to multilingual and domain-specific data.
+We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+
+## How to study this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · From text to vectors | What is an embedding and why can it match paraphrases? | 15–25 min |
+| 1 · Similarity by hand | How do cosine, dot product, and normalization differ? | 15–25 min |
+| 2 · Encoding and indexing | How should queries and documents be encoded and updated? | 15–25 min |
+| 3 · Model selection | How do you evaluate multilingual and domain embeddings? | 15–25 min |
 
 ## Must know
 
-- dense embedding
-- cosine similarity / dot product / Euclidean
-- embedding dimension
-- normalization
-- query / document embedding
-- embedding model selection
-- domain-specific / multilingual embedding
-
-## Mechanism
+- What is an embedding and why can it match paraphrases?
+- How do cosine, dot product, and normalization differ?
+- How should queries and documents be encoded and updated?
+- How do you evaluate multilingual and domain embeddings?
 
 </Locale>
 
-```
-text → embedding model → vector
-query vec · doc vec  →  ranking score
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 从词到向量
 
-### Level 1 — 定义
+### embedding 是什么，为什么能找近义表达？
 
-把文本变成稠密向量，语义相近的文本在向量空间里也靠得近。
+Embedding 模型把一段文本映射为固定维度数值向量；训练目标让某些语义或检索相关的文本更接近。用户问“货还在路上能退吗”，政策写“运输中订单适用售后流程”，稠密检索可能相互匹配，即使没用同一措辞。
 
-### Level 2 — 机制
+它不是事实数据库：向量相近不证明条款适用，也不保证精确识别 `P-17`、SKU 或日期。因此用元数据过滤与词法检索补足，最终回看原文。维度是向量长度，不等于知识量或答案质量。
 
-余弦相似度只看方向；点积会受向量长度影响，所以常先做归一化。Query 和文档有时会用非对称的模型分别编码。
+<Note title="自测：到这里你应该能回答">
 
-### Level 3 — 工程
+1. 为何向量相近不等于业务规则适用？
+2. 编号查询为何需要其他信号？
 
-换 embedding 模型就要重建索引。维度越高不一定越好，但一定更贵。领域术语多、通用模型效果差时，用领域模型或 hybrid 检索。
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · From text to vectors
+
+### What is an embedding and why can it match paraphrases?
+
+An embedding model maps text to a fixed-length vector so related queries and passages can be near each other. It may match “still in transit” with “shipping-stage after-sales process.” Similarity does not prove policy applicability or exact ID/date matching. The vector dimension is a representation size, not a quality guarantee.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is vector proximity not policy applicability?
+2. Why do IDs need another signal?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 相似度手算
+
+### cosine、dot product 与归一化有什么区别？
+
+示意二维向量：查询 `q=(1,0)`，候选 A=`(2,0)`，B=`(1,1)`。点积分别为 2 与 1；cosine 分别为 1 与约 0.707。点积受向量长度影响，cosine 只比方向；若先把所有向量单位化，点积才等于 cosine。L2 距离又是另一种排序依据。
+
+真实 embedding 维度高得多，但计算逻辑相同。选模型和索引时核对官方推荐的相似度、是否自动归一化以及 query/document 编码方式；别把不同模型输出混进同一索引。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 把 A 与 B 单位化后点积排序如何？
+2. 更换 embedding 模型为何要重建索引？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Similarity by hand
+
+### How do cosine, dot product, and normalization differ?
+
+For a toy query `(1,0)`, candidate A `(2,0)` has dot product 2 and cosine 1; B `(1,1)` has dot product 1 and cosine about 0.707. Dot product is affected by magnitude; cosine compares direction. Unit-normalized vectors make dot product equal cosine. Check the chosen model’s recommended metric and whether query and document encoders or prefixes differ.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What happens after unit normalization?
+2. Why reindex after changing the embedding model?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 编码与批处理
+
+### query 与 document 要怎样编码和更新？
+
+有些检索模型为 query 与 document 提供不同指令或前缀，有些使用相同调用。遵循该模型文档，离线统一编码文档，在线用对应 query 路径编码问题。记录模型 ID、版本、维度、归一化策略和文本预处理版本；改模型后建立新索引并做版本切换。
+
+批量嵌入时处理空文本、超长截断、重试与幂等。被截掉的政策例外不会出现在向量里；存一条“embedding 成功”的日志无法证明完整性，要记录输入 token 数和截断状态。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么 query 前缀不能凭习惯乱加？
+2. 长段被截断时哪项观测最有用？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Encoding and indexing
+
+### How should queries and documents be encoded and updated?
+
+Some retrieval models require distinct query and document instructions; others do not. Follow the model contract. Version the model, dimensions, normalization, and preprocessing, and rebuild the index when changing them. Log truncation and empty inputs during batch embedding: a successful API response does not prove that the critical exception was encoded.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why not invent query prefixes?
+2. What reveals truncation of a long passage?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 模型选择
+
+### 多语言和领域 embedding 如何评估？
+
+用真实中文、英文、混合编号、缩写与领域术语查询建小型 gold set；比较相同候选预算下的 Recall@K 与误召回，单独看稀有规则和跨语言匹配。再看延迟、吞吐、每次重建成本和数据驻留约束。大模型或高维向量未必胜出。
+
+若 `P-17` 的准确条款仍找不到，先核对原始文本、chunk 边界和权限过滤；若只有同义改写差，再考虑 embedding。对照 [Sparse Retrieval](/docs/rag/sparse-retrieval) 与 [Hybrid Search](/docs/rag/hybrid-search)。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 多语言评估为什么要分桶？
+2. Recall@K 提高但权限命中出错，能上线吗？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Model selection
+
+### How do you evaluate multilingual and domain embeddings?
+
+Build a labeled set with Chinese, English, mixed IDs, abbreviations, and domain terms. Compare recall and false hits under the same candidate budget, then add latency, throughput, rebuild cost, and residency. A larger model or vector is not automatically better. Inspect parsing, chunking, and filters before blaming embeddings.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why segment multilingual evaluation?
+2. Can better recall excuse an authorization failure?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+
+</Note>
+
+## 连接
+
+上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
 
 ## 面试问题
 
-1. 余弦相似度和点积什么时候不等价？（When are cosine similarity and dot product not equivalent?）
-2. 怎么选择 embedding 模型？（How do you choose an embedding model?）
-3. 为什么 query embedding 和 document embedding 可能不是同一个模型？（Why might query and document embeddings come from different models?）
-4. 多语言语料用一个模型，还是按语言分模型？（For a multilingual corpus, do you use one model or one per language?）
+1. embedding 是什么，为什么能找近义表达？（What is an embedding and why can it match paraphrases?）
+2. cosine、dot product 与归一化有什么区别？（How do cosine, dot product, and normalization differ?）
+3. query 与 document 要怎样编码和更新？（How should queries and documents be encoded and updated?）
+4. 多语言和领域 embedding 如何评估？（How do you evaluate multilingual and domain embeddings?）
+
+## 资料来源
+
+- [原始研究或官方文档](https://developers.openai.com/api/docs/guides/embeddings)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+
+</Note>
+
+## Connections
+
+Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+
+## Interview questions
+
+1. What is an embedding and why can it match paraphrases?
+2. How do cosine, dot product, and normalization differ?
+3. How should queries and documents be encoded and updated?
+4. How do you evaluate multilingual and domain embeddings?
+
+## Sources
+
+- [Primary research or official documentation](https://developers.openai.com/api/docs/guides/embeddings)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -77,32 +263,13 @@ query vec · doc vec  →  ranking score
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Turning text into dense vectors so that semantically similar text ends up close together in vector space.
-
-### Level 2 — Mechanism
-
-Cosine similarity only looks at direction; dot product is affected by vector length, so vectors are usually normalized first. Queries and documents are sometimes encoded by asymmetric models.
-
-### Level 3 — Engineering
-
-Switching embedding models means rebuilding the index. More dimensions isn't necessarily better, but it's always more expensive. When the domain vocabulary trips up a general model, use a domain model or hybrid search.
-
-## Interview questions
-
-1. When are cosine similarity and dot product not equivalent?
-2. How do you choose an embedding model?
-3. Why might query and document embeddings come from different models?
-4. For a multilingual corpus, do you use one model or one per language?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

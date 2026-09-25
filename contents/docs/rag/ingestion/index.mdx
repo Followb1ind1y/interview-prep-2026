@@ -1,72 +1,261 @@
 ---
 title: Document Ingestion
 titleEn: Document Ingestion
-description: PDF / HTML / Markdown / tables / images / OCR / metadata / versioning。
-descriptionEn: PDFs, HTML, Markdown, tables, images, OCR, metadata, versioning.
-date: 2026-09-07
-keywords: ["ingestion", "ocr", "pdf", "metadata"]
+description: 把真实企业资料转成有版本、来源和权限的可检索证据。
+descriptionEn: Turn messy enterprise content into versioned, attributable, permissioned evidence.
+date: 2026-09-24
+keywords: ['rag', 'ingestion', 'parsing', 'ocr', 'versioning']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-企业文档不干净。解析错了，后面全错。
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 原始资料 | 为什么把 PDF 直接塞进向量库会出错？ | 15–25 min |
+| 1 · 证据单位 | 一段入库记录应该带什么元数据？ | 15–25 min |
+| 2 · 增量更新 | 文档改版后怎样避免新旧政策混用？ | 15–25 min |
+| 3 · 摄入验收 | 如何证明索引中的证据可信？ | 15–25 min |
 
 ## 需要掌握
 
-- PDF / HTML / Markdown
-- tables（表格）
-- images（图片）
-- OCR（光学字符识别）
-- metadata（元数据）
-- document versioning（文档版本管理）
-
-## 机制
+- 为什么把 PDF 直接塞进向量库会出错？
+- 一段入库记录应该带什么元数据？
+- 文档改版后怎样避免新旧政策混用？
+- 如何证明索引中的证据可信？
 
 </Locale>
 
 <Locale lang="en">
 
-Enterprise documents are messy. Get parsing wrong and everything after it is wrong.
+We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+
+## How to study this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Source material | Why does directly embedding a PDF fail? | 15–25 min |
+| 1 · Evidence units | What metadata belongs on each indexed passage? | 15–25 min |
+| 2 · Incremental updates | How do you avoid mixing old and new policy versions? | 15–25 min |
+| 3 · Ingestion acceptance | How do you validate indexed evidence? | 15–25 min |
 
 ## Must know
 
-- PDF / HTML / Markdown
-- tables
-- images
-- OCR
-- metadata
-- document versioning
-
-## Mechanism
+- Why does directly embedding a PDF fail?
+- What metadata belongs on each indexed passage?
+- How do you avoid mixing old and new policy versions?
+- How do you validate indexed evidence?
 
 </Locale>
 
-```
-Raw files → parse → clean → attach metadata → version → chunk
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 原始资料
 
-### Level 1 — 定义
+### 为什么把 PDF 直接塞进向量库会出错？
 
-把各种格式的文档变成可以切块、可以追溯来源的文本 + 元数据。
+检索系统看到的是解析后的文本，不是人眼看到的页面。PDF 可能双栏串行、页眉重复、表格行列丢失；扫描件需 OCR；HTML 的导航与广告会混入正文。若 `P-17 v3` 的“运输中”与“退货流程”落在不同栏，解析错了，后续再强的 embedding 也救不了。
 
-### Level 2 — 机制
+先抽样对照原件：标题、段落、表格、脚注、链接、页码是否对应；记录 OCR 置信度与解析失败样本。把解析产物当成需要验收的数据集。
 
-解析器按文件类型分别处理；表格和扫描件要做 OCR，并保留结构。元数据（来源、时间、权限、版本）留给后续过滤和引用。
+<Note title="自测：到这里你应该能回答">
 
-### Level 3 — 工程
+1. 一条政策在扫描 PDF 中，哪些解析错误会改变结论？
+2. 为何先检查文本再换 embedding？
 
-文档版本更新时必须能让旧 chunk 失效。权限字段要进元数据过滤，不能只靠 prompt 里写一句「不要看机密内容」。
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Source material
+
+### Why does directly embedding a PDF fail?
+
+Retrieval sees parsed text, not the page humans see. PDFs can scramble columns, repeat headers, or flatten tables; scans need OCR; HTML can include navigation and ads. If the shipping condition and refund action are separated during parsing, better embeddings cannot recover the missing relationship. Sample-check parsed text against originals and record OCR uncertainty.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Which PDF parsing errors can change the policy meaning?
+2. Why inspect extracted text before changing embeddings?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 证据单位
+
+### 一段入库记录应该带什么元数据？
+
+稳定的 `doc_id` 表示源文档，`chunk_id` 表示段；另存 `version, section_path, page, source_url, effective_at, expires_at, tenant_id, acl`。检索命中后可回到原页，回答引用具体位置；删除或更新文档时可按 `doc_id` 清走全部旧段。
+
+表格别简单逐格拼成一句：保留列名、行键和单位。比如“未发货 7 天”与“已发货 30 天”若丢掉状态列，答案会反转。把版本与权限字段当过滤条件，而非给模型读了后自行判断。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 更新 `P-17` 时如何找到所有旧段？
+2. 表格哪类结构丢失最危险？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Evidence units
+
+### What metadata belongs on each indexed passage?
+
+Store stable document and chunk IDs plus version, section path, page, source URL, effective dates, tenant, and ACL. These fields enable citations, version removal, and access filters. Preserve table headers, row keys, and units: dropping the shipment-state column can reverse a refund rule. Filter versions and permissions before the model sees candidates.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How do you find every old `P-17` chunk?
+2. Which lost table structure is dangerous?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 增量更新
+
+### 文档改版后怎样避免新旧政策混用？
+
+每次摄入可计算内容 hash，发现变更后重解析、重切分、重索引。发布时用版本指针或原子别名切换，之后清理旧版本；线上读请求只见一组一致版本。来源删除、权限收紧也要传播到稀疏索引、向量索引和缓存。
+
+示例：`P-17 v3` 生效前，先在候选索引校验段数、权限和关键查询；切换后用“未发货/运输中”两类固定测试查排名和引用。衡量 source-to-search 延迟，别把“抓取成功”当“可搜且正确”。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 双索引更新若一边先完成会有什么症状？
+2. 上线前固定查询应覆盖哪些状态？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Incremental updates
+
+### How do you avoid mixing old and new policy versions?
+
+Hash source content, reparse and reindex changes, validate a candidate index, then switch a version pointer or alias atomically. Propagate deletions and access changes to lexical, vector, and cache layers. Track source-to-search lag rather than equating a successful crawl with searchable current evidence.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What happens if lexical and vector updates are out of sync?
+2. Which states should fixed release queries cover?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 摄入验收
+
+### 如何证明索引中的证据可信？
+
+抽取文档、段落与关键业务字段做源文对照；统计解析空白率、OCR 低置信段、孤儿 chunk、重复段、过期命中率和权限负例。质量门槛要按文档类型分层：扫描合同和结构化 FAQ 的失败模式不同。
+
+面试时讲清故障回放：失败回答 → 取回引用的 chunk → 对照原文页面 → 查解析版本和索引发布时间。若原始规则本身错，进入内容治理而不是调检索参数。
+
+<Note title="自测：到这里你应该能回答">
+
+1. OCR 置信度低的关键条款应怎样处理？
+2. 原文错与检索错如何分开？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Ingestion acceptance
+
+### How do you validate indexed evidence?
+
+Validate sampled passages against source pages and track empty extraction, low-confidence OCR, orphan chunks, duplication, stale hits, and unauthorized hits. Segment acceptance by document type. On a bad answer, trace the cited chunk back to its source and indexing time; fix wrong source content through content governance, not search tuning.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How should a low-confidence critical clause be handled?
+2. How do you separate wrong source content from bad retrieval?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+
+</Note>
+
+## 连接
+
+上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
 
 ## 面试问题
 
-1. PDF 表格和扫描件你怎么入库？（How do you ingest PDF tables and scanned documents?）
-2. 文档更新后，索引怎么保持一致？（How do you keep the index consistent when documents change?）
-3. 元数据至少要有哪些字段？（What metadata fields are the bare minimum?）
-4. 入库失败怎么被观测到？（How do you detect ingestion failures?）
+1. 为什么把 PDF 直接塞进向量库会出错？（Why does directly embedding a PDF fail?）
+2. 一段入库记录应该带什么元数据？（What metadata belongs on each indexed passage?）
+3. 文档改版后怎样避免新旧政策混用？（How do you avoid mixing old and new policy versions?）
+4. 如何证明索引中的证据可信？（How do you validate indexed evidence?）
+
+## 资料来源
+
+- [原始研究或官方文档](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-solution-design-and-evaluation-guide)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+
+</Note>
+
+## Connections
+
+Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+
+## Interview questions
+
+1. Why does directly embedding a PDF fail?
+2. What metadata belongs on each indexed passage?
+3. How do you avoid mixing old and new policy versions?
+4. How do you validate indexed evidence?
+
+## Sources
+
+- [Primary research or official documentation](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-solution-design-and-evaluation-guide)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -74,32 +263,13 @@ Raw files → parse → clean → attach metadata → version → chunk
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Turning documents in every format into text plus metadata that can be chunked and traced back to its source.
-
-### Level 2 — Mechanism
-
-Parsers handle each file type separately; tables and scans need OCR with their structure preserved. Metadata (source, timestamp, permissions, version) is kept for filtering and citations later.
-
-### Level 3 — Engineering
-
-When a document gets a new version, the old chunks have to be invalidated. Permission fields belong in the metadata filter — you can't rely on a prompt that says "don't look at confidential content."
-
-## Interview questions
-
-1. How do you ingest PDF tables and scanned documents?
-2. How do you keep the index consistent when documents change?
-3. What metadata fields are the bare minimum?
-4. How do you detect ingestion failures?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

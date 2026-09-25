@@ -1,92 +1,305 @@
 ---
 title: Observability
 titleEn: Observability
-description: 一条 request 的 trace：LLM、检索、rerank、tool、token、版本、错误、eval。
-descriptionEn: Trace LLM, retrieval, rerank, tools, tokens, versions, errors, eval scores.
-date: 2026-09-07
-keywords: ["observability", "tracing", "prompt version"]
+description: 用可回放 trace 串起质量、延迟、成本和版本，同时保护用户数据。
+descriptionEn: Connect quality, latency, cost, and versions with replayable privacy-aware traces.
+date: 2026-09-24
+keywords: ['observability', 'tracing', 'metrics', 'genai', 'privacy']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-没有 trace，就没法做线上评测和故障诊断。
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策 `P-17 v3` 来自检索，实时订单状态来自受权订单 API。示意数字只用于手算，不代表你的项目实测或当前供应商报价。
+
+## 这一页怎么学
+
+| Level | 先回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 三类信号 | 日志、指标和 trace 各回答什么问题？ | 15–25 min |
+| 1 · 一条可回放的 trace | 一次 RAG/Agent 请求至少要留哪些字段？ | 15–25 min |
+| 2 · 指标与告警 | 怎样把慢、贵、错分成不同告警？ | 15–25 min |
+| 3 · 隐私与采样 | 如何排错又不把客户数据泄漏到日志？ | 15–25 min |
+| 4 · 实验与事故回流 | 一次线上问题如何变成可验证的改进？ | 15–25 min |
 
 ## 需要掌握
 
-要记录：
-
-- latency（延迟）
-- token usage / cost（token 用量 / 成本）
-- model（模型）
-- prompt version（prompt 版本）
-- retrieved documents（检索到的文档）
-- tool calls（工具调用）
-- errors（错误）
-- evaluation score（评测分数）
-
-## 机制
+- 日志、指标和 trace 各回答什么问题？
+- 一次 RAG/Agent 请求至少要留哪些字段？
+- 怎样把慢、贵、错分成不同告警？
+- 如何排错又不把客户数据泄漏到日志？
+- 一次线上问题如何变成可验证的改进？
 
 </Locale>
 
 <Locale lang="en">
 
-Without traces, you can't do production evaluation or failure diagnosis.
+We continue the pet-food support case: order `20240915` has not arrived. Current policy `P-17 v3` comes from retrieval; live order state comes from an authorized order API. All numerical examples are for learning, not project measurements or current provider prices.
+
+## How to study this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Three signal types | What do logs, metrics, and traces answer? | 15–25 min |
+| 1 · A replayable trace | What minimum fields make a RAG/agent request replayable? | 15–25 min |
+| 2 · Metrics and alerts | How do you alert separately on slow, expensive, and wrong? | 15–25 min |
+| 3 · Privacy and sampling | How do you debug without leaking customer data? | 15–25 min |
+| 4 · Experiments and incident feedback | How does an incident become a verified improvement? | 15–25 min |
 
 ## Must know
 
-Record:
-
-- latency
-- token usage / cost
-- model
-- prompt version
-- retrieved documents
-- tool calls
-- errors
-- evaluation score
-
-## Mechanism
+- What do logs, metrics, and traces answer?
+- What minimum fields make a RAG/agent request replayable?
+- How do you alert separately on slow, expensive, and wrong?
+- How do you debug without leaking customer data?
+- How does an incident become a verified improvement?
 
 </Locale>
 
-```
-Request
- ↓
-Trace
- ↓
-LLM call
- ↓
-Retriever
- ↓
-Reranker
- ↓
-Tool
- ↓
-LLM
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 三类信号
 
-### Level 1 — 定义
+### 日志、指标和 trace 各回答什么问题？
 
-能事后复盘：一次请求为什么慢、为什么贵、为什么错。
+指标聚合回答“最近 P95 是否升高、429 比例多少”；trace 串起某一次请求的父子 span，回答“这条退款问题慢在哪里”；日志记录离散事件与结构化错误。三者通过 request/trace ID 关联，不能把一堆无关联日志叫可观测。
 
-### Level 2 — 机制
+教学案例的一条 trace 可含 `auth → order_lookup → retrieval → rerank → model → response`，分支并行时结构也应并行，而不是画成假串行。每段记录开始/结束、状态和版本。业务正确性另需评测或真实状态校验，不能只靠没有异常日志判断。
 
-分布式 trace 把所有子调用串起来。Prompt 必须有版本号。检索到的文档 id 要能回放。
+<Note title="自测：到这里你应该能回答">
 
-### Level 3 — 工程
+1. 指标、trace、日志分别最适合回答什么？
+2. 并行检索与工具应如何表示？
 
-日志里不要出现明文密钥和用户隐私。高流量时做采样，失败的请求全量保存。接到评测闭环。
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Three signal types
+
+### What do logs, metrics, and traces answer?
+
+Metrics summarize trends, traces show one request’s causal path, and logs capture structured events or errors. Correlate them with a trace/request ID. A support trace can contain auth, order lookup, retrieval, rerank, model, and response spans; represent parallel work honestly. No exception log does not establish answer correctness.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What question does each signal answer?
+2. How should parallel tool and search work appear?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 一条可回放的 trace
+
+### 一次 RAG/Agent 请求至少要留哪些字段？
+
+根 span 保留请求 ID、时间、租户的受限标识、部署版本、最终状态；模型 span 保留供应商、模型/版本、prompt 模板版本、输入/输出与缓存 token、错误码、耗时；检索 span 保留索引版本、查询哈希或受控内容、候选 chunk ID/名次、过滤原因；工具 span 保留工具名、参数摘要、结果状态与幂等键引用。
+
+若 `P-17 v3` 在候选 Top-10 却没有进 context，要能从候选、重排、最终选入 ID 三组字段看出断点。OpenTelemetry 有 GenAI 语义约定，但其字段和稳定性会演进；选定版本并在项目内统一，避免把不同 SDK 的同名字段误当同口径。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 要证明 `P-17 v3` 在哪一步丢失，至少要哪三组 ID？
+2. 为什么版本字段比单纯日志文本重要？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · A replayable trace
+
+### What minimum fields make a RAG/agent request replayable?
+
+Keep request/time/tenant scope, deployment and final status at the root. Model spans need provider/model/prompt version, token categories, errors, and duration. Retrieval spans need index version, candidate IDs/ranks, and filter reasons; tool spans need status and idempotency reference. Store final context IDs separately from candidates. OpenTelemetry GenAI conventions can help, but pin and document the schema because conventions evolve.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Which three ID sets locate where `P-17 v3` vanished?
+2. Why are version fields more useful than free-text logs?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 指标与告警
+
+### 怎样把慢、贵、错分成不同告警？
+
+黄金指标至少分成功/受控失败/未知结果、请求量、P50/P95/P99、429/5xx、超时、取消、队列等待、token 与成本。RAG 再看索引新鲜度、无证据率、引用可核对率；agent 看步数、重复工具和未完成副作用。按模型、租户、功能、部署版本分桶，但避免高基数字段直接做 metric label。
+
+质量指标有延迟：线上许多回答没有即时真值，自动 judge 也可能误判。把“答案待验证”单独计数，人工复核/真实业务结果回流 [Evaluation](/docs/evaluation)，不要把没有投诉当正确。告警要有明确动作：回滚、降级、限流、重建索引或人工升级。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 没有投诉是否等于答案正确？
+2. 哪些字段不适合直接做高基数 metric label？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Metrics and alerts
+
+### How do you alert separately on slow, expensive, and wrong?
+
+Track outcomes, volume, P50/P95/P99, throttling, errors, timeouts, queue wait, token usage, and spend. Add index freshness and evidence quality for RAG, step count and unresolved side effects for agents. Avoid high-cardinality metric labels. Production answers often lack immediate ground truth, so track pending verification and feed reviews or real outcomes into evaluation instead of equating no complaint with success.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Does no complaint imply correctness?
+2. Which identifiers should not be high-cardinality metric labels?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 隐私与采样
+
+### 如何排错又不把客户数据泄漏到日志？
+
+默认不记录明文密钥、完整用户 prompt、订单详情或工具凭证。必要时对内容做脱敏、加密、按角色访问、短期保留；可用文档 ID、哈希、长度、版本和错误类别满足多数统计。采样策略对成功高频请求抽样，对失败可提高保留率，但也必须遵守敏感数据政策；“失败全部原样保存”不是安全默认值。
+
+回放需要能在授权环境中重新取权威订单状态与当时政策快照。若源数据已删除或权限撤回，trace 也要遵守删除/保留规则。日志设计要经过和业务数据相同的安全审查。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么失败请求也不应默认全量保存明文？
+2. 不存 prompt 还能记录什么用于排错？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Privacy and sampling
+
+### How do you debug without leaking customer data?
+
+Do not log plaintext secrets, full prompts, order details, or tool credentials by default. Prefer IDs, hashes, lengths, versions, and error classes; use redaction, encryption, access control, and retention where content is essential. Sample successful requests and retain more failure metadata within the same privacy policy. Replay in an authorized environment using the historical policy snapshot; honor deletion and access changes.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why should failed requests not default to full plaintext capture?
+2. What can you log without the prompt?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 实验与事故回流
+
+### 一次线上问题如何变成可验证的改进？
+
+给事故绑定 trace ID、影响范围、根因层、修复版本与回归样本。例如新 prompt 让“运输中”误判成“未发货”：抽取可脱敏案例，写明订单状态和期望引用，进离线集；同流量桶做 canary，比较结果、P95、成本与安全负例，再扩大。
+
+区分配置检查、测试环境通过、线上 canary 通过与全量用户体验；不要把“日志字段存在”当“可回放且能定位”。让 dashboard 能从聚合异常钻到具体 trace，再回到可复现样本。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 如何从线上错误形成回归样本？
+2. 为什么有 trace 字段不等于能复盘？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Experiments and incident feedback
+
+### How does an incident become a verified improvement?
+
+Tie an incident to trace IDs, affected population, causal layer, fix version, and a regression case. For a prompt that confuses “in transit” with “not shipped,” create a redacted labeled case and run a canary on comparable traffic, checking quality, P95, cost, and authorization negatives. Distinguish configured instrumentation from genuinely replayable production traces.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How does a production error become a regression case?
+2. Why are populated trace fields not sufficient for replay?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要把配置存在、HTTP 成功、示意数字或单次测试通过，当作生产质量与容量的证据。回答时先说明测量边界和分母，再说明取舍与验证方法。
+
+</Note>
+
+## 连接
+
+从 [Production AI 总览](/docs/production) 进入；将本页指标带到 [AI System Design](/docs/system-design) 的具体白板题，并用 [Evaluation](/docs/evaluation) 验证质量。
 
 ## 面试问题
 
-1. 一次 RAG 请求至少要打哪些 span？（What spans does a single RAG request need at minimum?）
-2. Prompt 改动之后怎么在线上做对比？（How do you compare prompt changes in production?）
-3. Token 用量和成本怎么按租户汇总？（How do you aggregate token usage and cost per tenant?）
-4. 怎么从 trace 直接跳到失败样本集？（How do you go from a trace straight to a set of failure cases?）
+1. 日志、指标和 trace 各回答什么问题？（What do logs, metrics, and traces answer?）
+2. 一次 RAG/Agent 请求至少要留哪些字段？（What minimum fields make a RAG/agent request replayable?）
+3. 怎样把慢、贵、错分成不同告警？（How do you alert separately on slow, expensive, and wrong?）
+4. 如何排错又不把客户数据泄漏到日志？（How do you debug without leaking customer data?）
+5. 一次线上问题如何变成可验证的改进？（How does an incident become a verified improvement?）
+
+## 资料来源
+
+- [官方文档](https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/)
+- [官方文档](https://opentelemetry.io/docs/specs/semconv/general/trace/)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Configuration, an HTTP success, teaching numbers, or one passing test do not prove production quality or capacity. State the measurement boundary and denominator before the tradeoff and validation.
+
+</Note>
+
+## Connections
+
+Use [Production AI overview](/docs/production), apply the metrics to [AI System Design](/docs/system-design), and validate quality through [Evaluation](/docs/evaluation).
+
+## Interview questions
+
+1. What do logs, metrics, and traces answer?
+2. What minimum fields make a RAG/agent request replayable?
+3. How do you alert separately on slow, expensive, and wrong?
+4. How do you debug without leaking customer data?
+5. How does an incident become a verified improvement?
+
+## Sources
+
+- [Official documentation](https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/)
+- [Official documentation](https://opentelemetry.io/docs/specs/semconv/general/trace/)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -94,32 +307,13 @@ LLM
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Being able to reconstruct why a single request was slow, expensive, or wrong.
-
-### Level 2 — Mechanism
-
-Distributed tracing ties all the sub-calls together. Prompts must carry a version number. Retrieved document IDs have to be replayable.
-
-### Level 3 — Engineering
-
-Keep plaintext secrets and user PII out of logs. Sample high-volume traffic, and keep every failed request. Feed it all into the eval loop.
-
-## Interview questions
-
-1. What spans does a single RAG request need at minimum?
-2. How do you compare prompt changes in production?
-3. How do you aggregate token usage and cost per tenant?
-4. How do you go from a trace straight to a set of failure cases?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

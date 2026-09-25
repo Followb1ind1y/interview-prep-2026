@@ -1,78 +1,263 @@
 ---
 title: Advanced RAG
 titleEn: Advanced RAG
-description: Query rewrite、HyDE、parent-child、GraphRAG、agentic RAG。第二阶段。
-descriptionEn: Query rewrite, HyDE, parent-child, GraphRAG, agentic RAG. Second pass.
-date: 2026-09-07
-keywords: ["hyde", "query rewriting", "graphrag", "agentic rag", "contextual retrieval"]
+description: 用明确故障驱动查询改写、HyDE、父子检索、GraphRAG 与 agentic RAG。
+descriptionEn: Apply advanced retrieval methods only to diagnosed failures.
+date: 2026-09-24
+keywords: ['rag', 'query rewriting', 'hyde', 'graphrag', 'agentic rag']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-先学会基础 pipeline 和排错，再上这些。不要作为第一周的主线。
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 先诊断 | 什么时候基础 RAG 已经不够？ | 15–25 min |
+| 1 · 查询改写与 HyDE | 如何让模糊问题更容易被检索？ | 15–25 min |
+| 2 · 父子与图 | 跨段关系什么时候需要 parent-child 或 GraphRAG？ | 15–25 min |
+| 3 · Agentic RAG | 让 agent 多轮检索时如何防止空转？ | 15–25 min |
 
 ## 需要掌握
 
-- query rewriting / expansion / multi-query（查询改写 / 扩展 / 多查询）
-- HyDE（假设文档嵌入）
-- parent-document retrieval（父文档检索）
-- contextual retrieval（上下文增强检索）
-- metadata filtering（元数据过滤）
-- recursive / multi-hop retrieval（递归 / 多跳检索）
-- GraphRAG
-- agentic RAG
-
-## 机制
+- 什么时候基础 RAG 已经不够？
+- 如何让模糊问题更容易被检索？
+- 跨段关系什么时候需要 parent-child 或 GraphRAG？
+- 让 agent 多轮检索时如何防止空转？
 
 </Locale>
 
 <Locale lang="en">
 
-Learn the basic pipeline and debugging first, then add these. Don't make this week one's main track.
+We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+
+## How to study this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Diagnose first | When does the baseline RAG need help? | 15–25 min |
+| 1 · Rewriting and HyDE | How can vague queries become retrievable? | 15–25 min |
+| 2 · Parents and graphs | When do parent retrieval or GraphRAG help? | 15–25 min |
+| 3 · Agentic RAG | How do you keep iterative retrieval from looping? | 15–25 min |
 
 ## Must know
 
-- query rewriting / expansion / multi-query
-- HyDE
-- parent-document retrieval
-- contextual retrieval
-- metadata filtering
-- recursive / multi-hop retrieval
-- GraphRAG
-- agentic RAG
-
-## Mechanism
+- When does the baseline RAG need help?
+- How can vague queries become retrievable?
+- When do parent retrieval or GraphRAG help?
+- How do you keep iterative retrieval from looping?
 
 </Locale>
 
-```
-User query → rewrite / expand / HyDE
-          → retrieve (maybe multi-hop / graph)
-          → construct context
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 先诊断
 
-### Level 1 — 定义
+### 什么时候基础 RAG 已经不够？
 
-在基础 RAG 之上，在 query 侧或图结构侧加入推理，用来处理改写、多跳和实体关系。
+先建立可靠的解析、chunk、混合检索、重排与分层评测基线。再用失败样本分类：用户问题省略关键实体、短 query 与文档措辞差很远、答案跨多段关系、需要跨系统查证。每一类故障只引入对应机制，避免把复杂流程当成绩效本身。
 
-### Level 2 — 机制
+例如“这个订单还能退吗？”缺订单状态，先查订单工具；不是给 query 做十次改写。若用户问“过去一年全部政策变更的共同主题”，单段召回可能不足，才考虑跨文档聚合。
 
-HyDE 先生成一个假设答案，再拿它去做 embedding 检索。多跳检索把中间答案变成下一跳的查询。GraphRAG 用实体关系弥补向量检索只看局部的问题。Agentic RAG 让模型自己决定要不要再搜一次。
+<Note title="自测：到这里你应该能回答">
 
-### Level 3 — 工程
+1. 什么时候先查工具而非改写查询？
+2. 如何证明高级策略解决了特定失败？
 
-每多一跳，就多一份延迟和费用。先证明基础召回确实不够，再加组件。用评测证明查询改写真的有用。
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Diagnose first
+
+### When does the baseline RAG need help?
+
+Start from a working baseline and classify misses: omitted entities, query-document wording gap, multi-passage relationships, or cross-system facts. Add one mechanism for one observed failure. A missing live order state calls for a tool, not ten rewrites. A global question across policy changes may need broader aggregation.
+
+<Note title="Self-check: you should be able to answer">
+
+1. When should a tool precede query rewriting?
+2. How do you prove an advanced method fixes a diagnosed miss?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 查询改写与 HyDE
+
+### 如何让模糊问题更容易被检索？
+
+查询改写可保留原意，补上已知订单状态和同义表达，例如“货还在路上”→“运输中订单退款规则”，同时保留原 query 跑一支防止改写偏航。Multi-query 可覆盖不同措辞，但增加调用和噪声。HyDE 先生成一段**假想相关文档**，嵌入该文档来检索真实资料；它是召回桥梁，绝不可当回答证据。
+
+若假想段编造“运输中可以立即退款”，只可用于候选搜索；最终必须用真实 `P-17 v3` 和订单状态核验。测试改写前后召回、错误引入率和延迟。
+
+<Note title="自测：到这里你应该能回答">
+
+1. HyDE 生成段能否引用？
+2. 多查询为什么可能降低精度？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Rewriting and HyDE
+
+### How can vague queries become retrievable?
+
+Rewrite the query with known state and synonyms while retaining the original query to guard against drift. Multi-query adds coverage and noise. HyDE embeds a generated hypothetical document to retrieve real passages; the generated text is never evidence. If it invents a refund rule, only retrieved source passages can support the final answer. Measure recall gain, drift, and latency.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Can a HyDE passage be cited?
+2. Why can multiple queries reduce precision?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 父子与图
+
+### 跨段关系什么时候需要 parent-child 或 GraphRAG？
+
+Parent-child 先用短段找到相关位置，再回取较大的父段，适合条件和例外散落在同一章节。GraphRAG 把实体、关系和社区摘要组织成图与层级报告，适合跨文档实体关联或全局归纳类问题；构建、更新和核实成本更高。
+
+“运输中条款旁边还有例外”通常先试父段；“哪些产品线在各地区的退货政策有共同变化”才可能用图式聚合。图中关系若来自自动抽取，仍要能回溯原始文本，不能把自动摘要当最终事实。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 父子检索能解决哪种断裂？
+2. 图的自动抽取关系为何要保留来源？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Parents and graphs
+
+### When do parent retrieval or GraphRAG help?
+
+Parent-child retrieval restores a larger section around a matched passage. GraphRAG builds entity relationships and community summaries to support cross-document and global questions, with substantial indexing and verification cost. A nearby exception usually calls for parent retrieval first; broad cross-region policy synthesis may justify graph-based aggregation. Keep provenance to source text.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Which break does parent retrieval fix?
+2. Why keep source provenance for extracted graph edges?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · Agentic RAG
+
+### 让 agent 多轮检索时如何防止空转？
+
+Agentic RAG 让模型根据中间证据决定是否再次检索、换查询、调用工具或停止。适合多跳且下一步依赖上一步结果的问题；简单 FAQ 用固定流程通常更快、更可预测。
+
+设置最大检索轮数、耗时和成本；每轮记 query、结果、证据缺口与停止理由。停止条件应是“所需主张已有可信来源或明确无证据”，不是模型说“我觉得够了”。比较固定 pipeline 与 agent 流程在同一 gold set 上的成功率、无依据答案、P95、成本。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 简单 FAQ 为什么不一定需要 agent？
+2. agent 何时必须停止并承认缺证据？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Agentic RAG
+
+### How do you keep iterative retrieval from looping?
+
+Agentic RAG lets the model choose follow-up searches or tools based on intermediate evidence. It is useful for multi-hop dependencies, but a fixed pipeline is usually simpler for FAQs. Bound search steps, time, and cost; trace each query, result, remaining evidence gap, and stop reason. Compare with the fixed baseline on quality, unsupported claims, tail latency, and cost.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why may FAQs not need an agent?
+2. When should the agent stop and state an evidence gap?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+
+</Note>
+
+## 连接
+
+上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
 
 ## 面试问题
 
-1. 查询改写解决的是哪种失败模式？（What failure mode does query rewriting fix?）
-2. HyDE 什么时候反而会伤害检索？（When does HyDE actually hurt retrieval?）
-3. GraphRAG 比 hybrid 多解决了什么？（What does GraphRAG solve that hybrid search doesn't?）
-4. Agentic RAG 和普通 RAG 的成本差在哪？（Where does the cost of agentic RAG differ from standard RAG?）
+1. 什么时候基础 RAG 已经不够？（When does the baseline RAG need help?）
+2. 如何让模糊问题更容易被检索？（How can vague queries become retrievable?）
+3. 跨段关系什么时候需要 parent-child 或 GraphRAG？（When do parent retrieval or GraphRAG help?）
+4. 让 agent 多轮检索时如何防止空转？（How do you keep iterative retrieval from looping?）
+
+## 资料来源
+
+- [原始研究或官方文档](https://arxiv.org/abs/2212.10496)
+- [原始研究或官方文档](https://microsoft.github.io/graphrag/query/overview/)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+
+</Note>
+
+## Connections
+
+Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+
+## Interview questions
+
+1. When does the baseline RAG need help?
+2. How can vague queries become retrievable?
+3. When do parent retrieval or GraphRAG help?
+4. How do you keep iterative retrieval from looping?
+
+## Sources
+
+- [Primary research or official documentation](https://arxiv.org/abs/2212.10496)
+- [Primary research or official documentation](https://microsoft.github.io/graphrag/query/overview/)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -80,32 +265,11 @@ HyDE 先生成一个假设答案，再拿它去做 embedding 检索。多跳检�
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Adding reasoning on the query side or through graph structure on top of basic RAG, to handle rewriting, multi-hop questions, and entity relationships.
-
-### Level 2 — Mechanism
-
-HyDE generates a hypothetical answer first and embeds that for retrieval. Multi-hop retrieval turns an intermediate answer into the next query. GraphRAG uses entity relationships to cover the local-only view of vector search. Agentic RAG lets the model decide whether to search again.
-
-### Level 3 — Engineering
-
-Every extra hop adds latency and cost. Prove that basic recall really falls short before adding components, and use evals to prove the rewrite step actually helps.
-
-## Interview questions
-
-1. What failure mode does query rewriting fix?
-2. When does HyDE actually hurt retrieval?
-3. What does GraphRAG solve that hybrid search doesn't?
-4. Where does the cost of agentic RAG differ from standard RAG?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
 
 <Locale lang="zh">
 

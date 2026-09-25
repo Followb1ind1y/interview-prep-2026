@@ -1,53 +1,305 @@
 ---
 title: Scaling
 titleEn: Scaling
-description: 水平扩展、负载均衡、异步、队列、缓存、batching、限流。
-descriptionEn: Horizontal scaling, load balancing, queues, cache, batching, rate limits.
-date: 2026-09-07
-keywords: ["scaling", "queue", "batching", "load balancing"]
+description: 从到达率、并发与队列算容量，设计公平限流和有界扩容。
+descriptionEn: Size capacity from arrival rate, concurrency, and queues with fair admission control.
+date: 2026-09-24
+keywords: ['scaling', 'qps', 'concurrency', 'queue', 'autoscaling']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-QPS 上来之后，同步调用链最先断在模型和检索上。
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策 `P-17 v3` 来自检索，实时订单状态来自受权订单 API。示意数字只用于手算，不代表你的项目实测或当前供应商报价。
+
+## 这一页怎么学
+
+| Level | 先回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 先算负载 | QPS、并发和服务时长有什么关系？ | 15–25 min |
+| 1 · 同步与异步 | 哪些步骤让用户等，哪些适合放队列？ | 15–25 min |
+| 2 · 限流与公平 | 为什么要同时做用户、租户和下游限流？ | 15–25 min |
+| 3 · 多副本与状态 | API 扩成多副本后，会话与任务状态放哪里？ | 15–25 min |
+| 4 · 压测与扩容 | 如何证明系统在峰值和故障下能扛住？ | 15–25 min |
 
 ## 需要掌握
 
-- horizontal scaling（水平扩展）
-- load balancing（负载均衡）
-- async processing（异步处理）
-- queues（队列）
-- caching（缓存）
-- batching（批处理）
-- rate limiting（限流）
+- QPS、并发和服务时长有什么关系？
+- 哪些步骤让用户等，哪些适合放队列？
+- 为什么要同时做用户、租户和下游限流？
+- API 扩成多副本后，会话与任务状态放哪里？
+- 如何证明系统在峰值和故障下能扛住？
 
-## 机制
+</Locale>
 
-```
-同步链路     用户在线等待的问答
-异步链路     建索引、生成摘要、跑评测、长任务
-```
+<Locale lang="en">
 
-## 三级回答
+We continue the pet-food support case: order `20240915` has not arrived. Current policy `P-17 v3` comes from retrieval; live order state comes from an authorized order API. All numerical examples are for learning, not project measurements or current provider prices.
 
-### Level 1 — 定义
+## How to study this page
 
-用多副本、队列和批处理来承接更高的流量，同时保护下游服务。
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Estimate load | How do QPS, concurrency, and service time relate? | 15–25 min |
+| 1 · Synchronous and asynchronous work | Which steps belong on the interactive path versus a queue? | 15–25 min |
+| 2 · Admission and fairness | Why limit users, tenants, and downstream capacity separately? | 15–25 min |
+| 3 · Replicas and state | Where do session and job states live across replicas? | 15–25 min |
+| 4 · Load testing and scaling | How do you prove capacity under peaks and failures? | 15–25 min |
 
-### Level 2 — 机制
+## Must know
 
-检索层和 API 层做水平扩展。LLM 靠并发配额 + 批处理。长任务放进队列。
+- How do QPS, concurrency, and service time relate?
+- Which steps belong on the interactive path versus a queue?
+- Why limit users, tenants, and downstream capacity separately?
+- Where do session and job states live across replicas?
+- How do you prove capacity under peaks and failures?
 
-### Level 3 — 工程
+</Locale>
 
-限流要区分用户级和租户级。批处理能提高吞吐，但可能拖慢延迟。和 Inference 页里的 continuous batching 对应起来。
+---
+
+<Locale lang="zh">
+
+## Level 0 · 先算负载
+
+### QPS、并发和服务时长有什么关系？
+
+先定请求单位：页面浏览、用户问题与一次模型调用并不相同。示意日均 100,000 个问答，平均 `100,000/86,400≈1.16 QPS`；高峰若是均值 20 倍，约 23 QPS。平均生成占用 4 秒时，在稳定流量下在途调用粗估 `L≈λW≈23×4=92`。这对应 Little's law 的平均关系，不含峰值抖动、重试和预留。
+
+若供应商只允许 50 并发，该高峰会排队或失败；不能靠把 API pod 从 2 个扩到 20 个解决。先辨认真正瓶颈：网关、检索集群、模型配额还是下游工具。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 100k 次/天约多少平均 QPS？
+2. 23 QPS、4 秒占用粗估多少并发？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Estimate load
+
+### How do QPS, concurrency, and service time relate?
+
+Define the work unit: a page view, user question, and model call are not interchangeable. An illustrative 100,000 daily questions average 1.16 QPS; a 20× peak is about 23 QPS. At four seconds of in-flight model time, Little’s law suggests roughly `23×4=92` concurrent calls in steady state, before burstiness and headroom. If provider concurrency is 50, scaling API pods cannot remove that bottleneck.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What is average QPS for 100k daily questions?
+2. What concurrency follows from 23 QPS at four seconds?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 同步与异步
+
+### 哪些步骤让用户等，哪些适合放队列？
+
+用户等着的退款解释、订单状态与本轮引用必须走有界同步链路。文档重建索引、批量 embedding、离线评测、长报告可进异步队列，返回任务 ID 与状态查询。异步不是“晚点就会成功”：任务要有持久状态、重试上限、死信队列、幂等键和结果有效期。
+
+同一文档多次更新时只发布最新版本；旧任务晚完成不能覆盖新索引。若用户取消，明确是否取消队列任务和已有外部副作用。区分 CPU/网络 I/O 异步与供应商侧批处理；批处理提高吞吐可能增加单个用户的等待。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 文档重建为什么适合队列？
+2. 旧索引任务晚完成如何防止覆盖新版本？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Synchronous and asynchronous work
+
+### Which steps belong on the interactive path versus a queue?
+
+Keep user-facing order lookup, policy retrieval, and answer generation on a bounded interactive path. Reindexing, batch embeddings, offline evals, and long reports can run as durable jobs with IDs, retries, dead-letter handling, idempotency, and expiry. An old indexing job must not overwrite a newer policy version. Async processing and provider batching improve different constraints and may increase per-user latency.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is reindexing a queue job?
+2. How do you prevent an old job from overwriting a newer index?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 限流与公平
+
+### 为什么要同时做用户、租户和下游限流？
+
+用户级防滥用，租户级保证公平与合同配额，模型级保护真实供应商并发/速率上限。令牌桶可允许小突发并限制长期速率；并发 semaphore 限制同时在途任务；有界队列把短突发平滑掉。它们约束不同维度，不能互相替代。
+
+例如大租户一次提交 1,000 个批量任务，不应挤掉其他租户的交互问答。可拆交互与后台队列、设优先级与配额，但要监测饥饿。已满时给可解释的 429/排队状态与重试建议，而非一直占着连接。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 令牌桶和并发 semaphore 限制的东西一样吗？
+2. 后台任务为何可能饿死互动请求？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Admission and fairness
+
+### Why limit users, tenants, and downstream capacity separately?
+
+Per-user limits curb abuse, per-tenant limits preserve fairness, and provider limits protect real downstream quotas. Token buckets control rates with small bursts; semaphores cap in-flight calls; bounded queues absorb short bursts. Separate interactive from batch work so one tenant’s 1,000 jobs do not starve support questions. When full, return a clear throttle or queued state.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Do token buckets and semaphores limit the same thing?
+2. How can batch work starve interactive requests?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 多副本与状态
+
+### API 扩成多副本后，会话与任务状态放哪里？
+
+API 层尽量无状态：请求 ID、认证、会话引用随请求传入；订单与退款状态在权威业务数据库，任务状态在持久队列/存储，短期缓存有明确 TTL 与租户隔离。不能把关键状态只存某个 pod 的内存，否则负载均衡切换后丢失或重复操作。
+
+RAG 索引可分片/复制，但更新一致性、ACL 同步和缓存失效要设计。缓存当前政策时必须含版本与租户权限范围；缓存的“退款建议”不能跨用户复用。多副本部署要测滚动升级期间新旧 prompt、schema 与索引版本是否兼容。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么把退款状态放进某个 pod 内存很危险？
+2. 缓存 key 至少应包含哪些作用域？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Replicas and state
+
+### Where do session and job states live across replicas?
+
+Keep API replicas mostly stateless. Authoritative order/refund state belongs in a durable system; jobs need persistent status; caches need scoped keys and TTLs. Pod-local memory cannot hold critical session state. Replicated or sharded retrieval indexes need version and ACL consistency. Cache policy by version and tenant scope, not a personalized refund answer across users. Test mixed versions during rolling deploys.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is pod-local refund state dangerous?
+2. Which scope belongs in a policy cache key?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 压测与扩容
+
+### 如何证明系统在峰值和故障下能扛住？
+
+按真实到达分布回放，而不只用恒定 QPS；覆盖短问、长 prompt、工具慢、429、供应商部分故障和冷启动。记录成功吞吐、P95/P99、排队时长、拒绝率、队列深度、每租户公平性与成本。容量阈值由质量/延迟 SLO 反推，自动扩容也有启动滞后。
+
+压测时若 API CPU 低但 P95 高、供应商并发打满，扩 pod 没意义；应做背压、配额或供应商容量规划。若检索 CPU 高且可分片，扩检索层可能有效。每次扩容要说明是哪一段、凭什么、会引入什么一致性成本。
+
+<Note title="自测：到这里你应该能回答">
+
+1. API CPU 低但 P95 高时先查哪里？
+2. 压测为什么需要突发流量？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Load testing and scaling
+
+### How do you prove capacity under peaks and failures?
+
+Replay realistic burst patterns, not only flat QPS. Cover long prompts, slow tools, throttling, partial provider failure, and cold starts. Record successful throughput, tails, queue wait, rejection, fairness, and cost. Autoscaling has startup lag. If provider concurrency is saturated while API CPU is low, more API pods are not the fix; if search is CPU-bound, scaling the retrieval tier may help.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Where do you inspect high P95 with low API CPU?
+2. Why include burst traffic?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要把配置存在、HTTP 成功、示意数字或单次测试通过，当作生产质量与容量的证据。回答时先说明测量边界和分母，再说明取舍与验证方法。
+
+</Note>
+
+## 连接
+
+从 [Production AI 总览](/docs/production) 进入；将本页指标带到 [AI System Design](/docs/system-design) 的具体白板题，并用 [Evaluation](/docs/evaluation) 验证质量。
 
 ## 面试问题
 
-1. RAG 里哪些组件能水平扩展，哪些不能？（Which RAG components scale horizontally, and which don't?）
-2. 哪些东西必须异步处理？（What has to be asynchronous?）
-3. 被限流返回 429 时，对用户怎么降级？（When you get rate-limited with a 429, how do you degrade for the user?）
-4. 会话状态放在哪里，才能扩成多副本？（Where should session state live so you can run multiple replicas?）
+1. QPS、并发和服务时长有什么关系？（How do QPS, concurrency, and service time relate?）
+2. 哪些步骤让用户等，哪些适合放队列？（Which steps belong on the interactive path versus a queue?）
+3. 为什么要同时做用户、租户和下游限流？（Why limit users, tenants, and downstream capacity separately?）
+4. API 扩成多副本后，会话与任务状态放哪里？（Where do session and job states live across replicas?）
+5. 如何证明系统在峰值和故障下能扛住？（How do you prove capacity under peaks and failures?）
+
+## 资料来源
+
+- [官方文档](https://sre.google/sre-book/handling-overload/)
+- [官方文档](https://sre.google/sre-book/addressing-cascading-failures/)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Configuration, an HTTP success, teaching numbers, or one passing test do not prove production quality or capacity. State the measurement boundary and denominator before the tradeoff and validation.
+
+</Note>
+
+## Connections
+
+Use [Production AI overview](/docs/production), apply the metrics to [AI System Design](/docs/system-design), and validate quality through [Evaluation](/docs/evaluation).
+
+## Interview questions
+
+1. How do QPS, concurrency, and service time relate?
+2. Which steps belong on the interactive path versus a queue?
+3. Why limit users, tenants, and downstream capacity separately?
+4. Where do session and job states live across replicas?
+5. How do you prove capacity under peaks and failures?
+
+## Sources
+
+- [Official documentation](https://sre.google/sre-book/handling-overload/)
+- [Official documentation](https://sre.google/sre-book/addressing-cascading-failures/)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -55,51 +307,13 @@ QPS 上来之后，同步调用链最先断在模型和检索上。
 
 <Locale lang="en">
 
-Once QPS climbs, the synchronous path breaks first at the model and at retrieval.
-
-## Must know
-
-- horizontal scaling
-- load balancing
-- async processing
-- queues
-- caching
-- batching
-- rate limiting
-
-## Mechanism
-
-```
-sync path     Q&A the user is waiting on
-async path    indexing, summaries, evals, long-running jobs
-```
-
-## Three-level answers
-
-### Level 1 — Definition
-
-Using replicas, queues, and batching to absorb more traffic while protecting downstream services.
-
-### Level 2 — Mechanism
-
-Scale the retrieval and API layers horizontally. The LLM side relies on concurrency quotas plus batching. Long-running work goes into queues.
-
-### Level 3 — Engineering
-
-Rate limits should distinguish per-user from per-tenant. Batching raises throughput but can hurt latency. Line this up with continuous batching on the Inference page.
-
-## Interview questions
-
-1. Which RAG components scale horizontally, and which don't?
-2. What has to be asynchronous?
-3. When you get rate-limited with a 429, how do you degrade for the user?
-4. Where should session state live so you can run multiple replicas?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

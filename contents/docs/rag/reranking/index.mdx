@@ -1,66 +1,261 @@
 ---
 title: Reranking
 titleEn: Reranking
-description: Top 50 → Cross Encoder / Reranker → Top 5。为什么分两阶段。
-descriptionEn: Top 50 → cross encoder / reranker → Top 5. Why two stages.
-date: 2026-09-07
-keywords: ["reranking", "cross encoder"]
+description: 用两阶段检索在召回、精度、成本和延迟之间做决策。
+descriptionEn: Use two-stage retrieval to balance recall, precision, cost, and latency.
+date: 2026-09-24
+keywords: ['rag', 'reranking', 'cross encoder', 'latency']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-要能讲清召回阶段和精排阶段各自的计算预算。
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 两阶段 | 为什么先召回一批，再精排少数？ | 15–25 min |
+| 1 · 交互式相关性 | bi-encoder 与 cross-encoder 的判断方式有什么差异？ | 15–25 min |
+| 2 · 多样性与上下文 | Top-N 都是同一条款的重复段怎么办？ | 15–25 min |
+| 3 · 预算与验收 | 怎样判断重排值不值得加？ | 15–25 min |
 
 ## 需要掌握
 
-检索便宜、粗糙；重排贵、精准。
-
-## 机制
+- 为什么先召回一批，再精排少数？
+- bi-encoder 与 cross-encoder 的判断方式有什么差异？
+- Top-N 都是同一条款的重复段怎么办？
+- 怎样判断重排值不值得加？
 
 </Locale>
 
 <Locale lang="en">
 
-Be able to explain the compute budget of the recall stage versus the precision stage.
+We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+
+## How to study this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Two stages | Why retrieve broadly and rerank a smaller set? | 15–25 min |
+| 1 · Joint relevance | How do bi-encoders and cross-encoders differ? | 15–25 min |
+| 2 · Diversity and context | What if top results duplicate one clause? | 15–25 min |
+| 3 · Budget and acceptance | How do you decide whether reranking pays off? | 15–25 min |
 
 ## Must know
 
-Retrieval is cheap and coarse; reranking is expensive and precise.
-
-## Mechanism
+- Why retrieve broadly and rerank a smaller set?
+- How do bi-encoders and cross-encoders differ?
+- What if top results duplicate one clause?
+- How do you decide whether reranking pays off?
 
 </Locale>
 
-```
-Top 50 retrieved
-        ↓
-Cross Encoder / Reranker
-        ↓
-Top 5
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 两阶段
 
-### Level 1 — 定义
+### 为什么先召回一批，再精排少数？
 
-用更强的模型（通常是 cross-encoder）对少量候选重新排序。
+第一阶段用 BM25/向量快速取例如 30 个候选，目标是别漏掉 `P-17 v3`；第二阶段对问题与每段一起打相关性分，挑出最适合回答的少数段。这个 30 只是示意预算，按延迟和标注集调。
 
-### Level 2 — 机制
+重排器不能找回第一阶段没有召回的条款。如果当前政策不在候选，增加重排模型能力也没用；先看候选 Recall@K。第二阶段通常比单次索引查找贵，所以只喂有限候选。
 
-Bi-encoder 把 query 和文档分开编码，所以文档向量可以预先算好。Cross-encoder 把两者放在一起编码，质量高，但没法对全库跑。
+<Note title="自测：到这里你应该能回答">
 
-### Level 3 — 工程
+1. 第一阶段漏掉 `P-17 v3` 时重排能补救吗？
+2. 为何不对全库逐段重排？
 
-重排的深度和候选集大小直接决定延迟。没有 rerank 时，就把 hybrid 和元数据过滤做好。上了 rerank，就要把它纳入链路追踪（trace）。
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Two stages
+
+### Why retrieve broadly and rerank a smaller set?
+
+First-stage lexical/dense retrieval gets a broad, cheap candidate set; a reranker scores the query with each candidate to choose a small set for the prompt. A candidate count of 30 is illustrative. Reranking cannot recover a passage that first-stage retrieval never found. Measure candidate recall before upgrading the reranker.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Can reranking recover an absent passage?
+2. Why not rerank the whole corpus?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 交互式相关性
+
+### bi-encoder 与 cross-encoder 的判断方式有什么差异？
+
+Embedding 检索通常分别编码 query 与段，再比向量；文档向量可预计算，速度快。Cross-encoder 类重排器把 query 与候选段一起输入，让模型看见词间交互，可能更准确地区分“运输中”与“未发货”，但每个候选都要计算。LLM 重排也是一种选择，成本和稳定性需单独测。
+
+相关性不是业务真值：若旧 `P-17 v2` 措辞更贴近问题，重排器可能把它放第一。权限、版本和生效日期应在重排前被约束。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么 cross-encoder 成本随候选数上升？
+2. 它为何可能仍偏爱旧政策？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Joint relevance
+
+### How do bi-encoders and cross-encoders differ?
+
+A bi-encoder typically encodes query and document separately, enabling precomputed document vectors. A cross-encoder reads the pair jointly and can distinguish subtle conditions, but runs per candidate. LLM reranking is another option with different cost and consistency. Relevance scoring does not replace freshness or ACL filters.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why does cross-encoder cost grow with candidates?
+2. Why might it still favor stale policy?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 多样性与上下文
+
+### Top-N 都是同一条款的重复段怎么办？
+
+重排高分不表示答案证据完整。三个相邻 chunk 都讲“运输中”，却没有“退货例外”，最终 context 会缺关键条件。先按源段去重或限制同文档重复，再看是否覆盖所需子问题；必要时补取父段。
+
+示意预算可放 4 段：当前政策适用条件、例外、流程、订单状态摘要。把最终入 prompt 的 ID 与排序一并记录。别用“多样性”强制混入不相关内容；仍以任务相关性和来源真实性为先。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 三个重复高分段会造成什么答案风险？
+2. 最终 prompt 的段 ID 为什么必须记录？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Diversity and context
+
+### What if top results duplicate one clause?
+
+High rerank scores can all belong to near-duplicate chunks. Deduplicate by source span or limit redundant passages, then check whether conditions, exceptions, and process are covered. Parent retrieval can restore context. Log the exact passages placed in the prompt; diversity is useful only when it preserves relevance.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What risk comes from three duplicate high scorers?
+2. Why log final prompt passage IDs?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 预算与验收
+
+### 怎样判断重排值不值得加？
+
+固定同一候选集，对比无重排、轻量重排和更贵方案的 nDCG/Recall@prompt、最终任务正确性、P95 和单位请求成本。分桶看编号、跨语言、长问题与无答案；若质量收益只出现在少数类型，可按查询路由重排。
+
+还要检查数据泄漏：训练/调参集与最终评测集分离。上线 trace 保留第一阶段与重排前后顺序，才能解释“检索对了但答案错”的责任边界。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么比较重排器要固定候选集？
+2. 收益局限在长问题时可做什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Budget and acceptance
+
+### How do you decide whether reranking pays off?
+
+Hold candidate sets fixed when comparing no rerank, a lightweight reranker, and a stronger option. Measure ranking, final-context coverage, task quality, P95, and cost by query bucket. Consider selective reranking when gains are concentrated. Preserve before/after rankings in traces.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why hold candidates fixed in a reranker comparison?
+2. What if gains occur only for long questions?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+
+</Note>
+
+## 连接
+
+上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
 
 ## 面试问题
 
-1. 为什么需要重排？（Why reranking?）
-2. 检索和重排为什么要分成两个阶段？（Why are retrieval and reranking split into two stages?）
-3. 把 Top 50 改成 Top 200 会怎样？（What happens if you go from Top 50 to Top 200?）
-4. 什么时候不值得做重排？（When is reranking not worth it?）
+1. 为什么先召回一批，再精排少数？（Why retrieve broadly and rerank a smaller set?）
+2. bi-encoder 与 cross-encoder 的判断方式有什么差异？（How do bi-encoders and cross-encoders differ?）
+3. Top-N 都是同一条款的重复段怎么办？（What if top results duplicate one clause?）
+4. 怎样判断重排值不值得加？（How do you decide whether reranking pays off?）
+
+## 资料来源
+
+- [原始研究或官方文档](https://www.anthropic.com/engineering/contextual-retrieval)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+
+</Note>
+
+## Connections
+
+Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+
+## Interview questions
+
+1. Why retrieve broadly and rerank a smaller set?
+2. How do bi-encoders and cross-encoders differ?
+3. What if top results duplicate one clause?
+4. How do you decide whether reranking pays off?
+
+## Sources
+
+- [Primary research or official documentation](https://www.anthropic.com/engineering/contextual-retrieval)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -68,32 +263,11 @@ Bi-encoder 把 query 和文档分开编码，所以文档向量可以预先算�
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Re-sorting a small set of candidates with a stronger model, usually a cross-encoder.
-
-### Level 2 — Mechanism
-
-A bi-encoder encodes the query and documents separately, which is what lets document vectors be precomputed. A cross-encoder encodes them together — higher quality, but impossible to run across the whole corpus.
-
-### Level 3 — Engineering
-
-Rerank depth and candidate-set size directly drive latency. Without a reranker, invest in better hybrid search and metadata. With one, make sure it shows up in your traces.
-
-## Interview questions
-
-1. Why reranking?
-2. Why are retrieval and reranking split into two stages?
-3. What happens if you go from Top 50 to Top 200?
-4. When is reranking not worth it?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
 
 <Locale lang="zh">
 

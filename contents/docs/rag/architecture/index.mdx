@@ -1,82 +1,265 @@
 ---
 title: RAG Architecture
 titleEn: RAG Architecture
-description: 先真正理解完整 pipeline，再往下拆每个环节。
-descriptionEn: Understand the full pipeline before specializing in any stage.
-date: 2026-09-07
-keywords: ["rag architecture", "pipeline"]
+description: 从离线索引到在线回答，设计可追溯、可授权的完整 RAG 系统。
+descriptionEn: Design a traceable, permission-aware RAG system from indexing to answers.
+date: 2026-09-24
+keywords: ['rag', 'architecture', 'pipeline', 'grounding']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-5 分钟白板必须能画出这条链，并指出每一步会在哪里失败。
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 问题与边界 | RAG 究竟解决什么，什么还得查实时系统？ | 15–25 min |
+| 1 · 两条流水线 | 离线建索引与在线回答分别做什么？ | 15–25 min |
+| 2 · 证据到答案 | 为什么“检索到了”仍然可能答错？ | 15–25 min |
+| 3 · 生产设计 | 面试中怎样给出可落地的 RAG 架构？ | 15–25 min |
 
 ## 需要掌握
 
-完整链路，不要只写 Embedding / Retrieval / Rerank。
-
-## 机制
+- RAG 究竟解决什么，什么还得查实时系统？
+- 离线建索引与在线回答分别做什么？
+- 为什么“检索到了”仍然可能答错？
+- 面试中怎样给出可落地的 RAG 架构？
 
 </Locale>
 
 <Locale lang="en">
 
-In a 5-minute whiteboard you must be able to draw this chain and point out where each step fails.
+We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+
+## How to study this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · The problem and boundaries | What does RAG solve, and what still needs a live system? | 15–25 min |
+| 1 · Two pipelines | What happens offline and online? | 15–25 min |
+| 2 · From evidence to answer | Why can an answer fail after retrieval succeeds? | 15–25 min |
+| 3 · Production design | How do you whiteboard a production RAG system? | 15–25 min |
 
 ## Must know
 
-The complete pipeline — not just Embedding / Retrieval / Rerank.
-
-## Mechanism
+- What does RAG solve, and what still needs a live system?
+- What happens offline and online?
+- Why can an answer fail after retrieval succeeds?
+- How do you whiteboard a production RAG system?
 
 </Locale>
 
-```
-Documents
- ↓
-Parsing
- ↓
-Chunking
- ↓
-Embedding
- ↓
-Vector DB
- ↓
-Query
- ↓
-Retrieval
- ↓
-Reranking
- ↓
-Context Construction
- ↓
-LLM
- ↓
-Answer
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 问题与边界
 
-### Level 1 — 定义
+### RAG 究竟解决什么，什么还得查实时系统？
 
-RAG 把检索到的证据当作上下文，而不是只靠模型参数里的记忆。
+RAG（retrieval-augmented generation）在生成前从外部资料取证。模型参数里的知识难更新、难追溯；把当前政策 `P-17 v3` 找出来，再让模型依据它回答，能把知识更新与模型训练分开。它仍可能找错或读错，因此“有 RAG”不等于事实正确。
 
-### Level 2 — 机制
+贯穿全栏的**教学案例**：猫粮客服收到“订单 20240915 还没到，能退款吗？”。政策库有现行 `P-17 v3`、过期 `P-17 v2` 和无关 FAQ。订单的“未发货/运输中/已签收”要从订单 API 查；“没到”不能推断“未发货”。政策检索与实时业务查询是两条不同证据链。
 
-离线建索引；在线时：用户提问 → 检索 →（可选）重排 → 拼接 context → 生成。
+<Note title="自测：到这里你应该能回答">
 
-### Level 3 — 工程
+1. 为什么政策适合检索而订单状态适合工具？
+2. 为什么 RAG 不能保证正确？
 
-生产级 RAG 还要考虑数据入库质量、权限过滤、版本、评测和延迟预算。答错了先走 [Failure Diagnosis](/docs/rag/debugging)，不要一上来就换模型。
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · The problem and boundaries
+
+### What does RAG solve, and what still needs a live system?
+
+RAG retrieves external evidence before generation. It makes current policy easier to update and cite than relying on parametric memory, but retrieval and evidence use can still fail.
+
+Our running teaching case is a pet-food support question: “Order 20240915 has not arrived. Can I get a refund?” The corpus contains current policy `P-17 v3`, stale `P-17 v2`, and irrelevant FAQs. A live order API supplies shipment state; “not arrived” does not imply “not shipped.”
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why retrieve policy but call a tool for order status?
+2. Why does RAG not guarantee correctness?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 两条流水线
+
+### 离线建索引与在线回答分别做什么？
+
+离线：来源发现 → 解析 PDF/HTML/表格 → 清洗与版本判定 → 切分 → embedding 与词法索引 → 发布。每段至少保留 `doc_id, version, section, source_url, updated_at, tenant, acl`。在线：鉴权 → 查订单 → 生成检索查询 → 按权限与生效版本取候选 → 重排 → 组装证据 → 生成带引用的答复 → 记录轨迹。
+
+例如 `P-17 v3` 的“运输中订单走售后流程”被切成 `P-17#shipping`。在线拿到订单状态为运输中后，只允许当前租户和当前版本的段进入候选。即使 `v2` 与用户措辞更像，也不得作为生效规则。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 如果旧政策排名第一，哪一步必须拦住它？
+2. 哪些字段支持审计与删除？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Two pipelines
+
+### What happens offline and online?
+
+Offline: discover sources, parse, clean and version them, chunk, build dense and lexical indexes, then publish. Preserve document ID, version, section, source, update time, tenant, and ACL. Online: authorize, read live order state, retrieve eligible current evidence, rerank, assemble, answer with citations, and trace each step.
+
+For `P-17#shipping`, a stale `v2` passage must not become policy just because its wording matches the user better.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Where must a stale top-ranked policy be stopped?
+2. Which fields enable audits and deletion?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 证据到答案
+
+### 为什么“检索到了”仍然可能答错？
+
+至少分四关：正确段是否在候选 Top-K；是否被选入最终 context；模型是否正确引用并解释；业务结论是否符合实时订单状态。假设 `P-17 v3` 进入 Top-10，却因 token 预算被裁掉，属于 context construction 故障；若已进入 context，模型仍说“未发货”，属于证据利用或推理故障。
+
+回答应把主张绑定到具体段落，并在证据不足时说清需要查什么。引用一个文档名但文档并不支持该句，不算 grounded。分层测量见 [RAG Evaluation](/docs/evaluation/rag-eval)。
+
+<Note title="自测：到这里你应该能回答">
+
+1. Top-K 有正确段但答案错，你先记录哪四种证据？
+2. 引用存在就能判正确吗？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · From evidence to answer
+
+### Why can an answer fail after retrieval succeeds?
+
+Track four gates: relevant passage in candidate Top-K, selected into the prompt, used correctly by the model, and consistent with live business state. A passage dropped by the token budget is an assembly failure; an included passage that the model contradicts is a generation failure. A citation only helps if it supports the exact claim. See [RAG Evaluation](/docs/evaluation/rag-eval).
+
+<Note title="Self-check: you should be able to answer">
+
+1. What four artifacts do you inspect when Top-K contains the right passage?
+2. Does a citation prove correctness?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 生产设计
+
+### 面试中怎样给出可落地的 RAG 架构？
+
+先界定资料规模、更新频率、权限、延迟和错误代价；再给最小基线：可靠解析、版本与 ACL、BM25/向量候选、有限重排、带来源的 context、无法回答时的升级路径。最后说明离线评测与线上 trace、P95 延迟、索引新鲜度、权限负例。
+
+RAG 与 fine-tuning 不是互斥：需要频繁更新、引用具体政策，先用检索；需要稳定输出格式、特定任务行为，可考虑提示、约束输出或微调。小且稳定的资料在预算允许时也可直接放入长 context，再以质量、延迟和成本与 RAG 对比。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 五分钟白板先问哪五类约束？
+2. 什么情况下直接长 context 也值得测？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Production design
+
+### How do you whiteboard a production RAG system?
+
+Start with corpus size, update cadence, access scope, latency, and failure cost. Propose a baseline with reliable parsing, version and ACL controls, lexical/dense candidates, bounded reranking, cited context, and abstention or escalation. Measure offline quality and production traces, tail latency, freshness, and authorization negatives. RAG and fine-tuning can coexist; compare long-context inclusion when the corpus is small enough.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Which five constraints come first in a whiteboard design?
+2. When should you benchmark full-context inclusion?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+
+</Note>
+
+## 连接
+
+上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
 
 ## 面试问题
 
-1. 设计一个生产级 RAG 系统。（Design a production RAG system.）
-2. 哪一步最影响正确率？哪一步最影响延迟？（Which step matters most for accuracy, and which matters most for latency?）
-3. 为什么 context construction 要单独作为一步？（Why is context construction its own step?）
-4. RAG 和 fine-tuning 怎么选？（RAG vs fine-tuning?）
+1. RAG 究竟解决什么，什么还得查实时系统？（What does RAG solve, and what still needs a live system?）
+2. 离线建索引与在线回答分别做什么？（What happens offline and online?）
+3. 为什么“检索到了”仍然可能答错？（Why can an answer fail after retrieval succeeds?）
+4. 面试中怎样给出可落地的 RAG 架构？（How do you whiteboard a production RAG system?）
+
+## 资料来源
+
+- [原始研究或官方文档](https://arxiv.org/abs/2005.11401)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+
+</Note>
+
+## Connections
+
+Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+
+## Interview questions
+
+1. What does RAG solve, and what still needs a live system?
+2. What happens offline and online?
+3. Why can an answer fail after retrieval succeeds?
+4. How do you whiteboard a production RAG system?
+
+## Sources
+
+- [Primary research or official documentation](https://arxiv.org/abs/2005.11401)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -84,32 +267,13 @@ RAG 把检索到的证据当作上下文，而不是只靠模型参数里的记�
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-RAG uses retrieved evidence as context instead of relying only on what's memorized in the model's parameters.
-
-### Level 2 — Mechanism
-
-Build the index offline. Online: the user asks → retrieve → (optionally) rerank → assemble context → generate.
-
-### Level 3 — Engineering
-
-Production RAG also has to deal with ingestion quality, permission filtering, versioning, evaluation, and a latency budget. When an answer is wrong, go through [Failure Diagnosis](/docs/rag/debugging) first — don't start by swapping models.
-
-## Interview questions
-
-1. Design a production RAG system.
-2. Which step matters most for accuracy, and which matters most for latency?
-3. Why is context construction its own step?
-4. RAG vs fine-tuning?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

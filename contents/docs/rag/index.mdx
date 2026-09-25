@@ -3,7 +3,7 @@ title: RAG / Retrieval
 titleEn: RAG / Retrieval
 description: 完整 pipeline + 失败诊断。评测指标写在 Evaluation 专栏。
 descriptionEn: Full pipeline plus failure diagnosis. Metrics live in the Evaluation column.
-date: 2026-09-07
+date: 2026-09-24
 keywords: ["rag", "chunking", "embedding", "hybrid search", "rerank", "graph rag"]
 ---
 
@@ -41,12 +41,13 @@ Documents → Parsing → Chunking → Embedding → Vector DB
   <Card title="Failure Diagnosis" description="是检索错了、排序错了、context 拼错了，还是生成没用上 context。" href="/docs/rag/debugging" />
 </CardGrid>
 
-## 本专栏计划
+## 建议学习顺序
 
-1. 能默画 Architecture；Ingestion 能讲清企业文档脏在哪
-2. Chunking 能答出 4 个取舍；Embedding 接到自己的模型选择
-3. Hybrid + RRF 用 FAISS + BM25 的项目来讲，不要只背名词
-4. Advanced 放到第二阶段再挖；先学会 Failure Diagnosis
+1. **先看全貌：** Architecture → Ingestion → Chunking。先把原文、解析、证据单元与版本弄清。
+2. **再学检索：** Embedding → Vector Search → Sparse Retrieval → Hybrid Search。先分别理解两路，再手算 RRF。
+3. **最后优化与排错：** Reranking → Failure Diagnosis → Advanced RAG。高级策略要由具体失败案例驱动。
+
+每页有 Level 0–3、贯穿的 `P-17 v3` 退款政策案例与逐级自测。学习后用 `/drill rag/<页面 slug>` 口头作答；课件生成不代表已经掌握。
 
 </Locale>
 
@@ -67,11 +68,12 @@ Evaluation (Recall@K, faithfulness) lives in [Evaluation / RAG Eval](/docs/evalu
   <Card title="Failure Diagnosis" description="Bad retrieval, bad ranking, bad context — or generation that ignored the context." href="/docs/rag/debugging" />
 </CardGrid>
 
-## Plan for this column
+## Suggested order
 
-1. Draw the architecture from memory; explain what makes enterprise documents messy during ingestion
-2. Answer the four chunking trade-offs; tie embedding back to my own model choice
-3. Explain Hybrid + RRF through the FAISS + BM25 project, not as vocabulary
-4. Save Advanced RAG for phase two; learn failure diagnosis first
+1. **Build the map:** Architecture → Ingestion → Chunking. Establish source truth, parsing, evidence units, and versions.
+2. **Learn retrieval:** Embedding → Vector Search → Sparse Retrieval → Hybrid Search. Understand each branch before calculating RRF.
+3. **Optimize and debug:** Reranking → Failure Diagnosis → Advanced RAG. Advanced methods should address observed failures.
+
+Each page has Levels 0–3, one `P-17 v3` refund-policy example, and self-checks. Use `/drill rag/<page slug>` after reading; generated notes do not count as mastery.
 
 </Locale>

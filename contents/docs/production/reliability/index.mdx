@@ -1,57 +1,305 @@
 ---
 title: Reliability
 titleEn: Reliability
-description: fallback model、retry、timeout、circuit breaker、graceful degradation、人工升级。
-descriptionEn: Fallbacks, retries, timeouts, circuit breakers, degradation, human escalation.
-date: 2026-09-07
-keywords: ["reliability", "fallback", "graceful degradation", "circuit breaker"]
+description: 把可用性、业务正确性和未知副作用分开，设计有边界的恢复与降级。
+descriptionEn: Separate availability, task correctness, and uncertain side effects with bounded recovery.
+date: 2026-09-24
+keywords: ['reliability', 'slo', 'circuit breaker', 'fallback', 'degradation']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-Agent 的可靠性只是其中一部分。这里覆盖的是整个 AI 服务。
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策 `P-17 v3` 来自检索，实时订单状态来自受权订单 API。示意数字只用于手算，不代表你的项目实测或当前供应商报价。
+
+## 这一页怎么学
+
+| Level | 先回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 可靠的定义 | AI 服务“可用”与“答对”为什么是两回事？ | 15–25 min |
+| 1 · 失败分类 | 遇到超时、429、5xx、无证据和越权时，能一律重试吗？ | 15–25 min |
+| 2 · 熔断与隔离 | 熔断器何时打开，如何避免雪崩？ | 15–25 min |
+| 3 · 按风险降级 | 模型不可用时，客服还能安全提供什么？ | 15–25 min |
+| 4 · 演练与发布 | 怎样验证可靠性策略真能工作？ | 15–25 min |
 
 ## 需要掌握
 
-- fallback model（备用模型）
-- retry / timeout（重试 / 超时）
-- circuit breaker（熔断）
-- graceful degradation（优雅降级）
-- rate limit（限流）
-- cache（缓存）
-- queue（队列）
-- human escalation（升级到人工）
+- AI 服务“可用”与“答对”为什么是两回事？
+- 遇到超时、429、5xx、无证据和越权时，能一律重试吗？
+- 熔断器何时打开，如何避免雪崩？
+- 模型不可用时，客服还能安全提供什么？
+- 怎样验证可靠性策略真能工作？
 
-## 机制
+</Locale>
 
-```
-主模型调用失败
-    → 重试 / 退避
-    → 备用模型
-    → 返回缓存 / 只做检索 / 关键词搜索
-    → 转人工
-```
+<Locale lang="en">
 
-## 三级回答
+We continue the pet-food support case: order `20240915` has not arrived. Current policy `P-17 v3` comes from retrieval; live order state comes from an authorized order API. All numerical examples are for learning, not project measurements or current provider prices.
 
-### Level 1 — 定义
+## How to study this page
 
-依赖服务失败时，系统仍然能给出可以接受的行为。
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Define reliability | Why are availability and correctness different? | 15–25 min |
+| 1 · Failure taxonomy | Can you retry timeout, 429, 5xx, no-evidence, and access failures alike? | 15–25 min |
+| 2 · Circuit breakers and isolation | When should a circuit breaker open and how does it prevent cascades? | 15–25 min |
+| 3 · Risk-aware degradation | What can support safely offer when generation is unavailable? | 15–25 min |
+| 4 · Drills and rollout | How do you verify reliability controls actually work? | 15–25 min |
 
-### Level 2 — 机制
+## Must know
 
-熔断避免故障雪崩。降级方式可以是换小模型、只检索不生成、只返回链接。
+- Why are availability and correctness different?
+- Can you retry timeout, 429, 5xx, no-evidence, and access failures alike?
+- When should a circuit breaker open and how does it prevent cascades?
+- What can support safely offer when generation is unavailable?
+- How do you verify reliability controls actually work?
 
-### Level 3 — 工程
+</Locale>
 
-降级要做成产品体验的一部分，不能只抛一个 500。幻觉也是可靠性问题，而不只是可用性问题。
+---
+
+<Locale lang="zh">
+
+## Level 0 · 可靠的定义
+
+### AI 服务“可用”与“答对”为什么是两回事？
+
+API 返回 200、模型给出流畅文字，只说明链路完成；若把“还没到”误当“未发货”，退款建议仍错。可靠性要同时看可用性、延迟、答案有据可依、业务正确、权限不越界、外部操作是否确实提交。给每类结果明确状态：成功、受控失败、未知结果。
+
+示意 SLO 可写“99% 请求返回明确结果，95% 在 5 秒完成”；质量门槛另写“关键政策问题在标注集通过率达到约定标准”。数字是示例，真实阈值由业务风险与测量分母决定。未知退款状态不能算成功，也不能贸然算未提交。
+
+<Note title="自测：到这里你应该能回答">
+
+1. HTTP 200 的错误建议算可靠成功吗？
+2. 未知退款状态该怎样表示？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Define reliability
+
+### Why are availability and correctness different?
+
+A 200 response with fluent text can still give wrong refund advice. Track availability, latency, groundedness, business correctness, access boundaries, and committed side effects separately. Outcomes include success, controlled failure, and unknown. Illustrative SLOs might cover clear results and completion latency; quality gates need separate labeled evaluation. An uncertain refund outcome is neither safe success nor proof of non-execution.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Is a wrong HTTP 200 answer a reliable success?
+2. How should uncertain refund state be represented?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 失败分类
+
+### 遇到超时、429、5xx、无证据和越权时，能一律重试吗？
+
+短暂 5xx 或某些 429 可在剩余 deadline 内有限重试；持续配额不足时重试只会加重压力。授权失败、无可靠政策证据和 schema 校验失败应走各自的拒绝、补证据或修复路径。调用有副作用的退款工具超时后必须查权威状态和幂等键，不能猜。
+
+把故障做成矩阵：是否瞬态、是否幂等、用户可否等待、替代路径是否保留必要质量。重试只负责瞬态恢复，不负责纠正错误政策或幻觉。各层重试次数要有总预算，防止乘法放大。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 无证据与 5xx 的恢复路径有何不同？
+2. 为什么多层各重试三次危险？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Failure taxonomy
+
+### Can you retry timeout, 429, 5xx, no-evidence, and access failures alike?
+
+Some 5xxs and 429s may be retried within the remaining deadline; sustained quota exhaustion will not improve through retries. Authorization failure, missing evidence, and schema failure need different actions. A timed-out side-effecting refund requires authoritative state lookup and idempotency handling. Classify by transience, idempotency, user deadline, and safe alternatives. Retry does not repair hallucination or stale policy.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How do missing evidence and 5xx differ?
+2. Why are three retries at multiple layers dangerous?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 熔断与隔离
+
+### 熔断器何时打开，如何避免雪崩？
+
+熔断器监测一段窗口内的错误/超时，在下游明显不可用时快速拒绝或走降级；等待冷却后以少量探测请求半开，恢复后关闭。阈值需根据流量和误报成本调，不能把“5 次失败就开”当普适规则。与并发限制、队列上限、退避 jitter 一起防止重试风暴。
+
+按依赖隔离：订单 API 失败时不能编造订单状态；检索失败可在允许的功能上只给官方入口；模型失败可返回已核验政策链接。不同故障路径的降级质量不同，要预先评测。避免备用模型与主模型共享同一个故障配额而形成假冗余。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 半开状态的探测请求有什么用？
+2. 备用模型为什么可能并不提供真正冗余？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Circuit breakers and isolation
+
+### When should a circuit breaker open and how does it prevent cascades?
+
+A circuit breaker opens when recent failures or timeouts show a dependency is unhealthy, fails fast or uses a safe fallback, then probes cautiously in half-open state. Tune thresholds to traffic rather than memorizing a fixed count. Combine with bounded queues, concurrency, and jitter to avoid retry storms. Isolate order lookup, retrieval, and model failures; a backup sharing the same exhausted quota is not real redundancy.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What do half-open probe requests do?
+2. Why can a backup model fail as redundancy?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 按风险降级
+
+### 模型不可用时，客服还能安全提供什么？
+
+降级按能证明的事实排序：若订单工具与现行政策都可用，可展示订单状态与带来源的政策链接；若政策检索不可用，只展示订单状态和人工/官方入口；若订单工具不可用，不推断“未发货”，直接说明无法核实状态并转人工。缓存答案仅在租户、版本、权限和业务状态仍有效时使用。
+
+“换小模型”“只做关键词搜索”不是无条件安全：若小模型漏掉退款例外、关键词搜索命中旧版，降级比失败更糟。为每种降级定义允许的主张、禁止的承诺、触发条件和用户提示。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 订单工具失败时还能说订单未发货吗？
+2. 缓存答案需要检查哪些有效性条件？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Risk-aware degradation
+
+### What can support safely offer when generation is unavailable?
+
+If the model fails but live order state and current policy are available, show verified state and source links. If policy retrieval fails, show only what the order system knows plus an escalation path. If order lookup fails, do not infer shipment status. Cached answers require valid tenant, policy version, access, and live state. A smaller model or keyword-only fallback needs its own quality gate.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Can you claim “not shipped” when the order tool fails?
+2. What validates a cached answer?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 演练与发布
+
+### 怎样验证可靠性策略真能工作？
+
+故障注入覆盖供应商 429/5xx、模型首 token 卡死、流中断、检索索引落后、订单工具超时、退款提交后响应丢失；逐例检查端到端状态、trace、成本、重试次数和用户提示。发布用影子或小流量 canary，监测错误预算、质量负例和 P95；异常可快速回滚 prompt、模型或索引版本。
+
+一次恢复演练不证明长期可靠，持续在评测集与生产信号中监控。事故复盘区分直接故障、放大因素和保护措施是否生效。与 [Agent Reliability](/docs/agent/reliability) 的单个 agent 进度控制衔接，但这里的对象是整套服务。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 退款提交后响应丢失应该怎样验收？
+2. canary 出问题时哪些版本要可回滚？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Drills and rollout
+
+### How do you verify reliability controls actually work?
+
+Inject provider throttling/errors, stalled first token, broken streams, stale index, order timeout, and lost response after a refund commit. For each, inspect final state, trace, cost, attempts, and user message. Use canaries and rollback across prompt, model, and index versions. A single drill does not establish ongoing reliability; feed incidents into evals and production monitoring.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How do you test a lost response after refund commit?
+2. Which versions need rollback during a bad canary?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要把配置存在、HTTP 成功、示意数字或单次测试通过，当作生产质量与容量的证据。回答时先说明测量边界和分母，再说明取舍与验证方法。
+
+</Note>
+
+## 连接
+
+从 [Production AI 总览](/docs/production) 进入；将本页指标带到 [AI System Design](/docs/system-design) 的具体白板题，并用 [Evaluation](/docs/evaluation) 验证质量。
 
 ## 面试问题
 
-1. LLM 供应商全挂了，你的产品还剩下什么功能？（If every LLM provider goes down, what does your product still do?）
-2. 熔断阈值怎么定？（How do you set circuit-breaker thresholds?）
-3. 把缓存当降级手段和当加速手段，有什么区别？（What's the difference between using a cache for degradation versus for speed?）
-4. 哪些错误绝对不能重试？（Which errors should never be retried?）
+1. AI 服务“可用”与“答对”为什么是两回事？（Why are availability and correctness different?）
+2. 遇到超时、429、5xx、无证据和越权时，能一律重试吗？（Can you retry timeout, 429, 5xx, no-evidence, and access failures alike?）
+3. 熔断器何时打开，如何避免雪崩？（When should a circuit breaker open and how does it prevent cascades?）
+4. 模型不可用时，客服还能安全提供什么？（What can support safely offer when generation is unavailable?）
+5. 怎样验证可靠性策略真能工作？（How do you verify reliability controls actually work?）
+
+## 资料来源
+
+- [官方文档](https://sre.google/sre-book/addressing-cascading-failures/)
+- [官方文档](https://docs.aws.amazon.com/wellarchitected/2024-06-27/framework/rel_mitigate_interaction_failure_client_timeouts.html)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Configuration, an HTTP success, teaching numbers, or one passing test do not prove production quality or capacity. State the measurement boundary and denominator before the tradeoff and validation.
+
+</Note>
+
+## Connections
+
+Use [Production AI overview](/docs/production), apply the metrics to [AI System Design](/docs/system-design), and validate quality through [Evaluation](/docs/evaluation).
+
+## Interview questions
+
+1. Why are availability and correctness different?
+2. Can you retry timeout, 429, 5xx, no-evidence, and access failures alike?
+3. When should a circuit breaker open and how does it prevent cascades?
+4. What can support safely offer when generation is unavailable?
+5. How do you verify reliability controls actually work?
+
+## Sources
+
+- [Official documentation](https://sre.google/sre-book/addressing-cascading-failures/)
+- [Official documentation](https://docs.aws.amazon.com/wellarchitected/2024-06-27/framework/rel_mitigate_interaction_failure_client_timeouts.html)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -59,55 +307,13 @@ Agent 的可靠性只是其中一部分。这里覆盖的是整个 AI 服务。
 
 <Locale lang="en">
 
-Agent reliability is only one part of this. This page covers the whole AI service.
-
-## Must know
-
-- fallback model
-- retry / timeout
-- circuit breaker
-- graceful degradation
-- rate limit
-- cache
-- queue
-- human escalation
-
-## Mechanism
-
-```
-primary model fails
-    → retry / backoff
-    → fallback model
-    → cached / retrieve-only / keyword
-    → human
-```
-
-## Three-level answers
-
-### Level 1 — Definition
-
-When a dependency fails, the system still behaves in an acceptable way.
-
-### Level 2 — Mechanism
-
-Circuit breakers prevent cascading failures. Degradation can mean a smaller model, retrieval without generation, or just returning links.
-
-### Level 3 — Engineering
-
-Degradation has to be designed into the product, not surfaced as a bare 500. Hallucination is a reliability problem too, not just availability.
-
-## Interview questions
-
-1. If every LLM provider goes down, what does your product still do?
-2. How do you set circuit-breaker thresholds?
-3. What's the difference between using a cache for degradation versus for speed?
-4. Which errors should never be retried?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

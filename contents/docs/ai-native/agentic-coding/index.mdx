@@ -1,90 +1,263 @@
 ---
 title: Agentic Coding
 titleEn: Agentic Coding
-description: Agent 如何知道自己写对了？答案是 feedback loop。
-descriptionEn: How does the agent know the code is right? The feedback loop.
-date: 2026-09-07
-keywords: ["agentic coding", "feedback loop", "verification"]
+description: 用复现、测试、差异审查和环境反馈闭环验证 agent 代码。
+descriptionEn: Verify agent-authored code through reproduction, tests, diff review, and environment feedback.
+date: 2026-09-24
+keywords: ['agentic coding', 'feedback loop', 'verification', 'tests']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-规划、探索仓库、编辑代码、终端执行、测试、调试、git、验证、迭代。
+贯穿本页的教学任务：用 coding agent 修复“猫粮客服把订单还没到误判为未发货”的问题。真实订单状态应来自订单 API，现行政策来自 `P-17 v3`；代码改动是否有效须靠运行与测试证据。以下文件名、状态和结果是示意，不是对你的实际项目的断言。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 先定义完成 | 模型说“修好了”和任务完成差在哪里？ | 15–25 min |
+| 1 · 反馈闭环 | 读、写、跑、观察、修应怎样循环？ | 15–25 min |
+| 2 · 测试层级与空白 | 没有现成测试时如何验证？ | 15–25 min |
+| 3 · 评估 agent | 如何评估整个 coding agent 而不只看一次补丁？ | 15–25 min |
 
 ## 需要掌握
 
-- planning（规划）
-- repository exploration（探索代码仓库）
-- code editing（编辑代码）
-- terminal execution（终端执行）
-- testing（测试）
-- debugging（调试）
-- git
-- verification（验证）
-- iteration（迭代）
-
-## 机制
+- 模型说“修好了”和任务完成差在哪里？
+- 读、写、跑、观察、修应怎样循环？
+- 没有现成测试时如何验证？
+- 如何评估整个 coding agent 而不只看一次补丁？
 
 </Locale>
 
 <Locale lang="en">
 
-Planning, exploring the repo, editing, running the terminal, testing, debugging, git, verifying, iterating.
+Our running teaching task is a coding-agent fix for a support bug that treats “not arrived” as “not shipped.” Order state comes from the order API; current policy comes from `P-17 v3`; tests and runtime evidence determine whether a code change works. File names and sample results are illustrative, not claims about your project.
+
+## How to study this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Define done | What separates “I fixed it” from task completion? | 15–25 min |
+| 1 · The feedback loop | How should read, write, run, observe, and fix repeat? | 15–25 min |
+| 2 · Test layers and gaps | How do you verify in a repository with no existing tests? | 15–25 min |
+| 3 · Evaluating the agent | How do you evaluate the coding agent, not just one patch? | 15–25 min |
 
 ## Must know
 
-- planning
-- repository exploration
-- code editing
-- terminal execution
-- testing
-- debugging
-- git
-- verification
-- iteration
-
-## Mechanism
+- What separates “I fixed it” from task completion?
+- How should read, write, run, observe, and fix repeat?
+- How do you verify in a repository with no existing tests?
+- How do you evaluate the coding agent, not just one patch?
 
 </Locale>
 
-```
-Write
- ↓
-Run
- ↓
-Test
- ↓
-Observe
- ↓
-Fix
- ↓
-Test
- ↓
-Verify
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 先定义完成
 
-### Level 1 — 定义
+### 模型说“修好了”和任务完成差在哪里？
 
-把写代码看成一个有环境反馈的循环，而不是一次性生成。
+完成定义来自需求与可观察行为。教学任务有两个关键用例：订单状态 `IN_TRANSIT`、用户说“没到”时不能进入未发货退款；状态 `NOT_SHIPPED` 且符合现行政策时仍可走原路径。再加授权、无证据等边界。模型答复像样、代码能编译，都不是这两个行为的充分证据。
 
-### Level 2 — 机制
+先复现原错并保存输入、状态、输出与版本；若无法复现，先调查条件，不要为了“做出 diff”随意改代码。验收要写成别人也能运行的检查。
 
-测试、类型检查、linter、复现脚本都是「观察」。没有观察，模型只能「觉得自己写对了」。
+<Note title="自测：到这里你应该能回答">
 
-### Level 3 — 工程
+1. 原 bug 的最小复现包含哪些字段？
+2. 编译通过为何不是验收？
 
-评测看的是任务有没有完成、用了几步，而不是第一版代码漂不漂亮。测试要在沙箱里跑。
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Define done
+
+### What separates “I fixed it” from task completion?
+
+Done comes from observable behavior. With `IN_TRANSIT` plus “not arrived,” the unshipped-refund path must not run; with `NOT_SHIPPED`, valid behavior should remain. Compilation or a plausible explanation is not enough. Reproduce the original failure with input, state, output, and version before editing, or state clearly why it could not be reproduced.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What belongs in a minimal reproduction?
+2. Why is compilation not acceptance?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 反馈闭环
+
+### 读、写、跑、观察、修应怎样循环？
+
+先用搜索定位分支与调用者；写一个会在旧实现失败的测试；做最小修复；跑定向测试，再运行相关集成/静态检查；看 diff 和实际 API 轨迹。如果失败，区分“代码逻辑错误”“测试环境坏了”“断言写错”，再选择下一步，而不是机械重试同一命令。
+
+每次循环都要有新信息。连续三次同一报错而不改变假设，应停下来调查依赖、环境或错误源。测试结果是外部反馈，但也可能是虚假的安全感：测试只覆盖了写过的情形。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 回归测试先红再绿说明什么？
+2. 同一错误重复三次时应怎么做？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · The feedback loop
+
+### How should read, write, run, observe, and fix repeat?
+
+Search the branch and callers, write a regression that fails before the fix, make the smallest patch, run focused tests then relevant integration and static checks, and inspect the diff and actual API trace. On failure, distinguish code defect, broken environment, and bad assertion. Each iteration should produce new evidence rather than repeating an unchanged command.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What does red-then-green demonstrate?
+2. What should you do after three identical failures?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 测试层级与空白
+
+### 没有现成测试时如何验证？
+
+先找可执行的最小证据：类型/语法检查、目标函数的独立输入输出、API 请求复现、浏览器可见结果。能新增有意义的回归测试就新增；若依赖真实外部系统，可用受控假件测逻辑，再在获准的测试环境验证集成。假件测试不能证明生产 API 的授权或最新状态。
+
+避免写“实现的镜像测试”：若代码硬编码 `status == NOT_SHIPPED`，测试也只断言这个字符串，无法发现“没到”被误判的根因。用真实失败案例和相邻反例做断言。输出还需要检查订单系统状态与用户答复的对应关系。
+
+<Note title="自测：到这里你应该能回答">
+
+1. mock 测试不能证明什么？
+2. 为什么相邻反例重要？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Test layers and gaps
+
+### How do you verify in a repository with no existing tests?
+
+Without existing tests, use the smallest executable evidence: type checks, isolated function cases, API reproduction, and visible UI checks. Add a meaningful regression if possible. Mocks can test branching, but cannot prove production authorization or current order state. Test the real failure and neighboring counterexample rather than mirroring a hard-coded implementation detail.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What can a mock not prove?
+2. Why test neighboring counterexamples?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 评估 agent
+
+### 如何评估整个 coding agent 而不只看一次补丁？
+
+用隔离任务集保存原始仓库 commit、用户目标、隐藏验收、时间/工具预算；按同一环境多次运行，量化最终行为通过率、无关改动、越权动作、步数、耗时和人工审查负担。代码风格评分不能替代行为测试，单条幸运成功也不能代表稳定性。
+
+对失败分类：没找到正确文件、改错条件、测试没跑、测试被错误解释、修复后引入回归。把每类失败回到 harness、上下文、工具反馈或验收设计。连接 [Agent Evaluation](/docs/evaluation/agent-eval)，但 coding 任务还要保留可执行测试和 diff 证据。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么一次成功不够评价 agent？
+2. 代码风格分数能替代行为测试吗？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Evaluating the agent
+
+### How do you evaluate the coding agent, not just one patch?
+
+Build isolated tasks with base commits, user goals, hidden acceptance, and fixed tool/time budgets. Run repeatedly and measure behavioral pass rate, unrelated edits, policy violations, steps, latency, and review effort. Classify failures by discovery, patch, execution, interpretation, and regression, then map them back to the harness and verification design.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is one success insufficient?
+2. Can code style substitute for behavioral tests?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+模型的计划、摘要和自述不是外部世界状态；工具接通、测试命令存在或沙箱配置写在文件里，也都不是运行时验证。回答时指出谁是权威、怎么观察、失败时停在哪里。
+
+</Note>
+
+## 连接
+
+从 [AI-Native Engineering 总览](/docs/ai-native) 串起七页；前置概念见 [Agent Loop](/docs/agent/loop)、[Context Engineering](/docs/context) 与 [Agent Security](/docs/agent/security)。
 
 ## 面试问题
 
-1. Agent 怎么知道自己写对了？（How does an agent know its code is correct?）
-2. 没有测试的仓库怎么验证？（How do you verify changes in a repo with no tests?）
-3. 怎么避免 agent 改动无关的文件？（How do you keep an agent from touching unrelated files?）
-4. 怎么验证 agent 生成的代码？（How do you verify agent-generated code?）
+1. 模型说“修好了”和任务完成差在哪里？（What separates “I fixed it” from task completion?）
+2. 读、写、跑、观察、修应怎样循环？（How should read, write, run, observe, and fix repeat?）
+3. 没有现成测试时如何验证？（How do you verify in a repository with no existing tests?）
+4. 如何评估整个 coding agent 而不只看一次补丁？（How do you evaluate the coding agent, not just one patch?）
+
+## 资料来源
+
+- [官方规范或文档](https://developers.openai.com/api/docs/guides/agent-evals)
+- [官方规范或文档](https://developers.openai.com/blog/codex-as-a-platform)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Model plans, summaries, and self-reports are not world state. A connected tool, available test command, or configured sandbox is not runtime verification. Identify the authority, observed result, and safe stop point.
+
+</Note>
+
+## Connections
+
+Use [AI-Native Engineering overview](/docs/ai-native) for the seven-page sequence. Prerequisites: [Agent Loop](/docs/agent/loop), [Context Engineering](/docs/context), and [Agent Security](/docs/agent/security).
+
+## Interview questions
+
+1. What separates “I fixed it” from task completion?
+2. How should read, write, run, observe, and fix repeat?
+3. How do you verify in a repository with no existing tests?
+4. How do you evaluate the coding agent, not just one patch?
+
+## Sources
+
+- [Official specification or documentation](https://developers.openai.com/api/docs/guides/agent-evals)
+- [Official specification or documentation](https://developers.openai.com/blog/codex-as-a-platform)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -92,32 +265,13 @@ Verify
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Treating coding as a loop with feedback from the environment, not a single generation.
-
-### Level 2 — Mechanism
-
-Tests, type checks, linters, and repro scripts are all observations. Without them, the model can only "feel" that the code is right.
-
-### Level 3 — Engineering
-
-Evaluation looks at whether the task got done and how many steps it took — not whether the first draft looks nice. Run the tests inside the sandbox.
-
-## Interview questions
-
-1. How does an agent know its code is correct?
-2. How do you verify changes in a repo with no tests?
-3. How do you keep an agent from touching unrelated files?
-4. How do you verify agent-generated code?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

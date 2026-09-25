@@ -1,90 +1,263 @@
 ---
 title: Context Compaction
 titleEn: Context Compaction
-description: 接近 context limit 时压缩。真正要答：What information should be preserved?
-descriptionEn: "Compact near the limit. The real question: what must be preserved?"
-date: 2026-09-07
-keywords: ["context compaction", "context anxiety", "context reset"]
+description: 长任务压缩上下文时保留目标、证据与未完成状态，并验证恢复质量。
+descriptionEn: Preserve goals, evidence, and open work during long-context compaction and test recovery.
+date: 2026-09-24
+keywords: ['context compaction', 'long-running agents', 'summary', 'checkpoint']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-它不是「把之前的聊天总结一下」。Anthropic 讨论过 context reset，以及接近上限时模型出现的 context anxiety。
+贯穿本页的教学任务：用 coding agent 修复“猫粮客服把订单还没到误判为未发货”的问题。真实订单状态应来自订单 API，现行政策来自 `P-17 v3`；代码改动是否有效须靠运行与测试证据。以下文件名、状态和结果是示意，不是对你的实际项目的断言。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 为什么压缩 | 上下文很长时究竟出了什么问题？ | 15–25 min |
+| 1 · 保留清单 | 什么必须保留，什么可以丢？ | 15–25 min |
+| 2 · 压缩方法 | 滚动摘要、里程碑 checkpoint 与重置上下文怎么选？ | 15–25 min |
+| 3 · 压缩回归测试 | 如何证明压缩后没有忘掉关键条件？ | 15–25 min |
 
 ## 需要掌握
 
-应该保留的内容，比如：
-
-- current goal（当前目标）
-- completed tasks（已完成的任务）
-- important decisions（重要决策）
-- files changed（改过的文件）
-- errors（错误）
-- unresolved issues（未解决的问题）
-- tool state（工具状态）
-- user preferences（用户偏好）
-
-## 机制
+- 上下文很长时究竟出了什么问题？
+- 什么必须保留，什么可以丢？
+- 滚动摘要、里程碑 checkpoint 与重置上下文怎么选？
+- 如何证明压缩后没有忘掉关键条件？
 
 </Locale>
 
 <Locale lang="en">
 
-It isn't "summarize the chat so far." Anthropic has written about context resets and the context anxiety models show as they approach the limit.
+Our running teaching task is a coding-agent fix for a support bug that treats “not arrived” as “not shipped.” Order state comes from the order API; current policy comes from `P-17 v3`; tests and runtime evidence determine whether a code change works. File names and sample results are illustrative, not claims about your project.
+
+## How to study this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Why compact | What problem does compaction solve? | 15–25 min |
+| 1 · Preservation checklist | What must be kept and what can be dropped? | 15–25 min |
+| 2 · Compaction methods | How do rolling summaries, checkpoints, and context resets differ? | 15–25 min |
+| 3 · Compaction regression | How do you prove compaction preserved what mattered? | 15–25 min |
 
 ## Must know
 
-Things that should be preserved, for example:
-
-- current goal
-- completed tasks
-- important decisions
-- files changed
-- errors
-- unresolved issues
-- tool state
-- user preferences
-
-## Mechanism
+- What problem does compaction solve?
+- What must be kept and what can be dropped?
+- How do rolling summaries, checkpoints, and context resets differ?
+- How do you prove compaction preserved what mattered?
 
 </Locale>
 
-```
-Long trajectory
-       ↓
-Context grows
-       ↓
-Near context limit
-       ↓
-Summarize / compact
-       ↓
-New context
-       ↓
-Continue
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 为什么压缩
 
-### Level 1 — 定义
+### 上下文很长时究竟出了什么问题？
 
-执行轨迹变长之后，主动压缩上下文，好让工作继续下去。
+Coding agent 搜索、测试、修改多轮后，工具日志和历史消息占用 context；成本、延迟上升，且重要信息可能被无关输出淹没。压缩是用较短表示承接继续工作所需的信息，不是“反正快满了就随便总结”。与 [Context Compression](/docs/context/compression) 的一般上下文工程相连，本页关注**可恢复的执行任务**。
 
-### Level 2 — 机制
+教学任务进行到第 40 步：已经定位“未到货”误判，写了回归测试，补丁已应用但集成测试还没跑。若压缩只留下“修好了”，下一轮会误报完成。应该写成“补丁已应用、`IN_TRANSIT` 定向测试通过、集成测试未运行”。
 
-用摘要 + 结构化状态替换原始的观察记录。必要时直接重置上下文，再把关键状态注入回去。
+<Note title="自测：到这里你应该能回答">
 
-### Level 3 — 工程
+1. 压缩的目标是省 token 还是保持可继续工作？
+2. “补丁已应用”与“完成”能互换吗？
 
-丢掉错误信息和未解决的问题，会导致重复犯同样的错。Coding agent 必须保留改过的文件和失败的测试。
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Why compact
+
+### What problem does compaction solve?
+
+Search output and test logs grow until context becomes costly and hard to use. Compaction replaces raw history with a smaller representation of what the task still needs. At step 40 of our bug fix, the patch may be applied and a focused test passed while integration remains unrun. A summary saying “fixed” would corrupt the task state.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Is compaction only token saving or also continuity?
+2. Can “patch applied” mean “done”?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 保留清单
+
+### 什么必须保留，什么可以丢？
+
+保留当前目标与验收、用户不可变约束、已完成且有证据的步骤、关键决策及理由、修改的文件和基线 commit、失败/未跑测试、未决风险、下一步、工具/环境状态和来源引用。原始长搜索列表、重复报错全文和已解决的试探可删或改成 artifact 链接。
+
+示意压缩条目：`goal: 区分 IN_TRANSIT/NOT_SHIPPED`；`files: refund_rule.py + test_refund.py`；`verified: focused tests 8/8`；`pending: API integration`；`source: git diff + test log IDs`。**不要捏造**“8/8”这类数字，只有运行记录存在才可写。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 重复日志可以怎样缩短又不失证据？
+2. 为什么要保留基线 commit？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Preservation checklist
+
+### What must be kept and what can be dropped?
+
+Keep goal and acceptance, user constraints, evidence-backed completions, decisions, changed files and base commit, failing or unrun tests, risks, next action, environment, and provenance. Replace bulky search output and repeated resolved logs with artifact references. A compact state may list focused tests as 8/8 only if a real test log supports that count.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How can repeated logs be shortened without losing evidence?
+2. Why retain the base commit?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 压缩方法
+
+### 滚动摘要、里程碑 checkpoint 与重置上下文怎么选？
+
+滚动摘要在同一任务中持续更新，方便短暂停顿，但多次改写容易累积失真；里程碑 checkpoint 保存结构化状态与 artifact 引用，更适合重启/跨 worker；上下文重置则把旧消息移出工作窗，再从受信任状态与当前仓库重新构造。三者可配合，不能把模型生成的摘要当权威数据库。
+
+某些 API 提供不透明的自动压缩项，适合延续模型上下文；应用仍要自行保存业务状态和可审计证据。面试不必断言所有产品用相同压缩算法，讲清“何时触发、保留什么、如何校验”即可。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 自动压缩项能替代业务状态库吗？
+2. 滚动摘要有什么累积风险？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Compaction methods
+
+### How do rolling summaries, checkpoints, and context resets differ?
+
+Rolling summaries are convenient but can drift after repeated rewrites. Structured milestone checkpoints support process restarts; a context reset rebuilds a smaller window from trusted state and current workspace. Some APIs provide opaque automatic compaction for model continuity, but the application still owns authoritative business state and audit artifacts.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Can automatic compaction replace a business state store?
+2. What drift risk comes with rolling summaries?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 压缩回归测试
+
+### 如何证明压缩后没有忘掉关键条件？
+
+做“暂停—压缩—恢复”对照：同一个基线任务，分别用未压缩和压缩状态继续；检查是否找到正确文件、是否仍知道 `IN_TRANSIT` 与 `NOT_SHIPPED` 的区别、是否承认未跑的测试、是否重复执行副作用、最终验收差异。压缩前后也对账目标、约束、文件、未决项的覆盖。
+
+若压缩后 agent 把“没到”重新当“未发货”，应回看摘要缺的是订单权威来源还是案例反例；修复保留规则并纳入回归集。所谓 context anxiety 可作为“接近窗口边界时行为异常”的非正式描述，不能当统一的可量化模型病症。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 压缩质量如何用任务结果验收？
+2. “context anxiety”能否当严格技术指标？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Compaction regression
+
+### How do you prove compaction preserved what mattered?
+
+Run pause–compact–resume comparisons on the same base task. Check file discovery, the `IN_TRANSIT`/`NOT_SHIPPED` distinction, unrun-test awareness, duplicate side effects, and final acceptance. Audit the compacted state against goals, constraints, files, and open issues. Treat “context anxiety” as an informal description of behavior near a context boundary, not a standardized diagnosis.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How do you validate compaction with task outcomes?
+2. Is “context anxiety” a formal metric?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+模型的计划、摘要和自述不是外部世界状态；工具接通、测试命令存在或沙箱配置写在文件里，也都不是运行时验证。回答时指出谁是权威、怎么观察、失败时停在哪里。
+
+</Note>
+
+## 连接
+
+从 [AI-Native Engineering 总览](/docs/ai-native) 串起七页；前置概念见 [Agent Loop](/docs/agent/loop)、[Context Engineering](/docs/context) 与 [Agent Security](/docs/agent/security)。
 
 ## 面试问题
 
-1. 上下文溢出怎么处理？（How do you handle context overflow?）
-2. 上下文压缩应该保留什么？（What should context compaction preserve?）
-3. 重置上下文和滚动摘要怎么选？（How do you choose between a context reset and a rolling summary?）
-4. 什么是 context anxiety？工程上怎么缓解？（What is context anxiety, and how do you mitigate it in practice?）
+1. 上下文很长时究竟出了什么问题？（What problem does compaction solve?）
+2. 什么必须保留，什么可以丢？（What must be kept and what can be dropped?）
+3. 滚动摘要、里程碑 checkpoint 与重置上下文怎么选？（How do rolling summaries, checkpoints, and context resets differ?）
+4. 如何证明压缩后没有忘掉关键条件？（How do you prove compaction preserved what mattered?）
+
+## 资料来源
+
+- [官方规范或文档](https://developers.openai.com/api/docs/guides/compaction)
+- [官方规范或文档](https://developers.openai.com/api/docs/guides/agents-api/overview)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Model plans, summaries, and self-reports are not world state. A connected tool, available test command, or configured sandbox is not runtime verification. Identify the authority, observed result, and safe stop point.
+
+</Note>
+
+## Connections
+
+Use [AI-Native Engineering overview](/docs/ai-native) for the seven-page sequence. Prerequisites: [Agent Loop](/docs/agent/loop), [Context Engineering](/docs/context), and [Agent Security](/docs/agent/security).
+
+## Interview questions
+
+1. What problem does compaction solve?
+2. What must be kept and what can be dropped?
+3. How do rolling summaries, checkpoints, and context resets differ?
+4. How do you prove compaction preserved what mattered?
+
+## Sources
+
+- [Official specification or documentation](https://developers.openai.com/api/docs/guides/compaction)
+- [Official specification or documentation](https://developers.openai.com/api/docs/guides/agents-api/overview)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -92,32 +265,13 @@ Continue
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Proactively compressing context once the trajectory gets long, so the work can continue.
-
-### Level 2 — Mechanism
-
-Replace raw observations with a summary plus structured state. When needed, reset the context and inject the key state back in.
-
-### Level 3 — Engineering
-
-Drop the errors and open issues and the agent repeats the same failures. A coding agent has to keep the files it changed and the tests that are still failing.
-
-## Interview questions
-
-1. How do you handle context overflow?
-2. What should context compaction preserve?
-3. How do you choose between a context reset and a rolling summary?
-4. What is context anxiety, and how do you mitigate it in practice?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

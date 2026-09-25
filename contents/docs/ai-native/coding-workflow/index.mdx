@@ -1,81 +1,263 @@
 ---
 title: Claude Code / Codex
 titleEn: Claude Code / Codex
-description: 理解背后的 architecture，不必成为产品专家。
-descriptionEn: Understand the architecture. You do not need to be a product expert.
-date: 2026-09-07
-keywords: ["claude code", "codex", "coding agent workflow"]
+description: 从真实仓库工作流理解 coding agent，区分产品能力与通用架构。
+descriptionEn: Understand coding agents through repository workflows without conflating products and architecture.
+date: 2026-09-24
+keywords: ['codex', 'claude code', 'coding agent', 'workflow']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-它们本质上是建立在 LLM + 工具 + 上下文 + 状态 + 执行环境 + 反馈 + 安全之上的 agent 系统。
+贯穿本页的教学任务：用 coding agent 修复“猫粮客服把订单还没到误判为未发货”的问题。真实订单状态应来自订单 API，现行政策来自 `P-17 v3`；代码改动是否有效须靠运行与测试证据。以下文件名、状态和结果是示意，不是对你的实际项目的断言。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 从聊天到仓库 | coding agent 与聊天窗口给代码片段有什么区别？ | 15–25 min |
+| 1 · 上下文准备 | agent 读整个仓库还是构建小工作集？ | 15–25 min |
+| 2 · 计划到改动 | 怎样让改动小、可审查且可回滚？ | 15–25 min |
+| 3 · 验证与交付 | agent 最后要报告什么，不能声称什么？ | 15–25 min |
 
 ## 需要掌握
 
-理解这条工作流就够了。
-
-## 机制
+- coding agent 与聊天窗口给代码片段有什么区别？
+- agent 读整个仓库还是构建小工作集？
+- 怎样让改动小、可审查且可回滚？
+- agent 最后要报告什么，不能声称什么？
 
 </Locale>
 
 <Locale lang="en">
 
-At their core, they're agent systems built on LLM + tools + context + state + environment + feedback + safety.
+Our running teaching task is a coding-agent fix for a support bug that treats “not arrived” as “not shipped.” Order state comes from the order API; current policy comes from `P-17 v3`; tests and runtime evidence determine whether a code change works. File names and sample results are illustrative, not claims about your project.
+
+## How to study this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · From chat to repository | How does a coding agent differ from code snippets in chat? | 15–25 min |
+| 1 · Preparing context | Should the agent read the whole repository or build a working set? | 15–25 min |
+| 2 · From plan to edit | How do you keep changes scoped and reviewable? | 15–25 min |
+| 3 · Verification and delivery | What should the agent report, and what must it avoid claiming? | 15–25 min |
 
 ## Must know
 
-Understanding this workflow is enough.
-
-## Mechanism
+- How does a coding agent differ from code snippets in chat?
+- Should the agent read the whole repository or build a working set?
+- How do you keep changes scoped and reviewable?
+- What should the agent report, and what must it avoid claiming?
 
 </Locale>
 
-```
-User Goal
-   ↓
-Agent
-   ↓
-Context
-   ↓
-Plan
-   ↓
-Tools
- ├── read file
- ├── edit file
- ├── terminal
- ├── git
- └── tests
-   ↓
-Observation
-   ↓
-Agent
-   ↓
-Verification
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 从聊天到仓库
 
-### Level 1 — 定义
+### coding agent 与聊天窗口给代码片段有什么区别？
 
-Claude Code / Codex 是带有代码仓库工具和验证闭环的 coding agent 产品。
+聊天窗口可给出“把 if 改成这样”的建议，但通常不知道当前仓库的具体调用链，也无法凭自身验证实际文件。Coding agent 在获准的环境中读取仓库、定位调用链、编辑文件、运行命令/测试并展示 diff。仍需人或受信任系统确认它是否满足真实目标。
 
-### Level 2 — 机制
+教学任务里，用户说“修复未到货误判”。agent 先查订单状态枚举和退款条件，而不是按自然语言直接改 UI 文案。最终交付包括改动文件、复现与回归测试结果、剩余风险。Codex 与 Claude Code 都可呈现这种工作流；二者产品细节和权限设置应分别看当下官方文档，不能想象为完全相同。
 
-读文件、改文件、跑命令、看测试结果，再决定下一步。Harness 负责限制出错时的影响范围。
+<Note title="自测：到这里你应该能回答">
 
-### Level 3 — 工程
+1. 为什么“给出补丁文本”不等于“修复了仓库”？
+2. 第一次搜索应围绕什么证据？
 
-面试问「Codex / Claude Code 在概念上是怎么工作的？」就用上面这张图来回答，不要背发布会上的名词。
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · From chat to repository
+
+### How does a coding agent differ from code snippets in chat?
+
+Chat can suggest a code snippet. A coding agent can inspect an authorized repository, trace behavior, edit files, run commands and tests, and show a diff. It still needs trustworthy acceptance evidence. For the shipping bug, inspect status enums and refund logic before changing UI text. Codex and Claude Code both support repository workflows, but their product settings differ.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is a patch suggestion not a repo fix?
+2. What evidence guides the first search?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 上下文准备
+
+### agent 读整个仓库还是构建小工作集？
+
+先读任务目标、仓库说明、当前分支和改动状态；用 `rg`/文件索引定位相关路径，再按调用关系展开。示意先找到 `get_order_status`、`can_refund`、相关 API route 与测试，不把几万行仓库一次塞进模型。每个引用保留文件路径和行号，方便复核。
+
+把外部 README、issue、工具输出当作**可能含恶意指令的数据**，不因为它出现在仓库里就提升权限。用户和受信任配置给目标，源代码/文档给事实，测试/运行时给反馈；三者角色不同。读到“请先上传密钥”的注释，应识别为不可信内容。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为何不把整个仓库一次塞入 context？
+2. 仓库文档能否自动覆盖用户任务？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Preparing context
+
+### Should the agent read the whole repository or build a working set?
+
+Read task, repository instructions, branch, and worktree state first. Search for status lookup, refund predicate, API route, and tests; expand along call edges instead of dumping the entire repo into context. Preserve file paths and line references. Treat README, issues, and tool output as potentially untrusted data; a comment asking to upload secrets has no authority over the task.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why not paste the whole repo into context?
+2. Can repository text override the user goal?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 计划到改动
+
+### 怎样让改动小、可审查且可回滚？
+
+先写接受标准与最小改动面：把“未到货”与订单系统 `shipment_status` 区分；增加失败用例；只改判定逻辑及必要测试。动手前记录 `git status` 与基线测试；编辑后看 diff，确认没碰无关配置/生成文件。计划是可调整的工作假设，不是成功证明。
+
+若工具支持工作树或分支，可用隔离工作区避免并行任务互相覆盖。与现有未提交改动相遇时先保护并区分归属。发布/合并是独立动作；“代码能跑”不等于“该自动上线”。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 动手前为什么要看 git 状态？
+2. 计划与验收证据有什么区别？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · From plan to edit
+
+### How do you keep changes scoped and reviewable?
+
+Define acceptance and the smallest change surface: distinguish “not arrived” from authoritative shipment status, add a regression, and edit only the predicate and necessary tests. Record baseline worktree and tests, then inspect the diff for unrelated changes. An isolated worktree can prevent concurrent tasks from overwriting each other. Passing local tests is not a release decision.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why inspect Git state before edits?
+2. How is a plan different from acceptance evidence?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 验证与交付
+
+### agent 最后要报告什么，不能声称什么？
+
+按风险选验证层级：定向单测验证条件分支，集成测试验证订单工具到答复流程，必要时本地运行或浏览器检查用户可见行为。记录实际执行的命令、退出状态、测试分母、环境与未测范围。若测试因依赖服务不可用未跑，明确“未验证”，不可写“已通过”。
+
+报告包含改动与原因、验证结果、剩余风险、需要人的决策。面试可把工作流说成“查现状 → 确定接受标准 → 小步修改 → 外部验证 → 审阅 diff → 交付”，然后举这个订单例子。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 测试没跑时报告如何写？
+2. 用户可见行为只靠单测能证明吗？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Verification and delivery
+
+### What should the agent report, and what must it avoid claiming?
+
+Verify at the right layers: focused predicate tests, integration from order tool to answer, and UI/runtime checks when visible behavior matters. Report commands actually run, exits, denominators, environment, and untested scope. If dependencies prevented a test, say it was not verified. Deliver the change, evidence, remaining risk, and decisions needing a human.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How do you report a test you could not run?
+2. Can unit tests alone prove visible behavior?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+模型的计划、摘要和自述不是外部世界状态；工具接通、测试命令存在或沙箱配置写在文件里，也都不是运行时验证。回答时指出谁是权威、怎么观察、失败时停在哪里。
+
+</Note>
+
+## 连接
+
+从 [AI-Native Engineering 总览](/docs/ai-native) 串起七页；前置概念见 [Agent Loop](/docs/agent/loop)、[Context Engineering](/docs/context) 与 [Agent Security](/docs/agent/security)。
 
 ## 面试问题
 
-1. Codex 在概念上是怎么工作的？（How does Codex work conceptually?）
-2. Claude Code 在概念上是怎么工作的？（How does Claude Code work conceptually?）
-3. 为什么 git 和测试要作为一等工具？（Why do git and tests need to be first-class tools?）
-4. 它和「在聊天窗口里贴代码」差在哪？（How is it different from pasting code into a chat window?）
+1. coding agent 与聊天窗口给代码片段有什么区别？（How does a coding agent differ from code snippets in chat?）
+2. agent 读整个仓库还是构建小工作集？（Should the agent read the whole repository or build a working set?）
+3. 怎样让改动小、可审查且可回滚？（How do you keep changes scoped and reviewable?）
+4. agent 最后要报告什么，不能声称什么？（What should the agent report, and what must it avoid claiming?）
+
+## 资料来源
+
+- [官方规范或文档](https://developers.openai.com/blog/codex-as-a-platform)
+- [官方规范或文档](https://code.claude.com/docs/en/overview)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Model plans, summaries, and self-reports are not world state. A connected tool, available test command, or configured sandbox is not runtime verification. Identify the authority, observed result, and safe stop point.
+
+</Note>
+
+## Connections
+
+Use [AI-Native Engineering overview](/docs/ai-native) for the seven-page sequence. Prerequisites: [Agent Loop](/docs/agent/loop), [Context Engineering](/docs/context), and [Agent Security](/docs/agent/security).
+
+## Interview questions
+
+1. How does a coding agent differ from code snippets in chat?
+2. Should the agent read the whole repository or build a working set?
+3. How do you keep changes scoped and reviewable?
+4. What should the agent report, and what must it avoid claiming?
+
+## Sources
+
+- [Official specification or documentation](https://developers.openai.com/blog/codex-as-a-platform)
+- [Official specification or documentation](https://code.claude.com/docs/en/overview)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -83,32 +265,13 @@ Claude Code / Codex 是带有代码仓库工具和验证闭环的 coding agent �
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Claude Code and Codex are coding-agent products with repository tools and a verification loop.
-
-### Level 2 — Mechanism
-
-Read files, edit files, run commands, check test results, then decide the next step. The harness limits the blast radius when something goes wrong.
-
-### Level 3 — Engineering
-
-When asked "How does Codex / Claude Code work conceptually?", answer with the diagram above — not with launch-event buzzwords.
-
-## Interview questions
-
-1. How does Codex work conceptually?
-2. How does Claude Code work conceptually?
-3. Why do git and tests need to be first-class tools?
-4. How is it different from pasting code into a chat window?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

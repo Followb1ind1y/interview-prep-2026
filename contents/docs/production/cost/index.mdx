@@ -1,77 +1,303 @@
 ---
 title: Cost
 titleEn: Cost
-description: Input / output / embedding / rerank / tool / infra。会估算数量级。
-descriptionEn: Tokens, embeddings, rerank, tools, infra. Back-of-the-envelope math.
-date: 2026-09-07
-keywords: ["cost", "tokens", "unit economics"]
+description: 从单次请求手算到月度账单，建立质量、延迟与成本共同约束。
+descriptionEn: Estimate per-request and monthly cost alongside quality and latency.
+date: 2026-09-24
+keywords: ['llm cost', 'unit economics', 'token usage', 'caching']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-必须能当场估算：每天 10 万用户，平均 5k 输入 + 1k 输出 token，一个月要花多少钱？
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策 `P-17 v3` 来自检索，实时订单状态来自受权订单 API。示意数字只用于手算，不代表你的项目实测或当前供应商报价。
+
+## 这一页怎么学
+
+| Level | 先回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 费用单位 | 一次 AI 请求到底按哪些项计费？ | 15–25 min |
+| 1 · 月费手算 | 每天 10 万用户、5k 输入与 1k 输出，如何算月费？ | 15–25 min |
+| 2 · Agent 放大效应 | 多步工具调用为什么让预算失控？ | 15–25 min |
+| 3 · 降本实验 | 缓存、路由、短输出如何避免损害质量？ | 15–25 min |
+| 4 · 预算治理 | 如何让成本数据能被运营和排障使用？ | 15–25 min |
 
 ## 需要掌握
 
-成本构成：
-
-- 输入 token
-- 输出 token（通常更贵）
-- Embedding
-- 重排
-- 工具 / 第三方 API
-- 基础设施
-
-## 机制
+- 一次 AI 请求到底按哪些项计费？
+- 每天 10 万用户、5k 输入与 1k 输出，如何算月费？
+- 多步工具调用为什么让预算失控？
+- 缓存、路由、短输出如何避免损害质量？
+- 如何让成本数据能被运营和排障使用？
 
 </Locale>
 
 <Locale lang="en">
 
-You have to be able to estimate on the spot: 100k users/day, averaging 5k input + 1k output tokens — what does a month cost?
+We continue the pet-food support case: order `20240915` has not arrived. Current policy `P-17 v3` comes from retrieval; live order state comes from an authorized order API. All numerical examples are for learning, not project measurements or current provider prices.
+
+## How to study this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Cost units | What contributes to the cost of one AI request? | 15–25 min |
+| 1 · Monthly estimate | How do you estimate 100k users per day at 5k input and 1k output tokens? | 15–25 min |
+| 2 · Agent amplification | Why can agent loops multiply cost? | 15–25 min |
+| 3 · Cost experiments | How do caching, routing, and shorter outputs avoid hurting quality? | 15–25 min |
+| 4 · Budget governance | How do you make cost usable for operations? | 15–25 min |
 
 ## Must know
 
-Cost components:
-
-- Input tokens
-- Output tokens (usually more expensive)
-- Embedding
-- Reranking
-- Tool / API
-- Infrastructure
-
-## Mechanism
+- What contributes to the cost of one AI request?
+- How do you estimate 100k users per day at 5k input and 1k output tokens?
+- Why can agent loops multiply cost?
+- How do caching, routing, and shorter outputs avoid hurting quality?
+- How do you make cost usable for operations?
 
 </Locale>
 
-```
-monthly ≈ days × users × reqs × (in_tokens × p_in + out_tokens × p_out)
-        + embed + rerank + tools + gpu/hosting
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 费用单位
 
-### Level 1 — 定义
+### 一次 AI 请求到底按哪些项计费？
 
-LLM 产品的变动成本，主要按 token 数和调用次数计算。
+把请求拆成模型输入 token、输出 token、可能的缓存读写、embedding、重排、工具/第三方 API 与自托管计算/存储。供应商费率按模型和日期变化，面试计算先声明**假设单价**，再代入官网当日价格；不要背固定美元数。API 返回的 usage 也可能包含缓存、推理等子项，按具体供应商口径核对，避免重复计费。
 
-### Level 2 — 机制
+客服场景是“订单工具 + RAG 检索 + 模型答复”；若只是查订单，不必每步都让昂贵模型思考。成本分摊时要按租户、功能、模型版本和请求结果看。
 
-输出 token 贵，agent 多步调用会把成本放大。Prompt 缓存、路由、换更小的模型都是降本的杠杆。
+<Note title="自测：到这里你应该能回答">
 
-### Level 3 — 工程
+1. 为什么不能把缓存 token 再算一遍普通输入价？
+2. 每次退款问答包含哪些计费环节？
 
-先算清数量级，再做优化。缓存命中率和路由准确率会直接反映到账单上。面试时要能当场估算。
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Cost units
+
+### What contributes to the cost of one AI request?
+
+Break one request into input/output tokens, cache reads or writes where applicable, embeddings, reranking, third-party tools, and hosting. Rates change by model and date, so state assumed prices before interview math and verify current provider prices for real budgets. Reconcile provider usage fields to avoid double counting cache or reasoning tokens. Attribute spend by tenant, feature, model version, and outcome.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why not charge cached tokens again at the uncached rate?
+2. Which billable stages can a refund answer include?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 月费手算
+
+### 每天 10 万用户、5k 输入与 1k 输出，如何算月费？
+
+先补一个常被遗漏的变量：**每用户每天几次请求**。教学设每人 1 次、30 天，月请求数 `100,000 × 1 × 30 = 3,000,000`。输入量 `3,000,000 × 5,000 = 15,000,000,000` token，即 15,000 个“百万 token”；输出量 `3,000,000 × 1,000 = 3,000,000,000` token，即 3,000 个“百万 token”。
+
+示意单价输入 `$1/百万`、输出 `$4/百万`，模型费 `15,000×$1 + 3,000×$4 = $27,000/月`。这不是任何供应商报价。若每人每天 3 次，模型费约乘 3；再加 embedding、重排、工具、缓存、失败重试和基础设施。不要把“10 万用户”直接当“10 万请求”。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 15 billion token 是多少个百万 token？
+2. 每人每天 3 次会怎样改变估算？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Monthly estimate
+
+### How do you estimate 100k users per day at 5k input and 1k output tokens?
+
+First state requests per user. At one request per user per day over 30 days: 3 million requests, 15 billion input tokens, and 3 billion output tokens. At illustrative prices of $1 per million input and $4 per million output, model spend is `15,000×$1 + 3,000×$4 = $27,000/month`. These are teaching prices, not a provider quote. Three requests per user roughly triples the model portion; add other stages, retries, and infrastructure.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How many million-token units are 15 billion tokens?
+2. What changes at three requests per user?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · Agent 放大效应
+
+### 多步工具调用为什么让预算失控？
+
+一个 agent 走三次模型调用，每次可能重复系统指令、工具 schema 和历史；成本不是“原请求再加 3 个输出”，而要逐次统计输入、输出、缓存命中与工具调用。示意三次输入分别 5k、7k、9k，输出各 1k，则总输入 21k、总输出 3k；按上面示意价是 `$0.021 + $0.012 = $0.033/请求`，而单次 5k+1k 是 `$0.009`。
+
+还要考虑失败重试、无结果检索和重复工具。给流程设置最大步数、token 与美元预算，达到预算后返回已证实部分或升级人工。把“请求成功率”与“每个成功任务的成本”一起看。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么三步调用不能只算 3 倍输出？
+2. 如何定义成本上限后的行为？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Agent amplification
+
+### Why can agent loops multiply cost?
+
+A three-call agent can resend instructions, tool schemas, and history each time. Illustrative inputs of 5k, 7k, and 9k plus three 1k outputs total 21k input and 3k output. At the teaching rates above, that is $0.033 per request versus $0.009 for one 5k+1k call. Track per-step usage, retries, and tools; cap steps, tokens, and spend, then measure cost per successful task.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is three-step cost more than three outputs?
+2. What happens when the budget is exhausted?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 降本实验
+
+### 缓存、路由、短输出如何避免损害质量？
+
+先看成本归因：哪类问题、哪段输入、哪一步重试最贵。稳定前缀可尝试 prompt caching，但命中依赖具体供应商规则；命中率高不等于总账单一定最低，需纳入写入/读取价。短输出可减价和完成时间，但可能漏必要条款；小模型路由也要测困难样本错判。
+
+用同一 golden set 做配对实验，比较质量门槛、P95、平均成本、P95 成本与失败率。示意节省 30% 模型费却把关键退款答错率从 1% 拉到 3%，通常不能仅因省钱上线。具体容错阈值取决于业务。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 缓存命中率为何不等于实际节省率？
+2. 小模型路由应重点测哪些困难样本？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Cost experiments
+
+### How do caching, routing, and shorter outputs avoid hurting quality?
+
+Find the expensive query buckets and repeated stages first. Stable prefixes may benefit from prompt caching under provider-specific pricing; shorter answers and smaller-model routing need quality checks. Compare paired quality, P95 latency, average and tail cost, and failures. An illustrative 30% spend reduction with more wrong refund decisions is not automatically a win.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is cache hit rate not equal to savings?
+2. Which difficult cases must a small-model router pass?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 预算治理
+
+### 如何让成本数据能被运营和排障使用？
+
+每个 trace 记录租户、功能、模型/版本、输入/输出与缓存 token、工具次数、估算金额和最终结果；按日汇总并与供应商账单对账。设预算告警、每租户配额、异常 token/请求、无穷循环和重试风暴检测。价格变化和账单口径变化要版本化。
+
+不要在日志里存完整敏感 prompt 来做成本分析。使用计数与受限采样即可；在 [Observability](/docs/production/observability) 里串联耗时、费用和结果，在 [Evaluation](/docs/evaluation) 里确认降本未损质量。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么估算账单需与供应商账单对账？
+2. 哪种成本告警能发现 agent 空转？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Budget governance
+
+### How do you make cost usable for operations?
+
+Record tenant, feature, model/version, token categories, tool calls, estimated spend, and task outcome on each trace; reconcile daily estimates with provider invoices. Alert on budget, anomalous token use, loops, and retry storms. Version pricing assumptions. Cost dashboards usually need counts and restricted samples, not raw private prompts.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why reconcile estimates with provider invoices?
+2. Which alert detects agent loops?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要把配置存在、HTTP 成功、示意数字或单次测试通过，当作生产质量与容量的证据。回答时先说明测量边界和分母，再说明取舍与验证方法。
+
+</Note>
+
+## 连接
+
+从 [Production AI 总览](/docs/production) 进入；将本页指标带到 [AI System Design](/docs/system-design) 的具体白板题，并用 [Evaluation](/docs/evaluation) 验证质量。
 
 ## 面试问题
 
-1. 每天 10 万用户、5k 输入 + 1k 输出，月费怎么估？（100k users/day at 5k input + 1k output tokens — how do you estimate the monthly cost?）
-2. 为什么输出 token 往往更值得压缩？（Why are output tokens usually more worth compressing?）
-3. Agent 多走 3 步，对成本意味着什么？（What do 3 extra agent steps mean for cost?）
-4. 怎么把成本数据纳入可观测性？（How do you build cost into observability?）
+1. 一次 AI 请求到底按哪些项计费？（What contributes to the cost of one AI request?）
+2. 每天 10 万用户、5k 输入与 1k 输出，如何算月费？（How do you estimate 100k users per day at 5k input and 1k output tokens?）
+3. 多步工具调用为什么让预算失控？（Why can agent loops multiply cost?）
+4. 缓存、路由、短输出如何避免损害质量？（How do caching, routing, and shorter outputs avoid hurting quality?）
+5. 如何让成本数据能被运营和排障使用？（How do you make cost usable for operations?）
+
+## 资料来源
+
+- [官方文档](https://developers.openai.com/api/docs/guides/prompt-caching)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Configuration, an HTTP success, teaching numbers, or one passing test do not prove production quality or capacity. State the measurement boundary and denominator before the tradeoff and validation.
+
+</Note>
+
+## Connections
+
+Use [Production AI overview](/docs/production), apply the metrics to [AI System Design](/docs/system-design), and validate quality through [Evaluation](/docs/evaluation).
+
+## Interview questions
+
+1. What contributes to the cost of one AI request?
+2. How do you estimate 100k users per day at 5k input and 1k output tokens?
+3. Why can agent loops multiply cost?
+4. How do caching, routing, and shorter outputs avoid hurting quality?
+5. How do you make cost usable for operations?
+
+## Sources
+
+- [Official documentation](https://developers.openai.com/api/docs/guides/prompt-caching)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -79,32 +305,13 @@ LLM 产品的变动成本，主要按 token 数和调用次数计算。
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-The variable cost of an LLM product is driven mainly by token count and number of calls.
-
-### Level 2 — Mechanism
-
-Output tokens are expensive, and multi-step agents multiply the cost. Prompt caching, routing, and smaller models are the main levers.
-
-### Level 3 — Engineering
-
-Get the order of magnitude right before optimizing. Cache hit rate and routing accuracy show up directly on the bill. In an interview, you need to do this math on the spot.
-
-## Interview questions
-
-1. 100k users/day at 5k input + 1k output tokens — how do you estimate the monthly cost?
-2. Why are output tokens usually more worth compressing?
-3. What do 3 extra agent steps mean for cost?
-4. How do you build cost into observability?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

@@ -1,47 +1,263 @@
 ---
 title: Agent State
 titleEn: Agent State
-description: Conversation ≠ State。长任务 / 后台 / coding agent 尤其重要。
-descriptionEn: Conversation is not state. Critical for long-running and coding agents.
-date: 2026-09-07
-keywords: ["agent state", "long-running agents", "checkpoint"]
+description: 区分对话历史、工作状态与外部真实状态，安全地暂停和恢复长任务。
+descriptionEn: Separate transcript, work state, and authoritative world state for safe resumption.
+date: 2026-09-24
+keywords: ['agent state', 'checkpoint', 'versioning', 'resume']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-状态可以包括：任务、计划、进度、文件、工具结果、记忆、错误、运行环境。
+贯穿本页的教学任务：用 coding agent 修复“猫粮客服把订单还没到误判为未发货”的问题。真实订单状态应来自订单 API，现行政策来自 `P-17 v3`；代码改动是否有效须靠运行与测试证据。以下文件名、状态和结果是示意，不是对你的实际项目的断言。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 三种状态 | 为什么聊天记录不是可靠的任务状态？ | 15–25 min |
+| 1 · 检查点设计 | 长任务什么时候存 checkpoint，存成什么？ | 15–25 min |
+| 2 · 恢复与兼容 | 重启后怎样避免重复执行副作用？ | 15–25 min |
+| 3 · 状态与 context | 为什么持久化状态还需要构造模型上下文？ | 15–25 min |
 
 ## 需要掌握
 
-只有显式的状态，才能暂停、恢复，以及让多个 worker 协作。
+- 为什么聊天记录不是可靠的任务状态？
+- 长任务什么时候存 checkpoint，存成什么？
+- 重启后怎样避免重复执行副作用？
+- 为什么持久化状态还需要构造模型上下文？
 
-## 机制
+</Locale>
 
-```
-对话  =  token 历史（容易撑爆，也难以恢复）
-状态  =  关于任务进度的结构化事实
-```
+<Locale lang="en">
 
-## 三级回答
+Our running teaching task is a coding-agent fix for a support bug that treats “not arrived” as “not shipped.” Order state comes from the order API; current policy comes from `P-17 v3`; tests and runtime evidence determine whether a code change works. File names and sample results are illustrative, not claims about your project.
 
-### Level 1 — 定义
+## How to study this page
 
-Agent 状态是可以序列化的工作进度，而不是聊天记录本身。
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Three kinds of state | Why is a transcript not reliable task state? | 15–25 min |
+| 1 · Checkpoint design | When and what should a long-running agent checkpoint? | 15–25 min |
+| 2 · Resume and compatibility | How do you avoid duplicate side effects after restart? | 15–25 min |
+| 3 · State versus context | Why does persisted state still need context construction? | 15–25 min |
 
-### Level 2 — 机制
+## Must know
 
-把计划、涉及的文件、失败信息写进存储或磁盘。恢复时重建当前的工作集，而不是回放全部 token。
+- Why is a transcript not reliable task state?
+- When and what should a long-running agent checkpoint?
+- How do you avoid duplicate side effects after restart?
+- Why does persisted state still need context construction?
 
-### Level 3 — 工程
+</Locale>
 
-后台 agent 必须做 checkpoint。没有状态，就谈不上长时间运行的可靠性。
+---
+
+<Locale lang="zh">
+
+## Level 0 · 三种状态
+
+### 为什么聊天记录不是可靠的任务状态？
+
+聊天记录是模型看过的消息/工具输出；工作状态是可序列化的任务进度；外部真实状态是仓库文件、git commit、测试数据库和订单系统当前值。三者会不同步。agent 在对话里说“已改 `refund.py`”，并不能证明文件真的存在或仍是那个版本。
+
+教学任务的工作状态可记录目标、验收条件、基线 commit、分支/工作树路径、已改文件、测试结果、未解决阻塞、下一步。恢复时先核对外部事实，再把精简状态放回 context。不要把整段对话当唯一数据库。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 模型说已修改与 git diff 不符时信谁？
+2. 工作状态至少包含哪些字段？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Three kinds of state
+
+### Why is a transcript not reliable task state?
+
+Transcript is message history; work state is serializable progress; world state is the repository, Git commit, test environment, and current order system. They can drift. “I edited refund.py” in chat does not prove the file still matches. Persist goal, acceptance, base commit, worktree, changed files, test outcomes, blockers, and next step, then recheck external state on resume.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What wins when model memory disagrees with Git diff?
+2. Which fields belong in work state?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 检查点设计
+
+### 长任务什么时候存 checkpoint，存成什么？
+
+在完成有价值的里程碑后存：复现成功、测试写入、补丁应用、验证通过或等待审批。状态带 schema 版本、时间、任务 ID、状态机阶段、输入/输出 artifact ID、工具结果引用、分支与基线 commit。日志可以保留历史，checkpoint 应足够恢复当前工作集。
+
+示意 `phase=patch_applied` 不等于 `verified`；恢复流程先看补丁是否仍在工作树，再决定跑测试。写 checkpoint 要原子化，避免一半文件更新、一半状态提交。可用版本号或 compare-and-swap 防两个 worker 同时覆盖。
+
+<Note title="自测：到这里你应该能回答">
+
+1. `patch_applied` 能否直接报告成功？
+2. 两个 worker 恢复同一任务会有什么冲突？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Checkpoint design
+
+### When and what should a long-running agent checkpoint?
+
+Checkpoint after meaningful milestones such as reproduction, regression creation, patch application, verification, or approval wait. Include schema version, task ID, phase, artifact references, worktree, and base commit. `patch_applied` is not `verified`. Write state atomically and use version checks or compare-and-swap when multiple workers may resume.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Can `patch_applied` be reported as success?
+2. What goes wrong when two workers resume one task?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 恢复与兼容
+
+### 重启后怎样避免重复执行副作用？
+
+恢复先加载 checkpoint，再验证当前 git 状态、文件 hash、测试环境与工具操作状态。若上次在“提交退款请求后网络断开”，必须查业务系统和幂等键，不能凭旧对话决定再提交。对 coding 任务，若工作树已被别的任务改动，应暂停并重新计划。
+
+状态 schema 变更时使用显式版本和迁移函数；旧 checkpoint 缺字段不能默默填上“成功”。对无法迁移的状态进入人工处理或安全终止。任务取消与超时也应保存最终状态，便于审计和清理资源。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 上次工具调用结果未知时先做什么？
+2. 旧 checkpoint 缺字段为何不能默认成功？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Resume and compatibility
+
+### How do you avoid duplicate side effects after restart?
+
+On resume, load the checkpoint and verify Git state, file hashes, environment, and operation status. After a timed-out side effect, query the authoritative service using its idempotency key instead of repeating it. Version the state schema and migrate explicitly; never default a missing old field to “success.” Cancelled or expired tasks need terminal state and cleanup.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What happens first when a prior tool result is unknown?
+2. Why not default missing old fields to success?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 状态与 context
+
+### 为什么持久化状态还需要构造模型上下文？
+
+数据库里有状态，不代表模型自动看见；需要把当前目标、验收、关键决策、相关文件与未解决错误筛进下一轮 context。反过来，context 里出现的陈述也不一定是最新真值。把每项事实标上来源、时间和可复查 ID；动态事实按需回源。
+
+长任务的恢复验收：暂停在补丁写完但测试未跑；换进程恢复后应识别 `phase=patch_applied`，核对 diff，执行测试，并准确报告未验证到已验证的转变。若直接用摘要说“已经完成”，就是状态与证据混淆。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 数据库有状态为何模型仍可能不知道？
+2. 怎样测试暂停恢复是否可靠？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · State versus context
+
+### Why does persisted state still need context construction?
+
+Persisted state must be selected into the next model context; the model does not read the database by magic. Context statements may also be stale. Include goal, acceptance, decisions, relevant files, and unresolved errors with provenance and time, then revalidate dynamic facts. Test resume by pausing after patch application but before tests and checking that the next process verifies rather than falsely declaring completion.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why can the model miss persisted state?
+2. How do you test a reliable resume?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+模型的计划、摘要和自述不是外部世界状态；工具接通、测试命令存在或沙箱配置写在文件里，也都不是运行时验证。回答时指出谁是权威、怎么观察、失败时停在哪里。
+
+</Note>
+
+## 连接
+
+从 [AI-Native Engineering 总览](/docs/ai-native) 串起七页；前置概念见 [Agent Loop](/docs/agent/loop)、[Context Engineering](/docs/context) 与 [Agent Security](/docs/agent/security)。
 
 ## 面试问题
 
-1. 为什么对话 ≠ 状态？（Why isn't conversation the same as state?）
-2. 需要持久化哪些字段？（Which fields need to be persisted?）
-3. 状态的 schema 怎么做到向后兼容？（How do you keep the state schema backward-compatible?）
-4. 怎么让长时间运行的 agent 可靠？（How do you make a long-running agent reliable?）
+1. 为什么聊天记录不是可靠的任务状态？（Why is a transcript not reliable task state?）
+2. 长任务什么时候存 checkpoint，存成什么？（When and what should a long-running agent checkpoint?）
+3. 重启后怎样避免重复执行副作用？（How do you avoid duplicate side effects after restart?）
+4. 为什么持久化状态还需要构造模型上下文？（Why does persisted state still need context construction?）
+
+## 资料来源
+
+- [官方规范或文档](https://developers.openai.com/api/docs/guides/agents-api/overview)
+- [官方规范或文档](https://developers.openai.com/api/docs/guides/agents/sandboxes)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Model plans, summaries, and self-reports are not world state. A connected tool, available test command, or configured sandbox is not runtime verification. Identify the authority, observed result, and safe stop point.
+
+</Note>
+
+## Connections
+
+Use [AI-Native Engineering overview](/docs/ai-native) for the seven-page sequence. Prerequisites: [Agent Loop](/docs/agent/loop), [Context Engineering](/docs/context), and [Agent Security](/docs/agent/security).
+
+## Interview questions
+
+1. Why is a transcript not reliable task state?
+2. When and what should a long-running agent checkpoint?
+3. How do you avoid duplicate side effects after restart?
+4. Why does persisted state still need context construction?
+
+## Sources
+
+- [Official specification or documentation](https://developers.openai.com/api/docs/guides/agents-api/overview)
+- [Official specification or documentation](https://developers.openai.com/api/docs/guides/agents/sandboxes)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -49,45 +265,13 @@ Agent 状态是可以序列化的工作进度，而不是聊天记录本身。
 
 <Locale lang="en">
 
-State can include: task, plan, progress, files, tool results, memory, errors, environment.
-
-## Must know
-
-Only explicit state lets you pause, resume, and run multiple workers.
-
-## Mechanism
-
-```
-Conversation  =  token history (blows up easily, hard to recover)
-State         =  structured facts about task progress
-```
-
-## Three-level answers
-
-### Level 1 — Definition
-
-Agent state is serializable work progress — not the chat transcript itself.
-
-### Level 2 — Mechanism
-
-Write the plan, the set of files, and failure information to a store or to disk. On resume, rebuild the working set instead of replaying every token.
-
-### Level 3 — Engineering
-
-Background agents must checkpoint. Without state, there's no such thing as long-running reliability.
-
-## Interview questions
-
-1. Why isn't conversation the same as state?
-2. Which fields need to be persisted?
-3. How do you keep the state schema backward-compatible?
-4. How do you make a long-running agent reliable?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

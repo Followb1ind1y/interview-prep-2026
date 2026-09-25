@@ -1,53 +1,261 @@
 ---
 title: Chunking
 titleEn: Chunking
-description: 很典型的面试深挖点。太小、太大、overlap、parent-child。
-descriptionEn: Classic deep-dive. Too small, too large, overlap, parent-child.
-date: 2026-09-07
-keywords: ["chunking", "overlap", "parent-child"]
+description: 用可检索且不失上下文的证据单元组织长文档。
+descriptionEn: Build retrievable evidence units without losing meaning or provenance.
+date: 2026-09-24
+keywords: ['rag', 'chunking', 'overlap', 'parent-child']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-要能讲清怎么选 chunk size，而不是背一个 512。
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 切分的必要性 | 为什么整篇文档与单句都可能不好检索？ | 15–25 min |
+| 1 · 基础策略 | 固定长度、递归和结构切分怎么选？ | 15–25 min |
+| 2 · 重叠与父子段 | 重叠、parent-child 和 contextual chunk 分别解决什么？ | 15–25 min |
+| 3 · 实验选择 | 怎么确定 chunk size 而不是报一个万能数字？ | 15–25 min |
 
 ## 需要掌握
 
-- fixed-size chunking（固定长度切块）
-- recursive chunking（递归切块）
-- semantic chunking（语义切块）
-- sentence / paragraph chunking（按句 / 按段切块）
-- parent-child chunking（父子块）
-- overlap（重叠）
+- 为什么整篇文档与单句都可能不好检索？
+- 固定长度、递归和结构切分怎么选？
+- 重叠、parent-child 和 contextual chunk 分别解决什么？
+- 怎么确定 chunk size 而不是报一个万能数字？
 
-## 机制
+</Locale>
 
-```
-太小 → 丢失上下文，检索结果零碎
-太大 → 噪声多，放进窗口贵，定位差
-overlap → 边界处的句子在两边都保留
-```
+<Locale lang="en">
 
-## 三级回答
+We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
 
-### Level 1 — 定义
+## How to study this page
 
-把文档切成检索和生成都能用的片段。
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Why chunk | Why can whole documents and single sentences both fail? | 15–25 min |
+| 1 · Basic strategies | When do you use fixed, recursive, or structural splits? | 15–25 min |
+| 2 · Overlap and parent-child | What do overlap, parent-child, and contextual chunks solve? | 15–25 min |
+| 3 · Choosing by experiment | How do you choose chunk size without a magic number? | 15–25 min |
 
-### Level 2 — 机制
+## Must know
 
-Recursive 按标题 → 段落 → 句子逐级往下切。Semantic 按 embedding 相似度找边界。Parent-child 用小块做检索、用大块做生成。
+- Why can whole documents and single sentences both fail?
+- When do you use fixed, recursive, or structural splits?
+- What do overlap, parent-child, and contextual chunks solve?
+- How do you choose chunk size without a magic number?
 
-### Level 3 — 工程
+</Locale>
 
-Chunk size 取决于 embedding 模型、典型问题的粒度和 context 预算。要用检索评测（Recall@K）来调，而不是拍脑袋定。
+---
+
+<Locale lang="zh">
+
+## Level 0 · 切分的必要性
+
+### 为什么整篇文档与单句都可能不好检索？
+
+整篇 `P-17` 包含退货、退款、配送等主题，向量可能被平均到模糊位置，送入 prompt 也费 token。单句“请按以下流程办理”又没有标题和适用条件。chunk 是兼顾定位与可理解性的证据单位，不等于固定 token 长度。
+
+对“运输中能否退款”，理想段至少带“适用：已发货/运输中”和对应动作；只保留动作句会让模型误用于未发货订单。先看文档结构，再选边界。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么过小 chunk 会导致条件丢失？
+2. 过大 chunk 对召回和成本有什么影响？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Why chunk
+
+### Why can whole documents and single sentences both fail?
+
+A whole policy mixes topics and costs prompt tokens; an isolated sentence may lose the condition that gives it meaning. A chunk is a retrievable evidence unit, not merely a fixed token count. For shipping refunds, keep the shipment condition with the action.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How can a tiny chunk lose a condition?
+2. What do large chunks do to retrieval and cost?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 基础策略
+
+### 固定长度、递归和结构切分怎么选？
+
+固定长度按 token 窗口切，易实现但可能截断条款；递归切分先按标题、段落，再按句子，保留自然边界；结构切分利用 Markdown 标题、HTML section、PDF 目录或表格行。政策文档优先按“章节 → 条款”切，过长再用 token 上限。
+
+示意：一个 1,500-token 章节，目标上限 600，可以先拆成 3 个完整条款（400/500/600），比机械 0–600、600–1200、1200–1500 更能保留条件。长度只是初始参数，质量须看标注查询。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么目标 600 token 不意味着每段恰好 600？
+2. 表格切分需要额外保留什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Basic strategies
+
+### When do you use fixed, recursive, or structural splits?
+
+Fixed-token windows are simple but may cut clauses. Recursive splitting prefers headings and paragraphs before sentences. Structural splitting uses document hierarchy or table rows. For policy, split by section and clause, then cap oversized units. A 1,500-token section with three intact clauses is usually a better candidate than blindly slicing every 600 tokens; confirm with labeled queries.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is a 600-token target not an exact size?
+2. What must table chunks preserve?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 重叠与父子段
+
+### 重叠、parent-child 和 contextual chunk 分别解决什么？
+
+重叠让边界附近的语句在相邻段重复；例如 600-token 窗口、100-token 重叠，步长为 500。它会增加索引量、重复召回与 prompt 浪费，而且救不了跨多页的依赖。Parent-child 用小段检索、返回父段供阅读；比如 150-token 命中，回取 600-token 条款。Contextual chunk 在索引时为段补上文档/章节背景，例如“`P-17 v3` 已发货退款条款”，但生成的背景必须核对来源。
+
+三个策略可组合，却要按失败类型选：边界截断用重叠，局部可搜但阅读缺条件用父段，孤立段缺标题用元数据或受控背景。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 150-token 子段命中后为什么可能返回 600-token 父段？
+2. 重叠为何不是越大越好？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Overlap and parent-child
+
+### What do overlap, parent-child, and contextual chunks solve?
+
+Overlap repeats boundary text; 600-token windows with 100 overlap advance by 500 tokens, increasing storage and duplicate hits. Parent-child retrieval matches a small passage and returns its larger parent. Contextual retrieval prepends document or section context to an otherwise ambiguous chunk, but generated context needs source checking. Choose each for a measured failure, not by default.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why return a 600-token parent after a 150-token hit?
+2. Why not maximize overlap?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 实验选择
+
+### 怎么确定 chunk size 而不是报一个万能数字？
+
+建一组包含精确条款、跨句条件、表格和长问题的标注查询。固定 embedding、检索器、Top-K 与权限过滤，只改变切分策略；比较 Recall@K、实际送入 context 的覆盖、重复率、token 成本和答案正确性。所有策略保留可回溯 source span。
+
+如果召回高而答案漏掉例外，先看返回段是否包含完整条件，再看组装是否裁掉；如果只对 SKU/政策编号失效，可能是词法检索问题，不必盲目缩小 chunk。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 实验中哪些变量必须固定？
+2. SKU 查询失败为何未必是 chunk 大小问题？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Choosing by experiment
+
+### How do you choose chunk size without a magic number?
+
+Use labeled queries for exact clauses, multi-sentence conditions, tables, and longer questions. Hold embedding, retriever, Top-K, and filters fixed while varying chunking. Compare retrieval recall, final context coverage, duplicate rate, token cost, and answer quality. Diagnose whether a missing exception was cut during chunking or later dropped during assembly.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What must stay fixed in the experiment?
+2. Why might SKU failure have nothing to do with chunk size?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+
+</Note>
+
+## 连接
+
+上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
 
 ## 面试问题
 
-1. 怎么选 chunk size？（How do you choose chunk size?）
-2. 为什么 chunk 太小不好？太大又为什么不好？（Why is a chunk that's too small bad, and why is one that's too large bad?）
-3. Overlap 解决了什么、浪费了什么？（What does overlap fix, and what does it waste?）
-4. Parent-child chunking 什么时候值得做？（When is parent-child chunking worth it?）
+1. 为什么整篇文档与单句都可能不好检索？（Why can whole documents and single sentences both fail?）
+2. 固定长度、递归和结构切分怎么选？（When do you use fixed, recursive, or structural splits?）
+3. 重叠、parent-child 和 contextual chunk 分别解决什么？（What do overlap, parent-child, and contextual chunks solve?）
+4. 怎么确定 chunk size 而不是报一个万能数字？（How do you choose chunk size without a magic number?）
+
+## 资料来源
+
+- [原始研究或官方文档](https://www.anthropic.com/engineering/contextual-retrieval)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+
+</Note>
+
+## Connections
+
+Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+
+## Interview questions
+
+1. Why can whole documents and single sentences both fail?
+2. When do you use fixed, recursive, or structural splits?
+3. What do overlap, parent-child, and contextual chunks solve?
+4. How do you choose chunk size without a magic number?
+
+## Sources
+
+- [Primary research or official documentation](https://www.anthropic.com/engineering/contextual-retrieval)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -55,51 +263,13 @@ Chunk size 取决于 embedding 模型、典型问题的粒度和 context 预算�
 
 <Locale lang="en">
 
-Be able to explain how you choose a chunk size, instead of reciting "512."
-
-## Must know
-
-- fixed-size chunking
-- recursive chunking
-- semantic chunking
-- sentence / paragraph chunking
-- parent-child chunking
-- overlap
-
-## Mechanism
-
-```
-too small → context lost, retrieval returns fragments
-too large → more noise, costly in the window, poor precision
-overlap   → sentences at a boundary live in both chunks
-```
-
-## Three-level answers
-
-### Level 1 — Definition
-
-Splitting documents into pieces that work for both retrieval and generation.
-
-### Level 2 — Mechanism
-
-Recursive chunking falls back from headings to paragraphs to sentences. Semantic chunking finds boundaries by embedding similarity. Parent-child retrieves with small chunks and generates with the larger parent.
-
-### Level 3 — Engineering
-
-Chunk size depends on the embedding model, how granular the typical question is, and the context budget. Tune it with retrieval evals (Recall@K), not gut feel.
-
-## Interview questions
-
-1. How do you choose chunk size?
-2. Why is a chunk that's too small bad, and why is one that's too large bad?
-3. What does overlap fix, and what does it waste?
-4. When is parent-child chunking worth it?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

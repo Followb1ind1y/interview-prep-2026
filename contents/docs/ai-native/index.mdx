@@ -1,67 +1,52 @@
 ---
 title: AI-Native Engineering
 titleEn: AI-Native Engineering
-description: MCP、Harness、Claude Code / Codex。这是 AI-native software engineering，不是传统 LLM app。
-descriptionEn: MCP, harness, Claude Code / Codex — AI-native software engineering.
-date: 2026-09-07
-keywords: ["mcp", "harness", "claude code", "codex", "context compaction", "sandbox"]
+description: 从 agent harness 到编码闭环、持久状态、MCP 与沙箱，理解 AI-native 工程的控制边界。
+descriptionEn: From agent harnesses to coding loops, durable state, MCP, and sandboxes.
+date: 2026-09-24
+keywords: ["mcp", "agent harness", "coding agent", "context compaction", "sandbox"]
 ---
 
 <Locale lang="zh">
 
-放在最后学。先把 LLM + 工具 + 上下文 + 状态 + 反馈闭环学明白，再看 Claude Code / Codex，会发现它们并不神秘：
+建议在 [Agent Loop](/docs/agent/loop)、[Context Engineering](/docs/context)、[Evaluation](/docs/evaluation) 和 [Production AI](/docs/production) 后读本栏。目标是能解释：coding agent 怎样读仓库、改代码、得到外部反馈、在长任务中恢复，并把不可信执行限制在安全边界里。
+
+贯穿七页的**教学任务**是修复猫粮客服把“订单还没到”误判成“未发货”的 bug。订单的真实状态由 API 决定；代码修复要靠实际 diff、测试与运行结果验收。示意文件和测试数字不代表你的项目实测。
+
+## 建议学习顺序
+
+1. **先懂控制层：** [Agent Harness](/docs/ai-native/harness) 讲模型、工具、状态和执行环境各负责什么。
+2. **再看编码循环：** [Claude Code / Codex](/docs/ai-native/coding-workflow) 讲仓库工作流；[Agentic Coding](/docs/ai-native/agentic-coding) 讲复现、测试和验证。
+3. **长任务不丢状态：** [Agent State](/docs/ai-native/agent-state) 讲 checkpoint 与恢复；[Context Compaction](/docs/ai-native/compaction) 讲保留哪些证据。
+4. **最后接外部系统与执行：** [MCP](/docs/ai-native/mcp) 讲 Host / Client / Server、能力与授权；[Sandbox](/docs/ai-native/sandbox) 讲文件、网络、凭证和资源隔离。
+
+七个主题页都有 4–5 个双语 Level、贯穿案例、逐级自测和面试题。读完后用 `/drill ai-native/<页面 slug>` 练习；课件生成不等于已经掌握。
 
 </Locale>
 
 <Locale lang="en">
 
-Learn this last. Once LLM + tools + context + state + feedback loop make sense, Claude Code / Codex stop looking mysterious:
+Read this after [Agent Loop](/docs/agent/loop), [Context Engineering](/docs/context), [Evaluation](/docs/evaluation), and [Production AI](/docs/production). The goal is to explain how a coding agent inspects a repository, edits code, gets external feedback, resumes long work, and contains untrusted execution.
+
+Our running teaching task fixes a support bug that treats “not arrived” as “not shipped.” The order API provides true state; actual diffs, tests, and runtime behavior establish whether the patch works. Sample files and test counts are illustrative.
+
+## Suggested order
+
+1. **Control layer:** [Agent Harness](/docs/ai-native/harness) separates model, tools, state, and execution.
+2. **Coding loop:** [Claude Code / Codex](/docs/ai-native/coding-workflow) explains repository work; [Agentic Coding](/docs/ai-native/agentic-coding) covers reproduction and verification.
+3. **Long-running work:** [Agent State](/docs/ai-native/agent-state) covers checkpoints and resume; [Context Compaction](/docs/ai-native/compaction) preserves the evidence needed to continue.
+4. **External capability and execution:** [MCP](/docs/ai-native/mcp) covers host/client/server, capabilities, and authorization; [Sandbox](/docs/ai-native/sandbox) covers filesystem, network, credentials, and resources.
+
+All seven topic pages have 4–5 bilingual Levels, one running case, self-checks, and interview questions. Practice with `/drill ai-native/<page slug>`; generating notes does not count as mastery.
 
 </Locale>
-
-```
-LLM + Tools + Context + State
-  + Execution Environment + Feedback Loop + Safety
-```
-
-<Locale lang="zh">
 
 <CardGrid>
-  <Card title="MCP" description="Host / Client / Server；Tools、Resources、Prompts。和 function calling 的区别。" href="/docs/ai-native/mcp" />
-  <Card title="Agent Harness" description="模型是大脑，Harness 是它的运行环境。" href="/docs/ai-native/harness" />
-  <Card title="Claude Code / Codex" description="理解背后的架构，不必成为产品专家。" href="/docs/ai-native/coding-workflow" />
-  <Card title="Agentic Coding" description="Agent 怎么知道自己写对了：反馈闭环。" href="/docs/ai-native/agentic-coding" />
-  <Card title="Context Compaction" description="上下文溢出时保留什么，而不是「把聊天总结一下」。" href="/docs/ai-native/compaction" />
-  <Card title="Agent State" description="对话 ≠ 状态。长任务 / 后台 agent。" href="/docs/ai-native/agent-state" />
-  <Card title="Sandbox" description="文件系统 / 进程 / 网络 / 凭证隔离。" href="/docs/ai-native/sandbox" />
+  <Card title="Agent Harness" description="控制层、工具路由、状态与验证。" href="/docs/ai-native/harness" />
+  <Card title="Claude Code / Codex" description="从仓库工作流理解 coding agent。" href="/docs/ai-native/coding-workflow" />
+  <Card title="Agentic Coding" description="复现、修改、测试、观察、修复。" href="/docs/ai-native/agentic-coding" />
+  <Card title="Agent State" description="对话、工作状态与外部真实状态。" href="/docs/ai-native/agent-state" />
+  <Card title="Context Compaction" description="长任务压缩时保留目标、证据和未完成状态。" href="/docs/ai-native/compaction" />
+  <Card title="MCP" description="Host / Client / Server、三类能力与授权。" href="/docs/ai-native/mcp" />
+  <Card title="Sandbox" description="限制文件、进程、网络与凭证影响范围。" href="/docs/ai-native/sandbox" />
 </CardGrid>
-
-## 本专栏计划
-
-1. MCP：能画出 Host → Client → Server，能讲清和 function calling 的区别
-2. Harness：能列出工具 / 记忆 / 上下文 / 沙箱 / 压缩这些组成部分
-3. Coding workflow + Agentic coding：写 → 测 → 观察 → 修
-4. Compaction + State + Sandbox：长任务怎么做可靠、怎么控制影响范围
-
-</Locale>
-
-<Locale lang="en">
-
-<CardGrid>
-  <Card title="MCP" description="Host / Client / Server; tools, resources, prompts. How it differs from function calling." href="/docs/ai-native/mcp" />
-  <Card title="Agent Harness" description="The model is the brain; the harness is its operating environment." href="/docs/ai-native/harness" />
-  <Card title="Claude Code / Codex" description="Understand the architecture — no need to be a product expert." href="/docs/ai-native/coding-workflow" />
-  <Card title="Agentic Coding" description="How does an agent know its code is right? The feedback loop." href="/docs/ai-native/agentic-coding" />
-  <Card title="Context Compaction" description="What to keep when context overflows — not just summarizing the chat." href="/docs/ai-native/compaction" />
-  <Card title="Agent State" description="Conversation ≠ state. Long-running and background agents." href="/docs/ai-native/agent-state" />
-  <Card title="Sandbox" description="Isolating filesystem, processes, network, and credentials." href="/docs/ai-native/sandbox" />
-</CardGrid>
-
-## Plan for this column
-
-1. MCP: draw Host → Client → Server and explain how it differs from function calling
-2. Harness: list its components — tools, memory, context, sandbox, compaction
-3. Coding workflow + agentic coding: Write → Test → Observe → Fix
-4. Compaction + state + sandbox: making long-running tasks reliable and containing the blast radius
-
-</Locale>

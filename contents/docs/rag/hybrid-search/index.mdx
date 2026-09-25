@@ -1,70 +1,260 @@
 ---
 title: Hybrid Search
 titleEn: Hybrid Search
-description: BM25 + Vector Search → Fusion。weighted fusion 与 RRF。
-descriptionEn: BM25 + vector search → fusion. Weighted fusion and RRF.
-date: 2026-09-07
-keywords: ["hybrid search", "rrf", "reciprocal rank fusion", "faiss"]
+description: 组合语义与词法召回，手算 RRF 并诊断融合失效。
+descriptionEn: Combine semantic and lexical recall, calculate RRF, and debug fusion.
+date: 2026-09-24
+keywords: ['rag', 'hybrid search', 'rrf', 'bm25', 'dense']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-项目锚点：FAISS + BM25 + RRF。用自己做过的系统来讲，不要只背名词。
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 互补信号 | 为什么同时跑 BM25 和向量检索？ | 15–25 min |
+| 1 · RRF 手算 | RRF 如何避免直接相加不可比的分数？ | 15–25 min |
+| 2 · 融合取舍 | RRF 与原始分数加权各有什么代价？ | 15–25 min |
+| 3 · 上线排错 | 融合后的第一名仍答错，怎么定位？ | 15–25 min |
 
 ## 需要掌握
 
-- weighted fusion（加权融合）
-- Reciprocal Rank Fusion（倒数排名融合，RRF）
-- 词面检索 vs 语义检索
-
-## 机制
+- 为什么同时跑 BM25 和向量检索？
+- RRF 如何避免直接相加不可比的分数？
+- RRF 与原始分数加权各有什么代价？
+- 融合后的第一名仍答错，怎么定位？
 
 </Locale>
 
 <Locale lang="en">
 
-Project anchor: FAISS + BM25 + RRF. Explain it through the system you actually built, not as vocabulary.
+We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+
+## How to study this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Complementary signals | Why run BM25 and dense retrieval together? | 15–25 min |
+| 1 · RRF by hand | How does RRF avoid mixing incomparable raw scores? | 15–25 min |
+| 2 · Fusion choices | What are the tradeoffs between RRF and score fusion? | 15–25 min |
+| 3 · Production debugging | How do you debug a bad top hybrid result? | 15–25 min |
 
 ## Must know
 
-- weighted fusion
-- Reciprocal Rank Fusion
-- lexical vs semantic retrieval
-
-## Mechanism
+- Why run BM25 and dense retrieval together?
+- How does RRF avoid mixing incomparable raw scores?
+- What are the tradeoffs between RRF and score fusion?
+- How do you debug a bad top hybrid result?
 
 </Locale>
 
-```
-BM25
- +
-Vector Search
- ↓
-Fusion
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 互补信号
 
-### Level 1 — 定义
+### 为什么同时跑 BM25 和向量检索？
 
-同时走词面和语义两路检索，再把结果融合排序。
+向量擅长“还在路上”对“运输中”的改写，BM25 擅长 `P-17`、订单型号和错误码。二者各自取一批候选，按 `chunk_id` 去重后融合；融合之前仍须应用租户、版本和权限约束。
 
-### Level 2 — 机制
+示意查询“`P-17` 运输中退款”：dense 找到语义相近的 `P-17 v3` 条款和通用售后 FAQ；BM25 找到精确编号条款和提过 `P-17` 的旧 FAQ。融合提高候选覆盖的机会，但不是自动质量保证。
 
-加权融合需要先把两路的分数尺度校准。RRF 按名次融合，基本不用调参，结果更稳定。
+<Note title="自测：到这里你应该能回答">
 
-### Level 3 — 工程
+1. 两个分支各擅长什么？
+2. 融合前为什么必须统一 ID 和过滤？
 
-两路检索都要支持元数据过滤。融合之后再做 rerank。延迟是「两路并行 + 融合」，而不是简单地「多做一次检索」。
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Complementary signals
+
+### Why run BM25 and dense retrieval together?
+
+Dense retrieval handles paraphrases; BM25 handles exact IDs and rare terms. Retrieve from both, deduplicate by stable chunk ID, and fuse eligible current results. For “`P-17` shipping refund,” each branch may bring useful and stale-looking candidates, so authorization and version filtering still matter.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What does each branch contribute?
+2. Why align IDs and filters before fusion?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · RRF 手算
+
+### RRF 如何避免直接相加不可比的分数？
+
+RRF 对每个候选的各路名次求和：`score(d)=Σ 1/(k+rank_i(d))`，没出现的分支贡献 0。教学示意令平滑常数 `k=10`：A 在 dense 第 1、BM25 第 3，得 `1/11+1/13≈0.1678`；B 在 dense 第 2、BM25 第 1，得 `1/12+1/11≈0.1742`，所以 B 略胜。
+
+这里的 `k=10` 是演算常数，**不是** Top-K 截断数。生产系统常用其他默认值，要查实现。RRF 只看排名，不用把 cosine 0.8 与 BM25 12.4 硬相加；若需强调某一路，可调分支权重并用评测确认。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 把 B 的两项手算出来；RRF 的 k 与 Top-K 有何区别？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · RRF by hand
+
+### How does RRF avoid mixing incomparable raw scores?
+
+RRF sums `1/(k+rank)` for each ranking list; an absent result contributes zero. With an illustrative smoothing constant `k=10`, A at dense rank 1 and BM25 rank 3 scores about 0.1678; B at dense rank 2 and BM25 rank 1 scores about 0.1742, so B wins. This `k` is not the number of retrieved neighbors. Check your engine’s defaults and tune branch weights against labeled cases.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Calculate B’s two terms.
+2. How does RRF k differ from Top-K?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 融合取舍
+
+### RRF 与原始分数加权各有什么代价？
+
+原始 cosine、BM25 分数的量纲和分布不同，直接相加通常不稳。分数归一化/校准后加权可以利用置信强弱，但要随索引、模型和查询分布变化持续校准；RRF 更简单稳健，却丢掉“第一名远高于第二名”的幅度信息。
+
+用标注集按查询类型分桶：编号查询、语义改写、多语言、无答案。比较单路、RRF 与校准加权在相同候选预算下的 Recall@K、排序质量与延迟。若编号查询变差，先看各分支原始排名，再改权重。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么不能把 BM25 12.4 与 cosine 0.8 直接相加？
+2. RRF 损失了什么信息？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Fusion choices
+
+### What are the tradeoffs between RRF and score fusion?
+
+Raw BM25 and cosine scores have different scales. Calibrated score fusion can use score margins but needs maintenance as models and corpora change. RRF is simpler and scale-independent, but loses the magnitude of rank differences. Compare lexical-only, dense-only, RRF, and calibrated fusion under the same candidate budget and query buckets.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why not add BM25 12.4 to cosine 0.8?
+2. What information does RRF discard?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 上线排错
+
+### 融合后的第一名仍答错，怎么定位？
+
+记录每段的原始 dense/BM25 名次、融合贡献、过滤原因和最终重排名次。先确认现行 `P-17 v3` 是否进入任一路候选；若没有，是前段召回问题；若有但融合后掉出预算，是融合或截断；若进了重排却丢掉，是重排；若进 prompt 仍答错，是生成或证据使用。
+
+对延迟也拆账：两个检索分支能否并行、慢分支 P95、合并去重和后续重排的耗时。线上降级可以只留一支，但需知道会失去哪类查询。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 正确段在 BM25 第 2 但融合后没进候选，查什么？
+2. 降级到单路会伤到哪类问题？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Production debugging
+
+### How do you debug a bad top hybrid result?
+
+Log per-branch rank, fusion contribution, filter reason, and rerank position. If current `P-17 v3` is absent from both branches, fix recall; if fusion drops it, inspect fusion or cutoffs; if reranking drops it, inspect reranking; if it reaches the prompt, inspect evidence use. Track branch latency and the query types affected by a one-branch fallback.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What if the correct BM25 rank-2 result vanishes after fusion?
+2. Which query class suffers from one-branch fallback?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+
+</Note>
+
+## 连接
+
+上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
 
 ## 面试问题
 
-1. 为什么要用 hybrid search？（Why hybrid search?）
-2. 加权求和和 RRF 怎么选？（How do you choose between a weighted sum and RRF?）
-3. 两路的权重怎么调？看什么指标？（How do you tune the weights between the two paths, and which metric do you watch?）
-4. 你项目里的 FAISS + BM25 + RRF 解决了哪类失败？（What kind of failure did FAISS + BM25 + RRF fix in your project?）
+1. 为什么同时跑 BM25 和向量检索？（Why run BM25 and dense retrieval together?）
+2. RRF 如何避免直接相加不可比的分数？（How does RRF avoid mixing incomparable raw scores?）
+3. RRF 与原始分数加权各有什么代价？（What are the tradeoffs between RRF and score fusion?）
+4. 融合后的第一名仍答错，怎么定位？（How do you debug a bad top hybrid result?）
+
+## 资料来源
+
+- [原始研究或官方文档](https://learn.microsoft.com/azure/search/hybrid-search-ranking)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+
+</Note>
+
+## Connections
+
+Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+
+## Interview questions
+
+1. Why run BM25 and dense retrieval together?
+2. How does RRF avoid mixing incomparable raw scores?
+3. What are the tradeoffs between RRF and score fusion?
+4. How do you debug a bad top hybrid result?
+
+## Sources
+
+- [Primary research or official documentation](https://learn.microsoft.com/azure/search/hybrid-search-ranking)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -72,32 +262,13 @@ Fusion
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-Running lexical and semantic retrieval side by side, then fusing the two rankings.
-
-### Level 2 — Mechanism
-
-Weighted fusion needs the two score scales calibrated first. RRF fuses by rank instead, so there's almost nothing to tune and results are more stable.
-
-### Level 3 — Engineering
-
-Both paths need to support metadata filters. Rerank after fusion. The latency cost is two parallel retrievals plus fusion — not simply "one more search."
-
-## Interview questions
-
-1. Why hybrid search?
-2. How do you choose between a weighted sum and RRF?
-3. How do you tune the weights between the two paths, and which metric do you watch?
-4. What kind of failure did FAISS + BM25 + RRF fix in your project?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

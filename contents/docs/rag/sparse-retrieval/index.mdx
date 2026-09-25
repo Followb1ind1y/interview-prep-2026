@@ -1,50 +1,261 @@
 ---
 title: Sparse Retrieval
 titleEn: Sparse Retrieval
-description: BM25、倒排索引、keyword search。和语义检索为什么互补。
-descriptionEn: BM25, inverted index, keyword search, and why it complements dense retrieval.
-date: 2026-09-07
-keywords: ["bm25", "inverted index", "sparse retrieval"]
+description: 用倒排索引与 BM25 找回精确编号、术语和罕见词。
+descriptionEn: Use inverted indexes and BM25 for IDs, rare terms, and exact wording.
+date: 2026-09-24
+keywords: ['rag', 'sparse', 'bm25', 'inverted index']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-专有名词、错误码、ID 这类查询，往往是关键词检索赢。
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 倒排索引 | 关键词检索如何快速找到含某词的文档？ | 15–25 min |
+| 1 · BM25 直觉 | BM25 为什么更重视稀有词，又不会无限奖励重复词？ | 15–25 min |
+| 2 · 词法失效 | BM25 何时会漏掉意思相同的条款？ | 15–25 min |
+| 3 · 生产治理 | 词法索引如何与向量索引保持同一份真实资料？ | 15–25 min |
 
 ## 需要掌握
 
-- BM25
-- inverted index（倒排索引）
-- keyword search（关键词检索）
+- 关键词检索如何快速找到含某词的文档？
+- BM25 为什么更重视稀有词，又不会无限奖励重复词？
+- BM25 何时会漏掉意思相同的条款？
+- 词法索引如何与向量索引保持同一份真实资料？
 
-## 机制
+</Locale>
 
-```
-词项 → 倒排列表（posting list）→ BM25 打分
-语义相近但用词不同 → dense 检索赢
-用词精确、但被语义模型稀释 → BM25 赢
-```
+<Locale lang="en">
 
-## 三级回答
+We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
 
-### Level 1 — 定义
+## How to study this page
 
-基于词项统计的检索方式。BM25 是最常见的稀疏打分方法。
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Inverted indexes | How does lexical search find documents containing a term? | 15–25 min |
+| 1 · BM25 intuition | Why does BM25 favor rare terms without unlimited repetition reward? | 15–25 min |
+| 2 · Lexical failures | When does BM25 miss a paraphrase? | 15–25 min |
+| 3 · Production governance | How do lexical and vector indexes stay in sync? | 15–25 min |
 
-### Level 2 — 机制
+## Must know
 
-倒排索引记录每个词出现在哪些文档里。BM25 会惩罚过长的文档和过于常见的词。
+- How does lexical search find documents containing a term?
+- Why does BM25 favor rare terms without unlimited repetition reward?
+- When does BM25 miss a paraphrase?
+- How do lexical and vector indexes stay in sync?
 
-### Level 3 — 工程
+</Locale>
 
-它和 dense 检索互补：一个擅长抓同义表达，一个擅长抓精确匹配。这正是要做 hybrid 的理由，而不是「BM25 过时了」。
+---
+
+<Locale lang="zh">
+
+## Level 0 · 倒排索引
+
+### 关键词检索如何快速找到含某词的文档？
+
+倒排索引把词映射到出现它的文档或段 ID，而不是每次扫描全文。示意：`运输中 → {P-17#shipping, FAQ-2}`，`P-17 → {P-17#shipping}`。查询先用 postings 取候选，再做相关性排序。与向量检索相比，它很适合政策编号、SKU、错误码等准确字面量。
+
+中文分词、大小写、连字符、同义词与数字格式会改变词项。`P-17` 被分成 `P` 和 `17` 时可能产生误匹配；对 ID 字段可设计 keyword/exact 匹配，正文再做正常分词。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 倒排索引与向量索引存的东西有何区别？
+2. 为什么编号字段可用 exact 匹配？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Inverted indexes
+
+### How does lexical search find documents containing a term?
+
+An inverted index maps each term to the passage IDs containing it. For example, `P-17` can point directly to its policy chunk. This is useful for exact IDs, SKUs, and error codes. Tokenization matters: splitting `P-17` into generic tokens can hurt precision, so keep an exact field for identifiers.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What differs between inverted and vector indexes?
+2. Why keep an exact identifier field?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · BM25 直觉
+
+### BM25 为什么更重视稀有词，又不会无限奖励重复词？
+
+BM25 是基于词项匹配的排序函数：词越少见，区分力通常越强；同一词在段中出现多次会加分，但词频增益逐渐饱和；长文档会有长度归一化。示意 100 段里“退款”出现 70 次，`P-17` 只出现 2 次，命中 `P-17` 通常更能缩小范围。
+
+这不是“精确字符串匹配就永远第一”：字段权重、分析器、停用词、长度和查询方式都影响分数。面试说清 TF 饱和、IDF、长度归一化即可；调参先看真实查询的错排样本。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 词频增加十倍为何不该让分数增加十倍？
+2. 长文档为何需要归一化？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · BM25 intuition
+
+### Why does BM25 favor rare terms without unlimited repetition reward?
+
+BM25 favors distinctive terms, saturates repeated term-frequency gains, and normalizes document length. If “refund” appears in 70 of 100 passages but `P-17` in only two, the identifier is more discriminative. Exact ranking still depends on field configuration and analyzers.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why should ten repetitions not imply ten times the score?
+2. Why normalize long documents?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 词法失效
+
+### BM25 何时会漏掉意思相同的条款？
+
+用户说“还在路上”，政策写“运输中”；如果分词和同义词配置没有桥接，词法匹配可能偏向无关 FAQ。稀疏检索也可能因 OCR 把 `P-17` 识别为 `P-I7` 而失效。因此用向量召回互补，但不能用 embedding 掩盖输入错误。
+
+排错顺序：原文解析 → analyzer 实际 token → 字段/过滤 → BM25 候选与分数解释 → 同义词或混合检索。看查询是否真的进入了索引字段。
+
+<Note title="自测：到这里你应该能回答">
+
+1. “还在路上”没命中“运输中”应先看什么？
+2. OCR 识别错编号为何不是 BM25 参数问题？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Lexical failures
+
+### When does BM25 miss a paraphrase?
+
+Lexical retrieval may miss “still on the way” when the policy says “in transit.” OCR corruption can also break exact IDs. Dense retrieval complements this gap, but cannot repair missing or corrupted source text. Inspect extracted text, analyzer tokens, fields, filters, and lexical results in that order.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What do you inspect for a missed paraphrase?
+2. Why is a corrupted ID not a BM25 tuning issue?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 生产治理
+
+### 词法索引如何与向量索引保持同一份真实资料？
+
+两种索引应共享稳定 `doc_id/chunk_id/version`，同一发布批次生效。文档删改、ACL 收紧时同时撤销，读请求只看同一版本快照；否则 hybrid 会把已下线政策从 BM25 分支带回来。
+
+给关键查询保留解释信息：命中词、字段、BM25 排名、过滤理由。调高 ID 字段权重前核对是否造成“提到 P-17 的旧 FAQ”压过现行 `P-17 v3`。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 双索引版本不一致会出现什么结果？
+2. 字段加权前应检查什么误排？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Production governance
+
+### How do lexical and vector indexes stay in sync?
+
+Share stable IDs and publication versions across lexical and vector indexes. Apply deletion and ACL changes consistently, or hybrid retrieval can resurrect stale text from one branch. Inspect matched terms and fields before boosting an ID field; an old FAQ that merely mentions `P-17` may otherwise outrank the active policy.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What can index-version drift cause?
+2. Which misranking should you inspect before field boosting?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+
+</Note>
+
+## 连接
+
+上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
 
 ## 面试问题
 
-1. BM25 在惩罚什么、奖励什么？（What does BM25 penalize, and what does it reward?）
-2. 语义检索和关键词检索为什么互补？（Why do semantic search and keyword search complement each other?）
-3. 哪些查询不该只走向量检索？（Which queries shouldn't rely on vector search alone?）
-4. 倒排索引和向量索引的更新怎么保持同步？（How do you keep inverted-index updates in sync with vector-index updates?）
+1. 关键词检索如何快速找到含某词的文档？（How does lexical search find documents containing a term?）
+2. BM25 为什么更重视稀有词，又不会无限奖励重复词？（Why does BM25 favor rare terms without unlimited repetition reward?）
+3. BM25 何时会漏掉意思相同的条款？（When does BM25 miss a paraphrase?）
+4. 词法索引如何与向量索引保持同一份真实资料？（How do lexical and vector indexes stay in sync?）
+
+## 资料来源
+
+- [原始研究或官方文档](https://www.elastic.co/guide/en/elasticsearch/reference/current/similarity.html)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+
+</Note>
+
+## Connections
+
+Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+
+## Interview questions
+
+1. How does lexical search find documents containing a term?
+2. Why does BM25 favor rare terms without unlimited repetition reward?
+3. When does BM25 miss a paraphrase?
+4. How do lexical and vector indexes stay in sync?
+
+## Sources
+
+- [Primary research or official documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/similarity.html)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -52,48 +263,11 @@ keywords: ["bm25", "inverted index", "sparse retrieval"]
 
 <Locale lang="en">
 
-For proper nouns, error codes, and IDs, keyword search usually wins.
-
-## Must know
-
-- BM25
-- inverted index
-- keyword search
-
-## Mechanism
-
-```
-term → posting list → BM25 score
-same meaning, different wording        → dense retrieval wins
-exact wording that embeddings blur out → BM25 wins
-```
-
-## Three-level answers
-
-### Level 1 — Definition
-
-Retrieval based on term statistics. BM25 is the most common sparse scoring function.
-
-### Level 2 — Mechanism
-
-An inverted index lists the documents each term appears in. BM25 penalizes very long documents and very common terms.
-
-### Level 3 — Engineering
-
-It complements dense retrieval: one catches paraphrases, the other catches exact matches. That's the case for hybrid search — not "BM25 is outdated."
-
-## Interview questions
-
-1. What does BM25 penalize, and what does it reward?
-2. Why do semantic search and keyword search complement each other?
-3. Which queries shouldn't rely on vector search alone?
-4. How do you keep inverted-index updates in sync with vector-index updates?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
 
 <Locale lang="zh">
 

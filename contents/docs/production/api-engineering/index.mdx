@@ -1,78 +1,305 @@
 ---
 title: LLM API Engineering
 titleEn: LLM API Engineering
-description: streaming、timeout、retries、rate limit、exponential backoff、concurrency、连接池、async。
-descriptionEn: Streaming, timeouts, retries, rate limits, backoff, concurrency, pooling, async.
-date: 2026-09-07
-keywords: ["streaming", "retries", "rate limit", "asyncio"]
+description: 设计可流式、可取消、可限流且不会重复执行副作用的 AI API。
+descriptionEn: Design streaming, cancellable, rate-limited AI APIs with safe side effects.
+date: 2026-09-24
+keywords: ['llm api', 'streaming', 'timeout', 'retry', 'rate limit', 'idempotency']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-对照 FastAPI + Gemini。核心是把模型当成一个依赖服务来用。
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策 `P-17 v3` 来自检索，实时订单状态来自受权订单 API。示意数字只用于手算，不代表你的项目实测或当前供应商报价。
+
+## 这一页怎么学
+
+| Level | 先回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 一次请求的契约 | LLM API 为什么不能只写一个同步调用？ | 15–25 min |
+| 1 · 流式传输 | SSE 或 WebSocket 流式输出改善什么，必须处理什么？ | 15–25 min |
+| 2 · 超时与重试 | 429、5xx 与超时分别如何处理？ | 15–25 min |
+| 3 · 并发与背压 | 流量突增时谁负责限流和排队？ | 15–25 min |
+| 4 · 副作用与验收 | 工具调用超时后，怎样避免重复退款？ | 15–25 min |
 
 ## 需要掌握
 
-- streaming（流式输出）
-- timeout（超时）
-- retries（重试）
-- rate limit（限流）
-- exponential backoff（指数退避）
-- concurrency（并发）
-- connection pooling（连接池）
-- async（异步）
-
-## 机制
+- LLM API 为什么不能只写一个同步调用？
+- SSE 或 WebSocket 流式输出改善什么，必须处理什么？
+- 429、5xx 与超时分别如何处理？
+- 流量突增时谁负责限流和排队？
+- 工具调用超时后，怎样避免重复退款？
 
 </Locale>
 
 <Locale lang="en">
 
-Compare against FastAPI + Gemini. The core idea is treating the model as a dependency service.
+We continue the pet-food support case: order `20240915` has not arrived. Current policy `P-17 v3` comes from retrieval; live order state comes from an authorized order API. All numerical examples are for learning, not project measurements or current provider prices.
+
+## How to study this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · The request contract | Why is one synchronous model call not enough? | 15–25 min |
+| 1 · Streaming transport | What does streaming improve and what must it handle? | 15–25 min |
+| 2 · Timeouts and retries | How should 429s, 5xxs, and timeouts be handled? | 15–25 min |
+| 3 · Concurrency and backpressure | Who limits and queues work during a burst? | 15–25 min |
+| 4 · Side effects and acceptance | How do you prevent duplicate refunds after a timeout? | 15–25 min |
 
 ## Must know
 
-- streaming
-- timeout
-- retries
-- rate limit
-- exponential backoff
-- concurrency
-- connection pooling
-- async
-
-## Mechanism
+- Why is one synchronous model call not enough?
+- What does streaming improve and what must it handle?
+- How should 429s, 5xxs, and timeouts be handled?
+- Who limits and queues work during a burst?
+- How do you prevent duplicate refunds after a timeout?
 
 </Locale>
 
-```
-client → API gateway → async worker
-       → LLM API (stream)
-       → backpressure / retry / timeout
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 一次请求的契约
 
-### Level 1 — 定义
+### LLM API 为什么不能只写一个同步调用？
 
-LLM 是一个高延迟、会限流、会部分失败的 HTTP / RPC 依赖。
+继续“喵喵粮仓”示例：用户问订单 `20240915` 是否可退款。一个 FastAPI 端点要鉴权、查订单实时状态、检索现行 `P-17 v3`、调用模型，并把回答和引用送到前端。模型是一个有配额、可能变慢或部分失败的远程依赖；HTTP 200 也不能证明答复满足业务规则。
 
-### Level 2 — 机制
+先定义请求 ID、租户与用户身份、可选客户端幂等键、截止时间、取消信号、响应状态与错误类型。异步函数让等待 I/O 的线程能服务其他请求，但不会凭空增加模型供应商配额。把“生成建议”与“实际退款”分成不同受控操作。
 
-流式输出改善的是首 token 的体感。超时要分成连接超时、首 token 超时和总时长超时。限流和退避既保护你自己，也保护供应商。
+<Note title="自测：到这里你应该能回答">
 
-### Level 3 — 工程
+1. 一次请求的成功除 HTTP 200 还需要什么？
+2. async 为什么不等于无限吞吐？
 
-对不幂等的工具不要盲目重试。连接池和异步决定你能扛多少 QPS。接到 Voice 项目的流式输出。
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · The request contract
+
+### Why is one synchronous model call not enough?
+
+A support request authenticates the caller, reads live order state, retrieves current policy, calls a model, and returns a cited answer. The provider has quotas and can fail partially; HTTP 200 says nothing about policy correctness. Define request ID, tenant, deadline, cancellation, response states, and error classes. Async I/O frees the server while waiting, but does not increase provider quota. Keep advice separate from an actual refund operation.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What proves success beyond HTTP 200?
+2. Why does async not mean unlimited throughput?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 流式传输
+
+### SSE 或 WebSocket 流式输出改善什么，必须处理什么？
+
+流式把模型逐步产出的内容及时给用户，主要改善首个可见内容的等待感；总生成工作不一定减少。SSE 适合单向服务器到浏览器的文本事件，WebSocket 适合双向音频/实时控制；都要设计事件序号、完成事件和错误事件。不要把“第一个网络字节”误称为“第一个有意义的答案 token”。
+
+断线后的客户端不应把半句退款承诺当最终答复。服务端检测取消并尽可能停止下游调用；若供应商已产生费用或副作用，取消不等于回滚。引用和最终业务状态可在完成事件中校验后提交。前端明确展示“生成中/已完成/失败”。
+
+<Note title="自测：到这里你应该能回答">
+
+1. SSE 与 WebSocket 在这个案例中怎么选？
+2. 断流后为何不能展示半句为已完成？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Streaming transport
+
+### What does streaming improve and what must it handle?
+
+Streaming reduces the wait to first visible content but does not necessarily reduce total work. SSE fits one-way text events; WebSocket fits bidirectional audio and control. Define sequence IDs, completion, and error events, and distinguish first network byte from first meaningful token. A disconnected client must not treat a partial refund sentence as final. Cancellation should propagate downstream where possible, but cannot undo costs or completed side effects.
+
+<Note title="Self-check: you should be able to answer">
+
+1. When would you choose SSE versus WebSocket?
+2. Why is a partial stream not a completed answer?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 超时与重试
+
+### 429、5xx 与超时分别如何处理？
+
+把总请求 deadline 分给订单工具、检索、模型首 token 与生成；不能让每层独立等满 30 秒。连接超时、读/首 token 超时、总超时处理的是不同慢点。仅对可重试且幂等的调用做**有上限**的指数退避与 jitter；尊重供应商的重试提示。429 先判断配额/限流是否短期可恢复，4xx 参数或授权错误通常直接失败；5xx 可在剩余 deadline 内有限重试。
+
+示意总预算 8 秒，已花 6 秒才遇 429，再睡 4 秒重试必定过期。要记录每次 attempt 的耗时和最终结果。多层 SDK、应用与网关都重试会放大负载；明确只有一层拥有重试策略。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么每层 30 秒超时会突破用户预算？
+2. 429 和授权错误都适合重试吗？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Timeouts and retries
+
+### How should 429s, 5xxs, and timeouts be handled?
+
+Allocate one end-to-end deadline across order lookup, retrieval, first token, and generation. Connection, read/first-token, and total timeouts cover different stalls. Retry only suitable idempotent calls with bounded exponential backoff and jitter, respecting provider hints. A 429 may reflect temporary throttling or exhausted quota; invalid requests and authorization failures should fail directly. If six seconds of an eight-second deadline are gone, a four-second backoff is pointless. Keep retry ownership in one layer.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why do independent 30-second timeouts violate the user deadline?
+2. Should 429s and authorization errors both be retried?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 并发与背压
+
+### 流量突增时谁负责限流和排队？
+
+入口按用户/租户做速率与并发限制，下游再按模型与供应商配额设置并发 semaphore。连接池复用 HTTP 连接，但池大小、队列长度、超时都要有界。背压指服务在下游已满时减慢接收、拒绝或转异步，而不是无限堆积请求。
+
+示意供应商允许同时 50 个生成、平均每个占 4 秒；粗略稳态上限约 12.5 请求/秒，未计波动和预留。若突然来 100 请求/秒，先保护服务：短队列 + 有界等待，超预算返回明确可重试的限流响应，或降级到经验证的小模型。不能靠多开 FastAPI worker 把供应商上限变大。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 50 并发、4 秒平均服务时长的粗略吞吐是多少？
+2. 无限队列为何会拖垮 P95？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Concurrency and backpressure
+
+### Who limits and queues work during a burst?
+
+Rate-limit users and tenants at ingress, then cap concurrency by provider/model. Reuse HTTP connections with bounded pools and queues. Backpressure rejects or defers work when downstream capacity is full instead of accumulating unlimited waits. As an illustration, 50 concurrent generations averaging four seconds imply about 12.5 requests/s before headroom. More API workers do not increase provider capacity.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What throughput does 50 concurrent calls at four seconds imply?
+2. Why does an unbounded queue damage P95?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 副作用与验收
+
+### 工具调用超时后，怎样避免重复退款？
+
+读订单、检索政策通常可安全重试；真正发起退款/发邮件是副作用。客户端超时只意味着没收到结果，不代表服务端没执行。为退款操作使用稳定幂等键，服务端存操作状态并按键返回原结果；重试前查询权威状态。LLM 不能自行决定授权或承诺已退款。
+
+面试验收可以列出四组故障注入：模型首 token 卡住、429、流中断、退款提交后响应丢失。逐一检查用户提示、trace、重试次数、重复副作用和最终状态。连接到 [Reliability](/docs/production/reliability) 的降级策略与 [Agent Reliability](/docs/agent/reliability) 的工具结果语义。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 退款请求超时后能直接再调用一次吗？
+2. 哪四种注入故障能验证 API 设计？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Side effects and acceptance
+
+### How do you prevent duplicate refunds after a timeout?
+
+Read-only lookup is often retryable; issuing a refund or sending mail has side effects. A timeout means the client does not know the outcome, not that the server did nothing. Use a stable idempotency key and authoritative operation state so retries return the original result. Test stalled first token, 429, broken stream, and lost response after refund commit; verify user state, trace, attempts, and duplicate side effects.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Can you blindly retry a timed-out refund?
+2. Which four injected failures test the API design?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要把配置存在、HTTP 成功、示意数字或单次测试通过，当作生产质量与容量的证据。回答时先说明测量边界和分母，再说明取舍与验证方法。
+
+</Note>
+
+## 连接
+
+从 [Production AI 总览](/docs/production) 进入；将本页指标带到 [AI System Design](/docs/system-design) 的具体白板题，并用 [Evaluation](/docs/evaluation) 验证质量。
 
 ## 面试问题
 
-1. 流式输出对超时设计有什么影响？（How does streaming change the way you design timeouts?）
-2. 429 和 5xx 的重试策略有什么不同？（How should retry strategy differ for 429 versus 5xx?）
-3. 为什么 LLM 调用必须设硬超时？（Why must LLM calls have a hard timeout?）
-4. 并发打满时，是排队、丢弃，还是降级到别的模型？（When concurrency is maxed out, do you queue, drop, or fall back to another model?）
+1. LLM API 为什么不能只写一个同步调用？（Why is one synchronous model call not enough?）
+2. SSE 或 WebSocket 流式输出改善什么，必须处理什么？（What does streaming improve and what must it handle?）
+3. 429、5xx 与超时分别如何处理？（How should 429s, 5xxs, and timeouts be handled?）
+4. 流量突增时谁负责限流和排队？（Who limits and queues work during a burst?）
+5. 工具调用超时后，怎样避免重复退款？（How do you prevent duplicate refunds after a timeout?）
+
+## 资料来源
+
+- [官方文档](https://docs.aws.amazon.com/wellarchitected/2024-06-27/framework/rel_mitigate_interaction_failure_client_timeouts.html)
+- [官方文档](https://sre.google/sre-book/addressing-cascading-failures/)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Configuration, an HTTP success, teaching numbers, or one passing test do not prove production quality or capacity. State the measurement boundary and denominator before the tradeoff and validation.
+
+</Note>
+
+## Connections
+
+Use [Production AI overview](/docs/production), apply the metrics to [AI System Design](/docs/system-design), and validate quality through [Evaluation](/docs/evaluation).
+
+## Interview questions
+
+1. Why is one synchronous model call not enough?
+2. What does streaming improve and what must it handle?
+3. How should 429s, 5xxs, and timeouts be handled?
+4. Who limits and queues work during a burst?
+5. How do you prevent duplicate refunds after a timeout?
+
+## Sources
+
+- [Official documentation](https://docs.aws.amazon.com/wellarchitected/2024-06-27/framework/rel_mitigate_interaction_failure_client_timeouts.html)
+- [Official documentation](https://sre.google/sre-book/addressing-cascading-failures/)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -80,32 +307,13 @@ LLM 是一个高延迟、会限流、会部分失败的 HTTP / RPC 依赖。
 
 <Locale lang="en">
 
-## Three-level answers
-
-### Level 1 — Definition
-
-An LLM is an HTTP / RPC dependency that's slow, rate-limited, and partially fails.
-
-### Level 2 — Mechanism
-
-Streaming improves how fast the first token feels. Timeouts should be split into connect, time-to-first-token, and total duration. Rate limits and backoff protect both you and the provider.
-
-### Level 3 — Engineering
-
-Don't blindly retry non-idempotent tools. Connection pooling and async decide how much QPS you can handle. This connects to streaming in the Voice project.
-
-## Interview questions
-
-1. How does streaming change the way you design timeouts?
-2. How should retry strategy differ for 429 versus 5xx?
-3. Why must LLM calls have a hard timeout?
-4. When concurrency is maxed out, do you queue, drop, or fall back to another model?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 

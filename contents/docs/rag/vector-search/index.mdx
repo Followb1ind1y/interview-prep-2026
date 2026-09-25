@@ -1,52 +1,261 @@
 ---
 title: Vector Search
 titleEn: Vector Search
-description: ANN、HNSW、IVF、PQ、vector DB、metadata filtering。
-descriptionEn: ANN, HNSW, IVF, PQ, vector databases, metadata filtering.
-date: 2026-09-07
-keywords: ["ann", "hnsw", "ivf", "pq", "vector db"]
+description: 从精确搜索到 HNSW、IVF、PQ，理解性能、召回与过滤的取舍。
+descriptionEn: Understand exact search, HNSW, IVF, PQ, and filtered-search tradeoffs.
+date: 2026-09-24
+keywords: ['rag', 'vector search', 'ann', 'hnsw', 'ivf', 'pq']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-必须能回答：为什么不能暴力搜索所有 embedding？
+本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+
+## 这一页怎么学
+
+| Level | 要回答的问题 | 建议时间 |
+| --- | --- | --- |
+| 0 · 最近邻基础 | 向量库到底在查什么？ | 15–25 min |
+| 1 · ANN 与 HNSW | 什么时候需要近似搜索，HNSW 如何提速？ | 15–25 min |
+| 2 · IVF 与 PQ | IVF 和 PQ 分别压缩了什么工作？ | 15–25 min |
+| 3 · 过滤与上线 | ACL 与元数据过滤会怎样影响 ANN？ | 15–25 min |
 
 ## 需要掌握
 
-- ANN（近似最近邻）
-- HNSW
-- IVF
-- PQ（乘积量化）
-- vector DB（向量数据库）
-- metadata filtering（元数据过滤）
+- 向量库到底在查什么？
+- 什么时候需要近似搜索，HNSW 如何提速？
+- IVF 和 PQ 分别压缩了什么工作？
+- ACL 与元数据过滤会怎样影响 ANN？
 
-## 机制
+</Locale>
 
-```
-exact kNN  →  O(N·d)  精确，但无法扩展
-ANN        →  近似最近邻，用一点召回率换延迟
-```
+<Locale lang="en">
 
-## 三级回答
+We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
 
-### Level 1 — 定义
+## How to study this page
 
-在高维向量里找最近邻。生产环境用近似算法，而不是全量扫描。
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Nearest-neighbor basics | What is the vector index searching for? | 15–25 min |
+| 1 · ANN and HNSW | When is approximate search useful and how does HNSW work? | 15–25 min |
+| 2 · IVF and PQ | What work do IVF and PQ reduce? | 15–25 min |
+| 3 · Filtering and rollout | How do ACL and metadata filters affect ANN? | 15–25 min |
 
-### Level 2 — 机制
+## Must know
 
-HNSW 是图索引；IVF 先聚类，查询时只扫描部分桶；PQ 压缩向量来降内存。元数据过滤和向量检索的先后顺序会影响召回。
+- What is the vector index searching for?
+- When is approximate search useful and how does HNSW work?
+- What work do IVF and PQ reduce?
+- How do ACL and metadata filters affect ANN?
 
-### Level 3 — 工程
+</Locale>
 
-N 到百万级以上，暴力搜索在延迟和 CPU/GPU 成本上都不划算。调 HNSW 的 ef / IVF 的 nprobe 是在召回率–延迟曲线上移动，不是开关。
+---
+
+<Locale lang="zh">
+
+## Level 0 · 最近邻基础
+
+### 向量库到底在查什么？
+
+给查询向量 `q`，最近邻搜索按指定距离或相似度返回若干文档向量及 ID。它不会验证答案正确、文档生效或用户有权访问。最简单的 Flat 索引比较所有向量，是**精确**基线；中小语料或硬件够用时完全可用。
+
+先把 `P-17 v3`、`v2` 与 FAQ 编码，记录它们的向量 ID 到 chunk 元数据映射；查询后的第一步是检查返回 ID 与权限/版本，而不是直接交给模型。
+
+<Note title="自测：到这里你应该能回答">
+
+1. Flat 为什么适合作为 ANN 召回的参照？
+2. 向量 ID 怎样追到政策原文？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Nearest-neighbor basics
+
+### What is the vector index searching for?
+
+Nearest-neighbor search ranks indexed vectors by a chosen metric and returns IDs. It does not validate policy freshness or access rights. An exact Flat index scans all vectors and is a valid baseline, sometimes sufficient at small scale. Map every vector ID to its chunk and metadata.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is Flat a useful ANN recall baseline?
+2. How does a vector ID lead back to source policy?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · ANN 与 HNSW
+
+### 什么时候需要近似搜索，HNSW 如何提速？
+
+数据量或 P95 延迟让全量比较过贵时，用 ANN（approximate nearest neighbor）减少搜索范围，代价是可能漏掉真正最近的段。HNSW 建多层邻接图，从较稀疏层找方向，再在底层细找。`efSearch` 增大通常提高召回也增加查询工作量；建图参数也影响内存和构建时间。
+
+用同一查询集把 HNSW Top-10 与 Flat Top-10 对比，测 ANN recall、P95 和内存。若政策关键段被 ANN 漏掉，调 `efSearch` 或考虑 Flat；不要把 ANN recall 与“答案正确率”混为一谈。
+
+<Note title="自测：到这里你应该能回答">
+
+1. ANN recall 与业务相关性 recall 有何区别？
+2. `efSearch` 增大通常换来什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · ANN and HNSW
+
+### When is approximate search useful and how does HNSW work?
+
+ANN reduces comparisons when full scans miss latency or scale targets, at the cost of possible missed neighbors. HNSW traverses a layered proximity graph; increasing `efSearch` generally searches more broadly and costs more latency. Compare HNSW results with exact Flat results on the same vectors and filters, alongside P95 and memory.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How does ANN recall differ from relevance recall?
+2. What does a larger `efSearch` usually trade?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · IVF 与 PQ
+
+### IVF 和 PQ 分别压缩了什么工作？
+
+IVF 先把空间分成若干簇，查询只探查 `nprobe` 个近邻簇；增大 `nprobe` 往往改善召回但变慢。PQ（product quantization）把向量分块并用码本压缩，降低内存与带宽，可能改变近邻排序；可对候选再用原始向量精排。HNSW、IVF、PQ 是可组合的设计点，不是一条必须依次经过的流水线。
+
+若完整精确索引已满足 80 ms 的示意性预算，没有理由仅因“生产级”而加复杂 ANN。预算数字只是演示，实际用自身负载压测。
+
+<Note title="自测：到这里你应该能回答">
+
+1. IVF 的 `nprobe` 控制什么？
+2. PQ 为什么可能降低排序精度？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · IVF and PQ
+
+### What work do IVF and PQ reduce?
+
+IVF probes a subset of coarse clusters; `nprobe` trades speed for recall. PQ compresses vector representations into codes, saving memory and bandwidth but potentially changing rankings; exact vectors can refine candidates. These are alternative or composable design choices, not mandatory pipeline stages. Use workload measurements, not a blanket “production requires ANN” rule.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What does IVF `nprobe` control?
+2. Why can PQ hurt ranking fidelity?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 过滤与上线
+
+### ACL 与元数据过滤会怎样影响 ANN？
+
+企业检索必须在返回给用户前执行服务端授权。若先取全库 Top-10 再过滤，某租户可能只剩 1 条，甚至漏掉该租户本应排名第一的段；若先过滤，索引算法和过滤选择率又影响延迟。需要按引擎实际能力比较 pre-filter、post-filter、分区索引与补召回策略。
+
+上线固定测试：无权文档永不出现在候选或日志外显；旧版被排除；高选择性过滤下与精确过滤基线比较召回。索引大小、更新成本、P95、授权准确性一起决策。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 先全库 Top-10 后过滤为何可能漏掉租户最佳段？
+2. 如何验证过滤后的召回？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Filtering and rollout
+
+### How do ACL and metadata filters affect ANN?
+
+Server-side authorization is mandatory. Fetching global Top-10 and filtering afterward can leave too few tenant results or miss a tenant’s true best match. Pre-filtering has different index and latency costs. Benchmark the engine’s real filter semantics against an exact filtered baseline, including access-denied negatives and stale-version exclusion.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why can global Top-10 then filter miss a tenant’s best passage?
+2. How do you test filtered recall?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="面试容易踩的坑">
+
+不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+
+</Note>
+
+## 连接
+
+上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
 
 ## 面试问题
 
-1. 为什么不能简单地暴力搜索所有 embedding？（Why can't you just brute-force search every embedding?）
-2. HNSW 和 IVF 怎么选？（How do you choose between HNSW and IVF?）
-3. PQ 对检索质量有什么影响？（How does PQ affect retrieval quality?）
-4. 先过滤再检索，还是先检索再过滤？（Do you filter before retrieval or after?）
+1. 向量库到底在查什么？（What is the vector index searching for?）
+2. 什么时候需要近似搜索，HNSW 如何提速？（When is approximate search useful and how does HNSW work?）
+3. IVF 和 PQ 分别压缩了什么工作？（What work do IVF and PQ reduce?）
+4. ACL 与元数据过滤会怎样影响 ANN？（How do ACL and metadata filters affect ANN?）
+
+## 资料来源
+
+- [原始研究或官方文档](https://github.com/facebookresearch/faiss/wiki/Guidelines-to-choose-an-index)
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfall
+
+<Note type="warning" title="Interview pitfall">
+
+Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+
+</Note>
+
+## Connections
+
+Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+
+## Interview questions
+
+1. What is the vector index searching for?
+2. When is approximate search useful and how does HNSW work?
+3. What work do IVF and PQ reduce?
+4. How do ACL and metadata filters affect ANN?
+
+## Sources
+
+- [Primary research or official documentation](https://github.com/facebookresearch/faiss/wiki/Guidelines-to-choose-an-index)
+
+</Locale>
+
+<Locale lang="zh">
 
 ## 我的答案
 
@@ -54,50 +263,13 @@ N 到百万级以上，暴力搜索在延迟和 CPU/GPU 成本上都不划算。
 
 <Locale lang="en">
 
-You must be able to answer: why can't you brute-force search every embedding?
-
-## Must know
-
-- ANN
-- HNSW
-- IVF
-- PQ
-- vector DB
-- metadata filtering
-
-## Mechanism
-
-```
-exact kNN  →  O(N·d)  exact, but doesn't scale
-ANN        →  approximate nearest neighbors; trade a little recall for latency
-```
-
-## Three-level answers
-
-### Level 1 — Definition
-
-Finding nearest neighbors among high-dimensional vectors. Production systems use approximate algorithms, not a full scan.
-
-### Level 2 — Mechanism
-
-HNSW is a graph index; IVF clusters first and only scans some buckets per query; PQ compresses vectors to save memory. Whether metadata filtering runs before or after the vector search changes recall.
-
-### Level 3 — Engineering
-
-Past a million or so vectors, brute force doesn't pay off in latency or CPU/GPU cost. Tuning HNSW's ef or IVF's nprobe moves you along a recall–latency curve; it isn't an on/off switch.
-
-## Interview questions
-
-1. Why can't you just brute-force search every embedding?
-2. How do you choose between HNSW and IVF?
-3. How does PQ affect retrieval quality?
-4. Do you filter before retrieval or after?
-
 ## My answer
 
 </Locale>
 
--
+- 30s:
+
+- 2min:
 
 <Locale lang="zh">
 
