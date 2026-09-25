@@ -881,6 +881,212 @@
       "updatedAt": 1790216147846
     }
   ],
+  "/docs/agent/workflow-vs-agent": [
+    {
+      "id": "1815307d-ed3b-43c5-bede-3a127df2ecf8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "下一步控制流能否在开发时可靠地写进代码，还是必须根据运行时未知信息由模型判断？",
+        "prefix": "系统 vs 智能系统”的二选一，也不是看产品名称。真正的问题是：",
+        "suffix": " 大多数生产产品同时有两者。贯穿例子仍是采购谈判助手。读取报价、"
+      },
+      "createdAt": 1790363254668,
+      "updatedAt": 1790363254668
+    },
+    {
+      "id": "867db683-cfbd-4baf-aa8f-77839b9d2cd8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "都有明确规则，应该是 workflow",
+        "prefix": "子仍是采购谈判助手。读取报价、算是否低于价格上限、写入审核记录，",
+        "suffix": "；面对一封非标准供应商邮件，判断它在谈价格、付款还是交期，并决定"
+      },
+      "createdAt": 1790363265752,
+      "updatedAt": 1790363265752
+    },
+    {
+      "id": "2da8be60-ffec-4af5-b4a2-145b25c11ad7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "看不懂人话时可以请模型帮忙",
+        "prefix": "”仍然必须是 workflow / 后端规则。一句最实用的判断：",
+        "suffix": "；一旦要算钱、改状态或执行承诺，就交回确定的程序。 后面所有采购"
+      },
+      "createdAt": 1790363283462,
+      "updatedAt": 1790363283462
+    },
+    {
+      "id": "6cdb4e1c-b7d7-4960-ad28-14f4b4e47f07",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "某一步可以调用模型，但“下一步是什么”仍由代码、规则或固定路由决定",
+        "prefix": "者预先编码：输入到达后，系统按已知条件执行 A → B → C。",
+        "suffix": "。比如“提取报价字段 → 校验字段 → 比较 10.20 阈值 "
+      },
+      "createdAt": 1790363393313,
+      "updatedAt": 1790363393313
+    },
+    {
+      "id": "ad44d0e5-3460-495d-a4a7-d2a11ed8eafa",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Agent 则把一部分控制流交给模型",
+        "prefix": "较 10.20 阈值 → 生成审核记录”就是 workflow。",
+        "suffix": "：模型根据当前任务、工具结果和约束选择下一步。它可能先读取报价，"
+      },
+      "createdAt": 1790363400556,
+      "updatedAt": 1790363400556
+    },
+    {
+      "id": "e9eda5e1-10aa-4b7e-ac27-7cd27a3db36a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "所以判断关键不是“是否用 LLM”，而是“控制流的可变部分由谁拥有”。",
+        "prefix": "servation → model chooses again\n",
+        "suffix": "一个 LLM 分类器把邮件路由到三个固定队列，通常仍是 work"
+      },
+      "createdAt": 1790363422084,
+      "updatedAt": 1790363422084
+    },
+    {
+      "id": "b2ccf24a-1cb7-4d9b-8ab0-657d9231b37d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "workflow 的好处不是“笨”，而是它让每个条件可测试、每个副作用可审计、每次重跑更一致",
+        "prefix": "核记录写错时，你无法知道是业务规则错、工具错还是模型临场选择错。",
+        "suffix": "。若产品已知道所有正常分支，优先把分支写成代码；让模型负责它真正"
+      },
+      "createdAt": 1790363524564,
+      "updatedAt": 1790363524564
+    },
+    {
+      "id": "497497aa-0776-42dc-9999-9d5abf245de9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "写清正常和异常分支，选 workflow",
+        "prefix": "先选框架。下面五个问题从上到下判断：\n路径是否可预先枚举？ 若能",
+        "suffix": "。\n下一步是否取决于开放文本或未知环境？ 若要解释一封从未见过的"
+      },
+      "createdAt": 1790363621803,
+      "updatedAt": 1790363621803
+    },
+    {
+      "id": "83bc4fb6-d586-4bd5-9f38-ecc9e5525e69",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "从未见过的邮件、动态寻找资料或在多个合理工具间权衡，agent 才有价值",
+        "prefix": "kflow。\n下一步是否取决于开放文本或未知环境？ 若要解释一封",
+        "suffix": "。\n成功能否用明确规则验证？ 清晰验收条件适合 workflow"
+      },
+      "createdAt": 1790363630087,
+      "updatedAt": 1790363630087
+    },
+    {
+      "id": "1ff79807-be21-46dc-89e8-bdf19e91f4ab",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "抽取日期和金额、检查权限、创建审核记录都可验证且路径固定",
+        "prefix": "评测比较，不要因为“看起来聪明”就假设值得。\n以供应商邮件为例：",
+        "suffix": "；判断“对方说的 package flexibility 能否换"
+      },
+      "createdAt": 1790363683395,
+      "updatedAt": 1790363683395
+    },
+    {
+      "id": "2c5dc59c-bbdc-4552-8ac6-ef23f4183c85",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "适合让 agent 研究后提出草案，但不能自动承诺",
+        "prefix": "bility 能否换取付款条款”涉及语义、谈判上下文与未知资料，",
+        "suffix": "。为什么要把“可验证”与“可预测”分开？一个任务可以路径不确定但"
+      },
+      "createdAt": 1790363697382,
+      "updatedAt": 1790363697382
+    },
+    {
+      "id": "e6bd164a-7d0a-4f11-a64b-62f88181055c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把模型自由度限制在确实需要它的区域，并为每个高价值输出建立独立的验证方式",
+        "prefix": "一定 agent、规则任务一定 workflow”的口号，而是：",
+        "suffix": "。面试加分：先给决策，再说例外:回答架构题时先说“默认从最简单的"
+      },
+      "createdAt": 1790363723588,
+      "updatedAt": 1790363723588
+    },
+    {
+      "id": "147ffbdc-f220-47e2-a282-445c18d6e46f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "agent 做开放的、可逆的认知工作；workflow 做确定的、受权限保护的事实处理和副作用",
+        "prefix": "责一个安全的 hybrid 怎样分界？最实用的设计常是先后两层。",
+        "suffix": "：vendor email\n  ↓\nworkflow: auth"
+      },
+      "createdAt": 1790363997543,
+      "updatedAt": 1790363997543
+    },
+    {
+      "id": "4f4072fa-1823-432a-8097-48529988c539",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "agent 的输出应该是提案、结构化候选参数或澄清问题，而不是绕开验证直接执行",
+        "prefix": "age and persist an audit record\n",
+        "suffix": "。即便 agent 误读邮件，后续 gate 仍能阻断不满足政策"
+      },
+      "createdAt": 1790364155377,
+      "updatedAt": 1790364155377
+    },
+    {
+      "id": "890d30a0-a38f-4e49-abd6-2f8a741775f5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "只有 agent 在关键指标上的改善足以抵偿代价，才保留它",
+        "prefix": "最终业务状态、人工接管率、错误副作用、P95 延迟和每任务成本。",
+        "suffix": "。这样架构选择从个人偏好变成可复盘的产品决策。上线后也保留 ro"
+      },
+      "createdAt": 1790364249215,
+      "updatedAt": 1790364249215
+    },
+    {
+      "id": "31a44238-df11-4e65-9410-6269dd4b0741",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Durable workflow 与 agent 不是互斥",
+        "prefix": "字是教学示意——面试里要能说出你自己会测的指标，而不是背框架名。",
+        "suffix": "。 编排层可以用确定性状态机 / 队列保证重试与审计，只在某个节"
+      },
+      "createdAt": 1790364281538,
+      "updatedAt": 1790364281538
+    },
+    {
+      "id": "9de16318-a8c6-4ff5-b006-f6ed986ba5a8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "workflow 让你能把检测、重试和审批放到确定位置",
+        "prefix": "ection、错误抽取、模型版本漂移、下游失败仍存在；区别在于 ",
+        "suffix": "。不要把 Agent 当作缺需求的替代品:若业务方说不清允许什么"
+      },
+      "createdAt": 1790364309245,
+      "updatedAt": 1790364309245
+    }
+  ],
   "/docs/application/model-routing": [
     {
       "id": "0332dffe-9bd8-4c93-a6e7-70e7d3ccfaf8",
