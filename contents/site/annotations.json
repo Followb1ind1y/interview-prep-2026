@@ -349,6 +349,272 @@
       "updatedAt": 1790041253765
     }
   ],
+  "/docs/agent/react": [
+    {
+      "id": "7e03e9ae-55cb-46f4-8f41-6866f43213e9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Reasoning + Acting",
+        "prefix": "nt looptool callingtraceReAct 是 ",
+        "suffix": " 的缩写：让模型在行动前作出下一步决策，在行动后读取 envir"
+      },
+      "createdAt": 1790299177703,
+      "updatedAt": 1790299177703
+    },
+    {
+      "id": "4de0bd3b-ca47-4857-8bef-b3b2c6b40e39",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "让模型在行动前作出下一步决策，在行动后读取 environment 的 observation，再决定下一步",
+        "prefix": "eReAct 是 Reasoning + Acting 的缩写：",
+        "suffix": "。它解释了为什么 agent 不能只靠一次性 Chain-of-"
+      },
+      "createdAt": 1790299191428,
+      "updatedAt": 1790299191428
+    },
+    {
+      "id": "06f9bbfe-76ad-49f8-b556-9bb5d8bd202e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "行动拿到新事实，新事实让下一步不同",
+        "prefix": "付款改为 Net 30”\n这三轮就是 ReAct 最有用的直觉：",
+        "suffix": "。 不需要把它想成神秘的“深度思考”；它更像人做题时先查题目条件"
+      },
+      "createdAt": 1790299335092,
+      "updatedAt": 1790299335092
+    },
+    {
+      "id": "09fe9633-7e23-4255-9d48-d31208d94c96",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "一次性 Chain-of-Thought 可以让模型把复杂问题拆开，但它只基于 prompt 中已有的信息",
+        "prefix": "：会想但不知现实，会做但不会调整一次性推理与只会行动各少了什么？",
+        "suffix": "。例如模型可以推理“付款条款可能影响是否能出报价”，却不知道 A"
+      },
+      "createdAt": 1790299401961,
+      "updatedAt": 1790299401961
+    },
+    {
+      "id": "61dfb59f-27de-402b-865b-d99e988430a8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "一个只会按固定顺序调用工具的系统能得到事实，却不能在事实意外时重新选择路径",
+        "prefix": "过期，或系统是否已有草稿。它无法自己把外部事实带进推理。反过来，",
+        "suffix": "。若它固定写成“查报价 → 创建草稿”，就会在拿到 Net 45"
+      },
+      "createdAt": 1790299434461,
+      "updatedAt": 1790299434461
+    },
+    {
+      "id": "afec9e11-2837-47c4-b5a6-c3b4695bcf09",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "这里将 Thought 理解成简洁的决策摘要，而不是要求模型公开逐 token 的内部思维",
+        "prefix": "ught、Action、Observation 来表示这条轨迹；",
+        "suffix": "。三个元素分别负责什么？Decision / Reasoning"
+      },
+      "createdAt": 1790299455528,
+      "updatedAt": 1790299455528
+    },
+    {
+      "id": "93b87a97-8bdd-4ee5-8744-19116c30bfb7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "执行器真正得到的结果或错误",
+        "prefix": "。\nObservation 不是“模型认为工具会返回什么”，而是",
+        "suffix": "，例如 Q-817、10.15、Net 45 或 timeout"
+      },
+      "createdAt": 1790299702611,
+      "updatedAt": 1790299702611
+    },
+    {
+      "id": "6b111a42-27d2-4373-aebb-3848ffa57d62",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "而应成为 Tool Calling 的结构化请求",
+        "prefix": "未知，所以先读取报价”。\nAction 不能停留在自然语言愿望，",
+        "suffix": "。\nObservation 不是“模型认为工具会返回什么”，而是"
+      },
+      "createdAt": 1790299706030,
+      "updatedAt": 1790299706030
+    },
+    {
+      "id": "4ad1caa3-8fb6-4388-880e-3dd96a655cb2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把目标、已知状态和下一步连接起来",
+        "prefix": " 实际返回了什么？\n\nDecision / Reasoning ",
+        "suffix": "。例如“付款条款未知，所以先读取报价”。\nAction 不能停留"
+      },
+      "createdAt": 1790299711183,
+      "updatedAt": 1790299711183
+    },
+    {
+      "id": "2b8b334b-9026-4f4a-b725-bf73058f5736",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "工具校验、权限与停止条件仍由 harness 负责",
+        "prefix": "、工具安全或最终答案正确。它只建立“行动后可以再次决策”的机会。",
+        "suffix": "。自测：到这里你应该能回答:\n一次性 Chain-of-Thou"
+      },
+      "createdAt": 1790299725158,
+      "updatedAt": 1790299725158
+    },
+    {
+      "id": "e8ab47e7-05f2-4d27-b145-f9c491baf4fb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "先用已知状态选行动，再让新事实反过来改变推理",
+        "prefix": "reason to act, act to reason”就是：",
+        "suffix": "。Observation 不同，轨迹为什么也应不同？把第一轮结果"
+      },
+      "createdAt": 1790299781204,
+      "updatedAt": 1790299781204
+    },
+    {
+      "id": "14f452c0-7bfe-4a0f-956e-4c52a12370ef",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "因为 observation 不同而走向不同的合法终点",
+        "prefix": "，等待审核；未向供应商发送承诺。\n同一个用户目标、同一个工具集，",
+        "suffix": "。这也是面试中最值得画出的内容：不是 Thought → Act"
+      },
+      "createdAt": 1790299806148,
+      "updatedAt": 1790299806148
+    },
+    {
+      "id": "3ff8f53c-1a4b-47b6-bf6c-01c23ed25b7c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "自由文本可能没有产生合法 action",
+        "prefix": "非常适合理解与研究；直接照搬到生产有四个问题：\n不可靠的控制面：",
+        "suffix": "，或把“我会创建草稿”误当成已执行。\n成本与上下文：每轮很长的 "
+      },
+      "createdAt": 1790299955761,
+      "updatedAt": 1790299955761
+    },
+    {
+      "id": "00d8935d-4380-4b88-97d1-f844a99b28e8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每轮很长的 Thought 和完整 observation 会快速吃掉 token、增加延迟",
+        "prefix": "action，或把“我会创建草稿”误当成已执行。\n成本与上下文：",
+        "suffix": "。\n隐私与安全：Thought 或原始工具结果可能含敏感信息；更"
+      },
+      "createdAt": 1790299965270,
+      "updatedAt": 1790299965270
+    },
+    {
+      "id": "efa64b96-8b3a-4c0c-b9ba-440bc7f52013",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Thought 或原始工具结果可能含敏感信息",
+        "prefix": "rvation 会快速吃掉 token、增加延迟。\n隐私与安全：",
+        "suffix": "；更不能把它默认展示给用户。\n可审计性误区：一段文本理由不等于完"
+      },
+      "createdAt": 1790299972271,
+      "updatedAt": 1790299972271
+    },
+    {
+      "id": "1a9452be-5c15-4605-851e-637671a73cf6",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把可变的“下一步选择”留给模型，把不可违反的规则留给代码和状态机",
+        "prefix": "不能改变执行权限。怎样保留 ReAct 的价值，同时让流程可控？",
+        "suffix": "：CHECK_QUOTE\n  ├── quote missing"
+      },
+      "createdAt": 1790300067489,
+      "updatedAt": 1790300067489
+    },
+    {
+      "id": "bb05c556-44a1-4cab-bf3f-e8cfa93686dc",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "harness 则确保它不能跳过 VALIDATE_WRITE、不能把 Thought 当 action、不能在成本或批准边界外继续",
+        "prefix": "rvation 判断下一步要读什么、如何解释卡点、是否需要澄清。",
+        "suffix": "。若每一步都确定，例如夜间清理过期报价，直接使用 Workflo"
+      },
+      "createdAt": 1790300163118,
+      "updatedAt": 1790300163118
+    },
+    {
+      "id": "2d18d68c-9f18-415b-a5d0-5fb263647810",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "observation 不可升级为权限",
+        "prefix": "根据 observation 调整）和 harness 的价值（",
+        "suffix": "）绑在一起。ReAct、Tool Calling、Agent L"
+      },
+      "createdAt": 1790300210035,
+      "updatedAt": 1790300210035
+    },
+    {
+      "id": "22c87cd1-59ae-44cb-a774-bbe1dacd6ea1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "根据 observation 调整",
+        "prefix": " VALIDATE_WRITE 失败。这把 ReAct 的价值（",
+        "suffix": "）和 harness 的价值（observation 不可升级为"
+      },
+      "createdAt": 1790300214543,
+      "updatedAt": 1790300214543
+    },
+    {
+      "id": "25f496a2-10c2-417b-888d-8341b1509e57",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "给用户看的应是事实进度",
+        "prefix": "Loop 各指什么？\n陷阱Thought 不是用户可见的进度条:",
+        "suffix": "，例如“正在读取最新报价”“因付款条款需要批准而暂停”，而不是未"
+      },
+      "createdAt": 1790300239271,
+      "updatedAt": 1790300239271
+    },
+    {
+      "id": "68f0c383-3d94-4d94-ac79-c774f832b55c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "而不是未经审查的自由文本 Thought",
+        "prefix": "事实进度，例如“正在读取最新报价”“因付款条款需要批准而暂停”，",
+        "suffix": "。用户需要可执行状态，不需要或不应获得内部推理痕迹。ReAct "
+      },
+      "createdAt": 1790300244753,
+      "updatedAt": 1790300244753
+    },
+    {
+      "id": "21fe5d49-13c1-4ca3-a9cb-47c628c8b2f2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "一个模型可以根据 observation 建议新的行动，却不能因此获得新权限",
+        "prefix": "要或不应获得内部推理痕迹。ReAct 不是绕过业务规则的自主权:",
+        "suffix": "。工具 schema、server-side policy、授权"
+      },
+      "createdAt": 1790300257114,
+      "updatedAt": 1790300257114
+    }
+  ],
   "/docs/agent/tool-calling": [
     {
       "id": "67121b28-6e90-4ab9-a52b-0971041a0dba",
