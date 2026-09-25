@@ -1,70 +1,297 @@
 ---
 title: Evaluation Fundamentals
 titleEn: Evaluation Fundamentals
-description: Input → System → Output → Expected / Reference → Metric。
-descriptionEn: Input → system → output → expected / reference → metric.
-date: 2026-09-07
-keywords: ["evaluation", "metric", "golden dataset"]
+description: 从业务决策、可评分样本和分母开始，建立能解释成功、失败与未知的评测闭环。
+descriptionEn: Start with business decisions, scoreable cases, and denominators to build an honest evaluation loop.
+date: 2026-09-24
+keywords: ["evaluation", "eval case", "gold label", "denominator", "slices", "metric"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-先有闭环，再谈 LLM-as-judge。
+猫粮客服回答“订单 20240915 能退款吗？”时，**说得礼貌**、**引用了政策**、**作出正确判断**和**没有越权退款**是四件不同的事。Evaluation 首先解决：我们究竟在评哪一件，依据什么事实判对错？
+
+本页是六页的地基。从一个可评分样本开始，先定义目标和标签，再手算分母与分层指标，最后串起离线、线上、人工与自动评审。后续页才讲评测集、LLM judge、RAG 和 Agent 专项指标。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 评测单元 | 一个 eval case 应该包含什么？ | 20 min |
+| 1 · 成功标准 | 同一个回答为何可能“流畅但错”？ | 25 min |
+| 2 · 分母和切片 | 80% 成功率到底来自哪些样本？ | 25 min |
+| 3 · 闭环 | 参考答案不足或没有参考答案时怎样评？ | 25 min |
+
+贯穿案例：客服查询订单系统、检索当前政策，决定是否能承诺退款。所有订单、政策和计数均为教学示意，不对应真实客户。
 
 ## 需要掌握
 
-理解评测的最小单元。
-
-## 机制
+- 定义输入、系统版本、可观察输出、环境真相、评分规则及可评分状态
+- 分开评 **正确决策、证据依据、权限/安全、语气**；拒答或升级有时才是正确结果
+- 写清分子、分母、失败类型、未验证样本，不把未知算作通过
+- 解释自动检查、人工标注、LLM judge 和业务结果各适合哪类判断
 
 </Locale>
 
 <Locale lang="en">
 
-Build the loop first; LLM-as-judge comes later.
+For “Can order 20240915 be refunded?”, **being polite**, **citing a policy**, **making the right decision**, and **not issuing an unauthorized refund** are four different outcomes. Evaluation starts by asking what we are testing and which facts make a result right or wrong.
+
+This page is the foundation for all six pages. Define one scoreable case and its label, calculate denominators and slices, then connect offline, online, human, and automatic grading. Later pages cover datasets, LLM judges, RAG, and agents.
+
+## How to work through this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Eval unit | What belongs in one eval case? | 20 min |
+| 1 · Success criteria | Why can a fluent answer still fail? | 25 min |
+| 2 · Denominators and slices | What does “80% success” actually count? | 25 min |
+| 3 · Feedback loop | How do we score with a partial or absent reference answer? | 25 min |
+
+The running case is a support assistant that queries an order system and current policy before deciding whether it may promise a refund. All orders, policies, and counts below are teaching examples.
 
 ## Must know
 
-Understand the smallest unit of an evaluation.
-
-## Mechanism
+- Define input, system version, observable output, environment truth, grading rule, and scoreability.
+- Score **decision correctness, evidence, permission/safety, and tone** separately; abstention or escalation can be correct.
+- State numerator, denominator, failure types, and unverified cases; unknown is not a pass.
+- Know when code checks, human labels, LLM judges, and business outcomes each apply.
 
 </Locale>
 
-```
-Input
- ↓
-System
- ↓
-Output
- ↓
-Expected / Reference
- ↓
-Metric
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 一个 eval case 是什么
 
-### Level 1 — 定义
+### 为什么不能只存“用户问题 + 模型答案”？
 
-用固定的输入和可比较的分数，判断系统是不是变好了。
+答案是否正确，取决于**当时可用的事实与规则**。同一句“可以退款”，在订单未发货且政策允许时可能正确，在已发货且不允许直接退款时就错误。一个可复现样本至少要写：
 
-### Level 2 — 机制
+```yaml
+case_id: refund-shipped-01
+input: "订单 20240915 还没到，能退款吗？"
+environment:
+  order_status: in_transit
+  policy_version: P-17-v3
+  policy_rule: "已发货订单不走未发货退款流程"
+expected_behavior:
+  - 不承诺立即退款
+  - 根据已核实状态解释下一步
+  - 未经授权不执行写操作
+grader: decision + evidence + action checks
+```
 
-没有参考答案，就只能看偏好或靠人工判断。指标必须和产品目标一致：检索看召回率，客服看问题解决率。
+上述值只是教学场景。**Input** 是交给系统的请求；**environment** 是订单、政策、权限等权威状态；**system** 包括模型、prompt、检索、工具和代码；**output** 不仅是文字，也可能有工具调用与外部副作用。**Grader**（评分器）按明确规则比较实际行为和期望行为。
 
-### Level 3 — 工程
+如果没有政策版本或订单状态，可能根本无法判“可以退款”是否正确。这时样本应标为**待补事实 / 不可评分**，而不是猜一个标签。评测会失败的第一个原因，常常是 ground truth 自己不完整。
 
-没有这一环，所有 RAG / Agent 的改动都只是凭感觉。评测驱动：先有评测集，再改系统。
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么同一句“可以退款”不能脱离订单状态直接打分？
+2. 哪些输出可能不在最终文字里？
+3. 若缺政策版本，你会怎样标记这个样本？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · What is an eval case?
+
+### Why isn't “user question + model answer” enough?
+
+Correctness depends on **the facts and rules that applied at the time**. “A refund is available” may be right for an unshipped order under one policy and wrong for a shipped order under another. A reproducible case needs at least:
+
+```yaml
+case_id: refund-shipped-01
+input: "Order 20240915 hasn't arrived. Can I get a refund?"
+environment:
+  order_status: in_transit
+  policy_version: P-17-v3
+  policy_rule: "Shipped orders cannot use the unshipped refund flow"
+expected_behavior:
+  - do not promise an immediate refund
+  - explain the next step using verified state
+  - do not execute a write without authorization
+grader: decision + evidence + action checks
+```
+
+These values are illustrative. **Input** is the request; **environment** contains authoritative order, policy, and permission state; the **system** includes model, prompt, retrieval, tools, and code; **output** includes text, tool calls, and external effects. A **grader** compares observed behavior with explicit criteria.
+
+Without policy version or order status, you may not know whether “refund available” is correct. Mark the case **needs facts / unscoreable** rather than guessing a label. Incomplete ground truth is itself an evaluation failure mode.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why can't you score “refund available” without order state?
+2. Which outputs may be invisible in the final text?
+3. How should a case without a policy version be marked?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 先规定成功是什么
+
+### 一个回答有哪些独立维度？
+
+对上面的“运输中”样本，评测合同可以分四轴，而非揉成一个“质量分”：
+
+| 轴 | 本例通过条件 | 常见假通过 |
+| --- | --- | --- |
+| 决策 | 不承诺未发货退款；给正确下一步 | 文风好却承诺退款 |
+| 证据 | 订单状态与政策引用可追溯 | 引用不存在或旧版条款 |
+| 行动与权限 | 不执行未授权退款 | 文字说没退款，后台却调用了写工具 |
+| 表达 | 清楚说明已知与未知 | 语气好却把猜测说成事实 |
+
+某些指标可以自动、确定地判：例如“没有退款写入记录”“输出 JSON 合 schema”。有些要人工或 LLM judge 辅助：解释是否清楚、语气是否妥当。**最终业务状态**仍须查订单系统，不能让 judge 只看文字就宣称“退款没有执行”。
+
+明确失败优先级。若样本发生越权写入，即使语气满分也应挡住发布。阈值与权重由产品风险和人工校准制定，不要随手拍一个 0.8 当通用标准。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么“礼貌”不能补偿“错误承诺”？
+2. 哪个维度必须检查外部系统而非只看最终回复？
+3. 什么时候拒答或转人工可以判为成功？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Define success before scoring
+
+### Which dimensions are independent?
+
+For the “in transit” case, use four axes instead of one vague quality score:
+
+| Axis | Passing behavior | False comfort |
+| --- | --- | --- |
+| Decision | No unshipped-order refund promise; correct next step | Polite but promises a refund |
+| Evidence | Traceable order state and policy clause | Cites nonexistent or outdated policy |
+| Action and authority | No unauthorized refund write | Text denies a refund, backend wrote one |
+| Communication | Clear known facts and uncertainty | Friendly but states a guess as fact |
+
+Some checks can be deterministic: no refund-write record, valid JSON schema. Others need human review or an LLM judge: clarity and tone. **Business state** must be checked in the order system; a judge reading only final text cannot prove no refund occurred.
+
+Set failure priority. An unauthorized write should block release even if tone is perfect. Derive thresholds and weights from product risk and calibrated labels; a generic 0.8 cutoff is not a universal standard.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why can't politeness compensate for a false promise?
+2. Which axis requires inspecting the external system?
+3. When can refusal or human escalation count as success?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 分母决定数字的含义
+
+### “成功率 80%”为什么还不够？
+
+假设有 **10 个教学样本**：8 个确实作对，1 个答错，1 个因缺少政策版本无法评分。只看已评分样本，成功率是 **8/9 ≈ 88.9%**；把所有收到的请求放进分母，已验证成功覆盖是 **8/10 = 80%**，另有 **1/10 未验证**。两种数回答的问题不同，都应标出，不要把未验证的第 10 个样本悄悄算作成功。
+
+即使 8/9 正确，还要看**切片（slice）**。若 8 个正确全是普通未发货订单，唯一已发货例外错了，整体数字掩盖了风险。切片可以按订单状态、政策版本、地区、语言、长对话、工具超时或权限情形分组。某个切片样本很少时展示分子/分母，避免把 1/1 的“100%”当稳定结论。
+
+还要区分 **pass rate**（评分样本里的通过率）、**coverage**（进入可评分或获真实结果的比例）与 **business KPI**（真正解决了多少客户问题）。离线正确率不能自动代表线上解决率。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 8 对、1 错、1 未知，怎样分别报告通过率与验证覆盖？
+2. 为什么要单列“已发货例外”切片？
+3. 一项切片 1/1 通过，能说明系统稳定吗？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Denominators give scores meaning
+
+### Why is “80% success” insufficient?
+
+Assume **10 teaching cases**: 8 verified correct, 1 wrong, 1 unscoreable because policy version is missing. Among scoreable cases, pass rate is **8/9 ≈ 88.9%**. Across all received cases, verified success coverage is **8/10 = 80%**, with **1/10 unverified**. These answer different questions. Report both, and never silently count unknown as success.
+
+Even 8/9 may hide a critical **slice**. If all eight successes are ordinary unshipped orders and the only shipped-order exception fails, the aggregate looks reassuring for the wrong reason. Slice by order state, policy version, region, language, long chats, tool timeout, or permissions. Show numerator and denominator for small slices: 1/1 “100%” is not stable evidence.
+
+Separate **pass rate** on scoreable cases, **coverage** of scoreable or observed outcomes, and the **business KPI** of resolved customer issues. Offline correctness does not automatically imply online resolution.
+
+<Note title="Self-check: you should be able to answer">
+
+1. With 8 right, 1 wrong, and 1 unknown, how do you report pass rate and verified coverage?
+2. Why isolate the shipped-order exception slice?
+3. Does 1/1 passing prove stability?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 没有唯一标准答案也能评
+
+### 开放式生成怎样进入可比较的闭环？
+
+客户答复没有唯一措辞，可以改评**可验证的行为约束**：不得承诺退款、必须引用正确条款、必须说明下一步、不能泄露他人订单。剩余主观质量用带锚点的 rubric（评分细则）让人工或 judge 判断。比如“清楚”应有可观察定义：客户能否从回复里知道当前订单状态、政策限制和下一步，而不是笼统问“写得好吗”。
+
+完整闭环：
+
+```text
+产品目标 → 任务与风险 → 样本/环境真相 → 评分规则
+       → 固定版本运行 → 分层结果与失败 trace → 改动/再测
+```
+
+可让领域专家标注少量复杂样本，先核对标注者是否一致，再用自动评分扩大覆盖。对同一个输入的 A/B 系统输出做配对比较，可减少样本差异；但开发过程中反复看同一小集合也会**过拟合评测集**，需要留一批未参与调参的样本。具体数据集与门槛见 [Offline Evaluation](/docs/evaluation/offline)。
+
+<Note type="warning" title="“没有参考答案”不等于“只能凭感觉”">
+
+可以有参考**条件**、参考证据、禁止动作和人工偏好，而不要求逐字相同的标准回复。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 没有唯一回复文本，如何判“退款解释”是否合格？
+2. 自动评分与人工标注怎样互相校准？
+3. 为什么开发期间反复改同一批样本会带来乐观偏差？
+
+</Note>
+
+## 连接
+
+```text
+Fundamentals → 定义样本、真相、分母
+Offline → 建集和发布门槛
+LLM / RAG / Agent Eval → 按系统层级选 grader
+Production → 把真实失败送回离线
+```
 
 ## 面试问题
 
-1. 没有参考答案的开放式生成怎么评？（How do you evaluate open-ended generation with no reference answer?）
-2. 评测指标和业务 KPI 怎么对齐？（How do you align eval metrics with business KPIs?）
-3. 怎么防止评测集泄漏（在测试集上训练）？（How do you prevent eval set leakage, i.e. training on the test set?）
-4. 什么是评测驱动开发？（What is eval-driven development?）
+1. 一个 eval case 至少要包含什么？（What belongs in an eval case?）
+2. 没有唯一参考答案时怎样评？（How do you evaluate open-ended output?）
+3. 8 对、1 错、1 未知怎样报告？（How do you report eight correct, one wrong, one unknown?）
+4. 如何区分产品 KPI 与离线 proxy metric？（How do you distinguish a business KPI from an offline proxy?）
+5. 为什么总体通过率之外还要看切片？（Why inspect slices beyond aggregate pass rate?）
 
 ## 我的答案
 
@@ -72,32 +299,58 @@ Metric
 
 <Locale lang="en">
 
-## Three-level answers
+## Level 3 · Evaluate without one exact answer
 
-### Level 1 — Definition
+### How do open-ended outputs become comparable?
 
-Using fixed inputs and comparable scores to tell whether the system actually got better.
+A support reply has no unique wording. Instead score **observable constraints**: do not promise a refund, cite the correct clause, explain the next step, and disclose no other customer's data. For subjective quality, use an anchored rubric with human reviewers or a judge. Define “clear” observably: can the customer identify current order status, the policy constraint, and next action? “Does it read well?” is too vague.
 
-### Level 2 — Mechanism
+The loop:
 
-Without an expected output, all you have is preference or human judgment. The metric has to match the product goal: recall for retrieval, resolution rate for customer support.
+```text
+Product goal → task and risks → cases/environment truth → grading rules
+             → versioned run → slice results and failure traces → change/retest
+```
 
-### Level 3 — Engineering
+Have domain experts label a small set of difficult cases and check annotator agreement before scaling automated grading. Paired comparison of systems A and B on the same inputs reduces case-mix noise. But repeatedly tuning to one small set **overfits the eval**; hold out cases not used during development. [Offline Evaluation](/docs/evaluation/offline) handles data and gates.
 
-Without this loop, every RAG or agent change is just a feeling. Eval-driven means: build the eval set first, then change the system.
+<Note type="warning" title="No exact reference does not mean vibes">
+
+You may have reference **conditions**, evidence, forbidden actions, and human preference without demanding a word-for-word reply.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Without one reference reply, how would you grade a refund explanation?
+2. How do automatic graders and human labels calibrate each other?
+3. Why does repeated iteration on the same cases bias the result?
+
+</Note>
+
+## Connections
+
+```text
+Fundamentals → cases, truth, denominators
+Offline → datasets and release gates
+LLM / RAG / Agent Eval → layer-specific graders
+Production → real failures back into offline tests
+```
 
 ## Interview questions
 
-1. How do you evaluate open-ended generation with no reference answer?
-2. How do you align eval metrics with business KPIs?
-3. How do you prevent eval set leakage, i.e. training on the test set?
-4. What is eval-driven development?
+1. What belongs in an eval case?
+2. How do you evaluate open-ended output?
+3. How do you report eight correct, one wrong, one unknown?
+4. How do you distinguish a business KPI from an offline proxy?
+5. Why inspect slices beyond aggregate pass rate?
 
 ## My answer
 
 </Locale>
 
--
+- 30s:
+- 2min:
 
 <Locale lang="zh">
 
@@ -112,3 +365,15 @@ Without this loop, every RAG or agent change is just a feeling. Eval-driven mean
 </Locale>
 
 -
+
+<Locale lang="zh">
+
+资料核对：[OpenAI Evaluation Best Practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices) · [Anthropic Agent Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)。平台 API 会变化，本页强调可迁移的评测设计。
+
+</Locale>
+
+<Locale lang="en">
+
+References checked: [OpenAI Evaluation Best Practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices) and [Anthropic Agent Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents). Platform APIs change; the evaluation design is portable.
+
+</Locale>

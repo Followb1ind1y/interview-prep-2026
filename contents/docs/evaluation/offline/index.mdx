@@ -1,50 +1,278 @@
 ---
 title: Offline Evaluation
 titleEn: Offline Evaluation
-description: golden dataset、benchmark、regression testing、A/B test。
-descriptionEn: Golden datasets, benchmarks, regression, A/B tests.
-date: 2026-09-07
-keywords: ["offline eval", "golden dataset", "regression testing", "a/b test"]
+description: 构建覆盖故障模式的 golden set，用固定环境、配对比较和发布门槛验证改动。
+descriptionEn: Build failure-aware golden sets and use fixed environments, paired comparisons, and release gates.
+date: 2026-09-24
+keywords: ["offline evaluation", "golden dataset", "regression", "paired comparison", "release gate"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-上线前必须能在固定的评测集上跑回归。A/B 测试发生在线上，但设计要从离线开始。
+[Fundamentals](/docs/evaluation/fundamentals) 定义了一个可评分客服样本。现在要把样本变成能反复比较系统版本的**离线评测集**。若只收集“普通未发货、政策明确”的好答题，换模型后整体分数可能上涨，但最危险的已发货、跨租户和工具超时仍会失控。
+
+本页围绕猫粮客服，讲建集、标注、配对比较、发布门槛和评测集泄漏。线上真实随机分流属于 [Production Evaluation](/docs/evaluation/production-eval)；离线 A/B 指的是在**相同样本与环境**上对比两个版本，不等同于线上 A/B 实验。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 数据集 | 什么样的 golden set 代表任务与风险？ | 25 min |
+| 1 · 标签 | 谁标注，怎样处理分歧、版本与污染？ | 25 min |
+| 2 · 比较 | 同一批 case 怎样公平比较 A/B？ | 30 min |
+| 3 · 门槛 | 哪些退步挡发布，如何避免过拟合？ | 30 min |
 
 ## 需要掌握
 
-- golden dataset（标准评测集）
-- benchmark（基准测试）
-- regression testing（回归测试）
-- A/B test（A/B 测试）
+- 分开正常流量代表性样本、稀有高风险样本、故障回归样本，并报告各自分母
+- 冻结输入、环境真相、政策和 grader 版本；领域专家裁决模糊标签
+- 在相同 case 上做配对比较，记录修好与退步，不只看总体均值
+- 设计关键约束硬门槛与质量软门槛；保留开发集和真正未见过的 holdout
 
-## 机制
+</Locale>
 
+<Locale lang="en">
+
+[Fundamentals](/docs/evaluation/fundamentals) defined one scoreable support case. Now turn cases into an **offline dataset** that compares system versions repeatedly. If you collect only easy “unshipped order, clear policy” examples, a new model can improve aggregate score while failing shipped-order exceptions, tenant boundaries, or tool timeouts.
+
+This page covers dataset construction, labels, paired comparisons, release gates, and leakage for the same support case. Real randomized traffic splitting belongs in [Production Evaluation](/docs/evaluation/production-eval). Offline A/B means two versions on the **same cases and environment**, not an online experiment.
+
+## How to work through this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Dataset | What makes a golden set representative of the task and its risks? | 25 min |
+| 1 · Labels | Who annotates, and how are disagreements, versions, and contamination handled? | 25 min |
+| 2 · Comparison | How do A and B run fairly on the same cases? | 30 min |
+| 3 · Gates | What blocks release, and how do you avoid overfitting? | 30 min |
+
+## Must know
+
+- Separate representative traffic, rare high-risk cases, and incident regressions; report each denominator.
+- Freeze input, environment truth, policy, and grader versions; have domain experts resolve ambiguous labels.
+- Compare versions on paired cases and inspect both fixes and regressions.
+- Set hard gates for critical constraints and softer quality gates; keep development and untouched holdout splits.
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 建一套能发现故障的数据
+
+### Golden dataset 应怎样取样？
+
+“Golden”指有可信的期望行为与来源，并非所有 case 都有逐字的标准回复。先从用户任务和风险列切片，再收集样本：
+
+| 切片 | 示例 | 为什么需要 |
+| --- | --- | --- |
+| 普通路径 | 未发货、当前政策允许 | 代表常见需求 |
+| 业务例外 | 已发货但客户说“没收到” | 防混淆到货与发货 |
+| 信息不足 | 缺订单号或地区 | 测澄清/拒绝瞎猜 |
+| 工具故障 | 订单 API 超时、政策检索空 | 测受控失败 |
+| 权限与安全 | 查别人的订单、恶意文档 | 测不能越权 |
+| 历史回归 | 上次上线真实失败 | 防老问题重现 |
+
+数据来源可以是脱敏生产 trace、专家构造边界题、历史事故和合成变体。合成样本可扩充覆盖，但应检查它是否像真实用户话语；不能让合成题独占分母。记录样本来源、场景版本、语言、政策版本和采样规则，以便解释评测分布。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么只抽随机常见请求可能漏掉关键故障？
+2. 为什么只收集“最难”题又不能代表线上总体？
+3. Golden set 必须有逐字标准答案吗？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Build data that exposes failures
+
+### How should a golden dataset be sampled?
+
+“Golden” means trustworthy expected behavior and provenance, not necessarily one exact reference sentence. Start with task and risk slices:
+
+| Slice | Example | Why |
+| --- | --- | --- |
+| Common path | Unshipped and currently refundable | Represents normal demand |
+| Business exception | Shipped but customer says “not arrived” | Tests delivery-versus-shipment distinction |
+| Missing information | No order ID or region | Tests clarification and abstention |
+| Tool failure | Order API timeout or no policy result | Tests controlled failure |
+| Permission and safety | Someone else's order or malicious document | Tests boundaries |
+| Incident regression | A real previous failure | Prevents recurrence |
+
+Sources include deidentified production traces, expert-created edge cases, historical incidents, and synthetic variants. Synthetic cases add coverage but need realism checks and should not silently dominate the denominator. Track source, scenario version, language, policy version, and sampling method.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why can random common traffic miss critical failures?
+2. Why can't an all-hard-cases set represent the overall product?
+3. Must a golden set contain exact reference sentences?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 标签也需要质量控制
+
+### 谁来标注“正确”，如何防止真值漂移？
+
+订单与政策是否允许退款是领域规则，应由懂业务的人确认；工程师可以提供工具 trace，不能凭语言流畅度代替政策裁决。每条样本记录 `case_id`、源订单状态、政策 ID/版本/生效时间、期望决策、允许动作、拒绝条件和标注者。**复现时固定模拟环境**，不要每次去真实订单库查同一订单，导致标签随状态变化。
+
+对有争议的样本先双人独立标注，再按规则仲裁，并保存分歧原因。若政策更新，旧样本要么绑定旧版做回归，要么重标到新版；不能悄悄更换真相却沿用旧分数。对不可评分样本单列 `needs_review`，不把它当通过或失败。
+
+数据泄漏有几种：评测订单与训练/示例订单同源；同一客户的近重复问题分别落到开发和 holdout；开发者反复查看 holdout 错题并据此调 prompt。按客户/事件或政策版本切分，去重，限制 holdout 暴露；公开 benchmark 可补广度，私有业务集验证真实任务。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么同一个生产订单不适合直接当永远固定的真值？
+2. 政策从 v3 到 v4，如何处理旧 case？
+3. 同客户近重复提问跨开发集和 holdout 会造成什么问题？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Labels need quality control
+
+### Who labels correctness, and how do you avoid truth drift?
+
+Whether an order qualifies under policy is domain logic. A subject-matter expert should confirm it; an engineer supplies tool traces but cannot infer policy correctness from fluency. Store `case_id`, source order state, policy ID/version/effective date, expected decision, permitted action, refusal condition, and annotator. **Freeze a simulated environment** for repeatable runs rather than querying one live order forever as its status changes.
+
+For disputed cases, use independent labels followed by adjudication and retain disagreement reasons. When policy changes, either bind old cases to v3 for regression or relabel them for v4; do not silently change truth while retaining old scores. Mark unscoreable cases `needs_review`, not pass or fail.
+
+Leakage can arise when eval orders are copied into examples or training, near-duplicate questions from one customer appear in development and holdout, or developers repeatedly inspect holdout errors while tuning prompts. Split and deduplicate by customer/event or policy version; restrict holdout exposure. Public benchmarks add breadth, but private business cases validate the actual task.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is one live production order a poor permanent label?
+2. How do you handle cases when policy v3 becomes v4?
+3. What happens if near-duplicates from one customer span development and holdout?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 同题配对比较
+
+### A/B 离线对比怎样手算，而不被均值骗？
+
+固定 **10 个教学 case**、模拟订单库、政策快照、grader 和调用预算。版本 A 对 6 题，版本 B 对 8 题；单看结果似乎 B 更好。但逐题对照发现：B 新修好 3 题，同时把 1 道“不能越权退款”从通过变成失败，所以净提升是 `(+3 - 1) / 10 = +20 个百分点`。这个退步虽只一题，可能触发安全硬门槛。
+
+```text
+相同 case        A 通过，B 通过    5
+                A 错，B 通过      3  ← 改进
+                A 通过，B 错      1  ← 回归
+                A 错，B 错        1
+合计             A 6/10          B 8/10
 ```
-golden set → 跑系统 → 打分 → 通过 / 不通过的发布门槛
-线上 A/B → 真实用户 → 结果要等一段时间才能确认
+
+这个 10 题例子仅示范配对计算，**不足以声称真实总体提升**。真实比较应显示每个切片的分子/分母、差异和不确定性；较小差异需要更多独立样本或置信区间。生成有随机性时可在同一 case 上重复运行，但不要把同一 case 的重复生成当成独立用户样本。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么固定环境比只固定用户问题更重要？
+2. B 多对 2 题，为什么仍可能挡发布？
+3. 十个 case 上的 +20 个百分点能否直接外推到所有真实用户？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Compare paired cases
+
+### How do you calculate an offline A/B comparison without trusting the mean blindly?
+
+Freeze **10 teaching cases**, a simulated order database, policy snapshot, grader, and call budget. Version A passes 6; B passes 8. But case-level comparison shows B fixes 3 while regressing on 1 “must not issue an unauthorized refund” case. Net change is `(+3 - 1) / 10 = +20 percentage points`. That single regression may trip a hard safety gate.
+
+```text
+Same cases      A pass, B pass    5
+                A fail, B pass    3  ← fixes
+                A pass, B fail    1  ← regression
+                A fail, B fail    1
+Total           A 6/10           B 8/10
 ```
 
-## 三级回答
+Ten cases illustrate paired arithmetic; they are **not enough to claim population improvement**. Real comparisons should report numerator/denominator by slice, the difference, and uncertainty. Small differences need more independent cases or confidence intervals. Repeated generations for one case reveal model variance but are not independent user examples.
 
-### Level 1 — 定义
+<Note title="Self-check: you should be able to answer">
 
-离线：用冻结的标注集反复跑；线上：分流用户，看真实指标。
+1. Why freeze the environment, not only the user question?
+2. Why might B be blocked despite two more passes?
+3. Can +20 points on ten cases be extrapolated to all users?
 
-### Level 2 — 机制
+</Note>
 
-Golden set 要覆盖各种失败模式，而不只是理想路径。回归测试要接进 CI。A/B 测试用来验证离线分数高的改动，对用户是不是真的更好。
+</Locale>
 
-### Level 3 — 工程
+---
 
-评测集太小，会对评测本身过拟合。线上的失败要回流进 golden set，见 Production Eval。
+<Locale lang="zh">
+
+## Level 3 · 回归门槛与 holdout
+
+### 哪些退步应该挡发布？
+
+门槛应映射产品风险，而非“一切分数涨就发”。示意发布合同：
+
+```text
+硬门槛：跨租户泄漏 0；未授权退款写入 0；关键政策例外不退步
+质量门槛：已标注 case 的正确决策率不低于当前基线
+运营门槛：P95 延迟与单次成本在约定预算内
+人工检查：新失败、judge 分歧和不可评分样本经过复核
+```
+
+这里的“0”是**测试集中零次违规**，不代表真实世界违规概率已被证明为零；样本量要随风险增加。把快速小集合放 CI 作冒烟和硬约束；更大的固定回归集按发布运行；保留未碰过的 holdout 检查过拟合。测试不通过时查看 case 级 trace，定位检索、上下文、模型、工具或规则哪层变了。
+
+公共 benchmark 比较通用能力，私有集检验企业业务。两者不能互相替代。离线过关后再用受控 shadow/canary 或真正线上 A/B 验证用户影响，详见 [Production Evaluation](/docs/evaluation/production-eval)。
+
+<Note type="warning" title="不要把 CI 分数当产品结果">
+
+离线数据覆盖不到新政策、真实用户措辞和环境故障。通过发布门槛意味着“已知风险受控到一定程度”，不是上线后无需观察。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么“测试集零次泄漏”不等于“泄漏概率为零”？
+2. CI 小集合、发布回归集、holdout 各做什么？
+3. 离线分数变好而线上变差，你会先查哪些分布差异？
+
+</Note>
+
+## 连接
+
+```text
+Fundamentals → 定义可评分 case
+Offline → 冻结数据、配对比较、发布门槛
+Production → 真实流量验证与失败回流
+```
 
 ## 面试问题
 
-1. Golden dataset 怎么建？谁来标注？（How do you build a golden dataset, and who labels it?）
-2. 公开 benchmark 和私有评测集怎么搭配？（How do you combine public benchmarks with a private eval set?）
-3. 哪些改动必须挡住不能发布？（What kinds of changes should block a release?）
-4. 离线分数涨了、线上却变差了，说明什么？（Offline scores went up but production got worse — what does that tell you?）
+1. Golden set 从哪里来，怎样覆盖真实分布与高风险边界？（How do you build a golden set?）
+2. 如何防止政策变更导致标签失效？（How do you prevent label drift after policy changes?）
+3. A 6/10、B 8/10，为什么不能直接发布 B？（Why might you block B despite 8/10 versus 6/10?）
+4. 如何避免在同一个 eval set 上过拟合？（How do you avoid overfitting the eval set?）
+5. 离线对比与线上 A/B 的根本区别是什么？（How does offline comparison differ from an online A/B test?）
 
 ## 我的答案
 
@@ -52,48 +280,60 @@ Golden set 要覆盖各种失败模式，而不只是理想路径。回归测试
 
 <Locale lang="en">
 
-Before launch, you must be able to run regressions against a fixed set. A/B tests happen online, but the design starts offline.
+## Level 3 · Regression gates and holdout
 
-## Must know
+### What should block release?
 
-- golden dataset
-- benchmark
-- regression testing
-- A/B test
+Tie gates to product risk, not “ship whenever the average rises.” An illustrative release contract:
 
-## Mechanism
-
-```
-golden set → run system → scores → pass/fail gate
-online A/B → real users → confirmation takes time
+```text
+Hard: zero cross-tenant leaks and unauthorized refund writes in the test set;
+      no regression on critical policy exceptions
+Quality: decision correctness on labeled cases at least matches baseline
+Operations: P95 latency and cost per case within agreed budgets
+Review: inspect new failures, judge disagreement, unscoreable cases
 ```
 
-## Three-level answers
+“Zero” means **zero observed in this test set**, not proven zero population risk; scale sample size with risk. Put a small fast set in CI for smoke and hard constraints, a larger frozen regression set at release, and an untouched holdout to check overfitting. For failures, inspect case-level traces to locate retrieval, context, model, tool, or policy changes.
 
-### Level 1 — Definition
+Public benchmarks compare broad capability; private sets test business behavior. Neither replaces the other. After offline gates, use controlled shadow/canary or a true online A/B to test user impact in [Production Evaluation](/docs/evaluation/production-eval).
 
-Offline: rerun a frozen, labeled set again and again. Online: split traffic and watch real metrics.
+<Note type="warning" title="A CI score is not a product outcome">
 
-### Level 2 — Mechanism
+Offline data cannot cover every policy update, real user phrasing, or environment fault. Passing a gate controls known risks to a degree; it does not end observation after release.
 
-The golden set has to cover failure modes, not just the happy path. Regression tests hook into CI. A/B tests confirm that a change with better offline scores is actually better for users.
+</Note>
 
-### Level 3 — Engineering
+<Note title="Self-check: you should be able to answer">
 
-If the set is too small, you end up overfitting to the eval. Production failures need to flow back into the golden set — see Production Eval.
+1. Why does zero observed leaks not prove zero leak probability?
+2. What do the CI small set, release regression set, and holdout each do?
+3. If offline improves but online worsens, which distribution shifts do you inspect?
+
+</Note>
+
+## Connections
+
+```text
+Fundamentals → scoreable cases
+Offline → frozen data, paired comparison, release gates
+Production → real traffic and failure feedback
+```
 
 ## Interview questions
 
-1. How do you build a golden dataset, and who labels it?
-2. How do you combine public benchmarks with a private eval set?
-3. What kinds of changes should block a release?
-4. Offline scores went up but production got worse — what does that tell you?
+1. How do you build a golden set that covers traffic and risky edges?
+2. How do you prevent label drift after policy changes?
+3. Why might you block B despite 8/10 versus 6/10?
+4. How do you avoid overfitting the eval set?
+5. How does offline comparison differ from an online A/B test?
 
 ## My answer
 
 </Locale>
 
--
+- 30s:
+- 2min:
 
 <Locale lang="zh">
 
@@ -108,3 +348,15 @@ If the set is too small, you end up overfitting to the eval. Production failures
 </Locale>
 
 -
+
+<Locale lang="zh">
+
+资料核对：[OpenAI Evaluation Best Practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices) · [Anthropic Agent Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)。
+
+</Locale>
+
+<Locale lang="en">
+
+References checked: [OpenAI Evaluation Best Practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices) and [Anthropic Agent Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents).
+
+</Locale>

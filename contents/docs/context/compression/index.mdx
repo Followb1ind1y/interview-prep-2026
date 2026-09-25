@@ -1,80 +1,304 @@
 ---
 title: Context Compression
 titleEn: Context Compression
-description: summarization、history pruning、observation / tool result 压缩、rolling summary。
-descriptionEn: Summarization, pruning, observation/tool compression, rolling summaries.
-date: 2026-09-07
-keywords: ["context compression", "rolling summary"]
+description: 当历史超出预算时，保留决定、证据与不确定性；用可恢复的压缩避免摘要漂移。
+descriptionEn: Preserve decisions, evidence, and uncertainty when history exceeds budget; make compression recoverable.
+date: 2026-09-24
+keywords: ["context compression", "compaction", "rolling summary", "tool result pruning", "provenance"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-从 100k 压到 20k 时，要能说出保留了什么。Compaction 的细节见 AI-Native 专栏。
+猫粮客服与客户聊了很多轮，订单查询、政策检索和工具错误累计成 **100K token 的示意历史**，下一轮只计划给 **20K**。这不是简单地“总结一下”：若摘要把“客户说没收到”写成“订单未发货”，系统就会根据虚构事实作退款判断。
+
+本页接 [Construction](/docs/context/construction)：先判断哪些内容可删、哪些必须原样保留，再看滚动摘要和恢复机制。这里聚焦**选择与保真**；coding agent 的长程 compaction 在 [AI-Native Compaction](/docs/ai-native/compaction) 更细讲。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 目标 | 压缩到底要保留什么？ | 20 min |
+| 1 · 方法 | 裁剪、摘要、结构化状态、按需重取怎样组合？ | 30 min |
+| 2 · 演练 | 100K 到 20K 的预算怎样分，哪些不能丢？ | 30 min |
+| 3 · 验证 | 摘要漂移、过期和错误事实如何发现？ | 25 min |
 
 ## 需要掌握
 
-- summarization（摘要）
-- message compression（消息压缩）
-- history pruning（历史裁剪）
-- observation compression（观察结果压缩）
-- tool result compression（工具结果压缩）
-- semantic compression（语义压缩）
-- rolling summary（滚动摘要）
-
-## 机制
+- 区分对话历史、当前任务状态、权威数据与外部记忆；压缩不等于改写真相
+- 解释旧轮次裁剪、工具结果瘦身、结构化 checkpoint、滚动摘要与按需检索
+- 保留用户目标、未完成动作、批准状态、精确数值与限制、来源、时间、不确定性
+- 用压缩前后同题表现与字段级检查发现“更短但更错”的情况
 
 </Locale>
 
 <Locale lang="en">
 
-When you compress 100k tokens down to 20k, you need to be able to say what you kept. Compaction details are in the AI-Native column.
+The support assistant has accumulated an **illustrative 100K-token history** of chat, order lookups, policy retrieval, and tool errors, but plans to supply only **20K** on the next turn. “Summarize it” is not enough. If the summary turns “the customer says it did not arrive” into “the order has not shipped,” the system may make a refund decision from a fabricated fact.
+
+This page follows [Construction](/docs/context/construction): decide what can be dropped, what must remain exact, and how to make rolling summaries recoverable. The focus is **selection and fidelity**; [AI-Native Compaction](/docs/ai-native/compaction) covers long-running coding agents in more depth.
+
+## How to work through this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Goal | What must compression preserve? | 20 min |
+| 1 · Methods | How do pruning, summaries, structured state, and re-retrieval combine? | 30 min |
+| 2 · Exercise | How do you budget 100K down to 20K without losing critical facts? | 30 min |
+| 3 · Validation | How do you catch summary drift, staleness, and invented facts? | 25 min |
 
 ## Must know
 
-- summarization
-- message compression
-- history pruning
-- observation compression
-- tool result compression
-- semantic compression
-- rolling summary
-
-## Mechanism
+- Separate chat history, current task state, authoritative data, and external memory; compression must not rewrite truth.
+- Explain old-turn pruning, tool-output reduction, structured checkpoints, rolling summaries, and retrieval on demand.
+- Preserve goals, pending actions, approval state, exact numbers and constraints, source, time, and uncertainty.
+- Compare the same tasks before and after compression with field-level checks, not token reduction alone.
 
 </Locale>
 
-```
-100k tokens
-     ↓
-Conversation summary
-     ↓
-Relevant facts
-     ↓
-20k tokens
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 压缩保留的是决策能力
 
-### Level 1 — 定义
+### 为什么“总结一下聊天记录”会出错？
 
-在尽量少丢关键信息的前提下减少 token。
+摘要器为了流畅，可能把三种不同话语合成一句：“客户要求退款；订单还没到；查到运输中。”后续模型若只看到“未到”，可能误把它当“未发货”。因此压缩的目标不是最大压缩率，而是让下一步仍能**正确采取行动或解释为什么无法行动**。
 
-### Level 2 — 机制
+给每条关键信息标上类型：
 
-可以删掉旧的对话轮次、给历史做摘要、截断工具输出、只保留结构化的事实。滚动摘要会随着对话不断更新。
+| 信息 | 压缩处理 |
+| --- | --- |
+| 客户原话：“没收到” | 保留为**客户陈述**，不能升级为已核实状态 |
+| 订单工具结果：运输中 | 保留精确值、查询时间、来源；动态事实必要时重查 |
+| 当前政策的已发货例外 | 保留条款 ID、版本和原文关键条件；可按 ID 重取 |
+| 三十轮寒暄和重复解释 | 可以删除或极短概括 |
+| “尚未执行退款，等待授权” | 作为未完成状态保留，不可写成“已退款” |
 
-### Level 3 — 工程
+<Note type="tip" title="四列 checkpoint">
 
-摘要本身会丢掉决策和错误信息。对于 coding agent 和长时间运行的 agent，要用 [Compaction](/docs/ai-native/compaction) 里的保留清单，而不是「把聊天记录总结一下」。
+长期任务中可维护一个结构化小状态：`goal`、`verified_facts`（含来源/时间）、`pending_actions`、`unknowns`。原始 transcript 存在外部，需要时按引用重取；模型不必每轮看全量。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. “客户说没收到”与“订单系统说未发货”在摘要里如何区分？
+2. 哪项状态能防止下一轮误以为退款已执行？
+3. 为什么保存条款 ID 和版本比只写“政策允许退款”更可靠？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Preserve the ability to decide
+
+### Why can “summarize the chat” fail?
+
+A fluent summary might merge three different statements: “The customer asks for a refund; the parcel has not arrived; the order tool says in transit.” A later model may turn “not arrived” into “not shipped.” The objective is not maximum compression; it is retaining enough information to **act correctly or explain why action is not yet possible**.
+
+Type each critical item:
+
+| Information | Compression treatment |
+| --- | --- |
+| Customer: “It has not arrived” | Keep as a **customer claim**, not verified order state |
+| Order tool: in transit | Preserve exact value, query time, and source; recheck if needed |
+| Shipped-order policy exception | Preserve clause ID, version, key condition; re-fetch by ID |
+| Thirty turns of small talk and repetition | Remove or summarize briefly |
+| “Refund not executed; authorization pending” | Keep as pending state, never “refunded” |
+
+<Note type="tip" title="A four-column checkpoint">
+
+For long tasks, keep compact structured state: `goal`, `verified_facts` with source/time, `pending_actions`, and `unknowns`. Store the original transcript externally and fetch cited parts when needed; the model need not see all of it every turn.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. How should a summary distinguish a customer's “not arrived” from a verified “not shipped”?
+2. What state prevents the next turn from assuming the refund was executed?
+3. Why retain clause ID and version instead of only “policy allows a refund”?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 四种常用压缩动作
+
+### 裁剪、摘要、结构化状态和重取有什么区别？
+
+**裁剪（pruning）**删不再影响当前决策的旧消息。**工具结果瘦身**留下相关字段及可追溯引用，例如从整份订单 JSON 保留 `status`、`checked_at`、`order_id`、`source`，而不是无条件截前 2,000 字。**摘要（summarization）**压缩叙事与决策过程。**结构化状态**单独保存精确事实和待办，不依赖自然语言摘要。**按需重取**保留文档 ID/查询句，需要时回到权威来源。
+
+客服案例：
+
+```text
+原始工具结果 8,000 tokens
+→ 已核实摘要: order_id=20240915; status=in_transit;
+  checked_at=<actual timestamp>; source=order_api
+→ 保留原始结果引用: tool-result-id
+```
+
+`<actual timestamp>` 必须由真实响应填入；这里不填假时间。只要下一步涉及退款执行，就重新核实会变化的状态。**压缩之后保留外部原始记录**，才能在冲突或追问时恢复证据。
+
+滚动摘要每轮在旧摘要上加新事实，很省空间，却会累积小错误。可以定期从原始事件与结构化状态重建，或者对关键字段直接读取权威系统，避免“摘要套摘要”越滚越偏。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 截断工具 JSON 的前 2,000 字为何可能比字段提取更危险？
+2. 什么信息适合自然语言摘要，什么信息更适合结构化状态？
+3. 滚动摘要为什么需要定期校正？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Four common compression moves
+
+### How do pruning, summarizing, structured state, and re-fetching differ?
+
+**Pruning** removes old turns no longer relevant to the decision. **Tool-result reduction** keeps relevant fields and a retrievable reference: from a full order JSON, preserve `status`, `checked_at`, `order_id`, and `source`, rather than blindly taking the first 2,000 characters. **Summarization** compresses narrative and decisions. **Structured state** retains exact facts and pending work independently. **Re-fetching** stores IDs or queries and returns to the source when needed.
+
+```text
+Original tool result: 8,000 tokens
+→ Verified extract: order_id=20240915; status=in_transit;
+  checked_at=<actual timestamp>; source=order_api
+→ Keep reference to original: tool-result-id
+```
+
+`<actual timestamp>` must come from a real response; no time is invented here. Recheck mutable facts before executing a refund. **Keep raw records outside the model context** so conflicts and later questions can be audited.
+
+A rolling summary updates an earlier summary each turn. It saves space but can compound small errors. Periodically rebuild from source events and structured state, or query authoritative systems for critical fields.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why might truncating the first 2,000 JSON characters be riskier than field extraction?
+2. Which facts belong in narrative summaries versus structured state?
+3. Why recalibrate a rolling summary?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 从 100K 压到 20K
+
+### 该保留什么，怎样给预算？
+
+下面是**教学预算**，总和恰好 20K；它不是任何模型的建议配额：
+
+| 类别 | 原始约数 | 压缩后预算 | 做法 |
+| --- | ---: | ---: | --- |
+| 指令、可用工具 | 5K | 3K | 保留本轮需要的工具 |
+| 当前目标、待办、授权 | 4K | 2K | 结构化精确保留 |
+| 最近相关对话 | 16K | 4K | 留原话关键句与最近转折 |
+| 订单工具日志 | 30K | 2K | 提取字段、来源与原始引用 |
+| 政策和检索证据 | 35K | 7K | 保留当前条款和例外及版本 |
+| 其他历史 | 10K | 2K | 决策摘要与可重取索引 |
+| **合计** | **100K** | **20K** | |
+
+步骤是：① 标记绝不能丢的事实与待办；② 删除重复及过期日志；③ 把长工具结果变成字段加引用；④ 对旧过程做摘要；⑤ 用 [Construction](/docs/context/construction) 再选本轮相关政策。若预算仍不够，应考虑**分成多个检索/判断步骤**，而不是无提示地丢掉限制条件。
+
+压缩比是 `100K / 20K = 5:1`，但它只是体积指标。若原输入能答对 20 道退款边界题，压缩后只能答对 12 道，5:1 不是成功。检查精确订单状态、例外条款、未完成动作和拒答条件是否仍可恢复。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么不能优先压缩掉“待授权”这类短状态？
+2. 表里哪两类最适合通过引用按需重取？
+3. 压缩比达到 5:1，怎样证明任务质量没被破坏？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · From 100K to 20K
+
+### What should remain, and how do we budget it?
+
+These are **teaching allocations** totaling 20K, not universal model quotas:
+
+| Category | Original approx. | Kept budget | Treatment |
+| --- | ---: | ---: | --- |
+| Instructions and tools | 5K | 3K | Offer only tools useful now |
+| Goal, pending work, authorization | 4K | 2K | Exact structured state |
+| Recent relevant dialogue | 16K | 4K | Preserve decisive wording and recent changes |
+| Order tool logs | 30K | 2K | Fields, source, raw-result reference |
+| Policy and retrieved evidence | 35K | 7K | Current clauses, exceptions, versions |
+| Other history | 10K | 2K | Decision summary and re-fetchable IDs |
+| **Total** | **100K** | **20K** | |
+
+Process: ① mark facts and pending work that must survive; ② remove duplicate and stale logs; ③ reduce long tool results to fields plus references; ④ summarize older process; ⑤ use [Construction](/docs/context/construction) to select current policy evidence. If still over budget, **split retrieval and decision into steps** instead of silently dropping constraints.
+
+The `100K / 20K = 5:1` ratio measures size, not success. If the original input gets 20 refund edge cases right and the compressed one gets only 12, this is a failure. Check whether exact order state, exceptions, pending actions, and abstention conditions remain recoverable.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why not compress away short “awaiting authorization” state?
+2. Which two categories are good candidates for re-fetching by reference?
+3. How would you show that a 5:1 ratio did not damage task quality?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 怎样验证与恢复
+
+### 摘要漂移和事实丢失如何被发现？
+
+建一组压缩前后的同题回归：包含“未到但已发货”“政策版本切换”“客户撤销请求”“工具超时”“尚待批准”五类。逐题比较**事实保留率、最终判断、证据引用和不确定性表达**。检查摘要是否把未确认的说法升级为事实、把过去政策当当前政策、把计划动作写成已执行。
+
+运行中为每次压缩记录原始区间、摘要版本、关键字段校验结果和原文引用。发现冲突时回到订单系统或原始记录；不要让模型通过再写一段摘要自行“修复”证据。对会变的状态，查询时刻和有效期也要保留。
+
+<Note type="danger" title="“摘要很像原文”不足以证明正确">
+
+面试官会追问是否丢了否定词、例外条件、金额、日期或批准状态。这些小字段常决定行为，应该逐项校验。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 摘要说“客户可退款”，原文只说“客服将核实资格”，错在哪里？
+2. 遇到摘要与订单系统冲突，哪一个是动态状态的权威来源？
+3. 你会拿哪些边界题做压缩前后回归？
+
+</Note>
+
+## 连接
+
+```text
+Construction → 本轮选什么
+Compression → 历史长了怎样保留决定所需信息
+Memory → 哪些状态跨会话保存
+AI-Native Compaction → 长程 agent 怎样重开上下文
+```
 
 ## 面试问题
 
-1. 压缩时，哪些信息绝对不能丢？（What must never be lost during compression?）
-2. 工具返回结果怎么压缩，才不影响下一步？（How do you compress tool results without breaking the next step?）
-3. 滚动摘要有哪些失败模式？（What are the failure modes of a rolling summary?）
-4. 压缩和检索是互相替代，还是组合使用？（Are compression and retrieval alternatives, or do you combine them?）
+1. 从 100K 压到 20K，你优先保留什么？（What do you preserve when compressing 100K to 20K?）
+2. 如何压缩工具结果而不丢关键字段？（How do you reduce tool output safely?）
+3. Rolling summary 最常见的漂移是什么？（How do rolling summaries drift?）
+4. 摘要和结构化状态怎样分工？（How do summaries and structured state differ?）
+5. 怎样衡量压缩后的正确性？（How do you evaluate compressed context?）
 
 ## 我的答案
 
@@ -82,32 +306,51 @@ Relevant facts
 
 <Locale lang="en">
 
-## Three-level answers
+## Level 3 · Validate and recover
 
-### Level 1 — Definition
+### How do you detect summary drift and lost facts?
 
-Cutting tokens while losing as little critical information as possible.
+Run identical tasks before and after compression, including “not delivered but shipped,” a policy-version change, customer withdrawal, tool timeout, and pending approval. Compare **fact retention, final decision, evidence citation, and uncertainty**. Check whether unverified claims became facts, old policy became current, or planned actions became completed actions.
 
-### Level 2 — Mechanism
+For each compression, log the source range, summary version, critical-field checks, and raw references. If records conflict, return to the order system or source transcript; another free-form summary is not evidence. Preserve query time and validity for mutable state.
 
-Drop old turns, summarize history, truncate tool output, keep only structured facts. A rolling summary gets updated as the conversation continues.
+<Note type="danger" title="“The summary sounds similar” is not proof">
 
-### Level 3 — Engineering
+An interviewer may ask whether you lost a negation, exception, amount, date, or approval state. Those small fields often determine behavior; check them explicitly.
 
-Summaries themselves drop decisions and errors. For coding agents and long-running agents, use the keep-list from [Compaction](/docs/ai-native/compaction) instead of "summarize the chat."
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. A summary says “the customer can be refunded,” but the source says “support will check eligibility.” What changed?
+2. If a summary conflicts with the order system, which is authoritative for live status?
+3. Which edge cases would you use for before-and-after regression?
+
+</Note>
+
+## Connections
+
+```text
+Construction → select what matters now
+Compression → preserve decisions as history grows
+Memory → retain governed state across sessions
+AI-Native Compaction → resume long-running agents across windows
+```
 
 ## Interview questions
 
-1. What must never be lost during compression?
-2. How do you compress tool results without breaking the next step?
-3. What are the failure modes of a rolling summary?
-4. Are compression and retrieval alternatives, or do you combine them?
+1. What do you preserve when compressing 100K to 20K?
+2. How do you reduce tool output safely?
+3. How do rolling summaries drift?
+4. How do summaries and structured state differ?
+5. How do you evaluate compressed context?
 
 ## My answer
 
 </Locale>
 
--
+- 30s:
+- 2min:
 
 <Locale lang="zh">
 
@@ -122,3 +365,15 @@ Summaries themselves drop decisions and errors. For coding agents and long-runni
 </Locale>
 
 -
+
+<Locale lang="zh">
+
+资料核对：[Anthropic 的 context engineering 与 compaction 讨论](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)。
+
+</Locale>
+
+<Locale lang="en">
+
+Reference checked: [Anthropic's context engineering and compaction discussion](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents).
+
+</Locale>

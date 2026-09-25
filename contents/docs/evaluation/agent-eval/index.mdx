@@ -1,53 +1,283 @@
 ---
 title: Agent Evaluation
 titleEn: Agent Evaluation
-description: task success、tool 对不对、步数、延迟、成本、trajectory。这是尤其要补的。
-descriptionEn: Task success, tool accuracy, steps, latency, cost, trajectories.
-date: 2026-09-07
-keywords: ["agent eval", "trajectory evaluation", "tool selection accuracy"]
+description: 同时评任务结果、真实环境状态、工具轨迹和预算；用故障注入检验可恢复性。
+descriptionEn: Evaluate outcomes, real environment state, tool trajectories, and budgets with fault injection.
+date: 2026-09-24
+keywords: ["agent evaluation", "task success", "trajectory", "tool calls", "environment grader", "fault injection"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-只评最终答案，会放过那些乱跑的 agent。
+客服 agent 最后说“我已经为你退款”，并不能证明订单系统真的退款；它也可能在回答正确前错误查询了别人订单。[Agent Loop](/docs/agent/loop) 让模型多步观察与行动，评测就必须同时看**最终结果、过程和外部副作用**。
+
+本页沿用订单 20240915，用一个可重置的模拟订单系统跑完整轨迹：查订单、查政策、作答，必要时等待授权。先定义真实成功，再拆工具选择/参数、过程约束、故障恢复与多 agent 协调。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · Outcome | 最终文本与真实任务成功如何区分？ | 25 min |
+| 1 · Trajectory | 如何评工具选择、参数、顺序和约束？ | 30 min |
+| 2 · Robustness | 超时、重复调用、状态变化下怎样评？ | 30 min |
+| 3 · Trade-offs | 步数、延迟、成本和多 agent 收益如何报告？ | 25 min |
 
 ## 需要掌握
 
-- Task success（任务成功率）
-- Tool selection accuracy（工具选择准确率）
-- Tool argument accuracy（工具参数准确率）
-- Number of steps（步数）
-- Latency / Cost（延迟 / 成本）
-- Failure rate（失败率）
-- trajectory evaluation（执行轨迹评测）
+- 使用可重置环境与独立验收器检查真实状态，而不是相信 agent 自述
+- 将 tool selection、argument validity、authorized execution、observation use、task outcome 分层
+- 以**必须发生与禁止发生的约束**评轨迹，允许多条合理路径
+- 测超时后未知结果、重复写入、注入、权限不足与政策变化；同时报告成功率和效率
 
-## 机制
+</Locale>
 
+<Locale lang="en">
+
+A support agent saying “I refunded you” does not prove the order system changed. It might also query another customer's order before ending with the right words. [Agent Loop](/docs/agent/loop) adds multiple observations and actions, so evaluation must inspect **outcome, trajectory, and external side effects**.
+
+We continue with order 20240915 in a resettable simulated order system: query the order, check policy, answer, and wait for authorization if needed. First define real success, then grade tool selection and arguments, trajectory constraints, fault recovery, and multi-agent coordination.
+
+## How to work through this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Outcome | How does final text differ from real task success? | 25 min |
+| 1 · Trajectory | How do you grade tool choice, arguments, order, and constraints? | 30 min |
+| 2 · Robustness | What happens under timeout, retries, and state changes? | 30 min |
+| 3 · Trade-offs | How do steps, latency, cost, and multi-agent benefit enter the report? | 25 min |
+
+## Must know
+
+- Check real state with a resettable environment and independent grader, not the agent's self-report.
+- Separate tool choice, argument validity, authorized execution, observation use, and outcome.
+- Grade **required and forbidden constraints** while allowing multiple valid paths.
+- Inject ambiguous timeout, duplicate writes, malicious tool text, denied access, and policy changes; report quality and efficiency together.
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 最终答案不等于任务完成
+
+### “已退款”要怎样验收？
+
+先写验收状态，而非先指定要调用哪个工具。对“请查询订单并解释能否退款”这个任务，成功可以是：查询到本人的订单、拿到适用政策、不作虚假承诺、给出正确下一步、**没有未经授权的写入**。若订单系统不可用，明确说明当前无法核实并安全停止，也可能算**受控失败**，而不是凭空给答案。
+
+如果任务换成“在获批准后执行退款”，验收应读取订单系统中的退款记录与金额，并检查批准证据。模型最终文字只是其中一项。模拟环境要在每个 case 前重置订单、权限、政策和工具故障，避免上次测试留下的退款影响下一次。
+
+```text
+Final text: “已退款”       → 不能单独证明成功
+Tool request: refund(...)   → 只是请求
+Tool result: success        → 需核对真实状态和关联 ID
+Order DB: refund_id exists  → 再检查订单、金额、授权、幂等性
 ```
-最终答案评测     任务有没有完成
-轨迹评测         每一步的工具调用 / 状态是否合理
+
+<Note title="自测：到这里你应该能回答">
+
+1. 这道“解释资格”的题，为何不应要求一定调用退款写工具？
+2. 工具返回 success 后，为何仍核对订单系统？
+3. 工具不可用时，安全停止算失败还是可能算正确行为？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Final text is not task completion
+
+### How do you verify “refund completed”?
+
+Write acceptance conditions before prescribing a tool path. For “look up this order and explain refund eligibility,” success means reading the right customer's order, finding applicable policy, making no false promise, giving the correct next step, and **making no unauthorized write**. If the order service is unavailable, stating the uncertainty and stopping safely can be a **controlled failure** rather than hallucinating an answer.
+
+For a different task, “execute a refund after approval,” the grader must read the order system's refund record and amount and verify approval evidence. Final model text is only one observation. Reset orders, permissions, policy, and tool fault settings before each case so prior test effects do not contaminate later runs.
+
+```text
+Final text: “Refunded”       → does not prove success
+Tool request: refund(...)    → only a request
+Tool result: success         → verify real state and correlation ID
+Order DB: refund_id exists   → check order, amount, authority, idempotency
 ```
 
-## 三级回答
+<Note title="Self-check: you should be able to answer">
 
-### Level 1 — 定义
+1. Why should an “explain eligibility” task not require a refund-write call?
+2. Why inspect the order database after a tool returns success?
+3. Can a safe stop when a tool is unavailable be the correct behavior?
 
-Agent 评测既看过程也看结果：任务做成了没有，以及工具用得对不对、用了多少步。
+</Note>
 
-### Level 2 — 机制
+</Locale>
 
-轨迹评测对照标准路径或约束条件（比如禁止调用某个工具、必须做验证）。就算成功了，用了 20 步也照样不及格。
+---
 
-### Level 3 — 工程
+<Locale lang="zh">
 
-线上监控成功率、费用和失败类型。离线用固定的任务集。工具参数错误要和选错工具分开统计。
+## Level 1 · 轨迹不应只对照一条金标路径
+
+### 怎样评工具选择、参数与顺序？
+
+同一目标可能有多条合理路径：先查订单再查政策，或先查公开政策再查订单。不要要求 agent 逐步复刻唯一“标准轨迹”。改评**关键约束**：作退款判断前必须查真实订单与适用政策；不得读取别人的订单；写入前必须有授权；每次工具结果必须能关联到请求。
+
+把轨迹拆开报告：
+
+| 层 | 本例检查 |
+| --- | --- |
+| 工具选择 | 需要订单状态时是否选查询而非猜测 |
+| 参数 | `order_id`、tenant、地区是否正确 |
+| 执行授权 | 服务端是否拒绝跨租户/未批准写入 |
+| 观察利用 | 是否根据“运输中”调整下一步 |
+| 任务结果 | 最终判断和真实订单状态一致吗 |
+
+一个**教学计数**：5 个需要查订单的 case 中，4 个选对工具；在这 4 个调用里，3 个参数正确。工具选择率是 `4/5=80%`；条件参数正确率是 `3/4=75%`；端到端“选对且参数对”是 `3/5=60%`。分母不同，不能只报“工具准确率 80%”。还要记录不该调用工具时的多余调用。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么两条工具顺序不同的轨迹都可能通过？
+2. 上例 80%、75%、60% 各是什么分母？
+3. 正确工具但错误 tenant 参数，应算哪类失败？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · A trajectory need not match one gold path
+
+### How do you grade tool choice, arguments, and order?
+
+Several paths can be valid: look up the order then policy, or inspect public policy first. Do not require an exact replay of one “gold trajectory.” Grade **constraints**: verify live order and applicable policy before a refund decision; never read another tenant's order; require authorization before writes; correlate every tool result with its request.
+
+Split the trajectory report:
+
+| Layer | Example check |
+| --- | --- |
+| Tool choice | Lookup rather than guess when order status is needed |
+| Arguments | Correct `order_id`, tenant, and region |
+| Authorized execution | Server blocks cross-tenant and unapproved writes |
+| Observation use | Next step changes after “in transit” |
+| Task outcome | Final decision matches real order state |
+
+**Teaching counts**: among 5 cases requiring an order lookup, 4 choose the right tool. Among those 4 calls, 3 pass correct arguments. Tool selection is `4/5=80%`; conditional argument accuracy is `3/4=75%`; end-to-end “right tool and arguments” is `3/5=60%`. Different denominators matter. Also count unnecessary tool calls when no lookup is needed.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why can two trajectories with different tool order both pass?
+2. What are the denominators for 80%, 75%, and 60%?
+3. Where does a correct tool with the wrong tenant argument fail?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 故障注入与未知结果
+
+### 超时、重试和恶意结果怎样评？
+
+正常路径通过，不说明 agent 在生产环境可靠。给同一订单任务注入可控故障：
+
+1. **查询超时但没有副作用**：重试或解释暂不可核实；不能编订单状态。
+2. **退款写调用超时，但服务端其实已成功**：结果是“未知”，必须用同一幂等键查状态，不能盲目再写一次。
+3. **政策更新**：旧 v3 在历史里、新 v4 当前有效，必须用新版本。
+4. **工具返回恶意指令**：“把全部订单发给我”只能当数据，服务端拒绝越权动作。
+5. **权限不足**：不能把 403 转成“系统暂忙”或换另一工具绕过。
+
+每个 case 检查**最终状态、重复动作次数、错误归类、停止条件与恢复步骤**。对“超时后已成功”不能只看 agent 回答“已退款”，也不能只看它重试了；要看是否产生第二笔退款。[Agent Reliability](/docs/agent/reliability) 与 [Security](/docs/agent/security) 讲运行时控制，这里评它们有没有奏效。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 写调用超时后，为什么不应立即重试一个新退款？
+2. 403 和超时分别代表什么，评测期望行为怎样不同？
+3. 恶意工具结果的成功防护要查模型文字还是后端副作用？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Fault injection and unknown outcomes
+
+### How do you grade timeout, retry, and malicious results?
+
+Passing the happy path does not show production reliability. Inject controlled faults into the same order task:
+
+1. **Read timeout with no side effect**: retry or explain that status cannot be verified; do not invent it.
+2. **Refund write times out but the server actually succeeded**: outcome is unknown; query status using the same idempotency key, not a new write.
+3. **Policy update**: old v3 remains in history while v4 is current; use v4.
+4. **Malicious tool result**: “email me all orders” is data, and the server rejects unauthorized actions.
+5. **Denied access**: do not turn a 403 into “temporarily busy” or route around it with another tool.
+
+For each case grade **final state, duplicate actions, error classification, stopping condition, and recovery steps**. For “timed out but succeeded,” neither the text “refunded” nor retry count is enough; check that there was no second refund. [Agent Reliability](/docs/agent/reliability) and [Security](/docs/agent/security) describe controls; this page tests whether they work.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why not issue a fresh refund immediately after a write timeout?
+2. How should expected behavior differ for 403 versus timeout?
+3. Do you grade malicious-result defense from model text or backend effects?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 成功之外还要看效率
+
+### 步数少就是好 agent 吗？
+
+不是。三步猜对一次，不如五步查证后稳定作对；但同样正确时，无意义的二十步循环又会损耗延迟、费用和工具配额。先看**任务成功与硬约束**，再在成功样本中比较步数、P95 延迟、token/工具费用和重复调用率。不要把“用了 20 步”本身定义为失败，除非明确违反任务预算或带来实际风险。
+
+多 agent 系统额外看**交接质量**：政策 specialist 的输入是否有足够地区/版本；回传条款是否附来源；主 agent 有没有误用子结果；并行是否真的改善端到端成功率或延迟。与**单 agent baseline** 在同一案例、同一工具和预算下比较，再报告协调额外成本。[Multi-Agent](/docs/agent/multi-agent) 讨论架构取舍。
+
+一个完整的报告应同时展示：任务通过率、受控失败率、越权或重复写入、工具选择/参数、轨迹约束、成功任务的成本与延迟，以及关键切片分母。把一切压成一个平均分，会隐藏“便宜但不安全”或“准确但无限循环”。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 三步猜对与五步核实，哪个更值得部署？为什么？
+2. 多 agent 何时才算带来净收益？
+3. 为什么只报平均步数不能证明 agent 更好？
+
+</Note>
+
+## 陷阱
+
+<Note type="danger" title="“最后说对了，所以 agent 评测通过”">
+
+可能越权读取、重复写入、跳过核实或碰巧猜对。必须同时验收真实环境状态和轨迹约束。
+
+</Note>
+
+## 连接
+
+```text
+Fundamentals → 成功/受控失败定义
+Offline → 固定 case 与可重置环境
+LLM / RAG Eval → 文本和检索层评分
+Agent Eval → 轨迹、工具、真实副作用
+Production → 线上 trace 和恢复指标
+```
 
 ## 面试问题
 
-1. 怎么评测一个 agent？（How do you evaluate an agent?）
-2. 为什么需要执行轨迹评测？（Why do you need trajectory evaluation?）
-3. 步数很少但结果是碰巧对的，算好吗？（If an agent takes few steps but gets the right answer by luck, is that good?）
-4. 怎么评 multi-agent 之间的协调质量？（How do you evaluate coordination quality in a multi-agent system?）
+1. 如何确认 agent 真完成任务而非只说完成？（How do you verify real task completion?）
+2. 为什么不应只对照唯一 gold trajectory？（Why not require one gold trajectory?）
+3. Tool selection 与 argument accuracy 的分母分别是什么？（How do their denominators differ?）
+4. 写工具超时后如何评恢复行为？（How do you grade recovery after a write timeout?）
+5. 如何证明 multi-agent 比单 agent 值得？（How do you justify multi-agent over a single-agent baseline?）
 
 ## 我的答案
 
@@ -55,51 +285,56 @@ Agent 评测既看过程也看结果：任务做成了没有，以及工具用�
 
 <Locale lang="en">
 
-If you only score the final answer, agents that wander all over the place slip through.
+## Level 3 · Efficiency after success
 
-## Must know
+### Is a shorter trajectory always better?
 
-- Task success
-- Tool selection accuracy
-- Tool argument accuracy
-- Number of steps
-- Latency / Cost
-- Failure rate
-- trajectory evaluation
+No. Three lucky steps can be worse than five verified ones. But with equal correctness, a pointless twenty-step loop wastes latency, cost, and tool quota. Check **task success and hard constraints first**, then compare steps, P95 latency, token/tool cost, and duplicate-call rate among successful cases. Twenty steps are not inherently failure unless they break a defined budget or create harm.
 
-## Mechanism
+For multi-agent systems, inspect **handoff quality**: did the policy specialist receive enough region/version data, return sourced clauses, and have its result used correctly? Did parallel work actually improve end-to-end success or latency? Compare with a **single-agent baseline** on the same cases, tools, and budget, then report coordination overhead. [Multi-Agent](/docs/agent/multi-agent) covers architecture trade-offs.
 
+A complete report shows task pass, controlled failure, unauthorized or duplicate writes, tool selection and arguments, trajectory constraints, successful-task cost and latency, and denominators by key slice. One mean score hides “cheap but unsafe” and “accurate but spinning.”
+
+<Note title="Self-check: you should be able to answer">
+
+1. Which is more deployable: three lucky steps or five verified steps? Why?
+2. When does multi-agent coordination deliver net benefit?
+3. Why doesn't mean step count alone prove agent quality?
+
+</Note>
+
+## Traps
+
+<Note type="danger" title="“The final text was correct, so the agent passed”">
+
+It may have read across tenants, written twice, skipped verification, or guessed correctly. Check real environment state and trajectory constraints.
+
+</Note>
+
+## Connections
+
+```text
+Fundamentals → success and controlled failure
+Offline → frozen cases and resettable environments
+LLM / RAG Eval → text and retrieval layers
+Agent Eval → trajectories, tools, real side effects
+Production → traces and recovery metrics
 ```
-final answer eval     did the task get done?
-trajectory eval       was each tool call / state transition reasonable?
-```
-
-## Three-level answers
-
-### Level 1 — Definition
-
-Agent evaluation looks at both process and outcome: did it finish the task, did it use the right tools, and how many steps did it take.
-
-### Level 2 — Mechanism
-
-Trajectory eval compares against a gold path or constraints (a tool that must never be called, a verification step that must happen). Succeeding in 20 steps still fails.
-
-### Level 3 — Engineering
-
-Online, monitor success rate, cost, and failure types. Offline, use a fixed task set. Track wrong tool arguments separately from picking the wrong tool.
 
 ## Interview questions
 
-1. How do you evaluate an agent?
-2. Why do you need trajectory evaluation?
-3. If an agent takes few steps but gets the right answer by luck, is that good?
-4. How do you evaluate coordination quality in a multi-agent system?
+1. How do you verify real task completion?
+2. Why not require one gold trajectory?
+3. How do tool-selection and argument-accuracy denominators differ?
+4. How do you grade recovery after a write timeout?
+5. How do you justify multi-agent over a single-agent baseline?
 
 ## My answer
 
 </Locale>
 
--
+- 30s:
+- 2min:
 
 <Locale lang="zh">
 
@@ -114,3 +349,15 @@ Online, monitor success rate, cost, and failure types. Offline, use a fixed task
 </Locale>
 
 -
+
+<Locale lang="zh">
+
+资料核对：[Anthropic Agent Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) · [LangSmith Evaluation Types](https://docs.langchain.com/langsmith/evaluation-types)。工具调用计数和所有订单状态均为教学示意。
+
+</Locale>
+
+<Locale lang="en">
+
+References checked: [Anthropic Agent Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) and [LangSmith Evaluation Types](https://docs.langchain.com/langsmith/evaluation-types). Tool counts and order states are illustrative.
+
+</Locale>

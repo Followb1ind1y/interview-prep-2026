@@ -1,72 +1,318 @@
 ---
 title: Context Construction
 titleEn: Context Construction
-description: 核心问题：什么应该进入 context？不要把所有东西塞进去。
-descriptionEn: What should enter context? Do not stuff everything.
-date: 2026-09-07
-keywords: ["context construction", "context selection"]
+description: 从候选资料中组装当前决策需要的指令、事实、工具与状态，并能诊断拼装错误。
+descriptionEn: Assemble the instructions, evidence, tools, and state needed for the current decision.
+date: 2026-09-24
+keywords: ["context construction", "retrieval", "reranking", "tool selection", "provenance"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-选择比堆砌更重要。
+[Context Window](/docs/context/window) 告诉我们输入有容量和质量成本，但真正难的是：**该送哪几条信息，才能让猫粮客服正确判断退款？** “少放”不是目标；**放入完成这一决策所需且可核实的内容**才是目标。
+
+本页继续订单 20240915。它只教一次调用的组装：明确决策、筛选合法且新鲜的候选、在预算内放入证据和工具，再用 trace 检查故障。检索算法本身在 [RAG](/docs/rag)，压缩历史在下一页。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 目标 | 这一步究竟要作哪个决定？缺什么事实？ | 20 min |
+| 1 · 候选 | 20 段资料如何筛成真正有用的几段？ | 30 min |
+| 2 · 组装 | 指令、证据、状态、工具怎样放入预算？ | 25 min |
+| 3 · 排错 | 是没检索到、没装进去，还是模型没用对？ | 25 min |
 
 ## 需要掌握
 
-只放当前任务需要的记忆、文档、工具和状态。
-
-## 机制
+- 先写当前步骤的决策和缺口，再选择 context；识别稳定指令、动态事实、用户目标
+- 对候选资料先做租户/权限、版本、时效过滤，再评估相关性、去重、覆盖互补条件
+- 只暴露当前步骤可能需要的工具定义，并清楚区分工具能力与已取得的事实
+- 记录候选、选入内容和回答证据，分别诊断 retrieval、construction、generation
 
 </Locale>
 
 <Locale lang="en">
 
-Selecting matters more than stacking.
+[Context Window](/docs/context/window) showed that inputs have capacity and quality costs. The harder question is: **which facts let the cat-food assistant make the right refund decision?** Sending fewer tokens is not the objective; supplying the **sufficient, checkable evidence for this decision** is.
+
+We continue with order 20240915. This page covers one call's assembly: define the decision, filter permitted and current candidates, fit evidence and tools within a budget, and inspect failures. [RAG](/docs/rag) covers retrieval algorithms; the next page covers compression.
+
+## How to work through this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Goal | What decision is this step making, and what facts are missing? | 20 min |
+| 1 · Candidates | How do 20 passages become the few that matter? | 30 min |
+| 2 · Assembly | How do instructions, evidence, state, and tools fit a budget? | 25 min |
+| 3 · Debugging | Was evidence not retrieved, not assembled, or not used correctly? | 25 min |
 
 ## Must know
 
-Only include the memory, documents, tools, and state the current task needs.
-
-## Mechanism
+- State the turn's decision and information gap before selecting context; separate stable instructions, live facts, and user intent.
+- Filter candidates by tenant/authority, version, and freshness before relevance; deduplicate and cover complementary conditions.
+- Offer only tool definitions useful to this step; a capability is not a retrieved fact.
+- Log candidates, selected content, and answer evidence to separate retrieval, construction, and generation failures.
 
 </Locale>
 
-```
-User
- ↓
-Relevant memory
- ↓
-Relevant documents
- ↓
-Relevant tools
- ↓
-Current task state
- ↓
-LLM
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 先写清当前决策
 
-### Level 1 — 定义
+### 为什么不能直接把“相关资料”都放进去？
 
-围绕当前这一步的目标，组装「最小但足够」的上下文。
+同一用户问题可能需要**两种不同事实**：订单是否已发货，以及当前政策对该状态的规则。只检索“退款”关键词可能拿到很多政策片段，却没有实时订单状态；只查订单也不能推出退款资格。先把问题拆成一个决策表：
 
-### Level 2 — 机制
+| 本轮要判断 | 必需事实 | 权威来源 |
+| --- | --- | --- |
+| 能否走未发货退款流程 | 订单最新发货状态 | 订单系统 |
+| 政策是否允许 | 适用地区、购买时间、政策例外 | 当前有效政策 |
+| 能否直接执行退款 | 用户身份、授权与业务校验 | 应用层权限和订单系统 |
 
-用检索、规则、权限和工具相关性来做筛选。顺序同样有意义：指令、证据、问题。
+如果当前步骤只是**决定下一步查什么**，不必先塞一整份政策。若下一步要**起草解释**，则需要核实结果和相关条款。Context construction 随步骤变化，不是每轮固定一个巨型模板。
 
-### Level 3 — 工程
+<Note type="warning" title="相关不等于足够">
 
-工具定义太多，会干扰模型选工具。历史太长，会淹没当前的问题。这和 Agent 的可靠性、成本是同一个杠杆。
+一段“通常可以退款”的政策虽然主题相关，却可能漏掉“已发货订单须走退货流程”这个决定性例外。选入多段时要检查条件是否完整、是否互相冲突，而非只看相似度。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 订单查询已返回“运输中”，要答“能退款吗”还缺哪类事实？
+2. 如果本轮只是决定查订单，为什么不必预先放入完整政策？
+3. 为什么“退款”相似度最高的文档不一定足够？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Define the current decision
+
+### Why not include every “relevant” document?
+
+The same customer question requires **two different kinds of fact**: live shipment state and the policy rule for that state. A search for “refund” may retrieve many policy passages but no live order status. An order lookup alone cannot establish eligibility. Start with a decision table:
+
+| Decision | Required fact | Authority |
+| --- | --- | --- |
+| Use the unshipped-order refund flow? | Latest shipment status | Order system |
+| Does policy permit it? | Region, purchase timing, and exceptions | Current policy |
+| Execute a refund? | Identity, authorization, business validation | Application controls and order system |
+
+If this step only chooses **what to query next**, it need not carry the full policy. If the next step **drafts an explanation**, it needs checked results and relevant clauses. Assembly changes with the step; it is not one giant static template.
+
+<Note type="warning" title="Relevant is not sufficient">
+
+A “refunds are usually available” passage may omit a decisive exception for shipped orders. Check complete conditions and conflicts, not only similarity.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. If the order lookup says “in transit,” what other fact is needed to answer?
+2. Why needn't a lookup-planning turn include the full policy?
+3. Why might the top similarity result be insufficient?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 从候选资料中筛选
+
+### 检索到 20 段，怎样选出 5 段？
+
+先做**不能用的过滤**，再做**有用的排序**。示例中 20 段是教学数据；真正选择数量要看任务和预算：
+
+```text
+20 段检索候选
+  - 3 段属于别的租户 → 权限过滤，剩 17
+  - 4 段是旧版政策 → 版本过滤，剩 13
+  - 5 段是重复或无关促销 → 去重/相关性，剩 8
+  - 在 8 段中保留 5 段：一般退款规则、已发货例外、
+    地区适用、时间限制、人工升级条件
+```
+
+这不是说五段永远最好。若已发货例外跨两段，单段脱离标题和版本会失去含义，就要保留必要上下文。若一段已覆盖全部条件，可以只放一段。给每段附**文档 ID、版本、生效日期、段落位置**，让模型和评测者能追溯来源。
+
+权限过滤必须在使用候选之前由应用执行，不能只靠 prompt 说“忽略无权资料”。排序可用关键词、向量检索、reranker 或规则组合；具体算法在 [Reranking](/docs/rag/reranking)。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么别的租户资料即使极度相关也必须先排除？
+2. 五段里应该覆盖哪些互补条件，而不是放五段重复的一般规则？
+3. 为什么要保留版本和段落位置？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Filter the candidates
+
+### You retrieved 20 passages. How do you choose five?
+
+First remove what **must not be used**; then rank what **helps the decision**. The counts below are illustrative; the right number depends on the task and budget:
+
+```text
+20 retrieved candidates
+  - 3 from another tenant → permission filter: 17
+  - 4 from an obsolete policy → version filter: 13
+  - 5 duplicate or unrelated promotion passages → dedup/relevance: 8
+  - retain 5 complementary passages: general rule, shipped-order
+    exception, regional applicability, timing limit, escalation
+```
+
+Five is not a universal optimum. If the exception spans two chunks, preserve its heading and version. If one passage covers every condition, one may suffice. Attach **document ID, version, effective date, and passage location** so evidence is traceable.
+
+The application must enforce permission filtering before using candidates; a prompt saying “ignore unauthorized data” is not access control. Ranking can combine lexical search, vectors, rerankers, and rules. [Reranking](/docs/rag/reranking) covers those algorithms.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why exclude another tenant's highly relevant passage first?
+2. Which complementary conditions matter more than five copies of a general rule?
+3. Why preserve version and passage location?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 把选出的内容组装成一次输入
+
+### 指令、证据、状态与工具如何排布？
+
+先保留清楚的**指令与输出要求**，再给带来源标签的**已核实状态与证据**，最后明确**本轮问题**；实际序列化顺序受所用 API 的消息角色与缓存行为约束，没有对所有模型通用的神奇排序。关键是区分高优先级指令与低信任证据，不让检索文档中的“忽略先前指令”变成系统规则。
+
+```text
+应用指令: 按当前政策回答；缺少关键事实就说明并查询；不执行退款
+本轮目标: 判断订单 20240915 能否走未发货退款流程
+已核实状态: order_status=in_transit；来源=订单系统；查询时间=...
+政策证据: 文档 P-17 v3；已发货例外段落；生效日期=...
+可用工具: get_current_policy；仅在证据不足时调用
+输出要求: 判断 + 引用的条款 + 不确定点 / 下一步
+```
+
+这里的查询时间和版本只是字段示意，实际值必须来自系统。工具选择也随步骤变：查状态时给只读订单工具；生成解释时未必需要暴露创建退款的写工具。保留用户原始问题，避免摘要把“还没到”误写成“未发货”。
+
+<Note type="tip" title="可复现比漂亮模板重要">
+
+记录 context 版本、来源 ID、选入理由和 token 使用量。面试官追问“为什么没放第六段”，你可以回答：它是旧版、重复、无权限，或对当前决策无新增信息。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. “包裹没到”和“尚未发货”为什么不能当同一事实？
+2. 查状态与起草解释两步，提供的工具定义为什么可能不同？
+3. 检索资料里写“忽略指令”，应用怎样保持信任边界？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Assemble one input
+
+### How should instructions, evidence, state, and tools be arranged?
+
+Keep **instructions and output requirements** clear, add **verified state and sourced evidence**, and state the **current question**. Actual serialization depends on API roles and caching behavior; no magical order works for every model. Preserve the boundary between high-priority instructions and lower-trust retrieved content. “Ignore previous instructions” inside a document is data, not a new application rule.
+
+```text
+Instruction: Use current policy; seek missing facts; do not execute refunds
+Goal: Can order 20240915 use the unshipped-order refund flow?
+Verified state: order_status=in_transit; source=order system; checked_at=...
+Policy evidence: document P-17 v3; shipped-order exception; effective_at=...
+Available tool: get_current_policy, only if evidence remains insufficient
+Output: decision + cited clause + uncertainty / next action
+```
+
+Times and versions are field examples; real values must come from systems. Tool selection changes by step: use a read-only order tool for lookup; explanation generation may not need a refund-write tool. Preserve the user's exact wording: “hasn't arrived” must not be summarized into “has not shipped.”
+
+<Note type="tip" title="Reproducibility beats a pretty template">
+
+Log context version, source IDs, selection reasons, and token usage. If asked why the sixth passage was omitted, explain whether it was obsolete, duplicate, unauthorized, or added no fact needed for this decision.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why are “not arrived” and “not shipped” different facts?
+2. Why might lookup and drafting expose different tools?
+3. How should the app handle “ignore instructions” inside retrieved material?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 用 trace 排错
+
+### 错误答案是检索失败、组装失败，还是生成失败？
+
+给一次错答留四份记录：**可授权候选集 → 选入集 → 模型收到的输入 → 最终回答**。假设正确条款是 P-17：
+
+| 观察 | 更可能的问题 | 先改什么 |
+| --- | --- | --- |
+| P-17 没出现在候选里 | 检索 / 索引 / 查询 | 检查索引版本与召回 |
+| P-17 在候选里，却未选入 | 过滤 / 排序 / 预算 | 检查选择规则 |
+| P-17 已送入，回答仍引用 P-12 | 证据利用 / 生成 | 检查冲突处理与提示、模型能力 |
+| P-17 旧版，系统没标过期 | 数据治理 | 修正版本与生效规则 |
+
+评测时分别统计 **retrieval recall**（正确证据是否在候选）、**context coverage**（是否真正选入）、**grounded decision**（回答是否依据它作对判断）。把这三层混成一个“回答准确率”，难以定位改进点。具体指标体系见 [RAG Eval](/docs/evaluation/rag-eval)。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 正确段落已检索到但没给模型，属于哪一层故障？
+2. 模型收到了正确段落却引用旧版，下一步查什么？
+3. 为什么一项回答准确率不足以诊断 context construction？
+
+</Note>
+
+## 陷阱
+
+<Note type="danger" title="“把检索 Top-5 直接拼接就是 Context Engineering”">
+
+Top-5 是候选策略，不替代权限、时效、互补条件、工具选择与最终答案验证。
+
+</Note>
+
+## 连接
+
+```text
+Model Context → 可用输入的边界
+Window → 本轮预算
+Construction → 过滤、选择、组装
+Compression → 历史过长时保留哪些状态
+Evaluation → 故障定位与回归
+```
 
 ## 面试问题
 
-1. 什么应该进入 context？（What should go into the context?）
-2. 工具很多时，怎么避免把它们全部塞进 prompt？（With lots of tools, how do you avoid putting all of them in the prompt?）
-3. 检索回来 20 段，怎么选出 5 段、怎么排序？（You retrieved 20 passages — how do you pick 5, and how do you order them?）
-4. 怎么区分是 context 拼装失败，还是检索失败？（How do you tell a context-construction failure from a retrieval failure?）
+1. 一次调用的最小充分 context 怎么确定？（How do you determine sufficient context for one call?）
+2. 20 段候选如何筛选和排序？（How would you select and order 20 passages?）
+3. 为什么权限与版本过滤要先于相关性排序？（Why filter access and version before relevance ranking?）
+4. 如何区分检索、组装和生成故障？（How do you separate retrieval, assembly, and generation failures?）
+5. 工具定义为什么也需要选择？（Why curate tool definitions?）
 
 ## 我的答案
 
@@ -74,32 +320,61 @@ LLM
 
 <Locale lang="en">
 
-## Three-level answers
+## Level 3 · Debug with a trace
 
-### Level 1 — Definition
+### Was the failure in retrieval, assembly, or generation?
 
-Assembling the smallest context that's still sufficient for the goal of the current step.
+Keep four records for a wrong answer: **permitted candidates → selected items → model input → final answer**. Suppose the correct clause is P-17:
 
-### Level 2 — Mechanism
+| Observation | Likely layer | First action |
+| --- | --- | --- |
+| P-17 absent from candidates | Retrieval / index / query | Check index version and recall |
+| P-17 in candidates but not selected | Filtering / ranking / budget | Inspect selection |
+| P-17 supplied but answer cites P-12 | Evidence use / generation | Inspect conflict handling, prompt, model ability |
+| P-17 itself obsolete and not flagged | Data governance | Fix version and effective-date rules |
 
-Select with retrieval, rules, permissions, and tool relevance. Order matters too: instructions, then evidence, then the question.
+Measure **retrieval recall** (did evidence appear in candidates?), **context coverage** (was it supplied?), and **grounded decision** (did the answer use it correctly?). A single answer-accuracy number cannot identify which layer to improve. [RAG Eval](/docs/evaluation/rag-eval) covers detailed metrics.
 
-### Level 3 — Engineering
+<Note title="Self-check: you should be able to answer">
 
-Too many tool definitions confuse tool selection. Too much history buries the current question. It's the same lever that drives agent reliability and cost.
+1. If the correct passage was retrieved but not supplied, which layer failed?
+2. If the model got the right clause but cites an old one, what do you inspect?
+3. Why is answer accuracy alone insufficient to diagnose context construction?
+
+</Note>
+
+## Traps
+
+<Note type="danger" title="“Concatenating retrieval Top-5 is context engineering”">
+
+Top-5 is a candidate strategy, not a substitute for authorization, freshness, complementary conditions, tool selection, and answer verification.
+
+</Note>
+
+## Connections
+
+```text
+Model Context → available-input boundary
+Window → this turn's budget
+Construction → filtering, selection, assembly
+Compression → state to preserve as history grows
+Evaluation → failure diagnosis and regression
+```
 
 ## Interview questions
 
-1. What should go into the context?
-2. With lots of tools, how do you avoid putting all of them in the prompt?
-3. You retrieved 20 passages — how do you pick 5, and how do you order them?
-4. How do you tell a context-construction failure from a retrieval failure?
+1. How do you determine sufficient context for one call?
+2. How would you select and order 20 passages?
+3. Why filter access and version before relevance ranking?
+4. How do you separate retrieval, assembly, and generation failures?
+5. Why curate tool definitions?
 
 ## My answer
 
 </Locale>
 
--
+- 30s:
+- 2min:
 
 <Locale lang="zh">
 
@@ -114,3 +389,15 @@ Too many tool definitions confuse tool selection. Too much history buries the cu
 </Locale>
 
 -
+
+<Locale lang="zh">
+
+资料核对：[Anthropic 的 context engineering 指南](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) · [Anthropic 的 Contextual Retrieval 实践](https://www.anthropic.com/engineering/contextual-retrieval)。
+
+</Locale>
+
+<Locale lang="en">
+
+References checked: [Anthropic's context engineering guide](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) and [Contextual Retrieval report](https://www.anthropic.com/engineering/contextual-retrieval).
+
+</Locale>

@@ -1,51 +1,284 @@
 ---
 title: Context Caching
 titleEn: Context Caching
-description: Prompt cache ≠ KV cache ≠ semantic cache。非常容易被追问。
-descriptionEn: Prompt cache ≠ KV cache ≠ semantic cache.
-date: 2026-09-07
-keywords: ["prompt caching", "kv cache", "semantic caching"]
+description: 分清 prompt cache、生成时 KV cache 与应用语义缓存，并会判断命中、失效和数据隔离。
+descriptionEn: Distinguish prompt-prefix reuse, generation KV state, and application answer caches, including hits and invalidation.
+date: 2026-09-24
+keywords: ["prompt caching", "kv cache", "semantic cache", "cache invalidation", "cached tokens"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-三种缓存必须能分开讲清楚。
+猫粮客服每次都带相同的指令与政策前言，又会处理不同订单。工程师说“加缓存提速”，面试官通常接着问：**缓存的是模型计算、生成状态，还是最后的退款答案？** 三者对新鲜度和风险的要求完全不同。
+
+本页沿用订单 20240915，先给一张分层图，再讲 prompt 前缀复用、KV cache、应用层精确/语义缓存，最后算命中率与失效。先读过 [Context Window](/docs/context/window) 和 [Attention & Transformer](/docs/llm/transformer) 的 KV 直觉会更顺。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 三层 | 三种缓存分别存什么、复用到哪里？ | 20 min |
+| 1 · 前缀 | 什么内容稳定，怎样检验 prompt cache 命中？ | 25 min |
+| 2 · 应用缓存 | 什么时候能直接复用答案，怎样防误命中？ | 30 min |
+| 3 · 运营 | 失效、隔离、收益该怎么测？ | 25 min |
 
 ## 需要掌握
 
-- prompt caching（prompt 缓存）
-- KV cache
-- application-level caching（应用层缓存）
-- semantic caching（语义缓存）
+- 按**复用对象与作用范围**区分 prompt cache、生成时 KV cache、应用层结果缓存；认识到前缀缓存底层也可能复用 KV 状态
+- 说明为什么稳定前缀有利于缓存，动态订单和政策版本为什么需要分开处理
+- 解释精确键缓存与语义近似命中的差别，设计权限、版本、TTL 与再验证
+- 用 usage 中的 cached tokens、命中率、延迟和正确率衡量收益
 
-## 机制
+</Locale>
 
+<Locale lang="en">
+
+The support assistant repeatedly receives shared instructions and policy background while handling different orders. An interviewer hears “we added caching” and asks: **did you reuse model computation, decoding state, or the final refund answer?** Each has different freshness and risk requirements.
+
+We continue with order 20240915. First distinguish the layers, then prompt-prefix reuse, decoding KV state, application-level exact or semantic caches, and finally hit rate and invalidation. [Context Window](/docs/context/window) and the KV intuition in [Attention & Transformer](/docs/llm/transformer) are useful prerequisites.
+
+## How to work through this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Three layers | What is stored and where is it reused? | 20 min |
+| 1 · Prefix | What stays stable, and how do you verify a prompt-cache hit? | 25 min |
+| 2 · Application cache | When can an answer be reused, and how do you prevent false hits? | 30 min |
+| 3 · Operations | How do invalidation, isolation, and measured savings work? | 25 min |
+
+## Must know
+
+- Distinguish caches by **reused object and scope**; cross-request prefix caches may themselves reuse KV states.
+- Explain stable prefixes and separate dynamic orders and policy versions.
+- Contrast exact-key and approximate semantic answer hits; include permissions, version, TTL, and revalidation.
+- Measure cached tokens, hit rate, latency, and correctness.
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 三种“缓存”不是一个按钮
+
+### Prompt cache、KV cache、语义缓存各复用什么？
+
+| 名称 | 谁管理 | 复用对象 | 何时仍需模型 |
+| --- | --- | --- | --- |
+| **生成时 KV cache** | 推理服务 | 当前序列已算过的 key/value | 同一次生成的后续 token 仍需 decode |
+| **Prompt / prefix cache** | 模型 API 或推理服务 | 跨请求相同前缀的预处理结果，底层常是 KV 状态 | 新后缀和新回答仍需计算 |
+| **应用层答案缓存** | 你的应用 | 之前的最终答案或业务结果 | 命中时可跳过模型，但必须验证可复用 |
+
+所以“prompt cache ≠ KV cache”应理解为**工程接口、复用范围和生命周期不同**，不是说前缀缓存内部绝不会存 KV。语义缓存是应用层答案缓存的一种：用 embedding 等方法找“相似问题”，命中是**近似**的；精确键缓存要求键完全匹配。
+
+客服同一请求生成回答时，KV cache 帮助后续 token 复用已处理位置；另一位客户发来同一政策前缀时，prompt cache 可能复用前缀计算；而“订单 20240915 能退款吗？”的旧答案绝不能仅因问题相似就给订单 20240916。
+
+<Note title="自测：到这里你应该能回答">
+
+1. Prompt cache 命中后，新订单问题的答案是否已经存在？
+2. 为什么说 prefix cache 可能在底层用 KV，却仍值得与生成时 KV cache 分开讲？
+3. 哪种缓存可能完全跳过 LLM？它多了什么风险？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Three caches are not one switch
+
+### What do prompt, KV, and semantic caches reuse?
+
+| Name | Owner | Reused object | Does new model work remain? |
+| --- | --- | --- | --- |
+| **Generation KV cache** | Inference server | Keys and values for the current sequence | Yes, later tokens still need decode |
+| **Prompt / prefix cache** | Model API or inference server | Processed state for an identical prefix across requests, often KV state underneath | Yes, new suffix and answer still need work |
+| **Application answer cache** | Your app | A previous final answer or business result | A hit may skip the model, if reuse is valid |
+
+Thus “prompt cache versus KV cache” describes **interface, scope, and lifetime**, not mutually exclusive tensor types. A semantic cache is an application answer cache using embeddings or another method to find **approximately** similar questions; an exact-key cache requires an exact key match.
+
+Within one generated reply, KV state helps later tokens reuse prior positions. Another customer sending the same policy prefix might benefit from prompt caching. But the old answer for order 20240915 cannot be returned for order 20240916 simply because the questions sound alike.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Does a prompt-cache hit contain the answer to a new order question?
+2. Why distinguish prefix caching from generation KV state even if both involve KV tensors?
+3. Which cache can bypass the LLM entirely, and what risk does that add?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 让前缀真的可复用
+
+### 怎样设计并验证 prompt cache？
+
+想象两次请求都带同一份 10,000-token 指令及政策资料，末尾分别追加 500-token 的不同订单信息。若提供商支持并命中相同前缀，第二次可能复用这 10,000 token 的预处理；**新订单的 500 token 以及新回答仍要处理**。示意如下：
+
+```text
+请求 A: [稳定指令 + 稳定政策 10K] [订单 20240915 0.5K]
+请求 B: [稳定指令 + 稳定政策 10K] [订单 20240916 0.5K]
+         ↑ 可复用的相同前缀       ↑ 每次不同
 ```
-Prompt cache     前缀 token 在 API / 推理侧跨请求复用
-KV cache         同一次生成里复用已经算好的 K/V
-Semantic cache   相似问题直接返回答案，可能完全跳过 LLM
+
+把动态时间戳、请求 ID 或订单状态插在前缀最前面，会让后续字节/token 不再相同，可能降低命中。稳定工具定义、固定格式与政策版本放前面，动态用户输入、检索结果放后面，通常更便于复用；但还要服从角色、权限和正确性的要求，不能为缓存把用户私有内容放进共享前缀。
+
+**验证**要看所用 API 返回的 cached input token、命中率、首 token 延迟和账单，不要把“代码复用了同一个模板”当成缓存命中。OpenAI 当前文档说明缓存复用相同前缀、具体门槛与控制选项按模型变化；Gemini 提供隐式与显式 context caching，显式缓存还涉及 TTL 和存储费用。[OpenAI](https://developers.openai.com/api/docs/guides/prompt-caching) · [Gemini](https://ai.google.dev/gemini-api/docs/optimization)
+
+<Note type="warning" title="缓存不扩大 context window">
+
+缓存节省重复处理的部分成本或延迟，缓存内容仍属于本次模型可用输入，并按提供商规则计入窗口。不能因为“已缓存”就把超长材料无上限塞进去。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 两次请求前缀相同但订单不同，哪些工作仍要重新做？
+2. 把当前时间戳放在最前面可能怎样影响命中？
+3. 你会查看哪些指标证明 prompt caching 实际生效？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Make a prefix reusable
+
+### How do you design and verify prompt caching?
+
+Imagine two requests share 10,000 tokens of instructions and policy, then append different 500-token order details. If the provider supports and hits a matching prefix, the second request may reuse work for the shared 10,000 tokens. **The new 500-token suffix and new answer still require processing.**
+
+```text
+Request A: [stable instructions + policy 10K] [order 20240915 0.5K]
+Request B: [stable instructions + policy 10K] [order 20240916 0.5K]
+            ↑ potential shared prefix          ↑ dynamic suffix
 ```
 
-## 三级回答
+Putting a timestamp, request ID, or live order state at the front changes subsequent tokens and may lower hit rate. Stable tool definitions, formats, and policy version usually belong before dynamic user details and retrieval. But role, authorization, and correctness come first: do not place private user data in a shared prefix merely to chase cache hits.
 
-### Level 1 — 定义
+**Verify** with provider-reported cached input tokens, hit rate, time to first token, and billing. Reusing an application template is not proof of a cache hit. Current OpenAI documentation describes identical-prefix reuse, with model-dependent thresholds and controls. Gemini supports implicit and explicit context caching; explicit caching also has TTL and storage charges. [OpenAI](https://developers.openai.com/api/docs/guides/prompt-caching) · [Gemini](https://ai.google.dev/gemini-api/docs/optimization)
 
-缓存用来减少重复计算或重复计费。不同缓存处在不同层，失效条件也不同。
+<Note type="warning" title="A cache does not expand the context window">
 
-### Level 2 — 机制
+Caching can save repeat processing cost or latency. Cached content remains available to the model and counts toward the window under provider rules. It does not let you send unlimited material.
 
-KV cache 是单次解码过程中的状态。Prompt cache 复用跨请求的公共前缀。Semantic cache 按 embedding 相似度近似命中。
+</Note>
 
-### Level 3 — 工程
+<Note title="Self-check: you should be able to answer">
 
-前缀不稳定，就别指望 prompt cache 生效。用户私有数据不能进共享的语义缓存。KV cache 撑爆显存的问题在 Inference 页。
+1. With the same prefix but a different order, what work remains?
+2. How might a timestamp placed first affect hits?
+3. What metrics prove that prompt caching actually worked?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 应用答案缓存与误命中
+
+### “我的订单能退款吗？”为什么不宜用相似度直接命中？
+
+两个问题字面几乎一样，订单号只差一位，但答案取决于**不同客户、订单实时状态、政策版本、身份授权**。若语义缓存只看 embedding 相似度，可能给错人展示另一人的订单信息，或复用过期退款结论。对动态、个性化、高后果判断，默认应重新查权威系统，再决定是否能复用部分稳定资料。
+
+可安全缓存的对象往往更细：公共政策文档的解析结果、带版本的只读检索结果，或不含个人数据的通用解释。若要缓存最终答案，键至少要覆盖 **tenant、user/scope、任务、订单 ID、政策版本、相关状态版本**，并设 TTL 与失效事件；某些业务决定仍需每次再验证。精确键也不是免死金牌：键没包含会变的条件一样会返错。
+
+用一个教学例子看误命中：100 个相似问题里，语义缓存命中 40 个；其中 2 个把“未发货”误配到“已发货”。命中率是 40%，但**命中后正确率只有 38/40 = 95%**，这 2 个恰好可能造成错误承诺。判断是否上线要看业务损失与关键错误类型，不能只看省了 40 次模型调用。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么订单号只差一位的两个问题不能共用旧退款答案？
+2. 精确键缓存仍可能过期，原因是什么？
+3. 40 次命中里 2 次错，对这个业务而言要继续看哪些指标？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Application answers and false hits
+
+### Why not answer “Can I refund my order?” from semantic similarity alone?
+
+Two questions may sound identical and differ by only one order digit, while the correct answer depends on **customer, live order state, policy version, and authorization**. An embedding-only semantic hit can expose another customer's order or reuse a stale decision. For dynamic, personalized, consequential decisions, query the source of truth again; consider caching narrower stable components.
+
+Safer cache objects include parsed public policy text, versioned read-only retrieval results, or generic explanations without personal data. A final-answer key would at least need **tenant, user/scope, task, order ID, policy version, and relevant state version**, plus TTL and invalidation events. Even an exact key can be wrong if it omits a mutable condition; some decisions still require revalidation.
+
+Illustrative math: among 100 similar questions, a semantic cache hits 40. Two confuse an unshipped order with a shipped one. Hit rate is 40%, but **correctness on hits is 38/40 = 95%**. Those two errors may cause false commitments. Evaluate business harm and critical error categories, not only 40 model calls saved.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why can two near-identical order questions not share a refund answer?
+2. Why can an exact-key cache still return stale data?
+3. With 2 bad hits in 40, what else matters besides hit rate?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 失效、隔离与收益
+
+### 怎样知道缓存值得保留？
+
+按层分别记录：prompt cache 的 **cached input tokens / 可缓存输入、TTFT、输入费用**；应用缓存的 **命中率、命中后正确率、过期率、跨租户泄漏测试、回源率**；推理侧 KV 的显存和吞吐由服务指标观察。三层收益不可简单相加，因为有些请求在应用缓存命中后根本不会调用模型。
+
+政策 P-17 从 v3 更新为 v4 时，更新版本键或主动失效旧应用缓存；动态订单在执行退款前再次查权威系统。多租户缓存按 tenant 与授权范围分区，避免数据越界。对 prompt cache，观察缓存前缀是否含私有信息，并遵从供应商的数据保留与隔离配置；不要把“命中”理解成已经通过授权检查。
+
+<Note type="tip" title="面试里的测量闭环">
+
+先拿无缓存 baseline，再分别打开每一层；对同一批请求测正确性、P50/P95 延迟、每次请求成本和缓存命中。版本切换、用户切换、订单状态变化时，专门做负例测试。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 应用答案缓存命中后，prompt cache 是否还会参与这次请求？
+2. 政策 v3 升到 v4，要使哪些缓存失效或改键？
+3. 如何设计跨租户负例证明没有泄漏？
+
+</Note>
+
+## 陷阱
+
+<Note type="danger" title="“Prompt cache 命中就是答案缓存命中”">
+
+前者复用输入前缀计算，模型仍会处理新输入并生成；后者直接复用旧输出，必须证明业务条件仍相同。
+
+</Note>
+
+## 连接
+
+```text
+Window → token 与 prefill 成本
+Construction → 哪些前缀稳定、哪些状态动态
+Caching → 复用计算或结果
+Isolation → 命中也不能跨越授权边界
+```
 
 ## 面试问题
 
-1. Prompt cache、KV cache、semantic cache 有什么区别？（What's the difference between prompt cache, KV cache, and semantic cache?）
-2. 什么样的 system prompt 适合做 prompt caching？（What kind of system prompt is a good fit for prompt caching?）
-3. 怎么防止语义缓存误命中？（How do you prevent false hits in a semantic cache?）
-4. 应用层缓存该缓存答案、检索结果，还是 embedding？（Should an application-level cache store answers, retrieval results, or embeddings?）
+1. Prompt cache、生成时 KV cache、semantic cache 有什么区别？（How do prompt, generation KV, and semantic caches differ?）
+2. 前缀稳定却没有 cached tokens，你怎么排查？（How would you debug zero cached tokens with a stable prefix?）
+3. 何时不应缓存最终答案？（When should you avoid caching final answers?）
+4. 政策和订单状态变化时，如何失效缓存？（How do you invalidate after policy and order changes?）
+5. 怎么计算缓存收益而不忽视错误命中？（How do you measure savings without ignoring false hits?）
 
 ## 我的答案
 
@@ -53,49 +286,59 @@ KV cache 是单次解码过程中的状态。Prompt cache 复用跨请求的公�
 
 <Locale lang="en">
 
-You have to be able to explain the three caches separately.
+## Level 3 · Invalidation, isolation, and value
 
-## Must know
+### How do you know caching is worth keeping?
 
-- prompt caching
-- KV cache
-- application-level caching
-- semantic caching
+Measure each layer separately. For prompt caching: **cached input tokens / eligible input, TTFT, and input cost**. For application caches: **hit rate, correctness on hits, staleness, cross-tenant leakage tests, and fallback-to-source rate**. Inference KV memory and throughput belong in serving metrics. Do not add savings from all three blindly: an application answer hit may bypass the model entirely.
 
-## Mechanism
+If policy P-17 changes from v3 to v4, change version keys or invalidate old application entries. Recheck live order state before a refund action. Partition multi-tenant caches by tenant and authorization scope. For provider prompt caches, inspect whether reusable prefixes contain private data and follow provider retention and isolation controls. A cache hit is not an authorization check.
 
+<Note type="tip" title="An interview measurement loop">
+
+Start with a no-cache baseline, then enable each layer separately. On the same workload, compare correctness, P50/P95 latency, cost per request, and cache hits. Include negative tests for policy changes, user switches, and order-state changes.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. If an application answer cache hits, does prompt caching run on that request?
+2. When policy v3 becomes v4, what needs a new key or invalidation?
+3. How would you test cross-tenant leakage?
+
+</Note>
+
+## Traps
+
+<Note type="danger" title="“Prompt-cache hit means answer-cache hit”">
+
+The former reuses input-prefix processing and still generates from new input. The latter returns old output and requires proof that business conditions still match.
+
+</Note>
+
+## Connections
+
+```text
+Window → token and prefill cost
+Construction → stable prefixes versus dynamic state
+Caching → reuse compute or results
+Isolation → a hit never bypasses authorization
 ```
-Prompt cache     prefix tokens reused across requests on the API / inference side
-KV cache         already-computed K/V reused within a single generation
-Semantic cache   similar questions get a stored answer, possibly skipping the LLM
-```
-
-## Three-level answers
-
-### Level 1 — Definition
-
-Caches cut repeated computation or repeated billing. Each one sits at a different layer and invalidates under different conditions.
-
-### Level 2 — Mechanism
-
-The KV cache is state inside a single decode. The prompt cache reuses a shared prefix across requests. The semantic cache hits approximately, by embedding similarity.
-
-### Level 3 — Engineering
-
-If the prefix isn't stable, don't count on prompt caching. User-private data can't go into a shared semantic cache. KV cache blowing up GPU memory is covered on the Inference page.
 
 ## Interview questions
 
-1. What's the difference between prompt cache, KV cache, and semantic cache?
-2. What kind of system prompt is a good fit for prompt caching?
-3. How do you prevent false hits in a semantic cache?
-4. Should an application-level cache store answers, retrieval results, or embeddings?
+1. How do prompt, generation KV, and semantic caches differ?
+2. How would you debug zero cached tokens with a stable prefix?
+3. When should you avoid caching final answers?
+4. How do you invalidate after policy and order changes?
+5. How do you measure savings without ignoring false hits?
 
 ## My answer
 
 </Locale>
 
--
+- 30s:
+- 2min:
 
 <Locale lang="zh">
 
@@ -110,3 +353,15 @@ If the prefix isn't stable, don't count on prompt caching. User-private data can
 </Locale>
 
 -
+
+<Locale lang="zh">
+
+资料核对：[OpenAI Prompt Caching](https://developers.openai.com/api/docs/guides/prompt-caching) · [Gemini 优化与 Context Caching](https://ai.google.dev/gemini-api/docs/optimization)。阈值、价格与可用功能按实际模型版本查询。
+
+</Locale>
+
+<Locale lang="en">
+
+References checked: [OpenAI Prompt Caching](https://developers.openai.com/api/docs/guides/prompt-caching) and [Gemini optimization and context caching](https://ai.google.dev/gemini-api/docs/optimization). Check thresholds, prices, and available features for the model version in use.
+
+</Locale>

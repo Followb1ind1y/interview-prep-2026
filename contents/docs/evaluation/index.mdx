@@ -3,50 +3,52 @@ title: Evaluation
 titleEn: Evaluation
 description: Eval 已经不是 RAG 专属。从 golden set 到线上回归，才是 AI Engineer 思维。
 descriptionEn: Eval is no longer RAG-only. Golden sets through online regression.
-date: 2026-09-07
+date: 2026-09-24
 keywords: ["evaluation", "llm-as-judge", "recall@k", "faithfulness", "trajectory eval"]
 ---
 
 <Locale lang="zh">
 
-从 RAG 专栏里拆出来，因为 2026 年的 AI Engineer 岗位描述里，评测已经是非常高频的要求。Agent、生成质量、线上系统都要评。
+Evaluation 要回答的不是“有一个分数吗”，而是：**系统对哪些真实任务更可靠、哪些风险仍未验证、故障发生在哪一层？** 六页沿用猫粮客服退款案例，按 Fundamentals → Offline → LLM → RAG → Agent → Production 的依赖顺序学习。
 
 <CardGrid>
-  <Card title="Fundamentals" description="输入 → 系统 → 输出 → 参考答案 → 指标。" href="/docs/evaluation/fundamentals" />
-  <Card title="Offline Eval" description="golden dataset、benchmark、回归测试、A/B 测试。" href="/docs/evaluation/offline" />
-  <Card title="LLM Evaluation" description="精确匹配、语义相似、LLM-as-judge、两两对比、评分细则。" href="/docs/evaluation/llm-eval" />
-  <Card title="RAG Evaluation" description="检索指标和生成指标分开评。" href="/docs/evaluation/rag-eval" />
-  <Card title="Agent Evaluation" description="任务成功率、工具准确率、执行轨迹、成本。" href="/docs/evaluation/agent-eval" />
-  <Card title="Production Eval" description="离线 → 预发 → 生产 → Trace → 新的评测。" href="/docs/evaluation/production-eval" />
+  <Card title="Fundamentals" description="可评分样本、成功标准、分母和未知状态。" href="/docs/evaluation/fundamentals" />
+  <Card title="Offline Eval" description="Golden set、标签治理、配对比较与发布门槛。" href="/docs/evaluation/offline" />
+  <Card title="LLM Evaluation" description="规则、Judge、rubric、成对比较与人工校准。" href="/docs/evaluation/llm-eval" />
+  <Card title="RAG Evaluation" description="手算检索指标；分开找、送、用、答四层。" href="/docs/evaluation/rag-eval" />
+  <Card title="Agent Evaluation" description="验收真实状态、工具轨迹、故障恢复与成本。" href="/docs/evaluation/agent-eval" />
+  <Card title="Production Eval" description="Trace、待验证分母、受控放量与事故回归。" href="/docs/evaluation/production-eval" />
 </CardGrid>
 
-## 本专栏计划
+## 学完后应该能做到
 
-1. 先能画出评测基础的闭环
-2. RAG 评测接到 DeepEval：正确性 / 完整性 / 相关性
-3. 补上 Agent 评测，这是当前的缺口
-4. 线上评测：失败的 trace 必须能变成新的回归集
+1. 为一个客服决策写出输入、环境真相、期望行为和可评分状态，并解释分母
+2. 建覆盖常见流量与高风险边界的离线集，比较两个版本的逐题修复和回归
+3. 给开放式回答选对 grader，校准 Judge 与人工；手算 RAG 检索指标
+4. 验收 agent 的真实业务状态和轨迹，测试超时、越权与重复写入
+5. 用线上 trace、成熟结果和受控放量，将故障转成有标签的回归 case
 
 </Locale>
 
 <Locale lang="en">
 
-This was split out of the RAG column because evaluation shows up constantly in 2026 AI Engineer job descriptions. Agents, generation quality, and production systems all need to be evaluated.
+Evaluation asks more than “do we have a score?” It asks **which real tasks became more reliable, which risks remain unverified, and which layer failed**. All six pages follow one cat-food support refund case in dependency order: Fundamentals → Offline → LLM → RAG → Agent → Production.
 
 <CardGrid>
-  <Card title="Fundamentals" description="Input → system → output → expected → metric." href="/docs/evaluation/fundamentals" />
-  <Card title="Offline Eval" description="Golden datasets, benchmarks, regression, A/B tests." href="/docs/evaluation/offline" />
-  <Card title="LLM Evaluation" description="Exact match, semantic similarity, LLM-as-judge, pairwise, rubrics." href="/docs/evaluation/llm-eval" />
-  <Card title="RAG Evaluation" description="Score retrieval and generation separately." href="/docs/evaluation/rag-eval" />
-  <Card title="Agent Evaluation" description="Task success, tool accuracy, trajectories, cost." href="/docs/evaluation/agent-eval" />
-  <Card title="Production Eval" description="Offline → staging → prod → traces → new evals." href="/docs/evaluation/production-eval" />
+  <Card title="Fundamentals" description="Scoreable cases, success criteria, denominators, and unknowns." href="/docs/evaluation/fundamentals" />
+  <Card title="Offline Eval" description="Golden sets, label governance, paired comparisons, release gates." href="/docs/evaluation/offline" />
+  <Card title="LLM Evaluation" description="Rules, judges, rubrics, pairwise review, human calibration." href="/docs/evaluation/llm-eval" />
+  <Card title="RAG Evaluation" description="Calculate retrieval metrics; separate finding, supplying, using, and answering." href="/docs/evaluation/rag-eval" />
+  <Card title="Agent Evaluation" description="Real state, tool trajectories, fault recovery, and cost." href="/docs/evaluation/agent-eval" />
+  <Card title="Production Eval" description="Traces, pending outcomes, controlled rollouts, incident regressions." href="/docs/evaluation/production-eval" />
 </CardGrid>
 
-## Plan for this column
+## What you should be able to do
 
-1. Draw the fundamentals loop first
-2. Tie RAG eval to DeepEval: correctness / completeness / relevance
-3. Fill in agent evaluation — that's the current gap
-4. Production eval: failed traces have to turn into new regression sets
+1. Define input, environment truth, expected behavior, and scoreability for a support decision; explain the denominator.
+2. Build an offline set with common traffic and risky edges; compare fixes and regressions case by case.
+3. Choose graders for open text, calibrate judges with people, and calculate retrieval metrics.
+4. Verify real agent state and trajectory under timeout, denied access, and duplicate writes.
+5. Use production traces, mature outcomes, and controlled rollout to turn failures into labeled regressions.
 
 </Locale>

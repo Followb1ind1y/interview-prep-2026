@@ -1,76 +1,287 @@
 ---
 title: Production Evaluation
 titleEn: Production Evaluation
-description: Offline → Staging → Production → Trace → Failure → Dataset → New Eval → Regression。
-descriptionEn: Offline to production to traces to new evals to regression.
-date: 2026-09-07
-keywords: ["production eval", "tracing", "eval-driven"]
+description: 把发布门槛、线上 trace、成熟结果、受控放量和事故回归连成持续评测闭环。
+descriptionEn: Connect release gates, production traces, mature outcomes, controlled rollouts, and incident regressions.
+date: 2026-09-24
+keywords: ["production evaluation", "online eval", "trace", "canary", "a b test", "regression"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-这才是成熟的 AI Engineer 思维。
+离线 golden set 能挡住已知问题，但线上会出现新政策、真实用户措辞、工具故障与数据延迟。成熟的 Evaluation 不是发布前打一遍分，而是**知道哪些线上行为已经可验证、哪些仍在等待真相，再把新失败变成可复现的测试**。
+
+本页串起前五页，用同一个猫粮客服案例走完发布到回归：记录 trace、在线采样与分母、shadow/canary/A/B 的区别，以及一条“错误承诺退款”事故如何进入离线集。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 可观察性 | 一条可复盘的 AI trace 应记录什么？ | 25 min |
+| 1 · 在线评分 | 哪些线上样本能评分，哪些必须等待？ | 30 min |
+| 2 · 放量 | Shadow、canary、A/B 各验证什么？ | 30 min |
+| 3 · 闭环 | 如何从线上故障生成回归且防止只追最近事故？ | 25 min |
 
 ## 需要掌握
 
-评测不是发布前打一次分就结束。
-
-## 机制
+- Trace 可关联请求、配置版本、检索 ID、工具请求/结果、业务状态与最终回复；保护敏感数据
+- 分开实时 proxy、人工/judge 抽样与延迟业务结果，报告分母、等待中与不可评分
+- 理解 shadow 不执行真实副作用，canary 控制风险，A/B 估计真实用户影响
+- 从事故保全证据、专家定标、冻结环境、添加回归，继续维护代表性样本和 holdout
 
 </Locale>
 
 <Locale lang="en">
 
-This is what mature AI engineering thinking looks like.
+An offline golden set blocks known failures, but production brings new policies, real user wording, tool faults, and delayed outcomes. Mature evaluation means **knowing which online behavior is verified, which still awaits truth, and how to turn new failures into reproducible tests**.
+
+This page connects the previous five through the same cat-food support case: traces, online sampling and denominators, shadow/canary/A/B, and an incident in which the assistant falsely promises a refund.
+
+## How to work through this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Observability | What belongs in a replayable AI trace? | 25 min |
+| 1 · Online scoring | Which production cases can be scored, and which must wait? | 30 min |
+| 2 · Rollout | What do shadow, canary, and A/B each establish? | 30 min |
+| 3 · Feedback loop | How does an incident become a regression without chasing only recent failures? | 25 min |
 
 ## Must know
 
-Evaluation isn't a one-time score before release.
-
-## Mechanism
+- Correlate request, config version, retrieval IDs, tool calls/results, business state, and final reply while protecting sensitive data.
+- Separate live proxies, sampled human/judge labels, and delayed business outcomes; report denominators, pending, and unscoreable.
+- Shadow avoids real side effects, canary limits exposure, and A/B estimates real user impact.
+- Preserve incident evidence, expert-label it, freeze a test environment, add regression, and maintain representative/holdout data.
 
 </Locale>
 
-```
-Offline Eval
-      ↓
-Staging
-      ↓
-Production
-      ↓
-Trace
-      ↓
-Failure
-      ↓
-Dataset
-      ↓
-New Eval
-      ↓
-Regression Test
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · Trace 要能回答“哪里变了”
 
-### Level 1 — 定义
+### 一条客服 trace 最少记录什么？
 
-把线上的失败变成离线的回归用例，形成闭环。
+为一次用户请求生成关联 ID，让各步骤能串起来：
 
-### Level 2 — 机制
+```text
+request_id / tenant_scope / time
+model + prompt + tool-schema + policy/index versions
+user task category and allowed actions
+retrieval query → candidate IDs/ranks → selected context IDs
+tool name, normalized arguments, call ID, result/status, duration
+final decision, cited clauses, response
+verified order/refund state and any human approval
+token usage, latency, errors, fallback
+```
 
-Trace 记录 prompt 版本、检索内容、工具调用和输出。失败样本经过人工或评审模型标注后，进入 golden set。
+原始文本、订单信息和身份数据可能敏感。日志应按最小必要原则做脱敏、访问控制、保留期限与审计；若为隐私不能保留原文，至少保留可关联的版本、来源 ID、错误类型和获授权的复盘路径。**Trace 可观察事实，不是模型内部思维链**：不要靠生成的“我想过了”充当工具执行证据。
 
-### Level 3 — 工程
+通过这些字段，答错时可以确认是旧政策检索进来、正确政策没选入、模型没用对、还是工具返回过期订单状态。只有最终回复没有这些层级，无法复盘。
 
-没有这个闭环，评测会和真实用户脱节。预发环境要用生产流量的影子流量或回放。
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么只记 prompt 和最终回复不足以诊断 RAG 错误？
+2. 工具请求与结果为何需要同一 call ID？
+3. 不保存敏感原文时，至少还要保留哪些可审计信息？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · A trace should answer “what changed?”
+
+### What does a support trace minimally record?
+
+Use a correlation ID across the request:
+
+```text
+request_id / tenant_scope / time
+model + prompt + tool-schema + policy/index versions
+task category and allowed actions
+retrieval query → candidate IDs/ranks → selected context IDs
+tool name, normalized arguments, call ID, result/status, duration
+final decision, cited clauses, reply
+verified order/refund state and human approval if any
+token usage, latency, errors, fallback
+```
+
+Raw messages, orders, and identity data are sensitive. Apply minimization, redaction, access control, retention limits, and auditability. If raw text cannot be retained, keep linkable versions, source IDs, error types, and an authorized review path. A **trace records observable facts, not hidden chain-of-thought**; model text saying “I thought it through” is not tool-execution evidence.
+
+These fields let you distinguish old-policy retrieval, correct-policy omission, failed evidence use, and stale order-tool state. A final reply alone cannot do that.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why are prompt and final response insufficient to diagnose RAG failures?
+2. Why correlate a tool request and result with a call ID?
+3. Without sensitive raw text, what audit information should remain?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 在线指标先讲清“已验证”
+
+### 有些结果还没发生，怎样报成功率？
+
+客服答复后，客户可能几天后才确认问题解决；若马上把这类请求判成功，就是把**待观察结果**当真值。在线可以先看确定性 proxy：越权写入、工具错误、响应格式、引用是否存在；抽样让人工或校准过的 judge 判解释质量；等订单或客户反馈成熟后再计业务解决率。
+
+一个教学窗口：从生产流量抽了 **100 条**，其中 70 条已验证通过、10 条已验证失败、20 条仍等待订单/客户结果。已完成评分的通过率是 `70/80 = 87.5%`，验证覆盖率是 `80/100 = 80%`，另有 20% pending。若 20 条 pending 都是复杂投诉，87.5% 还存在选择偏差，不能当全量成功率。
+
+按政策版本、语言、订单状态、工具故障与客户群切片；线上抽样比例、过滤规则、人工队列积压也要报出。静默丢弃没有标签的样本，会让系统看起来越来越好。对风险事件，监控应以可观察违规或可疑 trace 告警，再由人确认；不要把未经校准的 judge 单分当成绝对真相。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 70 通过、10 失败、20 pending，怎样报告通过率与覆盖率？
+2. Pending 都来自复杂投诉时，为什么 87.5% 可能偏乐观？
+3. 实时 proxy 与延迟业务 KPI 有什么不同？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Online metrics must state what is verified
+
+### How do you report success when outcomes have not matured?
+
+Customers may confirm resolution days after the support reply. Counting those requests as immediate success treats a **pending outcome** as truth. Monitor deterministic proxies now: unauthorized writes, tool errors, output schema, citation existence. Sample human or calibrated-judge reviews for explanation quality. Count business resolution after order or customer feedback matures.
+
+An illustrative production window samples **100 cases**: 70 verified pass, 10 verified fail, and 20 awaiting order/customer outcome. Pass rate among scored cases is `70/80 = 87.5%`; verification coverage is `80/100 = 80%`; 20% remain pending. If pending cases are mostly complex complaints, 87.5% may be selected upward and cannot be presented as full-traffic success.
+
+Slice by policy version, language, order state, tool fault, and customer segment. Report sampling fraction, filtering rules, and human-review backlog. Silently dropping unlabeled cases makes the system appear better over time. Alert on observable violations or suspicious traces, then review them; an uncalibrated judge score is not absolute truth.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How do you report 70 pass, 10 fail, and 20 pending?
+2. Why could 87.5% be optimistic if pending cases are complex?
+3. How do immediate proxies differ from delayed business KPIs?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 发布后如何逐步验证
+
+### Shadow、canary 和线上 A/B 分别说明什么？
+
+**Shadow / 回放**：新版本在历史或镜像请求上运行，结果不给用户，写工具必须在隔离环境中禁用或模拟。它可比较质量与成本，却不能证明真实用户会怎样反应。**Canary**：让一小部分真实请求使用新版本，观察错误、延迟和越权信号，设自动停止与回滚。**A/B**：按用户或会话等稳定单位随机分配版本，在明确的业务指标与护栏下估计真实影响；避免同一客户一会儿用 A、一会儿用 B 导致污染。
+
+对退款客服，A/B 主指标可能是有证据的实际问题解决率；护栏包括错误承诺、越权写入、人工升级率、延迟和成本。若“解决率”要几天才成熟，就不能第二天只凭即时 judge 分宣布胜利。实验先定样本量和观察期，分析各切片与不确定性；高风险写动作先在受控环境测试，再小流量放量。
+
+<Note type="warning" title="Shadow 的副作用必须隔离">
+
+把真实请求复制给新 agent，又让它调用真实退款写工具，不是无害的 shadow。写操作需模拟、只读或与生产状态严格隔离。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. Shadow 成功为什么还不能证明用户 KPI 改善？
+2. A/B 为什么按稳定用户/会话单位分配？
+3. 退款写动作在 shadow 中应怎样处理？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Validate progressively after release
+
+### What do shadow, canary, and online A/B each establish?
+
+**Shadow / replay** runs a new version on historical or mirrored requests without showing its output to users; write tools must be disabled, simulated, or isolated. It compares quality and cost but cannot prove real user response. **Canary** sends a small fraction of real requests to the new version and watches errors, latency, and unauthorized-action signals with stop and rollback rules. **A/B** randomly assigns a stable unit such as user or session to versions and estimates real impact under specified outcomes and guardrails; avoid a customer switching versions across turns.
+
+For refund support, a primary outcome may be evidence-backed real issue resolution. Guardrails include false promises, unauthorized writes, escalation rate, latency, and cost. If resolution takes days to mature, do not declare victory from next-day judge scores. Predefine sample size and observation window, then inspect slices and uncertainty. Exercise risky write actions in controlled environments before limited exposure.
+
+<Note type="warning" title="Shadow side effects must be isolated">
+
+Mirroring live requests to a new agent with a real refund-write tool is not harmless shadowing. Simulate, make read-only, or isolate writes from production state.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why doesn't shadow success prove business KPI improvement?
+2. Why randomize by stable user/session unit in A/B?
+3. How should refund writes behave in shadow?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 从一次事故回到评测集
+
+### 错误承诺退款如何变成可靠回归？
+
+假设一次线上回复说“订单未到，所以可立即退款”，但 trace 显示订单系统为 `in_transit`，当前政策禁止走未发货退款流程。闭环不是把这句话复制进 prompt 当特例，而是：
+
+1. 保全去标识化 trace：用户原话、订单状态与查询时间、政策版本、检索候选与选入证据、模型/工具版本、最终回复、任何写入。
+2. 由业务专家确认事实和预期行为，指出失败层：把“未收到”误写为“未发货”、选错政策，还是忽略已有证据。
+3. 在可重置环境里复现，写明确 grader：不承诺未发货退款、正确解释已发货流程、不得未授权写入。
+4. 加到固定事故回归集，在当前 baseline 与修复版上运行；同时检查其他切片，防止局部修复伤害普通路径。
+5. 继续观察线上相同故障类型与延迟业务结果，确认改善没有只发生在这条样本上。
+
+事故回归集容易越积越偏向“上周出过的问题”。并行保留代表真实流量的随机样本、风险边界集、未见过的 holdout，并定期更新政策版本。**没有可核实环境状态或人工裁决的 trace，先标待验证**；不能直接作为绝对正确率样本。[Offline Evaluation](/docs/evaluation/offline) 的数据治理仍适用。
+
+<Note type="tip" title="面试回答要落到证据">
+
+可以用“trace → 根因层 → 冻结 case → 回归门槛 → 小流量验证”五步作答。指出失败是检索、context、模型、工具还是业务规则，比说“我们会持续优化”有用得多。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么不能只把事故回复加入 prompt 当补丁？
+2. 如果缺订单系统当时状态，能直接给事故样本判错吗？
+3. 怎样防止评测集只剩最近事故？
+
+</Note>
+
+## 陷阱
+
+<Note type="danger" title="“线上 judge 说 90 分，所以可直接发布”">
+
+Judge 可能不知真实订单、政策版本和副作用；还可能存在抽样偏差。线上发布要结合离线门槛、可观察护栏、成熟业务结果和人工核查。
+
+</Note>
+
+## 连接
+
+```text
+Offline gate → Shadow / replay → Canary → A/B / production
+                      ↑                    ↓
+               固定事故回归 ← Trace + 真相核实
+```
 
 ## 面试问题
 
-1. 线上出现的幻觉，怎么在一周内变成回归用例？（How do you turn a production hallucination into a regression test within a week?）
-2. Trace 至少要记录哪些字段？（What fields must a trace record at minimum?）
-3. 怎么避免评测集只反映上周的故障？（How do you keep the eval set from only reflecting last week's incidents?）
-4. 线上评测和离线发布门槛怎么分工？（How do online evaluation and offline release gates divide the work?）
+1. 一条线上 AI trace 至少记录什么？（What must a production AI trace record?）
+2. 70 pass、10 fail、20 pending 怎样报告？（How do you report these outcomes?）
+3. Shadow、canary、A/B 各自能证明什么？（What can shadow, canary, and A/B establish?）
+4. 如何把一次幻觉变成可复现回归？（How does a hallucination become a regression case?）
+5. 怎样保证评测集不只代表最近事故？（How do you prevent incident-only eval drift?）
 
 ## 我的答案
 
@@ -78,32 +289,64 @@ Trace 记录 prompt 版本、检索内容、工具调用和输出。失败样本
 
 <Locale lang="en">
 
-## Three-level answers
+## Level 3 · Turn one incident into an eval
 
-### Level 1 — Definition
+### How does a false refund promise become a reliable regression?
 
-Turning production failures into offline regression tests, closing the loop.
+Suppose a production reply says “it has not arrived, so you can get an immediate refund.” The trace shows `in_transit`, while current policy disallows the unshipped-order refund flow. Do not merely paste an exception into the prompt:
 
-### Level 2 — Mechanism
+1. Preserve a deidentified trace: customer wording, order state and query time, policy version, retrieved and selected evidence, model/tool versions, final reply, and any write.
+2. Have a domain expert confirm truth and expected behavior; locate whether “not arrived” became “not shipped,” the wrong policy was selected, or supplied evidence was ignored.
+3. Reproduce in a resettable environment with explicit graders: no unshipped-refund promise, correct shipped-order process, no unauthorized write.
+4. Add a fixed incident regression, run baseline and proposed fix, and check other slices for collateral regressions.
+5. Monitor the same failure class and mature business outcomes in production to confirm improvement beyond the single case.
 
-Traces record the prompt version, retrieval, tool calls, and output. Failed samples get labeled by a human or a judge and go into the golden set.
+Incident suites can overrepresent last week's problems. Keep representative random traffic, high-risk boundary sets, and untouched holdout alongside regressions, and update policy versions deliberately. A trace **without verifiable environment state or expert adjudication remains pending**, not an absolute-correctness case. [Offline Evaluation](/docs/evaluation/offline) data governance still applies.
 
-### Level 3 — Engineering
+<Note type="tip" title="Answer interviews with evidence">
 
-Without this loop, evaluation drifts away from real users. Staging should use shadow or replayed production traffic.
+Use “trace → root-cause layer → frozen case → regression gate → limited rollout.” Naming retrieval, context, model, tool, or business-rule failure is more useful than “we continuously optimize.”
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why not patch the prompt with the incident reply alone?
+2. Without order state at the time, can you definitively mark the case wrong?
+3. How do you avoid an incident-only eval set?
+
+</Note>
+
+## Traps
+
+<Note type="danger" title="“The online judge scored 90, so ship”">
+
+The judge may lack live order state, policy version, or side effects, and the sample may be biased. Combine offline gates, observable production guardrails, mature business outcomes, and human review.
+
+</Note>
+
+## Connections
+
+```text
+Offline gate → Shadow / replay → Canary → A/B / production
+                    ↑                    ↓
+             Fixed regressions ← Trace + verified truth
+```
 
 ## Interview questions
 
-1. How do you turn a production hallucination into a regression test within a week?
-2. What fields must a trace record at minimum?
-3. How do you keep the eval set from only reflecting last week's incidents?
-4. How do online evaluation and offline release gates divide the work?
+1. What must a production AI trace record?
+2. How do you report 70 pass, 10 fail, and 20 pending?
+3. What can shadow, canary, and A/B establish?
+4. How does a hallucination become a reproducible regression?
+5. How do you prevent an incident-only eval set?
 
 ## My answer
 
 </Locale>
 
--
+- 30s:
+- 2min:
 
 <Locale lang="zh">
 
@@ -118,3 +361,15 @@ Without this loop, evaluation drifts away from real users. Staging should use sh
 </Locale>
 
 -
+
+<Locale lang="zh">
+
+资料核对：[OpenAI Evaluation Best Practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices) · [LangSmith Evaluation Types](https://docs.langchain.com/langsmith/evaluation-types) · [Anthropic Agent Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)。线上示意数字不代表实际系统表现。
+
+</Locale>
+
+<Locale lang="en">
+
+References checked: [OpenAI Evaluation Best Practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices), [LangSmith Evaluation Types](https://docs.langchain.com/langsmith/evaluation-types), and [Anthropic Agent Evals](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents). Production numbers are illustrative.
+
+</Locale>

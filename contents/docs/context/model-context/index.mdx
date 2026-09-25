@@ -1,71 +1,398 @@
 ---
 title: Model Context
 titleEn: Model Context
-description: System、用户、历史、工具定义、工具结果、检索、记忆、环境状态。
-descriptionEn: System, user, history, tools, tool results, retrieval, memory, environment.
-date: 2026-09-07
-keywords: ["model context", "system prompt", "tool results"]
+description: 从一次客服请求出发，看清模型本轮实际拿到什么，以及谁负责跨轮组装输入。
+descriptionEn: Trace what the model actually receives in one support call and who assembles the next turn.
+date: 2026-09-24
+keywords: ["model context", "context engineering", "tool results", "conversation state", "retrieval"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-先能数出 context 由什么组成，再谈压缩和隔离。
+客户问猫粮店客服：「上周买的猫粮还没到，订单 20240915 能退款吗？」模型可能流畅地回答，却不知道订单是否发货、退款政策是否适用。真正缺的是**这一次调用作判断所需的事实**。
+
+本页沿用 [LLM Application](/docs/application) 的猫粮客服，接上 [Tokenization](/docs/llm/tokenization) 的 input token 和 [Attention & Transformer](/docs/llm/transformer) 的「根据当前输入生成」直觉。按你的 Production LLM / AI Engineer 定位，重点练能在面试里画出来的输入边界与责任分工；容量、压缩、缓存留到后续页面。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 一次调用 | Context 是什么？模型为什么不知道数据库里的订单？ | 15 min |
+| 1 · 信息来源 | 指令、历史、工具定义、结果、检索、记忆怎么区分？ | 25 min |
+| 2 · 多轮变化 | 查订单前后，谁把新事实带入下一轮？ | 25 min |
+
+这是第一批三个 Level。每级末尾先做自测，再决定讲法和难度是否合适。生成课件不会把页面标成已学；`/drill` 才记录实际进度。
 
 ## 需要掌握
 
-下面这些共同构成 Model Context：
-
-## 机制
+- 定义 model context 为**本次推理实际可用的输入**；区分它与模型参数、数据库、完整聊天记录
+- 说明本轮输入的来源，特别是工具**定义**与工具**执行结果**的区别
+- 画出两次调用的变化，指出应用层 / harness 如何查证并组装下一轮输入
+- 解释 prompt engineering 与 context engineering 的关系，以及跨轮状态由谁维护
 
 </Locale>
 
 <Locale lang="en">
 
-List what the context is made of before talking about compression or isolation.
+A customer asks a cat-food support assistant: “Order 20240915 from last week hasn't arrived. Can I get a refund?” The model may answer fluently while knowing neither the shipment status nor the refund policy. The missing piece is **the evidence available for this call**.
+
+This page continues the [LLM Application](/docs/application) example. It builds on input tokens from [Tokenization](/docs/llm/tokenization) and generation from current input in [Attention & Transformer](/docs/llm/transformer). For a Production LLM / AI Engineer interview, focus on the input boundary and who owns each step. Window sizing, compression, and caching come later.
+
+## How to work through this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · One call | What is context, and why can't the model see the order database? | 15 min |
+| 1 · Sources | How do instructions, history, tool definitions and results, retrieval, and memory differ? | 25 min |
+| 2 · Multiple turns | What changes after a lookup, and who carries the new fact forward? | 25 min |
+
+These first three Levels are the initial batch. Try each self-check before deciding if the pacing works. Only `/drill` records actual learning progress.
 
 ## Must know
 
-All of these together make up the model context:
-
-## Mechanism
+- Define model context as **the input available to this inference**, apart from model weights, databases, and the full transcript.
+- Identify each input source, especially tool **definitions** versus **executed results**.
+- Draw the two calls and explain how the application or harness verifies facts and assembles the next input.
+- Relate prompt engineering to context engineering and name who maintains cross-turn state.
 
 </Locale>
 
-```
-System Prompt
-+ User Message
-+ Conversation History
-+ Tool Definitions
-+ Tool Results
-+ Retrieved Documents
-+ Memory
-+ Environment State
-        ↓
-   Model Context
-```
+---
 
 <Locale lang="zh">
 
-## 三级回答
+## Level 0 · 一次模型调用
 
-### Level 1 — 定义
+### Model Context 是什么，为什么模型不知道订单状态？
 
-模型一次前向计算能看到的全部 token，不只是用户说的那句话。
+**Model Context** 是一次推理时模型实际可用的输入。对普通文本调用，可以先想成：服务端把本轮消息、指令和提供的数据处理为 token，模型据此生成回答或工具调用请求。多模态与各家 API 的包装不同，但「**本轮可用输入**」这个边界不变。
 
-### Level 2 — 机制
+数据库里也许有订单 20240915。只传下面两条消息时，模型没有连接到它：
 
-每一类信息都占用窗口，都可能带来噪声或泄露数据。工具定义和工具结果常常比用户消息还长。
+```text
+system: 你是猫粮店客服。核实订单和政策前，不承诺退款。
+user: 我的订单 20240915 还没到，能退款吗？
+```
 
-### Level 3 — 工程
+模型能看出客户想退款，能提议查订单；它不能从订单号**推导**物流状态。一个听起来像真的回答仍可能是猜测。应用必须查权威订单系统，再把结果提供给后续调用。
 
-Context Engineering 的工作，是决定这一步放什么、按什么顺序放、给多少预算。这比「写一个更好的 prompt」范围大得多。
+<Note title="四个边界先分清">
+
+- **模型参数**：学到的一般能力，不是这笔订单的实时记录。
+- **外部状态**：数据库、文件、网页中的实际内容；存放在那里不等于模型已读到。
+- **候选信息**：保存的历史、检索结果、记忆；可以被选择进入本轮。
+- **本轮 context**：真正提供给这次推理的部分。
+
+</Note>
+
+### Prompt 与 context 是什么关系？
+
+日常说“发 prompt”时，prompt 可能泛指整份输入。[Prompt Engineering](/docs/application/prompt-engineering) 侧重指令、示例、格式**怎样写**；context engineering 更关心每一步**给模型哪些**指令、工具、证据和状态，以及它们怎样更新。两者有交集，不能把 prompt 硬定义成仅有 system 那句话。
+
+<Note type="tip" title="面试开口">
+
+先说：“Context is what the model can use for this inference.” 再问订单状态是已经作为工具结果送入，还是只存在数据库里。能指出这个差别，比背组成清单更能说明你懂生产系统。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 数据库有订单 20240915，为什么模型仍可能不知道它是否发货？
+2. 应用保存了完整聊天记录，是否意味着模型每轮都看到它？
+3. 用自己的话区分外部状态、候选信息、本轮 context。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · One model call
+
+### What is model context, and why doesn't the model know the order status?
+
+**Model context** is the input available to the model for one inference. For a typical text call, instructions, messages, and supplied data are processed into tokens before the model produces an answer or tool-call request. Multimodal inputs and API packaging differ, but the key boundary is **what is available now**.
+
+The order may exist in a database. These two messages do not connect the model to it:
+
+```text
+system: You are a cat-food support assistant. Do not promise a refund before checking the order and policy.
+user: Order 20240915 has not arrived. Can I get a refund?
+```
+
+The model can recognize a refund request and propose a lookup. It cannot **infer** the shipment status from the order number. A fluent answer could still be a guess. The application must query the authoritative order system and supply the result in a later call.
+
+<Note title="Four separate things">
+
+- **Model weights** hold learned general capabilities, not a live order record.
+- **External state** lives in databases, files, or websites; existing there does not mean the model has read it.
+- **Candidate information** is stored history, retrieval results, and memory that might be selected.
+- **This call's context** is the portion actually provided for this inference.
+
+</Note>
+
+### How do prompt and context relate?
+
+In everyday API usage, “prompt” may mean the whole input. [Prompt Engineering](/docs/application/prompt-engineering) focuses on **how to write** instructions, examples, and output formats. Context engineering decides **which** instructions, tools, evidence, and state enter each inference and how they evolve. The terms overlap; prompt is not necessarily just the system message.
+
+<Note type="tip" title="An interview opening">
+
+Start with “Context is what the model can use for this inference.” Then ask whether the order status was actually supplied as a tool result or merely exists in a database.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why can the model lack shipment status even when the database has order 20240915?
+2. If the app stores a full transcript, does the model automatically see all of it each turn?
+3. Explain external state, candidate information, and this call's context.
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 本轮输入从哪里来
+
+### 一次客服调用，哪些信息可能进入 context？
+
+按**来源**拆输入，别把所有文字都叫“prompt”：
+
+| 来源 | 猫粮客服例子 | 作用 |
+| --- | --- | --- |
+| 应用指令 | 核实前不承诺退款 | 规定行为边界 |
+| 当前用户消息 | 订单 20240915 能退款吗 | 提出本轮任务 |
+| 选入的历史 | 客户昨天说包裹未到 | 保留相关前文，不等于全部历史 |
+| 可用工具定义 | `get_order_status(order_id)` 的名称、参数、说明 | 告诉模型**可以请求什么** |
+| 工具执行结果 | 订单查询返回“运输中” | 来自外部系统的观察 |
+| 检索资料 | 当前退款政策的相关段落 | 作答证据，应有来源和版本 |
+| 取回的记忆 | 客户偏好邮件联系 | 按需取回的长期信息 |
+
+记忆只保存在外部时，不占本轮 context。**环境状态**也一样：整个订单库、库存、权限还在模型之外；只有经查询、筛选并传入的表示才可能被模型使用。图片、音频等也可能是输入，不能一概按普通文字估算 token。
+
+### 为什么工具定义和工具结果要分开说？
+
+工具定义像菜单：告诉模型可以请求“查订单”以及所需参数，**并不包含查询答案**。模型提出工具调用后，应用层（harness / 编排层）检查权限并执行，之后把结果提供给下一步推理。
+
+```text
+定义: get_order_status(order_id)  → “我能请求查询”
+请求: get_order_status(20240915)  → “请帮我查”
+结果: status = in_transit          → “订单系统报告运输中”
+```
+
+`status = in_transit` 仅为示意，不是真实订单。结果也可能超时、过期或缺字段。[Tool Calling](/docs/agent/tool-calling) 继续讲执行与校验；[Construction](/docs/context/construction) 和 [Memory](/docs/agent/memory) 讲如何选择资料与记忆。
+
+<Note type="danger" title="常见扣分说法">
+
+“我给了模型查订单工具，所以它知道订单状态。”定义只提供能力；没有执行和结果，就没有这条订单事实。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 退款政策存放在知识库，怎样才会进入本轮 context？
+2. 工具 schema 与返回的 `status`，哪一个说明真实订单状态？
+3. 客户偏好保存成 memory，本轮一定会占 context 吗？
+4. 谁负责实际读取订单系统？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Where this call's input comes from
+
+### Which sources can enter a support call's context?
+
+Label each **source** rather than calling every piece of text a prompt:
+
+| Source | Support example | Purpose |
+| --- | --- | --- |
+| Application instruction | Do not promise a refund before verification | Behavior boundary |
+| Current user message | Can order 20240915 be refunded? | Immediate task |
+| Selected history | Customer said yesterday that the parcel had not arrived | Relevant prior context, not the full transcript |
+| Available tool definition | Name, parameters, and description of `get_order_status(order_id)` | What the model **may request** |
+| Tool result | Lookup reports “in transit” | Observation from an external system |
+| Retrieved material | Relevant current refund-policy passage | Evidence with source and version |
+| Retrieved memory | Customer prefers email | Persistent information loaded when useful |
+
+Memory stored outside the call consumes no context until retrieved and supplied. The same applies to **environment state**: the order database, inventory, and permissions remain external until queried and selected. Images and audio can also be inputs; don't estimate every input as ordinary text tokens.
+
+### Why separate tool definitions from results?
+
+A definition is a menu item: it says the model can request a lookup with an order ID. **It contains no lookup answer.** The model requests; the application or harness checks authority, executes, and supplies the result for the next inference.
+
+```text
+definition: get_order_status(order_id)  → “I may request a lookup”
+request:    get_order_status(20240915)  → “Please look it up”
+result:     status = in_transit          → “The order system reports in transit”
+```
+
+`status = in_transit` is illustrative, not a real order. Results can also time out, be stale, or lack fields. [Tool Calling](/docs/agent/tool-calling) covers execution; [Construction](/docs/context/construction) and [Memory](/docs/agent/memory) cover selection.
+
+<Note type="danger" title="A costly interview claim">
+
+“I gave the model an order lookup tool, so it knows the order status.” A definition offers a capability. The status remains unknown until execution returns a result.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. What must happen for a stored refund policy to enter this call's context?
+2. Which provides actual order evidence: the tool schema or its `status` result?
+3. Does a saved customer preference always consume context?
+4. Who actually reads the order system?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 两轮调用怎样改变 context
+
+### 查订单前后，模型看到的信息怎样变化？
+
+把一次处理拆成**两次推理**。应用保存状态，按下一步需要组装输入。下图省略具体 API 字段：
+
+```text
+第 1 次调用
+  指令: 核实前不承诺退款
+  用户: 订单 20240915 未到，能退款吗？
+  工具定义: get_order_status(order_id)
+  → 模型请求 get_order_status(20240915)
+
+应用校验并执行查询
+  → 工具结果 status = in_transit（示意）
+
+第 2 次调用
+  指令: 核实前不承诺退款
+  当前任务 + 必需前文 / 工具调用关联
+  工具结果: status = in_transit
+  可选: 当前退款政策的相关段落
+  → 根据已核实资料答复；政策不足就继续查询或说明无法判断
+```
+
+变化不是模型“想起了”订单，而是**应用把新观察提供给第二次推理**。应用可以挑选消息，也可以使用 API 的跨轮状态机制；无论哪种方式，都要核对它的保留规则。一个具体例子：OpenAI Responses 的 `previous_response_id` 不会继承上一轮顶层 `instructions`，稳定指令须在新请求中再提供。[官方说明](https://developers.openai.com/api/docs/guides/text)
+
+<Note type="tip" title="接回 Tokenization 和 Transformer">
+
+送入的内容按所用模型 API 的规则计入输入 token，模型根据本轮可用内容生成。故“知识库有”不等于“模型知道”；每轮无选择地追加历史也会改变成本和行为。长度与质量的细节见 [Context Window](/docs/context/window)。
+
+</Note>
+
+### 面试里怎样证明自己会做这件事？
+
+展示可检查的 trace：记录**本轮目标、传入的来源与版本、工具请求、工具结果、回答引用的证据**。拿本例检查三处失败：未查订单就承诺退款；查到了却没把结果传入第二轮；传入过期政策并当成当前政策。这样能定位是**取数、组装还是生成**出了错。指标与测试集见 [Evaluation](/docs/evaluation)。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 第 1 次到第 2 次，新增的可核实事实是什么？
+2. 工具成功但第二次输入没有结果，模型为什么仍可能猜？
+3. API 托管对话状态时，为什么仍要检查指令与保留规则？
+4. 客服错误承诺退款，先用 trace 查哪三处？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · How context changes across two calls
+
+### What changes after the order lookup?
+
+Split one support interaction into **two inferences**. The application keeps state and assembles the next input. This sketch omits provider-specific API fields:
+
+```text
+Call 1
+  Instruction: Do not promise a refund before verification
+  User: Order 20240915 has not arrived; can I get a refund?
+  Tool definition: get_order_status(order_id)
+  → Model requests get_order_status(20240915)
+
+Application validates and executes the lookup
+  → Tool result: status = in_transit (illustrative)
+
+Call 2
+  Instruction: Do not promise a refund before verification
+  Current task + necessary history / tool-call linkage
+  Tool result: status = in_transit
+  Optional: relevant passage from the current refund policy
+  → Answer from checked evidence; seek more evidence if policy is missing
+```
+
+The model has not “remembered” the order. **The application supplied a new observation for the second inference.** It may select messages or use a provider's state mechanism, but either approach has retention rules. For example, OpenAI Responses `previous_response_id` does not carry top-level `instructions` into the next call; stable instructions must be supplied again. [Official guidance](https://developers.openai.com/api/docs/guides/text)
+
+<Note type="tip" title="Connect Tokenization and Transformer">
+
+Supplied content counts under the chosen model API's input-token rules, and the model generates from currently available input. Thus “the knowledge base contains it” does not imply “the model knows it.” Blindly appending all history also changes cost and behavior. [Context Window](/docs/context/window) covers limits and quality.
+
+</Note>
+
+### How do you show this skill in an interview?
+
+Show an inspectable trace: record the **turn's goal, supplied sources and versions, tool request, tool result, and evidence used in the answer**. Check three failures: promising a refund without a lookup; looking up the order but omitting its result from Call 2; treating an outdated policy as current. That localizes an error to **retrieval, assembly, or generation**. [Evaluation](/docs/evaluation) covers metrics and test sets.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What new verifiable fact appears between the two calls?
+2. Why might the model still guess if the tool succeeds but Call 2 lacks its result?
+3. Why check instruction and retention rules even with provider-managed state?
+4. What three points in the trace would you inspect after a wrong refund promise?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="warning" title="“context = system prompt + 全部历史”">
+
+这是可能的组装方式，不是定义。工具结果、检索资料和取回的记忆也可能进入；保存的全部历史不必然进入本轮。
+
+</Note>
+
+<Note type="warning" title="“有长窗口就把数据库全塞进去”">
+
+窗口大只说明可能容纳更多输入，不保证事实最新、相关或被正确使用。先辨认当前决策需要的事实。
+
+</Note>
+
+## 连接
+
+```text
+Tokenization → 输入怎样变成 token
+Transformer  → 模型怎样依据当前输入生成
+Prompting    → 指令和示例怎样写
+Model Context → 本轮究竟提供了什么
+Window → Construction → Compression → Caching → Isolation
+```
+
+下一步：[Context Window](/docs/context/window) · [Construction](/docs/context/construction) · [Agent Loop](/docs/agent/loop)。
 
 ## 面试问题
 
-1. 一次 LLM 调用的 context 包含哪些部分？（What goes into the context of a single LLM call?）
-2. 哪一类信息最容易把窗口占满？（Which part is most likely to fill up the window?）
-3. 为什么工具返回结果也属于 context engineering？（Why do tool results count as context engineering?）
-4. Prompt 和 context 是什么关系？（How do prompt and context relate?）
+1. 一次调用的 context 是什么？数据库和模型参数算不算？（What is the context of one model call? Are databases and model weights part of it?）
+2. 工具定义与工具结果有什么区别？（How does a tool definition differ from a result?）
+3. 两轮客服调用中，谁负责把订单结果带到下一轮？（Who carries the order result into the next turn?）
+4. 保存聊天记录是否等于模型每轮看到它？（Does storing a transcript mean the model sees it every turn?）
+5. Prompt engineering 与 context engineering 怎样相交？（How do prompt engineering and context engineering overlap?）
+6. 如何区分取数、组装和生成错误？（How would you separate retrieval, assembly, and generation errors?）
 
 ## 我的答案
 
@@ -73,32 +400,47 @@ Context Engineering 的工作，是决定这一步放什么、按什么顺序放
 
 <Locale lang="en">
 
-## Three-level answers
+## Traps
 
-### Level 1 — Definition
+<Note type="warning" title="“Context equals the system prompt plus full history”">
 
-Every token the model can see in one forward pass — not just the user's message.
+That is one possible assembly, not the definition. Tool results, retrieved data, and selected memory may enter; the full stored transcript need not.
 
-### Level 2 — Mechanism
+</Note>
 
-Every kind of information takes up window space, and every kind can add noise or leak data. Tool definitions and tool results are often longer than the user message itself.
+<Note type="warning" title="“A large window lets us dump in the database”">
 
-### Level 3 — Engineering
+Capacity does not guarantee freshness, relevance, or correct use. Identify the facts needed for this decision first.
 
-The job of context engineering is deciding what goes in at this step, in what order, and with what budget. That's a much bigger job than "write a better prompt."
+</Note>
+
+## Connections
+
+```text
+Tokenization → how input becomes tokens
+Transformer  → how the model generates from current input
+Prompting    → how instructions and examples are written
+Model Context → what was actually supplied this turn
+Window → Construction → Compression → Caching → Isolation
+```
+
+Continue with [Context Window](/docs/context/window), [Construction](/docs/context/construction), and [Agent Loop](/docs/agent/loop).
 
 ## Interview questions
 
-1. What goes into the context of a single LLM call?
-2. Which part is most likely to fill up the window?
-3. Why do tool results count as context engineering?
-4. How do prompt and context relate?
+1. What is the context of one model call? Are databases and model weights part of it?
+2. How does a tool definition differ from a result?
+3. Who carries the order result into the next turn?
+4. Does storing a transcript mean the model sees it every turn?
+5. How do prompt engineering and context engineering overlap?
+6. How would you separate retrieval, assembly, and generation errors?
 
 ## My answer
 
 </Locale>
 
--
+- 30s:
+- 2min:
 
 <Locale lang="zh">
 
@@ -113,3 +455,15 @@ The job of context engineering is deciding what goes in at this step, in what or
 </Locale>
 
 -
+
+<Locale lang="zh">
+
+资料核对：[Anthropic 的 context engineering 指南](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) · [OpenAI 的跨轮状态说明](https://developers.openai.com/api/docs/guides/conversation-state) · [Gemini 的 token 统计说明](https://ai.google.dev/gemini-api/docs/tokens)。具体集成仍以实际模型和 API 版本为准。
+
+</Locale>
+
+<Locale lang="en">
+
+References checked: [Anthropic's context engineering guide](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents), [OpenAI's conversation-state guide](https://developers.openai.com/api/docs/guides/conversation-state), and [Gemini's token-counting guide](https://ai.google.dev/gemini-api/docs/tokens). Integration details depend on the model and API version used.
+
+</Locale>

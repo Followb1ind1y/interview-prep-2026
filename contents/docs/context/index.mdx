@@ -3,52 +3,52 @@ title: Context Engineering
 titleEn: Context Engineering
 description: 重点不是写一个好 prompt，而是决定模型在某一时刻究竟应该看到哪些 context。
 descriptionEn: Not just a good prompt — decide what the model should see at this moment.
-date: 2026-09-07
+date: 2026-09-24
 keywords: ["context engineering", "prompt caching", "lost-in-the-middle", "compression"]
 ---
 
 <Locale lang="zh">
 
-这是当前分类里最明显缺失、也最该补的一块。Anthropic 把 Context Engineering 当成 Agent 开发的核心范式。
+Context Engineering 要回答的是：**模型这一步该看到哪些信息，哪些信息还在外部，哪些信息绝不能越权传入？** 按 Model Context → Window → Construction → Compression → Caching → Isolation 的依赖顺序学习；六页沿用猫粮客服的同一订单案例。
 
 <CardGrid>
-  <Card title="Model Context" description="System、历史、工具、检索到的文档、记忆，合在一起才是 context。" href="/docs/context/model-context" />
-  <Card title="Context Window" description="长度上限、attention 成本、长上下文退化、lost-in-the-middle。" href="/docs/context/window" />
-  <Card title="Construction" description="什么该进 context，而不是把所有东西都塞进去。" href="/docs/context/construction" />
-  <Card title="Compression" description="摘要、裁剪历史、压缩工具返回结果。" href="/docs/context/compression" />
-  <Card title="Caching" description="Prompt cache ≠ KV cache ≠ semantic cache。" href="/docs/context/caching" />
-  <Card title="Isolation" description="Agent B 不该默认看到全部对话。安全与边界。" href="/docs/context/isolation" />
+  <Card title="Model Context" description="本轮输入的边界、来源与跨轮组装。" href="/docs/context/model-context" />
+  <Card title="Context Window" description="输入预算、长上下文成本、证据位置与评测。" href="/docs/context/window" />
+  <Card title="Construction" description="从候选中选出有权限、够新且足够的证据。" href="/docs/context/construction" />
+  <Card title="Compression" description="从 100K 到 20K，保留事实、来源和待办。" href="/docs/context/compression" />
+  <Card title="Caching" description="前缀、生成状态与答案缓存的命中和失效。" href="/docs/context/caching" />
+  <Card title="Isolation" description="租户、子 agent 与 MCP 工具的可见和授权边界。" href="/docs/context/isolation" />
 </CardGrid>
 
-## 本专栏计划
+## 学完后应该能做到
 
-1. 先能数出 Model Context 由哪些部分组成
-2. Window：能举出 lost-in-the-middle 的例子
-3. Construction + Compression：从 100k 压到 20k 时保留什么
-4. Caching：三种缓存能分开讲清楚
-5. Isolation：接到「MCP host 负责 context 边界」
+1. 画出客服两轮调用，指出模型本轮实际收到什么
+2. 给一次请求做 token 预算，并用同题实验测证据位置的影响
+3. 从 20 段资料选出足够的证据，解释错误发生在检索、组装还是生成
+4. 从示意 100K 历史压到 20K，仍保留来源、版本、未完成动作与不确定性
+5. 分清三层缓存；在政策变化、订单变化、跨租户场景下设计失效与拒绝测试
 
 </Locale>
 
 <Locale lang="en">
 
-This is the most obvious gap in the current map, and the one most worth closing. Anthropic treats context engineering as the core discipline of building agents.
+Context engineering asks: **what should the model see for this step, what remains external, and what must never cross an authorization boundary?** Work through Model Context → Window → Construction → Compression → Caching → Isolation. All six pages follow the same cat-food support case.
 
 <CardGrid>
-  <Card title="Model Context" description="System prompt, history, tools, retrieved docs, and memory together make up the context." href="/docs/context/model-context" />
-  <Card title="Context Window" description="Limits, attention cost, long-context degradation, lost-in-the-middle." href="/docs/context/window" />
-  <Card title="Construction" description="What belongs in context — instead of stuffing everything in." href="/docs/context/construction" />
-  <Card title="Compression" description="Summarization, history pruning, compressing tool results." href="/docs/context/compression" />
-  <Card title="Caching" description="Prompt cache ≠ KV cache ≠ semantic cache." href="/docs/context/caching" />
-  <Card title="Isolation" description="Agent B shouldn't see the whole conversation by default. Security and boundaries." href="/docs/context/isolation" />
+  <Card title="Model Context" description="Input boundary, sources, and assembly across turns." href="/docs/context/model-context" />
+  <Card title="Context Window" description="Input budgets, long-context costs, evidence position, and evaluation." href="/docs/context/window" />
+  <Card title="Construction" description="Select permitted, current, sufficient evidence from candidates." href="/docs/context/construction" />
+  <Card title="Compression" description="Reduce 100K to 20K while preserving facts, sources, and pending work." href="/docs/context/compression" />
+  <Card title="Caching" description="Hits and invalidation for prefixes, generation state, and answers." href="/docs/context/caching" />
+  <Card title="Isolation" description="Visibility and authorization across tenants, subagents, and MCP tools." href="/docs/context/isolation" />
 </CardGrid>
 
-## Plan for this column
+## What you should be able to do
 
-1. First, list everything that makes up the model context
-2. Window: give a concrete lost-in-the-middle example
-3. Construction + Compression: what to keep when going from 100k to 20k tokens
-4. Caching: explain the three caches separately
-5. Isolation: connect it to the MCP host owning context boundaries
+1. Draw two support calls and show exactly what the model received each time.
+2. Budget one request and test evidence position on identical questions.
+3. Select enough evidence from 20 passages and locate failures in retrieval, assembly, or generation.
+4. Reduce an illustrative 100K history to 20K while preserving provenance, versions, pending actions, and uncertainty.
+5. Separate three cache layers; test invalidation and denial after policy, order, and tenant changes.
 
 </Locale>

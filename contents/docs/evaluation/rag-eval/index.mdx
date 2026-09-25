@@ -1,59 +1,300 @@
 ---
 title: RAG Evaluation
 titleEn: RAG Evaluation
-description: Retrieval 和 Generation 分开评。不要只用一个「答案好不好」。
-descriptionEn: Score retrieval and generation separately.
-date: 2026-09-07
-keywords: ["recall@k", "ndcg", "faithfulness", "groundedness", "deepeval"]
+description: 手算检索指标，分开诊断检索、上下文组装、证据利用与最终回答。
+descriptionEn: Calculate retrieval metrics and diagnose retrieval, context assembly, grounded use, and answer outcomes separately.
+date: 2026-09-24
+keywords: ["rag evaluation", "recall at k", "precision at k", "mrr", "ndcg", "faithfulness"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-接到 DeepEval：正确性 / 完整性 / 相关性。
+客服答错退款问题时，原因可能是没检索到当前政策，检索到了却没选入 context，选入了但模型忽略例外，或证据本身已过期。只问“答案好不好”无法定位。[RAG](/docs/rag) 讲系统管道，本页专门讲**各层怎么评**。
+
+继续订单 20240915：订单状态由工具给出，政策资料由检索系统给出。为了能手算，假设政策库里有两段对这道题真正相关的当前条款。下面所有排序与分数是教学示意，不是线上实测。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 分层 | 找到、送入、写对，分别是哪一步？ | 20 min |
+| 1 · 检索指标 | Recall@K、Precision@K、MRR、nDCG 怎么算？ | 35 min |
+| 2 · 生成指标 | Faithfulness、相关性、正确性和完整性如何区分？ | 30 min |
+| 3 · 排错 | 高召回低正确率时先查哪里？ | 25 min |
 
 ## 需要掌握
 
-检索指标
+- 区分 retrieval candidates、实际选入的 context、生成主张、最终业务判断
+- 对同一份 gold relevance 标注手算 Recall@K、Precision@K、MRR 与二元 nDCG
+- 说明有据可依不必然等于真实正确或回答完整，引用也必须指向支持该主张的段落
+- 按分层证据定位故障，不因最终回答错就直接换模型或调 temperature
 
-- Recall@K（前 K 个结果的召回率）
-- Precision@K（前 K 个结果的精确率）
-- MRR（平均倒数排名）
-- NDCG（归一化折损累计增益）
+</Locale>
 
-生成指标
+<Locale lang="en">
 
-- Faithfulness（忠实度）
-- Groundedness（有据可依）
-- Answer relevance（答案相关性）
-- Context relevance（上下文相关性）
+A wrong refund answer can come from missing current policy in retrieval, failing to select a retrieved clause into context, ignoring an exception during generation, or using stale evidence. “Was the answer good?” cannot localize the fault. [RAG](/docs/rag) explains the pipeline; this page explains **how to grade each layer**.
 
-## 机制
+We continue with order 20240915. An order tool supplies live state; retrieval supplies policy. For hand calculations, assume exactly two current policy passages are relevant to this question. Rankings and numbers are teaching examples, not production measurements.
 
+## How to work through this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Layers | Retrieved, assembled, and used correctly: which step is which? | 20 min |
+| 1 · Retrieval metrics | Calculate Recall@K, Precision@K, MRR, and nDCG. | 35 min |
+| 2 · Generation metrics | Distinguish faithfulness, relevance, correctness, and completeness. | 30 min |
+| 3 · Debugging | With high recall but low answer accuracy, where do you inspect first? | 25 min |
+
+## Must know
+
+- Separate retrieval candidates, passages actually assembled, generated claims, and the final business decision.
+- Calculate Recall@K, Precision@K, MRR, and binary nDCG against one gold relevance set.
+- Explain why grounded answers can still be wrong or incomplete; citations must support specific claims.
+- Debug by layer rather than immediately changing model or temperature.
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · RAG 的三个关口
+
+### “查到了正确文档”为什么仍可能答错？
+
+先看这条数据流：
+
+```text
+用户问题 + 订单状态
+  → 检索候选 Top-K
+  → 过滤/重排/拼入本轮 context
+  → 模型根据证据生成主张
+  → 业务决策与引用
 ```
-检索指标     标准文档有没有出现在 Top-K 里
-生成指标     有没有编造、有没有回答到问题
+
+假设当前例外条款 `P-17` 在检索 Top-5 中；若上下文预算只选了旧 FAQ，**检索成功但组装失败**。若 `P-17` 已送入，却回答“运输中可以走未发货退款”，是**证据利用/生成失败**。若答案引用 `P-17` 却订单系统实际状态已变化，是**动态状态或版本问题**。因此至少分别记候选文档 ID、选入文档 ID、回答主张和最终订单状态。
+
+<Note title="四层不是一个指标">
+
+检索 recall 测“正确资料是否进入候选”；context coverage 测“是否送进模型”；faithfulness 测“回答的主张是否受到所给证据支持”；任务正确性测“是否满足真实订单与政策”。可以一层过关、下一层失败。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. `P-17` 在 Top-5 却没进 context，哪一层失败？
+2. `P-17` 已进入 context，但答复违反它，哪一层更可疑？
+3. 为什么答案引用了文档仍需核对订单实时状态？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Three gates in RAG
+
+### Why can a correct retrieved document still lead to a wrong answer?
+
+Trace the flow:
+
+```text
+Question + order state
+  → retrieval Top-K candidates
+  → filter/rerank/assemble current context
+  → model-generated claims
+  → business decision and citations
 ```
 
-## 三级回答
+Suppose current exception `P-17` appears in Top-5. If assembly includes only an old FAQ due to budget, **retrieval passed but assembly failed**. If `P-17` is supplied but the answer says an in-transit order may use the unshipped refund flow, **evidence use/generation failed**. If the reply cites `P-17` but live order state has changed, **dynamic state or version control failed**. Log candidate IDs, selected IDs, claims, and final order state separately.
 
-### Level 1 — 定义
+<Note title="Four layers are not one metric">
 
-RAG 要同时评「找没找对」和「写没写对」。
+Retrieval recall asks whether correct material reached candidates. Context coverage asks whether the model received it. Faithfulness asks whether claims are supported by supplied evidence. Task correctness asks whether the decision matches real order and policy state. One layer can pass while another fails.
 
-### Level 2 — 机制
+</Note>
 
-召回率低，先修检索。召回率高但忠实度低，说明是生成时没忠于证据，或者 context 拼坏了。
+<Note title="Self-check: you should be able to answer">
 
-### Level 3 — 工程
+1. If `P-17` was in Top-5 but not in context, which layer failed?
+2. If `P-17` was supplied but the reply contradicts it, which layer is suspect?
+3. Why check live order state even if the answer cites a policy?
 
-召回率 90%、答案准确率 70%：按 [Failure Diagnosis](/docs/rag/debugging) 一层层往下拆，不要只去调生成的温度参数。
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 四个检索指标手算
+
+### 同一个 Top-5，指标分别告诉我们什么？
+
+设 gold 相关政策段落有 `A`（已发货例外）与 `B`（地区条件），检索排名是：
+
+| 排名 | 段落 | 与本题相关？ |
+| ---: | --- | --- |
+| 1 | 旧版政策 X | 否 |
+| 2 | 当前条款 A | 是 |
+| 3 | 商品宣传 Y | 否 |
+| 4 | 当前条款 B | 是 |
+| 5 | 退货常见问题 Z | 否 |
+
+**Recall@5** = 找到的 gold 数 / gold 总数 = `2/2 = 1.0`。**Precision@5** = Top-5 中相关段落数 / 5 = `2/5 = 0.4`。**Reciprocal rank** 看第一个相关结果的位置：`1/2 = 0.5`；**MRR** 是把多道题各自的 reciprocal rank 取平均，一道题只能说 RR=0.5。
+
+二元相关性下，`DCG@5 = 1/log2(2+1) + 1/log2(4+1) ≈ 0.631 + 0.431 = 1.062`；最佳排序会把 A、B 放第 1、2 位，`IDCG@5 = 1 + 0.631 = 1.631`，因此 `nDCG@5 ≈ 1.062/1.631 = 0.651`。nDCG 捕捉排序质量：虽然 A、B 都找到了，但没排在最前。
+
+这些计算都依赖**gold relevance**。真实问题可能有多个足够的证据组合，文档级标签也可能掩盖段落级差异；要让标注者定义“相关”与 K 的含义。权限过滤和政策版本也应在计分前一致，否则旧版 X 可能被误标为“相关”。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 上例 Recall@5=1，为什么仍不能说检索排序好？
+2. 为什么一道题是 RR 而非 MRR？
+3. 若 A 排第 1、B 排第 2，nDCG 会怎样变化？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Calculate four retrieval metrics
+
+### What does one Top-5 ranking tell us?
+
+The gold relevant passages are `A` (shipped-order exception) and `B` (regional condition). Retrieval returns:
+
+| Rank | Passage | Relevant? |
+| ---: | --- | --- |
+| 1 | Obsolete policy X | No |
+| 2 | Current clause A | Yes |
+| 3 | Product promotion Y | No |
+| 4 | Current clause B | Yes |
+| 5 | Returns FAQ Z | No |
+
+**Recall@5** = retrieved relevant / total gold relevant = `2/2 = 1.0`. **Precision@5** = relevant in Top-5 / 5 = `2/5 = 0.4`. **Reciprocal rank** uses the first relevant hit: `1/2 = 0.5`. **MRR** averages reciprocal ranks over multiple queries; one query has RR, not an average.
+
+With binary relevance, `DCG@5 = 1/log2(2+1) + 1/log2(4+1) ≈ 0.631 + 0.431 = 1.062`. Ideal ranking places A and B first: `IDCG@5 = 1 + 0.631 = 1.631`, so `nDCG@5 ≈ 1.062/1.631 = 0.651`. nDCG reflects ranking quality even though both gold passages were retrieved.
+
+These metrics require **gold relevance labels**. Real questions may have several sufficient evidence sets, and document-level labels can hide passage-level differences. Annotators must define relevance and K. Apply consistent permission and policy-version rules before scoring; obsolete X must not count as current evidence.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why doesn't Recall@5=1 prove a good ranking?
+2. Why is one query RR rather than MRR?
+3. What happens to nDCG if A and B move to ranks 1 and 2?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 生成指标各问什么
+
+### Faithfulness 高，答案也可能错吗？
+
+**Faithfulness / groundedness** 通常关心回答的具体主张是否被**提供给模型的证据**支持；**answer relevance** 关心是否答到用户的问题；**answer correctness** 关心是否符合权威真相；**completeness** 关心必需条件是否说全；**context relevance** 关心选入资料有多少真正相关。不同评测库给这些词的具体定义、方向和公式可能不同，面试时应说明自己采用的 rubric。
+
+假设模型说了三条主张：① 订单运输中；② 已发货不能走未发货退款流程；③ 退货运费永远免费。前两条有订单与政策支持，第三条没有。一个教学版主张支持率是 `2/3`；实际 [DeepEval Faithfulness](https://deepeval.com/docs/metrics-faithfulness) 是由 judge 抽主张、判与 retrieval context 是否一致，结果依评审与配置变化。更重要的是：如果检索到的是**过期政策**，答案完全忠于它仍可能对现实业务**错误**。
+
+引用也要逐条验证：答复写 `[P-17]`，但 P-17 并没有“免费退货”，这叫**引用不支持主张**；有引用格式不等于有证据。若资料缺地区条件，正确系统可能应说明“尚不能判断”，而不是输出看似完整的结论。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么忠于旧政策的回答仍可能业务错误？
+2. “答到退款主题”与“退款结论正确”是否同一指标？
+3. 有 `[P-17]` 引用，为什么还要检查它支持哪条主张？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · What generation metrics ask
+
+### Can a faithful answer still be wrong?
+
+**Faithfulness / groundedness** commonly asks whether each claim is supported by the **evidence supplied to the model**. **Answer relevance** asks whether it addresses the question. **Answer correctness** compares with authoritative truth. **Completeness** asks whether required conditions were covered. **Context relevance** asks whether supplied passages actually matter. Libraries define and compute these differently; state your rubric in an interview.
+
+Suppose an answer claims ① the order is in transit; ② shipped orders cannot use the unshipped refund flow; ③ return shipping is always free. Evidence supports the first two but not the third. A teaching claim-support rate is `2/3`. Actual [DeepEval Faithfulness](https://deepeval.com/docs/metrics-faithfulness) uses a judge to extract and compare claims against retrieval context, with results depending on judge and configuration. More importantly, an answer perfectly faithful to **obsolete policy** may still be **wrong for the business today**.
+
+Check citations claim by claim. A reply might cite `[P-17]`, but P-17 says nothing about free returns: a formatted citation is not evidence. If region is missing, a good system may say it cannot yet decide instead of presenting a complete-sounding conclusion.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why can an answer faithful to old policy still be wrong?
+2. Are “about refunds” and “correct refund decision” the same metric?
+3. Why verify which claim `[P-17]` actually supports?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 把分数变成排错动作
+
+### Recall@K 高而答案准确率低，先改哪里？
+
+把每个失败 case 的 trace 依次查：**gold 在不在检索候选 → 在不在最终 context → 回答是否正确引用 → 真实订单/政策是否一致**。若检索过关但选入失败，去改 [Context Construction](/docs/context/construction) 的排序与预算；若证据送到了但主张无依据，去改生成约束、模型或 judge；若证据过期，修索引/版本与权威查询。不要只看到总准确率就调 temperature。
+
+一个简化的四格诊断：
+
+| Gold 证据在最终 context？ | 答案对？ | 可能说明 |
+| --- | --- | --- |
+| 是 | 是 | 该 case 正常，仍检查引用和成本 |
+| 是 | 否 | 证据利用、冲突处理或模型问题 |
+| 否 | 否 | 检索或组装缺证据 |
+| 否 | 是 | 可能凭模型常识猜对，或 gold 标注不全；需追查 |
+
+没有人工标注的 gold 文档时，可以先让专家对一小批问题标段落，再扩展；或抽样人工检查检索结果、用弱监督产生候选标签并复核。不能拿同一个自动 judge 生成“真值”又据此宣称检索精确。离线每层指标之外，线上还要看真实解决率、反馈和数据新鲜度，见 [Production Evaluation](/docs/evaluation/production-eval)。
+
+<Note title="自测：到这里你应该能回答">
+
+1. Recall 高、正确条款未进 context，先改哪层？
+2. 没有 gold 文档时，第一步如何建立可靠小样本？
+3. 答案对但没有 gold 证据，为什么不应直接记为 RAG 成功？
+
+</Note>
+
+## 陷阱
+
+<Note type="danger" title="“RAG 准确率 90%”">
+
+不说明是检索 recall、主张有据率、最终判断正确率还是用户问题解决率，这个数字无法指导工程决策。
+
+</Note>
+
+## 连接
+
+```text
+Offline → 有版本的 gold case
+Retrieval → Recall / Precision / MRR / nDCG
+Construction → gold 证据是否真的进 context
+Generation → faithfulness / relevance / correctness
+Production → 新资料与真实用户结果
+```
 
 ## 面试问题
 
-1. 怎么评测 RAG？（How do you evaluate RAG?）
-2. Recall@K 和 NDCG 分别回答什么问题？（What question does Recall@K answer, and what does NDCG answer?）
-3. 忠实度和答案相关性冲突时听谁的？（When faithfulness and answer relevance conflict, which one wins?）
-4. 没有标准文档时，怎么评检索？（How do you evaluate retrieval when you have no gold documents?）
+1. 上例 Top-5 的 Recall、Precision、RR、nDCG 各是多少？（Calculate the four metrics.）
+2. Recall 高但答案错，如何定位？（How do you debug high recall but wrong answers?）
+3. Faithfulness 与 correctness 为什么不同？（How do faithfulness and correctness differ?）
+4. 没有 gold 文档时如何开始评检索？（How do you start without gold documents?）
+5. 为什么引用必须逐条核对主张？（Why check citations claim by claim?）
 
 ## 我的答案
 
@@ -61,57 +302,63 @@ RAG 要同时评「找没找对」和「写没写对」。
 
 <Locale lang="en">
 
-Tie it to DeepEval: correctness / completeness / relevance.
+## Level 3 · Turn metrics into debugging actions
 
-## Must know
+### With high Recall@K and low answer accuracy, where do you look?
 
-Retrieval
+For each failed trace, inspect **gold in retrieval candidates → gold in final context → claims and citations → live order/policy truth**. If retrieval passed but assembly failed, tune [Context Construction](/docs/context/construction). If evidence arrived but claims lack support, inspect generation constraints, the model, or grader. If evidence is stale, repair indexing/version control and authoritative lookup. A total score does not tell you to change temperature.
 
-- Recall@K
-- Precision@K
-- MRR
-- NDCG
+A small diagnostic grid:
 
-Generation
+| Gold in final context? | Answer right? | Possible meaning |
+| --- | --- | --- |
+| Yes | Yes | Case works; still check citations and cost |
+| Yes | No | Evidence use, conflict resolution, or model |
+| No | No | Retrieval or assembly missed evidence |
+| No | Yes | May be a lucky guess or incomplete gold labels; investigate |
 
-- Faithfulness
-- Groundedness
-- Answer relevance
-- Context relevance
+Without gold documents, have experts annotate passages for a small representative set first, then expand. Human-check retrieved results or use weak supervision to propose labels for review. Do not let one automated judge create “truth” and then claim validation against itself. Online you also need resolution, feedback, and freshness in [Production Evaluation](/docs/evaluation/production-eval).
 
-## Mechanism
+<Note title="Self-check: you should be able to answer">
 
+1. If recall is high but the correct clause never enters context, which layer changes first?
+2. Without gold documents, how do you create a trustworthy small set?
+3. Why isn't a correct answer with no gold evidence automatically RAG success?
+
+</Note>
+
+## Traps
+
+<Note type="danger" title="“RAG accuracy is 90%”">
+
+Without naming retrieval recall, claim support, final decision accuracy, or user resolution, the number cannot direct engineering work.
+
+</Note>
+
+## Connections
+
+```text
+Offline → versioned gold cases
+Retrieval → Recall / Precision / MRR / nDCG
+Construction → whether gold evidence entered context
+Generation → faithfulness / relevance / correctness
+Production → new data and real user outcomes
 ```
-retriever metrics     is the gold document in the Top-K?
-generator metrics     did it make things up, and did it answer the question?
-```
-
-## Three-level answers
-
-### Level 1 — Definition
-
-RAG has to be scored on two things at once: did it find the right material, and did it write the right answer.
-
-### Level 2 — Mechanism
-
-Low recall means fix retrieval first. High recall with low faithfulness means generation isn't sticking to the evidence, or the context was assembled badly.
-
-### Level 3 — Engineering
-
-90% recall with 70% answer accuracy: break it down with [Failure Diagnosis](/docs/rag/debugging) instead of just tweaking the generation temperature.
 
 ## Interview questions
 
-1. How do you evaluate RAG?
-2. What question does Recall@K answer, and what does NDCG answer?
-3. When faithfulness and answer relevance conflict, which one wins?
-4. How do you evaluate retrieval when you have no gold documents?
+1. Calculate Recall, Precision, RR, and nDCG for the Top-5 example.
+2. How do you debug high recall but wrong answers?
+3. How do faithfulness and correctness differ?
+4. How do you start without gold documents?
+5. Why check citations claim by claim?
 
 ## My answer
 
 </Locale>
 
--
+- 30s:
+- 2min:
 
 <Locale lang="zh">
 
@@ -126,3 +373,15 @@ Low recall means fix retrieval first. High recall with low faithfulness means ge
 </Locale>
 
 -
+
+<Locale lang="zh">
+
+资料核对：[RAGAS 论文](https://arxiv.org/abs/2309.15217) · [DeepEval Faithfulness 定义](https://deepeval.com/docs/metrics-faithfulness)。本页的检索列表、数值和主张支持率均为教学示意。
+
+</Locale>
+
+<Locale lang="en">
+
+References checked: the [RAGAS paper](https://arxiv.org/abs/2309.15217) and [DeepEval Faithfulness definition](https://deepeval.com/docs/metrics-faithfulness). Rankings and arithmetic examples here are illustrative.
+
+</Locale>

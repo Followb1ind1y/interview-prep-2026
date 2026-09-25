@@ -1,51 +1,306 @@
 ---
 title: Context Window
 titleEn: Context Window
-description: limit、input / output tokens、attention cost、long context degradation、lost-in-the-middle。
-descriptionEn: Limits, input vs output tokens, attention cost, degradation, lost-in-the-middle.
-date: 2026-09-07
-keywords: ["context window", "lost-in-the-middle", "long context"]
+description: 从 token 预算到长上下文质量，用同一客服案例算清容量、成本与证据位置。
+descriptionEn: Use one support case to reason about token budgets, long-context quality, and evidence position.
+date: 2026-09-24
+keywords: ["context window", "token budget", "long context", "lost in the middle", "prefill"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-长上下文不是免费的，质量也不会随长度单调变好。
+在 [Model Context](/docs/context/model-context) 中，猫粮客服查到了订单与退款政策。现在的新问题是：**如果对话、工具结果和政策文档不断增长，模型能装下多少，又能用好多少？** “API 接受了请求”只证明没有撞上硬上限，不证明回答可靠。
+
+本页先用 [Tokenization](/docs/llm/tokenization) 的 token 概念做预算，再用 [Attention & Transformer](/docs/llm/transformer) 的 attention / KV cache 解释成本，最后看证据位置与长上下文评测。面试重点是会算、会诊断，不背某款模型今天的窗口数字。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 预算 | 输入、预留输出、窗口上限怎样对账？ | 20 min |
+| 1 · 计算 | 为什么上下文越长通常越慢、越贵？ | 25 min |
+| 2 · 质量 | 什么是 lost in the middle？它是绝对规律吗？ | 25 min |
+| 3 · 决策 | 长窗口与 RAG 如何选、如何验证？ | 25 min |
+
+贯穿例子：客服需要从聊天历史、订单查询和退款政策中判断订单 20240915 是否能退款。下面的 token 数是**教学假设**；真实值应由目标模型的计数接口与响应 usage 核对。
 
 ## 需要掌握
 
-- context limit（上下文长度上限）
-- input tokens / output tokens（输入 / 输出 token）
-- attention cost（注意力计算成本）
-- long context degradation（长上下文性能退化）
-- lost-in-the-middle（中间信息丢失）
+- 区分输入 token、生成 token、输出预留、模型窗口与 API 限制；写出单次调用的预算
+- 区分 prefill 的长输入处理与 decode 的逐 token 生成，不把 O(n²) 当成每个 API 的实际价格公式
+- 解释长上下文性能可能退化、证据位置偏差及其模型和任务依赖性
+- 用回答正确率、引证、延迟、费用比较长上下文与检索方案
 
-## 机制
+</Locale>
 
+<Locale lang="en">
+
+In [Model Context](/docs/context/model-context), the support assistant found an order and a refund policy. Now ask: **as chat history, tool results, and policy documents grow, how much can the model fit and how well can it use them?** An accepted request only shows it stayed within an API limit; it does not prove the answer is reliable.
+
+This page starts with token budgeting from [Tokenization](/docs/llm/tokenization), connects cost to attention and the KV cache from [Attention & Transformer](/docs/llm/transformer), then examines evidence position and evaluation. In interviews, calculate and diagnose rather than memorize today's model limits.
+
+## How to work through this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Budget | How do input, reserved output, and a window limit fit together? | 20 min |
+| 1 · Compute | Why does more context usually cost more time and money? | 25 min |
+| 2 · Quality | What is lost in the middle, and is it universal? | 25 min |
+| 3 · Decision | When do long context and retrieval make sense, and how do you test? | 25 min |
+
+The running example is a support assistant deciding whether order 20240915 qualifies for a refund using history, an order lookup, and policy. All token counts below are **teaching assumptions**; verify real counts with the chosen model's counting endpoint and response usage.
+
+## Must know
+
+- Separate input tokens, generated tokens, output reserve, model window, and API limits; budget one call.
+- Distinguish long-input prefill from sequential decode; O(n²) is not an API pricing formula.
+- Explain possible long-context degradation and position effects without claiming they hold equally for all models.
+- Compare long-context and retrieval designs on answer quality, citations, latency, and cost.
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 先会算窗口
+
+### Context window 到底限制什么？
+
+窗口是模型一次生成能够利用的上下文长度上限，通常按 token 表达。工程里还要区分**模型公布的上限**、提供商对特定接口设置的输入或输出上限，以及请求参数允许的最大输出；这些规则按模型和 API 版本查询，不能只拿一个“128K”就开工。
+
+假设一个示例接口允许本次调用总共最多 **16,000 token**。客服这轮计划放入：
+
+```text
+应用指令与工具定义       1,000
+用户问题与相关历史       2,000
+订单工具结果               500
+退款政策片段             8,000
+-----------------------------
+预计输入                11,500
+预留最大输出             1,000
+合计                    12,500 ≤ 16,000
+余量                     3,500
 ```
-input tokens + reserved output ≤ context limit
-attention ~ O(n²)  （稀疏变体也仍然随 n 变贵）
+
+这里的 1,000 输出预留是**上限规划**，并非一定生成 1,000。还要给模板包装、特殊 token、多模态输入和计数差异留空间。若再原样附加 6,000 token 工具日志，合计会变成 18,500，超出示例上限；这时应先决定日志中哪些内容与退款判断有关。
+
+<Note type="warning" title="不要把窗口数字当成永久事实">
+
+模型版本、提供商和端点的窗口、最大输出及计费口径会变。上线前用该模型的计数接口做请求前检查，再用响应 usage 对账；Gemini 的 [token 文档](https://ai.google.dev/gemini-api/docs/tokens) 就区分请求计数与响应计数。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 上例预计输入 11,500、输出最多 1,000，为什么还留 3,500 余量？
+2. 若工具日志再加 6,000，先检查什么，而不是直接截掉最早聊天？
+3. “模型有 16K 窗口”能否单独证明本次请求与输出配置一定合法？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Budget the window first
+
+### What does the context window limit?
+
+A context window is the amount of context a model can use for one generation, usually expressed in tokens. Also distinguish the **published model limit**, provider-specific input or output limits, and the maximum output configured for this request. Look up the rules for the actual model and API version; a single “128K” label is not enough.
+
+Assume an illustrative interface permits **16,000 tokens total** for this call:
+
+```text
+Instructions and tool definitions    1,000
+Question and relevant history        2,000
+Order tool result                      500
+Refund policy passages               8,000
+------------------------------------------
+Estimated input                     11,500
+Maximum output reserve               1,000
+Planned total                       12,500 ≤ 16,000
+Remaining margin                     3,500
 ```
 
-## 三级回答
+The 1,000-token reserve is a **planned maximum**, not guaranteed output. Leave room for template overhead, special tokens, multimodal inputs, and counting differences. Appending another 6,000 tokens of raw tool logs would bring the planned total to 18,500. First decide which lines actually matter to the refund decision.
 
-### Level 1 — 定义
+<Note type="warning" title="Do not treat window numbers as permanent">
 
-模型单次能处理的最大 token 数。输入和输出通常共享这个额度，或者分别计算。
+Windows, output limits, and billing rules vary by model, provider, and endpoint. Count before sending and reconcile response usage afterward. Gemini's [token guide](https://ai.google.dev/gemini-api/docs/tokens) distinguishes request and response counts.
 
-### Level 2 — 机制
+</Note>
 
-n 变大，attention 计算和 KV cache 都变贵。放在中间位置的证据更容易被模型忽略（lost-in-the-middle）。
+<Note title="Self-check: you should be able to answer">
 
-### Level 3 — 工程
+1. Why leave 3,500 tokens of margin in the example?
+2. If logs add 6,000 tokens, what would you inspect before blindly dropping old chat turns?
+3. Does “16K window” alone prove the request and output configuration are valid?
 
-就算有 1M 的窗口，也不该把整个语料库塞进去。检索、压缩、缓存依然必要。
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 1 · 长输入为什么有成本
+
+### Prefill、decode 与 KV cache 在这里各做什么？
+
+**Prefill** 是处理已经提供的输入，建立供后续生成使用的内部状态；**decode** 是一次生成一个新 token。自注意力让 token 可以参考其他允许的位置。在普通 dense attention 的简化分析中，处理长度为 n 的序列涉及约 n² 个位置关系；真实延迟还受模型结构、FlashAttention、批处理、硬件与服务实现影响，不能直接用 n² 预测账单。
+
+生成时的 **KV cache** 保存已处理位置的 key/value，避免每生成一个 token 就从头重复计算旧位置。随着本轮保留的 token 增加，它占用更多推理显存；这不等于后面 [Caching](/docs/context/caching) 页说的跨请求 prompt cache。详细机制见 [Inference](/docs/llm/inference)。
+
+回到客服：8,000 token 的政策全文，通常比 800 token 的相关片段带来更多输入处理与费用。把它从 8,000 减到 800，**不自动保证**回答更好；如果删掉了退款例外条件，质量反而会下降。工程目标是保住决定所需证据，同时控制 token。
+
+<Note type="tip" title="面试别把复杂度和价格混为一谈">
+
+可说：“Dense attention has a quadratic pairwise pattern in a simplified prefill view; provider latency and price require measurement.” 然后给出你的实测口径：input tokens、output tokens、TTFT（首 token 延迟）、总延迟与成本。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 输入长度增加主要先影响 prefill 还是 decode 的生成步数？
+2. KV cache 保存什么，为什么长上下文会增加其占用？
+3. 为什么不能用 O(n²) 直接算一张 API 账单？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Why long input has a cost
+
+### What do prefill, decode, and the KV cache do here?
+
+**Prefill** processes supplied input and builds state for generation. **Decode** generates one new token at a time. Self-attention lets a token use other permitted positions. In a simplified dense-attention analysis, a length-n sequence has roughly n² position pairs. Real latency also depends on architecture, FlashAttention, batching, hardware, and serving implementation; n² does not directly predict a bill.
+
+The **KV cache** retains previously computed keys and values during generation, avoiding recomputation of all earlier positions at each new token. Its inference-memory footprint grows with retained context. It is distinct from the cross-request prompt cache in [Caching](/docs/context/caching). [Inference](/docs/llm/inference) covers the implementation.
+
+In the support case, an 8,000-token policy usually costs more input processing than an 800-token relevant excerpt. Shrinking it to 800 tokens **does not automatically improve quality**: removing a refund exception can make the answer wrong. Preserve decision-critical evidence while controlling tokens.
+
+<Note type="tip" title="Do not equate complexity with price">
+
+Say: “Dense attention has a quadratic pairwise pattern in a simplified prefill view; provider latency and price require measurement.” Then name your measures: input and output tokens, time to first token, total latency, and cost.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Does longer input first affect prefill or the number of generated decode steps?
+2. What does the KV cache store, and why can long context increase its footprint?
+3. Why can't O(n²) directly calculate an API bill?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 放得下，也可能找不到
+
+### Lost in the middle 是什么？如何避免过度概括？
+
+在长文档问答实验中，把相同的关键证据放在输入的**开头、中间、结尾**，一些模型在中间位置的表现明显较差；这就是 “lost in the middle” 的经典观察。[原始研究](https://arxiv.org/abs/2307.03172) 测了多文档问答与 key-value 检索。它是特定模型和任务上的实证现象，**不是所有新模型、所有长度都必然呈 U 形**。
+
+构造一个客服实验：唯一有用的一句是“已发货的订单不能走未发货退款流程”。把这句分别放到一组长政策资料的前部、中部和末尾，其余内容与问题保持相同。若中部版本更常答错，你得到的是**这个模型、这类问题、这组长度下的位置敏感性**。下一步可先提高检索命中与相关段落可见性，再测不同排序；不能只凭一篇论文武断地说“永远把答案放最后”。
+
+<Note type="warning" title="区分硬上限与软退化">
+
+超出窗口是容量问题，可能被拒绝或截断；在窗口以内回答变差是利用问题。还要排除检索根本没找到证据、证据过期、问题多跳推理太难等原因。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 怎样只改变证据位置，设计一个可比较的测试？
+2. 页面进入 200K token 而模型答错，可能有哪三类原因？
+3. 为什么不能把 lost in the middle 说成所有模型的固定规律？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Fitting is not the same as finding
+
+### What is lost in the middle, and how should we qualify it?
+
+In long-document experiments, some models perform worse when the same decisive evidence appears in the **middle** of the input rather than near the beginning or end. The original [Lost in the Middle study](https://arxiv.org/abs/2307.03172) tested multi-document QA and key-value retrieval. This is an empirical result for tested models and tasks, **not a universal U-shaped law for every newer model or length**.
+
+For the support assistant, use one decisive policy line: “Shipped orders cannot use the unshipped-order refund flow.” Place it near the front, middle, and end of otherwise identical long policy packs. Keep the question fixed. If middle placement reduces accuracy, you have evidence of **position sensitivity for this model, task, and length**. Improve retrieval and visibility, then compare orderings; do not turn one paper into “always put the answer last.”
+
+<Note type="warning" title="Separate hard limits from soft degradation">
+
+Exceeding the window is a capacity problem and may trigger rejection or truncation. A wrong answer within the window is an information-use problem. First rule out missing retrieval, stale evidence, and hard multi-hop reasoning.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. How would you vary only evidence position in a comparable test?
+2. If the model gets a 200K-token page and answers incorrectly, name three possible causes.
+3. Why is lost in the middle not a fixed law for all models?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 什么时候用长窗口，什么时候用检索
+
+### 有超长窗口，还需要 RAG 吗？
+
+取决于资料规模、更新频率、可追溯性、延迟和实测质量。若客户给一份有限、需要通读的合同，直接放入可行窗口可能很合适。若退款政策和订单数据频繁变化，或知识库很大，通常要查询权威状态并检索相关版本。**长窗口与 RAG 可以组合**：检索先缩小候选，再给模型足够的上下文做判断；也可以用长窗口处理少量完整文档。
+
+拿一组真实或仿真的客服题比较三种方案：A 只送整份政策；B 只送检索的片段；C 先检索后附必要上下文。对每题检查订单状态是否真实、是否引用正确政策条款、退款判断是否正确，并记录输入 token、首 token 延迟和费用。把证据特意放在不同位置，观察质量是否变化。**不要只测能否复述一段文字**；真正的任务是根据订单状态与政策作出合规判断。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 什么情况下整份文档直接送入可能比先做 RAG 更省事？
+2. 对频繁更新的订单状态，为什么窗口再大也需要查权威系统？
+3. 如何比较 A、B、C，防止只因答案流畅就误判质量？
+
+</Note>
+
+## 陷阱
+
+<Note type="danger" title="“窗口越大，答案必然越好”">
+
+容量不是相关性、准确性或时效性的保证。不同模型的长上下文能力也不同；用任务评测证实。
+
+</Note>
+
+## 连接
+
+```text
+Model Context → 本轮有哪些候选输入
+Context Window → 能放多少、是否用得好
+Construction → 选择哪些证据
+Compression → 历史太长时怎样保留关键事实
+```
 
 ## 面试问题
 
-1. 输入 token 和输出 token 分别怎么影响窗口和账单？（How do input tokens and output tokens affect the window and the bill?）
-2. 为什么长上下文会导致效果退化？（Why does quality degrade with long context?）
-3. Lost-in-the-middle 对 RAG 里的拼接顺序意味着什么？（What does lost-in-the-middle mean for how you order chunks in RAG?）
-4. 有了超长窗口，还需要 RAG 吗？（With a huge context window, do you still need RAG?）
+1. 如何给一次调用做输入和输出预算？（How do you budget input and output for a call?）
+2. Prefill、decode、KV cache 与上下文长度如何相关？（How do prefill, decode, and the KV cache relate to context length?）
+3. 如何验证 lost in the middle，而不是背论文结论？（How would you test lost in the middle?）
+4. 1M 窗口是否让 RAG 失去意义？（Does a very large window eliminate RAG?）
+5. 长窗口与检索方案比较哪些质量和生产指标？（Which quality and production metrics would you compare?）
 
 ## 我的答案
 
@@ -53,49 +308,53 @@ n 变大，attention 计算和 KV cache 都变贵。放在中间位置的证据�
 
 <Locale lang="en">
 
-Long context isn't free, and quality doesn't keep improving as it gets longer.
+## Level 3 · Choosing long context and retrieval
 
-## Must know
+### With a very large window, do we still need RAG?
 
-- context limit
-- input tokens / output tokens
-- attention cost
-- long context degradation
-- lost-in-the-middle
+It depends on corpus size, update frequency, traceability, latency, and measured quality. A finite customer-provided contract that must be read end to end may fit directly. Frequently changing orders and policies or a large knowledge base usually call for authoritative lookups and versioned retrieval. **Long context and RAG can combine**: retrieval narrows the candidates, then the model receives enough surrounding evidence to decide.
 
-## Mechanism
+Compare three designs on a set of realistic support questions: A sends the whole policy; B sends retrieved passages; C retrieves and adds necessary surrounding context. For each, check live order status, correct policy citations, and the refund decision. Record input tokens, time to first token, and cost. Move decisive evidence across positions as a separate test. **Simple text recall is not the business task**; a correct decision grounded in order state and policy is.
 
+<Note title="Self-check: you should be able to answer">
+
+1. When might sending one whole document be simpler than a RAG pipeline?
+2. Why does a large window not remove the need to query live order state?
+3. How would you compare A, B, and C without mistaking fluency for correctness?
+
+</Note>
+
+## Traps
+
+<Note type="danger" title="“A larger window always improves answers”">
+
+Capacity does not guarantee relevance, accuracy, or freshness. Long-context behavior varies across models; test the actual task.
+
+</Note>
+
+## Connections
+
+```text
+Model Context → candidate inputs
+Context Window → capacity and actual utilization
+Construction → evidence selection
+Compression → preserving facts when history grows
 ```
-input tokens + reserved output ≤ context limit
-attention ~ O(n²)  (sparse variants still get more expensive as n grows)
-```
-
-## Three-level answers
-
-### Level 1 — Definition
-
-The maximum number of tokens a model can handle in one call. Input and output usually share that budget or are counted separately.
-
-### Level 2 — Mechanism
-
-As n grows, both attention compute and the KV cache get more expensive. Evidence placed in the middle is more likely to be ignored (lost-in-the-middle).
-
-### Level 3 — Engineering
-
-Even with a 1M-token window, you shouldn't pour the whole corpus in. Retrieval, compression, and caching are still necessary.
 
 ## Interview questions
 
-1. How do input tokens and output tokens affect the window and the bill?
-2. Why does quality degrade with long context?
-3. What does lost-in-the-middle mean for how you order chunks in RAG?
-4. With a huge context window, do you still need RAG?
+1. How do you budget input and output for one call?
+2. How do prefill, decode, and the KV cache relate to context length?
+3. How would you test lost in the middle?
+4. Does a very large window eliminate RAG?
+5. Which quality and production metrics would you compare?
 
 ## My answer
 
 </Locale>
 
--
+- 30s:
+- 2min:
 
 <Locale lang="zh">
 
@@ -110,3 +369,15 @@ Even with a 1M-token window, you shouldn't pour the whole corpus in. Retrieval, 
 </Locale>
 
 -
+
+<Locale lang="zh">
+
+资料核对：[Lost in the Middle 原论文](https://arxiv.org/abs/2307.03172) · [Anthropic 的 context engineering 指南](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) · [Gemini 长上下文说明](https://ai.google.dev/gemini-api/docs/long-context)。
+
+</Locale>
+
+<Locale lang="en">
+
+References checked: the [Lost in the Middle paper](https://arxiv.org/abs/2307.03172), [Anthropic's context engineering guide](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents), and [Gemini long-context guide](https://ai.google.dev/gemini-api/docs/long-context).
+
+</Locale>

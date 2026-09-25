@@ -1,52 +1,286 @@
 ---
 title: LLM Evaluation
 titleEn: LLM Evaluation
-description: exact match、BLEU / ROUGE（知道即可）、semantic、LLM-as-judge、pairwise、rubric。
-descriptionEn: Exact match, BLEU/ROUGE at a glance, semantic, LLM-as-judge, pairwise, rubrics.
-date: 2026-09-07
-keywords: ["llm-as-judge", "pairwise evaluation", "rubric"]
+description: 给开放式回答选择合适 grader：确定性检查、语义方法、rubric、成对比较与人工校准。
+descriptionEn: "Choose graders for open-ended outputs: deterministic checks, semantic methods, rubrics, pairwise review, and human calibration."
+date: 2026-09-24
+keywords: ["llm evaluation", "llm as judge", "rubric", "pairwise", "judge calibration", "bias"]
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-生成类任务很少能只靠精确匹配来评。
+同一个正确退款解释可以有很多种措辞。若要求与一条参考回复逐字相同，会错杀好答案；但只让评审模型说“看起来不错”，又可能放过错误承诺。**评测方法必须匹配被测属性**。
+
+本页接 [Fundamentals](/docs/evaluation/fundamentals) 和 [Offline](/docs/evaluation/offline)：从确定性检查开始，理解语义相似的边界，再构造有锚点的 LLM judge 与成对比较，最后用人工标注校准。贯穿案例仍是订单 20240915 的客服回复。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 方法匹配 | 何时用精确匹配、重叠、语义或规则？ | 25 min |
+| 1 · Judge | 如何让评审模型按可观察标准评分？ | 30 min |
+| 2 · 成对比较 | A/B 哪个更好，如何处理位置与风格偏差？ | 25 min |
+| 3 · 校准 | Judge 与人工不一致时，怎样算并改进？ | 30 min |
 
 ## 需要掌握
 
-- exact match（精确匹配）
-- BLEU / ROUGE（知道即可）
-- semantic similarity（语义相似度）
-- LLM-as-a-judge（用 LLM 当评审）
-- pairwise evaluation（两两对比评测）
-- rubric-based evaluation（按评分细则打分）
+- 知道 exact match、BLEU/ROUGE、embedding similarity 各测什么，不能把相似当事实正确
+- 将裁判任务拆成单一、可观察维度，提供输入、证据、rubric、输出格式和不确定选项
+- 成对比较要盲化、交换顺序、允许平局；“更稳定”要在具体任务上验证
+- 用人工混淆矩阵检查 judge 假通过，固定版本，监控漂移与评审成本
 
-## 机制
+</Locale>
 
+<Locale lang="en">
+
+Many phrasings can correctly explain one refund decision. Exact string matching rejects good answers, but asking a judge model whether a response “looks good” may let a false promise through. **Choose a grader for the property being tested.**
+
+Following [Fundamentals](/docs/evaluation/fundamentals) and [Offline](/docs/evaluation/offline), start with deterministic checks, understand semantic measures, design an anchored LLM judge and pairwise comparison, then calibrate against human labels. The running case is the reply for order 20240915.
+
+## How to work through this page
+
+| Level | Question | Time |
+| --- | --- | --- |
+| 0 · Method matching | When do exact, overlap, semantic, and rule checks apply? | 25 min |
+| 1 · Judge | How do you give a judge observable criteria? | 30 min |
+| 2 · Pairwise | Which A/B answer is better, and what biases matter? | 25 min |
+| 3 · Calibration | How do you measure and correct disagreement with people? | 30 min |
+
+## Must know
+
+- Know what exact match, BLEU/ROUGE, and embedding similarity measure; similarity is not factual correctness.
+- Give judges one observable dimension, input, evidence, rubric, output schema, and an uncertainty option.
+- Blind pairwise comparison, swap answer order, allow ties; validate any claim of stability on the task.
+- Check false passes against human labels, pin judge versions, and monitor drift and grading cost.
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 先选对尺子
+
+### 为什么不能只用 exact match 或 embedding 相似？
+
+若目标是 `decision=not_eligible_for_unshipped_refund`，结构化决策字段可做 **exact match**。若目标是“不要调用退款写工具”，可查真实工具 trace / 数据库状态。二者比让 LLM judge 猜测更直接。
+
+**BLEU/ROUGE** 衡量候选与参考文本的词或片段重叠，适合了解表面相似度，不能证明业务事实正确。**Embedding similarity** 测语义接近，也可能把“可以退款”与“不能退款”判得很像，因为两句主题相同、只差否定。对于客服自然语言的清晰度、完整解释等开放属性，可引入人或 LLM judge。
+
+把同一回答拆开检查：
+
+```text
+回复: “订单运输中，按 P-17 不能走未发货退款；请联系退货流程。”
+决策字段          → 规则/精确匹配
+是否真的运输中    → 订单系统与查询时间
+政策引用有效      → 当前版本条款校验
+解释是否清楚      → 人工或 rubric judge
+是否执行了退款    → 写操作记录
 ```
-有参考答案     精确匹配 / 文本重叠 / embedding 相似度
-无参考答案     评审模型 + 评分细则 / 两两对比
+
+<Note title="自测：到这里你应该能回答">
+
+1. 什么时候 exact match 反而是最佳方法？
+2. 为什么两句只差“不能”时，语义相似分数可能误导？
+3. 怎样检查“没有执行退款”，而不让 judge 猜？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Pick the right ruler
+
+### Why not use only exact match or embedding similarity?
+
+For a structured target such as `decision=not_eligible_for_unshipped_refund`, **exact match** is useful. To check “do not call the refund write tool,” inspect the actual tool trace or database state. Both are more direct than asking a judge model to infer what happened.
+
+**BLEU/ROUGE** measure text or n-gram overlap with a reference; they say little about business correctness. **Embedding similarity** measures semantic closeness and may rate “refundable” and “not refundable” similarly because the topic is almost identical except for negation. Human review or an LLM judge fits more open properties such as clarity and explanation completeness.
+
+Split one answer into checks:
+
+```text
+Reply: “The order is in transit; under P-17 it cannot use the
+        unshipped refund flow. Please follow the return process.”
+Decision field          → rule / exact match
+Actually in transit?    → order system and query time
+Policy citation valid?  → current versioned clause
+Explanation clear?      → human or rubric judge
+Refund executed?        → write-operation record
 ```
 
-## 三级回答
+<Note title="Self-check: you should be able to answer">
 
-### Level 1 — 定义
+1. When is exact match the best choice?
+2. Why can semantic similarity mislead on a single negation?
+3. How do you prove no refund was executed without asking a judge to guess?
 
-给自由文本的输出打分。有的对照参考答案，有的用更强的模型当评审。
+</Note>
 
-### Level 2 — 机制
+</Locale>
 
-LLM-as-judge 用评分细则减少主观噪声。两两对比比打绝对分更稳定。BLEU / ROUGE 对对话类任务很弱，知道它们的局限就够了。
+---
 
-### Level 3 — 工程
+<Locale lang="zh">
 
-评审模型会偏爱某种风格，也会受答案位置影响。要抽样和人工标注对齐，并固定评审模型的版本。
+## Level 1 · 写出可审核的 Judge
+
+### Rubric 怎样把“回答好不好”变成判断标准？
+
+让评审只判一个轴，例如“是否作出有证据支持的退款判断”，并给它**问题、订单与政策证据、候选回答、判定规则**。示意评分合同：
+
+```text
+输入: 用户问题 + 已核实订单状态 + 当前政策条款 + 候选答复
+输出: {verdict: pass|fail|uncertain, cited_claims: [...], reason: ...}
+pass: 不承诺与状态/政策冲突的退款；说明依据和下一步
+fail: 承诺不允许的退款、编造订单状态或引用旧版政策
+uncertain: 关键证据缺失或相互冲突
+```
+
+这里的 `pass|fail|uncertain` 在代码块里作为示意，实际 JSON Schema 应用枚举。让 judge **标出具体主张与证据**，便于人工复核；但理由文本不保证一定真实，仍要与原始 trace 对照。固定被测输入、judge 模型和 rubric 版本，否则分数变化可能来自尺子变了，而不是系统变了。
+
+不要把风险不同的维度压成一个 1–5 分。可以分别判“决策”“证据”“语气”，关键错误单独触发 hard fail。Judge 自身看到的资料范围也要足够：没给订单状态，它不能可靠判断退款资格。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么要提供当前政策，而不是只给模型答复？
+2. `uncertain` 与 `fail` 有何区别？
+3. Rubric 改版后为何不能直接与旧分数比较？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Write an auditable judge
+
+### How does a rubric turn “good answer?” into criteria?
+
+Ask a judge to assess one axis, such as “is the refund decision supported?” Supply the **question, verified order and policy evidence, candidate reply, and criteria**:
+
+```text
+Input: question + verified order state + current policy + candidate reply
+Output: {verdict: pass|fail|uncertain, cited_claims: [...], reason: ...}
+pass: no promise conflicting with state/policy; explain basis and next step
+fail: promise forbidden refund, invent status, or cite obsolete policy
+uncertain: decisive evidence missing or conflicting
+```
+
+`pass|fail|uncertain` is illustrative notation; an implementation should use a real enum schema. Ask for specific claims and evidence so humans can audit decisions, but a judge's explanation can also be wrong. Compare it with source traces. Pin test inputs, judge model, and rubric version; otherwise score changes may reflect a changed ruler.
+
+Do not collapse axes with different risks into one 1–5 score. Grade decision, evidence, and tone separately, and treat critical errors as hard failures. The judge also needs sufficient evidence: without order state it cannot reliably decide eligibility.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why provide current policy instead of only the candidate reply?
+2. How is `uncertain` different from `fail`?
+3. Why can't new-rubric scores be directly compared to old ones?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 2 · 成对比较与偏差
+
+### A 比 B 好，怎样问得更公平？
+
+若 A 与 B 都答对退款资格，但措辞和解释不同，成对比较让 judge 在**相同问题、证据与标准**下选更好的答案。它通常比“各打一个抽象 1–5 分”更容易定义差异，但不是天然无偏。给匿名的 A/B，交换展示顺序，再观察是否翻转；允许 **平局** 和“证据不足”。
+
+例：A 用 30 字给对决策但缺下一步；B 用 120 字给对决策并清楚列下一步。若 rubric 看重完整性，B 可能胜出；若 B 额外编造“免费退货”，应判失败，不因更长、更自信而获胜。LLM judge 可能有**位置、冗长、风格或同系列模型偏好**；研究已观察到这些偏差，具体大小依模型与任务变化。[MT-Bench/Chatbot Arena 研究](https://arxiv.org/abs/2306.05685)
+
+对于“是否发生越权写入”这类事实，别用成对偏好来决定。成对比较适合难以给绝对分的表达质量或整体偏好，但事实与安全条件应由独立确定性检查优先覆盖。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么交换 A/B 位置后再评一次？
+2. B 更长但编造免费退货，为什么不能赢？
+3. 哪些指标不应只靠成对偏好？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Pairwise comparison and bias
+
+### How do you ask whether A is better than B fairly?
+
+If both A and B make the correct refund decision but differ in explanation, pairwise comparison asks a judge to choose under the **same question, evidence, and criteria**. It can be easier to discriminate than assigning two abstract 1–5 scores, but is not bias-free. Blind the names, swap display order, and allow **ties** or “insufficient evidence.”
+
+Example: A gets the decision right in 30 words but omits the next step; B explains it in 120 words. B may win for completeness. If B also invents “free returns,” it should fail despite length and confidence. LLM judges can exhibit **position, verbosity, style, and model-family biases**; their sizes vary by task and model. [MT-Bench/Chatbot Arena study](https://arxiv.org/abs/2306.05685)
+
+Do not use preference voting to establish whether an unauthorized write occurred. Pairwise grading suits expression quality or overall preference, while factual and safety constraints deserve direct checks.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why judge again after swapping A and B?
+2. Why must a longer B that invents free returns not win?
+3. Which metrics should not rely on pairwise preference alone?
+
+</Note>
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 3 · 用人工标签校准 Judge
+
+### 如何量化“Judge 大体同意人工”？
+
+在**10 个教学样本**上，专家确认 6 个通过、4 个失败。Judge 的混淆表如下（“正”=应通过）：
+
+| | 人工通过 | 人工失败 |
+| --- | ---: | ---: |
+| Judge 通过 | 5 | 2 |
+| Judge 失败 | 1 | 2 |
+
+一致数为 `(5+2)/10 = 70%`；更关键的是 **false pass = 2/4 = 50% 的人工失败被放过**。这么小的样本只用于手算，不能稳定估计总体表现。若两条假通过都是越权退款，judge 不适合作为唯一发布门槛。
+
+校准流程：① 由业务专家标注分层样本并处理分歧；② 将 judge 判定与人工逐 case 对照，特别查看 false pass；③ 改进 rubric、证据输入、阈值或改为确定性检查；④ 在**未用于调 judge 的样本**上重测；⑤ 版本更新后持续抽样审计。也要检查不同语言、订单状态和较长回答是否有系统偏差。
+
+<Note type="danger" title="不要让 Judge 给自己背书">
+
+用同一个 judge 自动造标签、调 rubric、再报告与这些标签“一致”，会产生循环验证。高后果判断需要独立人或权威系统作对照。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 上表一致率和 false pass 各是多少？
+2. 为什么 70% 一致率不足以批准用于退款安全门槛？
+3. 改完 rubric 后，为什么需要新的 holdout？
+
+</Note>
+
+## 连接
+
+```text
+Fundamentals → 被测属性和真值
+Offline → 人工标签与 holdout
+LLM Evaluation → 给开放式输出选 grader
+RAG / Agent → 结合检索和轨迹的专项评分
+```
 
 ## 面试问题
 
-1. 什么时候绝对不能用 LLM-as-judge？（When should you never use LLM-as-judge?）
-2. 两两对比比 1–5 分打分好在哪？（Why is pairwise comparison better than a 1–5 score?）
-3. 评分细则至少要包含哪几条？（What must a rubric include at minimum?）
-4. 怎么校准评审模型和人工标注的一致性？（How do you calibrate agreement between the judge and human labels?）
+1. Exact match、BLEU/ROUGE、embedding similarity 与 judge 分别适合什么？（When do these graders fit?）
+2. 一份可用 rubric 应包含什么？（What belongs in a usable rubric?）
+3. 两两对比为何要交换位置？（Why swap answer order in pairwise grading?）
+4. 如何手算 judge 的假通过率？（How do you calculate a judge's false-pass rate?）
+5. 哪些情况不能只靠 LLM judge？（When is an LLM judge insufficient alone?）
 
 ## 我的答案
 
@@ -54,50 +288,58 @@ LLM-as-judge 用评分细则减少主观噪声。两两对比比打绝对分更�
 
 <Locale lang="en">
 
-Generation tasks can rarely be evaluated with exact match alone.
+## Level 3 · Calibrate against people
 
-## Must know
+### How do you quantify “the judge mostly agrees with experts”?
 
-- exact match
-- BLEU / ROUGE (know them, don't dwell)
-- semantic similarity
-- LLM-as-a-judge
-- pairwise evaluation
-- rubric-based evaluation
+On **10 teaching cases**, experts mark 6 pass and 4 fail. The judge confusion table is:
 
-## Mechanism
+| | Human pass | Human fail |
+| --- | ---: | ---: |
+| Judge pass | 5 | 2 |
+| Judge fail | 1 | 2 |
 
+Agreement is `(5+2)/10 = 70%`. More concerning, **false-pass rate among human failures is 2/4 = 50%**. Ten cases illustrate the arithmetic, not a stable population estimate. If the two false passes are unauthorized refunds, the judge cannot be the only release gate.
+
+Calibrate by ① expert-labeling sliced cases and resolving disputes; ② reviewing case-level disagreements, especially false passes; ③ changing rubric, evidence, threshold, or using deterministic checks; ④ retesting on cases **not used to tune the judge**; and ⑤ sampling audits after version changes. Look for systematic errors across languages, order states, and answer lengths.
+
+<Note type="danger" title="Do not let a judge validate itself">
+
+Using one judge to create labels, tune its rubric, and report “agreement” with those labels is circular. High-consequence decisions need independent people or authoritative systems.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. What are agreement and false-pass rates in the table?
+2. Why is 70% agreement insufficient for a refund safety gate?
+3. Why use a fresh holdout after editing the rubric?
+
+</Note>
+
+## Connections
+
+```text
+Fundamentals → target property and truth
+Offline → expert labels and holdout
+LLM Evaluation → graders for open text
+RAG / Agent → retrieval- and trajectory-specific grading
 ```
-reference-based     exact / overlap / embedding similarity
-reference-free      judge model + rubric / pairwise
-```
-
-## Three-level answers
-
-### Level 1 — Definition
-
-Scoring free-text output. Some methods compare against a reference answer; others use a stronger model as the judge.
-
-### Level 2 — Mechanism
-
-LLM-as-judge uses a rubric to cut subjective noise. Pairwise comparison is more stable than absolute scores. BLEU and ROUGE are weak for conversational tasks — just know their limits.
-
-### Level 3 — Engineering
-
-Judges favor certain styles and are swayed by answer position. Spot-check against human labels and pin the judge model version.
 
 ## Interview questions
 
-1. When should you never use LLM-as-judge?
-2. Why is pairwise comparison better than a 1–5 score?
-3. What must a rubric include at minimum?
-4. How do you calibrate agreement between the judge and human labels?
+1. When do exact match, BLEU/ROUGE, embeddings, and judges fit?
+2. What belongs in a usable rubric?
+3. Why swap answer order in pairwise grading?
+4. How do you calculate a judge's false-pass rate?
+5. When is an LLM judge insufficient alone?
 
 ## My answer
 
 </Locale>
 
--
+- 30s:
+- 2min:
 
 <Locale lang="zh">
 
@@ -112,3 +354,15 @@ Judges favor certain styles and are swayed by answer position. Spot-check agains
 </Locale>
 
 -
+
+<Locale lang="zh">
+
+资料核对：[OpenAI Graders](https://developers.openai.com/api/docs/guides/graders) · [LLM-as-a-Judge 偏差研究](https://arxiv.org/abs/2306.05685)。这里的混淆表和阈值讨论均为教学示例。
+
+</Locale>
+
+<Locale lang="en">
+
+References checked: [OpenAI Graders](https://developers.openai.com/api/docs/guides/graders) and [LLM-as-a-Judge bias research](https://arxiv.org/abs/2306.05685). The confusion matrix is a teaching example.
+
+</Locale>
