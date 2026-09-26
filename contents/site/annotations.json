@@ -349,6 +349,356 @@
       "updatedAt": 1790041253765
     }
   ],
+  "/docs/agent/planning": [
+    {
+      "id": "08c7c293-615f-4fe9-b864-fefe58457385",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "它是把一个开放目标转成有验收条件、依赖关系、下一步证据和停止边界的工作状态",
+        "prefix": "lanning 不是让 agent 在开头写一张很长的待办清单。",
+        "suffix": "，并在事实变化时更新。没有这些内容的“计划”，通常只是看起来专业"
+      },
+      "createdAt": 1790449551767,
+      "updatedAt": 1790449551767
+    },
+    {
+      "id": "5108c9e0-43da-4a94-b554-584d36c1463c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Goal",
+        "prefix": "   报价或政策缺失、冲突，或需要例外批准时，说明卡点并停止。\n",
+        "suffix": " 给方向；acceptance condition 定义可检查的"
+      },
+      "createdAt": 1790449760782,
+      "updatedAt": 1790449760782
+    },
+    {
+      "id": "a92809be-b667-40e4-986e-c08d7de7f874",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "acceptance condition",
+        "prefix": "失、冲突，或需要例外批准时，说明卡点并停止。\nGoal 给方向；",
+        "suffix": " 定义可检查的完成；constraints 限制工具、权限和预算"
+      },
+      "createdAt": 1790449764037,
+      "updatedAt": 1790449764037
+    },
+    {
+      "id": "9ce09672-cd3b-4c1d-9c3a-9407be6c5405",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "constraints",
+        "prefix": "向；acceptance condition 定义可检查的完成；",
+        "suffix": " 限制工具、权限和预算；stop condition 定义诚实地"
+      },
+      "createdAt": 1790449766670,
+      "updatedAt": 1790449766670
+    },
+    {
+      "id": "dc378f4b-a770-4b35-84bd-d1272ca0f3e4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "stop condition",
+        "prefix": "定义可检查的完成；constraints 限制工具、权限和预算；",
+        "suffix": " 定义诚实地不继续的时机。计划只是选择怎样从当前状态到达这些条件"
+      },
+      "createdAt": 1790449774222,
+      "updatedAt": 1790449774222
+    },
+    {
+      "id": "7517cc07-b383-48e0-b3ec-91bda802007b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "好的步骤不只叫“查报价”",
+        "prefix": "择怎样从当前状态到达这些条件的路径。一个计划步骤至少应包含什么？",
+        "suffix": "。它需要：\naction：调用或执行什么；\npreconditi"
+      },
+      "createdAt": 1790449795505,
+      "updatedAt": 1790449795505
+    },
+    {
+      "id": "e5623537-0943-474c-95a6-3d528ab026dd",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "action",
+        "prefix": "一个计划步骤至少应包含什么？好的步骤不只叫“查报价”。它需要：\n",
+        "suffix": "：调用或执行什么；\nprecondition：什么已知时才能做；"
+      },
+      "createdAt": 1790449798044,
+      "updatedAt": 1790449798044
+    },
+    {
+      "id": "33a192ce-08c2-4693-87cb-c4680ddc884a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "precondition",
+        "prefix": "步骤不只叫“查报价”。它需要：\naction：调用或执行什么；\n",
+        "suffix": "：什么已知时才能做；\nexpected evidence：成功或"
+      },
+      "createdAt": 1790449800905,
+      "updatedAt": 1790449800905
+    },
+    {
+      "id": "b0493b50-1eae-441f-a491-e97702557b49",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "expected evidence",
+        "prefix": "调用或执行什么；\nprecondition：什么已知时才能做；\n",
+        "suffix": "：成功或失败后要得到哪类事实；\nnext decision：该事"
+      },
+      "createdAt": 1790449803277,
+      "updatedAt": 1790449803277
+    },
+    {
+      "id": "b85b4eab-0fbd-4ee1-ac57-d7ca0031d0ab",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "next decision",
+        "prefix": "xpected evidence：成功或失败后要得到哪类事实；\n",
+        "suffix": "：该事实会影响哪个分支；\nfallback：拿不到证据时怎么办。"
+      },
+      "createdAt": 1790449805432,
+      "updatedAt": 1790449805432
+    },
+    {
+      "id": "253cc968-f8bc-4f7e-a01e-f235e5188f05",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "fallback",
+        "prefix": "哪类事实；\nnext decision：该事实会影响哪个分支；\n",
+        "suffix": "：拿不到证据时怎么办。\n例如“读取最新报价”的预期证据是报价编号"
+      },
+      "createdAt": 1790449807327,
+      "updatedAt": 1790449807327
+    },
+    {
+      "id": "dec60f18-7bc3-4f7d-a334-b755eaebcfb0",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "计划的顺序应由信息和动作依赖决定",
+        "prefix": "解：先拿到会改变决策的事实为什么按依赖拆，而不是按想到的顺序列？",
+        "suffix": "。创建草稿依赖当前报价与政策；政策的适用范围又可能依赖供应商和合"
+      },
+      "createdAt": 1790449926797,
+      "updatedAt": 1790449926797
+    },
+    {
+      "id": "60afa76e-b04b-46fd-8fd2-79ad98fb3c51",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Plan-and-execute 先生成一个相对稳定的任务骨架，再逐步执行",
+        "prefix": "lan-and-Execute 与动态决策两种模式的差别是什么？",
+        "suffix": "；适合已知依赖、步骤较多、需要让人预览范围的工作。它不表示未来永"
+      },
+      "createdAt": 1790450034881,
+      "updatedAt": 1790450034881
+    },
+    {
+      "id": "5fcc05b4-2047-4b1a-b8d2-2fc6b7b44591",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "减少每一步都从零思考的开销",
+        "prefix": "赖、步骤较多、需要让人预览范围的工作。它不表示未来永不改变，而是",
+        "suffix": "。ReAct 式动态决策则每收到 observation 就选择"
+      },
+      "createdAt": 1790450042768,
+      "updatedAt": 1790450042768
+    },
+    {
+      "id": "1a1e2980-31af-41b0-81eb-e7d53adc4d1d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "ReAct 式动态决策则每收到 observation 就选择下一步；适合工具结果高度不确定、任务很短或固定大计划会很快失效的情况",
+        "prefix": "围的工作。它不表示未来永不改变，而是减少每一步都从零思考的开销。",
+        "suffix": "。例如报价已知但供应商邮件意图不清时，先读邮件、再选择检索哪条政"
+      },
+      "createdAt": 1790450059513,
+      "updatedAt": 1790450059513
+    },
+    {
+      "id": "fa315d22-d909-4d2c-8c22-9569357b5d48",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "局部失效、局部重规划",
+        "prefix": "，取消依赖它的政策比较与草稿创建，重新读取有效报价后继续。这叫做",
+        "suffix": "。怎样避免 replan 变成无限循环？每次 replan 都应"
+      },
+      "createdAt": 1790451057917,
+      "updatedAt": 1790451057917
+    },
+    {
+      "id": "18dd6e05-cff2-4723-9f3a-17db8d764211",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每次 replan 都应成为一个可观测事件",
+        "prefix": "叫做局部失效、局部重规划。怎样避免 replan 变成无限循环？",
+        "suffix": "：记录触发 observation、失效的假设、保留的事实、新计"
+      },
+      "createdAt": 1790451065098,
+      "updatedAt": 1790451065098
+    },
+    {
+      "id": "75bb8561-c661-42a7-8561-44d91813464e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "记录触发 observation、失效的假设、保留的事实、新计划版本和预算消耗。它还需要一个进展判断：新计划是否有望获得新证据或更接近验收条件",
+        "prefix": "an 变成无限循环？每次 replan 都应成为一个可观测事件：",
+        "suffix": "？若只是在同一个 timeout 后重复同一 action，则应"
+      },
+      "createdAt": 1790451070260,
+      "updatedAt": 1790451070260
+    },
+    {
+      "id": "587480e1-ff1a-461a-b96c-b71349e09736",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Verification 检查外部可观察状态是否满足 acceptance condition",
+        "prefix": "Verification 和 Reflection 分别做什么？",
+        "suffix": "；reflection 分析预期与观察到的差异，提出下一步修复。"
+      },
+      "createdAt": 1790451219797,
+      "updatedAt": 1790451219797
+    },
+    {
+      "id": "9badc7ca-070b-4911-936a-1c821e960c59",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "reflection 分析预期与观察到的差异，提出下一步修复",
+        "prefix": "部可观察状态是否满足 acceptance condition；",
+        "suffix": "。它们不能互相替代。对反报价草稿，验证不是问模型“你完成了吗”，"
+      },
+      "createdAt": 1790451225764,
+      "updatedAt": 1790451225764
+    },
+    {
+      "id": "4d29e209-66b0-4629-a906-042e53668ced",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "绑定证据",
+        "prefix": "审核比模型自我报告更可靠。反思也不能是一句“我应该更仔细”。它应",
+        "suffix": "：expected: policy allows Net 30 "
+      },
+      "createdAt": 1790451262898,
+      "updatedAt": 1790451262898
+    },
+    {
+      "id": "28d5d0bd-ba37-406a-8700-91dbdcf189a4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "当工具调用和对话超过单次 context 容量时，完整 history 不应原样搬到新窗口",
+        "prefix": "window 保留任务，而不是保留所有原文长任务需要持久化什么？",
+        "suffix": "。保留一个小而可校验的 checkpoint：goal and "
+      },
+      "createdAt": 1790451334020,
+      "updatedAt": 1790451334020
+    },
+    {
+      "id": "71868a65-749d-46a7-ae70-ef135e1f7f88",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "留一个小而可校验的 checkpoint",
+        "prefix": "ntext 容量时，完整 history 不应原样搬到新窗口。保",
+        "suffix": "：goal and acceptance condition\nc"
+      },
+      "createdAt": 1790451346315,
+      "updatedAt": 1790451346315
+    },
+    {
+      "id": "e05e86b9-18b8-4f09-a876-a66d8d0de20b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "设定 checkpoint gate",
+        "prefix": "不要把名字不同的步骤都当成可并行。如何避免长程计划悄悄偏离目标？",
+        "suffix": "：每隔若干重要 action、每次 context compac"
+      },
+      "createdAt": 1790451373612,
+      "updatedAt": 1790451373612
+    },
+    {
+      "id": "76654ecc-1cde-4a0f-b8b1-a08ab53f1ed2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "应保留它的证据与版本，而不是执着执行或无痕覆盖",
+        "prefix": ":计划只基于当时信息。环境、工具和用户目标一变，旧计划可能失效；",
+        "suffix": "。用 reflection 替代验证:模型能写出流畅的失败分析，"
+      },
+      "createdAt": 1790451450512,
+      "updatedAt": 1790451450512
+    },
+    {
+      "id": "82f0cfdc-7c8b-4157-bfea-81a3e9752eb3",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "只基于当时信息",
+        "prefix": "on 前后怎样防止目标漂移？\n陷阱把计划当成真相而不是假设:计划",
+        "suffix": "。环境、工具和用户目标一变，旧计划可能失效；应保留它的证据与版本"
+      },
+      "createdAt": 1790451453791,
+      "updatedAt": 1790451453791
+    },
+    {
+      "id": "fc53d347-d3f7-4f1e-a57a-c2c7387d4b80",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "预设规则可以用 prompt 表达",
+        "prefix": "草稿\n运行时观察：Q-817 已过期 → 取消依赖它的后续步骤\n",
+        "suffix": "，也可以由 harness 的代码强制；具体计划通常根据当前目标"
+      },
+      "createdAt": 1790451537715,
+      "updatedAt": 1790451537715
+    },
+    {
+      "id": "9bffc14a-7548-4fb7-a34a-9381c9981125",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "具体计划通常根据当前目标和观察生成，并随事实更新",
+        "prefix": "以用 prompt 表达，也可以由 harness 的代码强制；",
+        "suffix": "。因此 Planning 既会用到 Prompt Enginee"
+      },
+      "createdAt": 1790451542777,
+      "updatedAt": 1790451542777
+    },
+    {
+      "id": "44a62db0-382c-4544-b526-f427b959605b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型也可以根据 observation 建议 replan",
+        "prefix": "同的次数阈值或循环检测。Harness 可以施加预算和调用限制；",
+        "suffix": "；最终是否达标仍需 Level 4 的外部验证。对于采购草稿，实"
+      },
+      "createdAt": 1790451688720,
+      "updatedAt": 1790451688720
+    }
+  ],
   "/docs/agent/react": [
     {
       "id": "7e03e9ae-55cb-46f4-8f41-6866f43213e9",

@@ -3,7 +3,7 @@ title: Planning
 titleEn: Planning
 description: 从目标与验收条件开始，把开放任务拆成有依赖、可验证、可重新规划的步骤。
 descriptionEn: "Start with goal and acceptance: decompose open work into dependent, verifiable, and revisable steps."
-date: 2026-09-21
+date: 2026-09-26
 keywords: ["planning", "task decomposition", "plan and execute", "replanning", "verification", "agent"]
 tier: A
 status: todo
@@ -124,6 +124,22 @@ Stop:       报价或政策缺失、冲突，或需要例外批准时，说明�
 
 例如“读取最新报价”的预期证据是报价编号、有效性、价格与付款条款；它不是为了完成待办，而是为了决定后续应查政策、创建草稿还是停止。
 
+<MyQuestion q="Planning 属于 Prompt Engineering，还是预先设计好的 Workflow？">
+
+两者都会参与，但要分清**流程规则**和**本次计划**。开发者可以写一句 instruction：“先核对报价，再写草稿”；这是 prompt 设计。如果程序固定按“读报价 → 查政策 → 写草稿”调用工具，这是 workflow。Planning 关注的是当前任务下要做什么、为什么做、依据什么结果改道：例如读到报价 `Q-817` 已过期，就不能继续沿原路径写草稿。
+
+可以把它放在三层里理解：
+
+~~~
+预设规则：先拿证据、写入前验证、发现过期就停或重规划
+本次计划：查 Q-817 → 查适用政策 → 生成待审核草稿
+运行时观察：Q-817 已过期 → 取消依赖它的后续步骤
+~~~
+
+预设规则可以用 prompt 表达，也可以由 harness 的代码强制；**具体计划通常根据当前目标和观察生成，并随事实更新**。因此 Planning 既会用到 Prompt Engineering，也涉及控制流、状态和工具结果。详见 Level 2 的两种执行方式。
+
+</MyQuestion>
+
 <Note title="自测：到这里你应该能回答">
 
 - Goal、acceptance、constraint 与 stop 各自解决什么问题？
@@ -165,6 +181,20 @@ A useful step is more than “check the quote.” It has:
 - fallback: what happens when evidence cannot be obtained.
 
 For example, reading the latest quote should return id, validity, price, and payment terms. It is not a checkbox; it decides whether to read policy, create a draft, or stop.
+
+<MyQuestion q="Is planning part of prompt engineering or a predefined workflow?">
+
+Both can contribute, but separate the **process rule** from the **task-specific plan**. “Check the quote before drafting” is an instruction and therefore prompt design. A program that always calls “read quote → check policy → create draft” is a workflow. Planning decides what to do for this task, why, and which observation changes the path. If quote `Q-817` is expired, the agent must not continue drafting from it.
+
+~~~
+Predefined rule: obtain evidence; validate before writing; stop or replan on expiry
+Current plan: inspect Q-817 → find applicable policy → prepare a review draft
+Observation: Q-817 expired → invalidate the dependent steps
+~~~
+
+The rule may live in instructions or in harness code. The concrete plan is usually generated from the current goal and revised as evidence arrives. Planning therefore spans prompting, control flow, state, and tool feedback. Level 2 compares two ways to run that loop.
+
+</MyQuestion>
 
 <Note title="Self-check: you should now be able to answer">
 
@@ -294,6 +324,35 @@ Dynamic branch:   choose which fact to obtain or which clarification to ask next
 
 最常见的答案是混合：用 plan 给出不可跳过的 milestones 和停止条件，让 agent 在 milestone 内动态选工具和检索顺序。这样既避免模型把整个任务锁死在过时大计划里，也避免它每轮忘记最终验收条件。
 
+<MyQuestion q="如果 Planning 不只是一段 prompt，模型怎么知道何时计划、执行或重新规划？">
+
+模型只能依据**本次调用收到的输入**来决策；它不会自动读取 harness 内存里的 plan。Harness（调用模型和工具的外层程序）可以保存任务状态，并在每轮构造输入时加入相关部分。这里的“context”就是送进模型的消息、工具定义、先前结果等；prompt/instruction 是其中用来指导行为的部分。Plan 可以被放入 context，但它不是 context 的全部。
+
+以同一个采购任务为例，下面是**教学用简化实现**，并非某个产品的内部代码：
+
+~~~
+Round 1: goal + policy boundary + "先列出获取证据的步骤"
+Model:   plan = read_quote → read_policy → compare → draft
+Harness: 保存 plan；执行模型选择的 read_quote
+
+Tool:    Q-817 expired
+Round 2: goal + current plan + "Q-817 expired" + "重新选择下一步"
+Model:   不再创建草稿；寻找有效报价，找不到就说明卡点
+Harness: 更新 plan 状态，并检查是否允许下一次工具调用
+~~~
+
+Harness 不一定要拼接多个 `system prompt`。它可以用一组固定指令加动态状态，也可以按阶段选不同模板，或用代码规定必须先验证再写入。关键是：**代码维护状态和执行边界；模型根据本轮可见信息提出计划或下一步；工具结果再改变下一轮输入。**
+
+</MyQuestion>
+
+<MyQuestion q="Codex 的 Plan mode 和普通执行模式，可以分别理解成 Plan-and-Execute 与 ReAct 吗？">
+
+可以作为**学习类比**，但不要把它当作 Codex 内部架构的精确说明。Codex 的 Plan mode 用于先提出可审阅的实施路径，再开始改代码；这接近“先看全局路线”。普通执行中，Codex 也会根据文件、命令和测试的反馈决定下一步；这接近 ReAct 的“行动 → 观察 → 调整”，但不意味着它完全没有整体计划。两种用法都可能在发现新事实后调整路线。
+
+例如“修复登录 bug”：Plan mode 先列出调查、修改、验证的路径供人审阅；执行时读到测试失败仍需调整具体步骤。普通执行可以先复现错误，再根据错误选文件调查，也可以自己维护一个简短计划。**区别在于是否先显式产出可审阅路径，不是有没有 planning。** 关于 Codex 产品行为，以 [OpenAI 的 Plan mode 说明](https://developers.openai.com/blog/run-long-horizon-tasks-with-codex) 为准。
+
+</MyQuestion>
+
 <Note title="自测：到这里你应该能回答">
 
 - Plan-and-execute 何时有价值，何时是浪费？
@@ -328,6 +387,23 @@ plan v2: read a valid quote → check applicable policy → create draft
 retained: goal, user authorization, no-send constraint
 invalidated: Q-817-derived comparison and any pending draft request
 ~~~
+
+<MyQuestion q="边做边规划时，怎样避免 agent 一直调用工具却没有进展？">
+
+**不能保证每一步都成功**；调查失败本身可能排除一个假设。要检查的是一段执行后有没有新信息、状态变化或可验证的结论。把每轮工具结果和目标对照，而不是只看模型说“我在推进”。
+
+例如 `read_quote(Q-817)` 得到“已过期”，虽然没有草稿，却排除了这份报价并触发新路径；再读同一份报价三次、每次都得到相同结果，就没有新增证据。一个可用的进展检查是：
+
+~~~
+新证据或有效状态变化？ → 更新计划并继续
+同一 action + 同一结果反复出现？ → 停止重复，换策略或报告卡点
+已满足 acceptance condition？ → 外部验证后结束
+步骤 / 时间 / 成本预算耗尽？ → 停止并交接当前证据
+~~~
+
+这些是**可选的设计机制**，不能假定所有 agent 或 Codex 都实现了相同的次数阈值或循环检测。Harness 可以施加预算和调用限制；模型也可以根据 observation 建议 replan；最终是否达标仍需 Level 4 的外部验证。对于采购草稿，实际检查的是草稿系统状态与当前政策，而不是“已经调用了很多次工具”。
+
+</MyQuestion>
 
 <Note title="自测：到这里你应该能回答">
 
@@ -495,6 +571,35 @@ Dynamic branch:   choose which fact to obtain or which clarification to ask next
 
 The common answer is a hybrid: a plan defines non-skippable milestones and stop conditions, while an agent dynamically chooses tools and retrieval order inside a milestone. This prevents both stale giant plans and agents that forget the final acceptance condition every turn.
 
+<MyQuestion q="If planning is more than a prompt, how does the model know when to plan, act, or replan?">
+
+The model decides from the **input to this call**. It cannot read a plan stored privately in harness state. The harness, the program around model and tool calls, can store that state and put the relevant pieces into the next call. “Context” here means the messages, tool definitions, and prior results the model receives. Instructions that guide behavior are one part of it; the current plan may be another.
+
+This is an **illustrative design**, not the internal implementation of a specific product:
+
+~~~
+Round 1: goal + policy boundary + "plan the evidence-gathering steps"
+Model:   plan = read_quote → read_policy → compare → draft
+Harness: save plan; execute the selected read_quote call
+
+Tool:    Q-817 expired
+Round 2: goal + current plan + "Q-817 expired" + "choose the next step"
+Model:   do not draft; find a valid quote or report a blocker
+Harness: update plan state; check whether another call is allowed
+~~~
+
+The harness need not concatenate multiple `system prompt` templates. It might combine fixed instructions with changing state, choose a phase-specific template, or enforce “validate before write” in code. **Code manages state and action boundaries; the model proposes a plan or next action from visible context; tool feedback shapes the next call.**
+
+</MyQuestion>
+
+<MyQuestion q="Can I map Codex Plan mode to plan-and-execute and its usual execution to ReAct?">
+
+Yes, as a **teaching analogy**, not an exact claim about Codex internals. Codex Plan mode proposes a reviewable implementation path before changing code. That resembles global planning. During normal execution, Codex can choose its next step from files, command output, and tests. That resembles an act-observe-adjust loop, but it does not mean there is no broader plan. Either approach may revise its path when evidence changes.
+
+For a login bug, Plan mode might propose investigation, change, and validation before edits. Execution still has to adapt if tests fail. A normal run may first reproduce the failure and then inspect the relevant files, while maintaining a short plan of its own. **The useful distinction is an explicit reviewable path up front, not the presence or absence of planning.** See [OpenAI's Plan mode description](https://developers.openai.com/blog/run-long-horizon-tasks-with-codex) for the product behavior.
+
+</MyQuestion>
+
 <Note title="Self-check: you should now be able to answer">
 
 - When is plan-and-execute valuable, and when is it waste?
@@ -529,6 +634,23 @@ plan v2: read a valid quote → check applicable policy → create draft
 retained: goal, user authorization, no-send constraint
 invalidated: Q-817-derived comparison and pending draft request
 ~~~
+
+<MyQuestion q="When planning while acting, how do you stop an agent from taking endless steps without progress?">
+
+You **cannot guarantee that every step succeeds**. A failed investigation may rule out a hypothesis. What matters is whether a short sequence produces new evidence, a meaningful state change, or a checkable conclusion. Compare each tool result with the goal rather than trusting “I am making progress.”
+
+For example, `read_quote(Q-817)` returning “expired” rules out that quote and changes the path. Reading the same quote three more times with the same result adds nothing. A practical progress check is:
+
+~~~
+New evidence or meaningful state change? → update plan and continue
+Same action and same result repeated? → stop repeating; switch path or report blocker
+Acceptance condition met? → verify externally, then finish
+Step, time, or cost budget exhausted? → stop and hand off the evidence
+~~~
+
+These are **possible design mechanisms**, not a claim that every agent or Codex uses the same thresholds or loop detector. A harness can enforce budgets and tool limits; the model can propose a replan from observations. Level 4's external verification decides whether the task is actually done. For the procurement draft, inspect draft state and current policy, not the number of tools called.
+
+</MyQuestion>
 
 <Note title="Self-check: you should now be able to answer">
 
