@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import grayMatter from 'gray-matter'
+import remarkMath from 'remark-math'
 import remarkMdx from 'remark-mdx'
 import remarkParse from 'remark-parse'
 import remarkStringify from 'remark-stringify'
@@ -154,6 +155,8 @@ async function processMdxFile(collection: CollectionId, filePath: string): Promi
   const processed = await unified()
     .use(remarkParse)
     .use(remarkMdx)
+    // Must match lib/markdown.ts, or `{…}` inside `$$…$$` parses as a JS expression.
+    .use(remarkMath, { singleDollarTextMath: false })
     .use(removeCustomComponents)
     .use(remarkStringify)
     .process(content)
