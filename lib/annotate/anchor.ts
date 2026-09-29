@@ -3,7 +3,7 @@ import { type Annotation, type TextQuote } from '@/lib/annotate/types'
 /** 前后各存多少字符做消歧 */
 const CONTEXT_LENGTH = 32
 /** 这些区域里的文字不参与定位 */
-const SKIP = 'script, style, noscript, [data-no-annotate]'
+const SKIP = 'script, style, noscript, [data-no-annotate], .katex-html, annotation'
 
 interface TextIndex {
   nodes: Text[]

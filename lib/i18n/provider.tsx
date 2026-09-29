@@ -1,8 +1,19 @@
 'use client'
 
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 
 import { messages, type Messages } from '@/lib/i18n/messages'
+import { captureScrollAnchor, restoreScrollAnchor, type ScrollAnchor } from '@/lib/i18n/scroll-anchor'
 import { defaultLocale, isLocale, type Locale } from '@/lib/i18n/types'
 
 const STORAGE_KEY = 'followblindly-locale'
@@ -23,6 +34,8 @@ export function I18nProvider({
   defaultLocale?: Locale
 }) {
   const [locale, setLocaleState] = useState<Locale>(initial)
+  const localeRef = useRef(locale)
+  const anchorRef = useRef<ScrollAnchor | null>(null)
 
   useEffect(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY)
@@ -31,11 +44,20 @@ export function I18nProvider({
     }
   }, [])
 
+  // Keep the reader on the same paragraph when switching zh <-> en.
+  useLayoutEffect(() => {
+    localeRef.current = locale
+    const anchor = anchorRef.current
+    anchorRef.current = null
+    if (anchor) restoreScrollAnchor(locale, anchor)
+  }, [locale])
+
   useEffect(() => {
     document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en'
   }, [locale])
 
   const setLocale = useCallback((next: Locale) => {
+    if (next !== localeRef.current) anchorRef.current = captureScrollAnchor(localeRef.current)
     setLocaleState(next)
     window.localStorage.setItem(STORAGE_KEY, next)
     document.cookie = `locale=${next};path=/;max-age=31536000;SameSite=Lax`

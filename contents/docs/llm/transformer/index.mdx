@@ -40,7 +40,7 @@ mastery: { talk: 0, probe: 0 }
 - 点积、线性层、softmax、张量形状 `[batch, seq_len, d_model]` 的含义
 - 什么是 Encoder、什么是 Decoder，RNN 版本的两个硬伤
 - Attention 的直觉：Q / K / V、打分 → softmax → 加权平均
-- Self-attention 的完整计算，以及为什么除以 √d_k
+- Self-attention 的完整计算，以及为什么除以 $$\sqrt{d_k}$$
 - 多头注意力、位置编码、padding mask 和 causal mask
 - Transformer block 的四个零件：attention、FFN、残差、LayerNorm
 - Encoder-only / Decoder-only / Encoder-Decoder 的区别，为什么 LLM 是 decoder-only
@@ -78,7 +78,7 @@ One example runs through the entire page: **translating 「我 爱 猫」 into "
 - what dot products, linear layers, softmax, and the tensor shape `[batch, seq_len, d_model]` mean
 - what an encoder and a decoder are, and the two weaknesses of the RNN version
 - the intuition behind attention: Q / K / V, score → softmax → weighted average
-- the full self-attention computation, and why scores are divided by √d_k
+- the full self-attention computation, and why scores are divided by $$\sqrt{d_k}$$
 - multi-head attention, positional encoding, the padding mask and the causal mask
 - the four parts of a Transformer block: attention, FFN, residual connections, LayerNorm
 - encoder-only vs. decoder-only vs. encoder-decoder, and why LLMs are decoder-only
@@ -128,7 +128,7 @@ One example runs through the entire page: **translating 「我 爱 猫」 into "
 
 <Note title="点积也会受数值大小影响">
 
-方向不变，只要向量里的数整体变大，点积也会跟着变大。`[2, 4] · [4, 2] = 16`，是 `[1, 2] · [2, 1]` 的 4 倍，但方向完全一样。Level 3 里「除以 √d_k」就是为了处理这个问题。
+方向不变，只要向量里的数整体变大，点积也会跟着变大。`[2, 4] · [4, 2] = 16`，是 `[1, 2] · [2, 1]` 的 4 倍，但方向完全一样。Level 3 里「除以 $$\sqrt{d_k}$$」就是为了处理这个问题。
 
 </Note>
 
@@ -156,15 +156,15 @@ W · x = [ 第 1 行 · x,        第 2 行 · x       ]
 两个关键认识：
 
 - **神经网络的「参数」基本就是这些 W 和 b 里的数**，「学习」就是调整这些数
-- **一次可以处理很多 token**：把 n 个 token 的向量排成 `[n, d]` 的矩阵，乘同一个 W，每个 token 都按同一套规则变换。Level 3 的 W_Q、W_K、W_V 就是三个这样的线性层
+- **一次可以处理很多 token**：把 n 个 token 的向量排成 `[n, d]` 的矩阵，乘同一个 W，每个 token 都按同一套规则变换。Level 3 的 $$W_Q$$、$$W_K$$、$$W_V$$ 就是三个这样的线性层
 
 ### Softmax：怎么把一组分数变成概率？
 
 模型经常先给一堆候选打分，再需要把分数变成「加起来等于 1 的概率」。这一步就是 softmax：
 
-```
-softmax(xᵢ) = e^xᵢ / (e^x₁ + e^x₂ + … + e^xₙ)
-```
+$$
+\operatorname{softmax}(x_i) = \frac{e^{x_i}}{e^{x_1} + e^{x_2} + \cdots + e^{x_n}}
+$$
 
 手算三个分数 `[2.0, 1.0, 0.1]`：
 
@@ -200,7 +200,7 @@ LLM 里最常见的就是最后这种 `[batch, seq_len, d_model]`：
 | --- | --- | --- |
 | batch | 2 | 一次同时喂进去几句话。一起算是为了让 GPU 并行，句子之间互不影响 |
 | seq_len | 5 | 每句话有几个 token |
-| d_model | 768 | 每个 token 的向量有多少个数（模型的「宽度」） |
+| $$d_{\text{model}}$$ | 768 | 每个 token 的向量有多少个数（模型的「宽度」） |
 
 一句话经过前几步，形状是这样变的：
 
@@ -351,7 +351,7 @@ cat · car = 0.9×0.1 + 0.1×0.9 = 0.18    not similar
 
 <Note title="Dot products also react to magnitude">
 
-Keep the direction the same, make the numbers bigger, and the dot product grows. `[2, 4] · [4, 2] = 16`, four times `[1, 2] · [2, 1]`, even though the directions are identical. Dividing by √d_k in Level 3 exists to deal with exactly this.
+Keep the direction the same, make the numbers bigger, and the dot product grows. `[2, 4] · [4, 2] = 16`, four times `[1, 2] · [2, 1]`, even though the directions are identical. Dividing by $$\sqrt{d_k}$$ in Level 3 exists to deal with exactly this.
 
 </Note>
 
@@ -379,15 +379,15 @@ shape rule:    W is [output dim, input dim]
 Two key takeaways:
 
 - **A neural network's "parameters" are mostly the numbers inside these W and b**, and "learning" means adjusting them
-- **Many tokens can be processed at once**: stack n token vectors into an `[n, d]` matrix and multiply by the same W, so every token is transformed by the same rule. W_Q, W_K, and W_V in Level 3 are three linear layers like this
+- **Many tokens can be processed at once**: stack n token vectors into an `[n, d]` matrix and multiply by the same W, so every token is transformed by the same rule. $$W_Q$$, $$W_K$$, and $$W_V$$ in Level 3 are three linear layers like this
 
 ### Softmax: how do you turn a set of scores into probabilities?
 
 Models often score a set of candidates and then need those scores as probabilities that add up to 1. That step is softmax:
 
-```
-softmax(xᵢ) = e^xᵢ / (e^x₁ + e^x₂ + … + e^xₙ)
-```
+$$
+\operatorname{softmax}(x_i) = \frac{e^{x_i}}{e^{x_1} + e^{x_2} + \cdots + e^{x_n}}
+$$
 
 By hand for the scores `[2.0, 1.0, 0.1]`:
 
@@ -423,7 +423,7 @@ In LLMs the most common one is that last form, `[batch, seq_len, d_model]`:
 | --- | --- | --- |
 | batch | 2 | how many sentences go in at once; computing them together lets the GPU parallelize, and sentences don't affect each other |
 | seq_len | 5 | how many tokens each sentence has |
-| d_model | 768 | how many numbers make up each token's vector (the model's "width") |
+| $$d_{\text{model}}$$ | 768 | how many numbers make up each token's vector (the model's "width") |
 
 Here's how the shape changes over the first steps:
 
@@ -564,14 +564,13 @@ Level 0 那种由线性层组成的普通网络处理不了，原因有两个：
 
 RNN（循环神经网络）的核心是维护一个「记忆」向量，叫 **hidden state（隐藏状态）** h。每读一个词，就用「旧记忆 + 新词」算出新记忆：
 
-```
-h_t = tanh( W_h · h_(t-1)  +  W_x · x_t )
-            ↑ 旧记忆            ↑ 当前这个词的向量
-```
+$$
+h_t = \tanh\big(\underbrace{W_h \cdot h_{t-1}}_{\text{旧记忆}} + \underbrace{W_x \cdot x_t}_{\text{当前这个词的向量}}\big)
+$$
 
 `tanh` 是一个函数，**把任意数压到 -1 到 1 之间**，防止数值越加越大。
 
-手推一遍。为了能手算，把参数简化成：W_h 就是「每个数乘 0.5」，W_x 就是「原样不变」，词向量取 `我 = [1, 0]`、`爱 = [0, 1]`、`猫 = [1, 1]`，一开始的记忆 `h₀ = [0, 0]`：
+手推一遍。为了能手算，把参数简化成：$$W_h$$ 就是「每个数乘 0.5」，$$W_x$$ 就是「原样不变」，词向量取 `我 = [1, 0]`、`爱 = [0, 1]`、`猫 = [1, 1]`，一开始的记忆 `h₀ = [0, 0]`：
 
 ```
 读「我」:  h₁ = tanh( 0.5 × [0, 0]         + [1, 0] ) = tanh([1.000, 0.000]) = [0.762, 0.000]
@@ -630,7 +629,7 @@ Decoder 写译文（每一步都带着 c）
 
 ### 这种设计有什么问题？
 
-**硬伤 ①：信息瓶颈。** 不管原文是 3 个词还是 300 个词，交给 decoder 的都只有一个固定长度的向量 h₃（上面是 2 维，真实模型是几百到上千维）。句子越长，越早读到的词越容易被冲淡。
+**硬伤 ①：信息瓶颈。** 不管原文是 3 个词还是 300 个词，交给 decoder 的都只有一个固定长度的向量 $$h_3$$（上面是 2 维，真实模型是几百到上千维）。句子越长，越早读到的词越容易被冲淡。
 
 用上面的玩具 RNN 做个实验：把第一个词「我」换成「你」（向量 `[-1, 0]`），后面的词不变，看读完之后的最终 h 差多少：
 
@@ -642,7 +641,7 @@ Decoder 写译文（每一步都带着 c）
 
 读到第 10 个词时，模型已经「忘了」第一个词是「我」还是「你」。原因很直接：每读一个新词，旧记忆都要乘 0.5 再压一次 tanh，第一个词的影响被一层层稀释。真实 RNN 的参数是学出来的，LSTM、GRU 也加了「门」来缓解遗忘，但**「整句话必须压进一个向量」这个瓶颈一直在**。
 
-**硬伤 ②：无法并行。** 算 h₃ 必须等 h₂，算 h₂ 必须等 h₁。一句 1,000 个 token 的话就是 1,000 步串行计算。GPU 最擅长同时算大量东西，在这里却只能一步一步等，训练很慢，模型也就很难做大。
+**硬伤 ②：无法并行。** 算 $$h_3$$ 必须等 $$h_2$$，算 $$h_2$$ 必须等 $$h_1$$。一句 1,000 个 token 的话就是 1,000 步串行计算。GPU 最擅长同时算大量东西，在这里却只能一步一步等，训练很慢，模型也就很难做大。
 
 <Note title="带着这两个问题往下读" type="tip">
 
@@ -689,14 +688,13 @@ So we need a model that **handles any length and reads in order**. Before Transf
 
 The core of an RNN (recurrent neural network) is a "memory" vector called the **hidden state** h. Each time it reads a word, it combines the old memory with the new word to produce a new memory:
 
-```
-h_t = tanh( W_h · h_(t-1)  +  W_x · x_t )
-            ↑ old memory        ↑ vector for the current word
-```
+$$
+h_t = \tanh\big(\underbrace{W_h \cdot h_{t-1}}_{\text{old memory}} + \underbrace{W_x \cdot x_t}_{\text{vector for the current word}}\big)
+$$
 
 `tanh` is a function that **squashes any number into the range -1 to 1**, so values don't keep growing.
 
-Let's work it through. To keep it hand-computable, simplify the parameters: W_h means "multiply each number by 0.5," W_x means "leave it unchanged," the word vectors are `我 = [1, 0]`, `爱 = [0, 1]`, `猫 = [1, 1]`, and the starting memory is `h₀ = [0, 0]`:
+Let's work it through. To keep it hand-computable, simplify the parameters: $$W_h$$ means "multiply each number by 0.5," $$W_x$$ means "leave it unchanged," the word vectors are `我 = [1, 0]`, `爱 = [0, 1]`, `猫 = [1, 1]`, and the starting memory is `h₀ = [0, 0]`:
 
 ```
 read 我:  h₁ = tanh( 0.5 × [0, 0]         + [1, 0] ) = tanh([1.000, 0.000]) = [0.762, 0.000]
@@ -755,7 +753,7 @@ text → tokenizer.encode → token ids → embedding → Encoder → contextual
 
 ### What's wrong with this design?
 
-**Weakness ①: an information bottleneck.** Whether the source is 3 words or 300, the decoder receives one fixed-length vector, h₃ (2 dims above; hundreds to thousands in real models). The longer the sentence, the more the earliest words get washed out.
+**Weakness ①: an information bottleneck.** Whether the source is 3 words or 300, the decoder receives one fixed-length vector, $$h_3$$ (2 dims above; hundreds to thousands in real models). The longer the sentence, the more the earliest words get washed out.
 
 Try an experiment with the toy RNN above: swap the first word 我 for 你 (vector `[-1, 0]`), keep everything else the same, and see how much the final h changes:
 
@@ -767,7 +765,7 @@ Try an experiment with the toy RNN above: swap the first word 我 for 你 (vecto
 
 By the 10th word the model has "forgotten" whether the first word was 我 or 你. The reason is simple: every new word multiplies the old memory by 0.5 and squashes it through tanh again, so the first word's influence gets diluted layer after layer. Real RNNs learn their parameters, and LSTMs and GRUs add "gates" to reduce forgetting, but **the bottleneck of squeezing the whole sentence into one vector never goes away**.
 
-**Weakness ②: no parallelism.** Computing h₃ has to wait for h₂, which has to wait for h₁. A 1,000-token sentence means 1,000 sequential steps. GPUs are built to compute huge amounts at once, yet here they sit waiting step by step, so training is slow and models are hard to scale.
+**Weakness ②: no parallelism.** Computing $$h_3$$ has to wait for $$h_2$$, which has to wait for $$h_1$$. A 1,000-token sentence means 1,000 sequential steps. GPUs are built to compute huge amounts at once, yet here they sit waiting step by step, so training is slow and models are hard to scale.
 
 <Note title="Keep these two problems in mind as you read on" type="tip">
 
@@ -803,9 +801,9 @@ love  ↔  爱
 cats  ↔  猫
 ```
 
-Level 1 的设计做不到这一点：decoder 手里只有一个 h₃，原文每个词具体在哪、是什么，早就混成一团了。
+Level 1 的设计做不到这一点：decoder 手里只有一个 $$h_3$$，原文每个词具体在哪、是什么，早就混成一团了。
 
-Attention 的想法很简单：**别只把最后一个 h₃ 交给 decoder，把 encoder 每一步的 h₁、h₂、h₃ 全都留着。** decoder 每生成一个词，都回头从这三个里「按需取」——和当前最相关的多取，不相关的少取。
+Attention 的想法很简单：**别只把最后一个 $$h_3$$ 交给 decoder，把 encoder 每一步的 $$h_1$$、$$h_2$$、$$h_3$$ 全都留着。** decoder 每生成一个词，都回头从这三个里「按需取」——和当前最相关的多取，不相关的少取。
 
 这个想法 2014 年为翻译模型提出（常叫 Bahdanau attention），它就是后来所有 attention 的起点。
 
@@ -826,7 +824,7 @@ Attention 是**模糊查询**：拿着一个问题去和**每个** key 比相似
 | **Key（键，K）** | 每条记录的标签，用来被匹配 | 原文每个位置的「标签」：「我这里有什么」 |
 | **Value（值，V）** | 每条记录的实际内容 | 原文每个位置被取走的「内容」 |
 
-在这个最早的翻译版本里，**K 和 V 都是 encoder 的 h₁、h₂、h₃**（同一样东西两个用途），Q 是 decoder 的当前状态。相似度用 Level 0 的点积来算。
+在这个最早的翻译版本里，**K 和 V 都是 encoder 的 $$h_1$$、$$h_2$$、$$h_3$$**（同一样东西两个用途），Q 是 decoder 的当前状态。相似度用 Level 0 的点积来算。
 
 <Note title="为什么要把「标签」和「内容」分开？">
 
@@ -890,9 +888,9 @@ cats        0.126     0.114     0.761
 
 ### Attention 解决了什么？还剩什么没解决？
 
-**解决了硬伤 ①（信息瓶颈）。** decoder 不再只靠一个 h₃，每一步都能直接看到原文的每一个位置。原文就算有 300 个词，也不用硬塞进一个向量，第一个词和最后一个词离 decoder 一样「近」。
+**解决了硬伤 ①（信息瓶颈）。** decoder 不再只靠一个 $$h_3$$，每一步都能直接看到原文的每一个位置。原文就算有 300 个词，也不用硬塞进一个向量，第一个词和最后一个词离 decoder 一样「近」。
 
-**没解决硬伤 ②（无法并行）。** encoder 和 decoder 本身还是 RNN，h₃ 还是得等 h₂ 算完。
+**没解决硬伤 ②（无法并行）。** encoder 和 decoder 本身还是 RNN，$$h_3$$ 还是得等 $$h_2$$ 算完。
 
 这种 **Q 来自 decoder、K 和 V 来自 encoder** 的 attention，叫做 **cross-attention（交叉注意力）**：两个不同的序列之间互相看。记住这个名字，Level 5 组装原始 Transformer 时它会再出现。
 
@@ -929,9 +927,9 @@ love  ↔  爱
 cats  ↔  猫
 ```
 
-The Level 1 design can't do this: the decoder holds only h₃, and where each source word was and what it said have long since blurred together.
+The Level 1 design can't do this: the decoder holds only $$h_3$$, and where each source word was and what it said have long since blurred together.
 
-Attention's idea is simple: **don't hand the decoder only the final h₃ — keep every encoder step, h₁, h₂, and h₃.** Each time the decoder generates a word, it looks back and takes what it needs from all three: more from whatever is most relevant right now, less from the rest.
+Attention's idea is simple: **don't hand the decoder only the final $$h_3$$ — keep every encoder step, $$h_1$$, $$h_2$$, and $$h_3$$.** Each time the decoder generates a word, it looks back and takes what it needs from all three: more from whatever is most relevant right now, less from the rest.
 
 The idea was proposed for translation models in 2014 (often called Bahdanau attention), and it's the starting point for every form of attention since.
 
@@ -952,7 +950,7 @@ Attention is a **soft lookup**: take a question, compare it with **every** key, 
 | **Key (K)** | each entry's label, used for matching | each source position's label: "here's what I have" |
 | **Value (V)** | each entry's actual content | the content that gets taken from each source position |
 
-In this earliest translation version, **K and V are both the encoder's h₁, h₂, h₃** (the same thing used two ways), and Q is the decoder's current state. Similarity is the dot product from Level 0.
+In this earliest translation version, **K and V are both the encoder's $$h_1$$, $$h_2$$, $$h_3$$** (the same thing used two ways), and Q is the decoder's current state. Similarity is the dot product from Level 0.
 
 <Note title="Why separate the label from the content?">
 
@@ -1016,9 +1014,9 @@ The numbers above were chosen to be easy to compute. In a real model, q and k ar
 
 ### What did attention fix, and what's still unfixed?
 
-**It fixed weakness ① (the information bottleneck).** The decoder no longer depends on a single h₃; at every step it sees every source position directly. Even a 300-word source doesn't have to be crammed into one vector, and the first word is just as "close" to the decoder as the last.
+**It fixed weakness ① (the information bottleneck).** The decoder no longer depends on a single $$h_3$$; at every step it sees every source position directly. Even a 300-word source doesn't have to be crammed into one vector, and the first word is just as "close" to the decoder as the last.
 
-**It didn't fix weakness ② (no parallelism).** The encoder and decoder are still RNNs, so h₃ still waits for h₂.
+**It didn't fix weakness ② (no parallelism).** The encoder and decoder are still RNNs, so $$h_3$$ still waits for $$h_2$$.
 
 This kind of attention, where **Q comes from the decoder and K and V come from the encoder**, is called **cross-attention**: two different sequences looking at each other. Remember the name — it comes back in Level 5 when we assemble the original Transformer.
 
@@ -1066,14 +1064,12 @@ Self-attention 让 bank 去看句子里的每个词：第一句里它发现 rive
 
 Level 2 里 K 和 V 直接用了 encoder 的 h，是同一个东西。Self-attention 给三个角色**各配一个线性层**（Level 0 讲过的 `W · x`）：
 
-```
-Q = X · W_Q
-K = X · W_K
-V = X · W_V
-```
+$$
+Q = X W_Q, \qquad K = X W_K, \qquad V = X W_V
+$$
 
 - X：输入，形状 `[n, d_model]`，每一行是一个 token 的向量
-- W_Q、W_K、W_V：三个可学习的矩阵，训练时学出来，推理时固定不变
+- $$W_Q$$、$$W_K$$、$$W_V$$：三个可学习的矩阵，训练时学出来，推理时固定不变
 - 每个 token 的向量分别乘这三个矩阵，得到自己的 q、k、v
 
 同一个词为什么要投影成三个不同的向量？因为这是三件不同的事：
@@ -1088,7 +1084,7 @@ V = X · W_V
 
 ### 完整手算：「我 爱 猫」的 self-attention
 
-用 Level 1 的词向量作为输入，d_model = d_k = 2：
+用 Level 1 的词向量作为输入，$$d_{\text{model}}$$ = $$d_k$$ = 2：
 
 ```
 X:  我 = [1, 0]    爱 = [0, 1]    猫 = [1, 1]
@@ -1107,7 +1103,7 @@ W_Q = [[1, 0],     W_K = [[1, 0],     W_V = [[2, 0],
 猫      [2, 2]          [1, 1]          [2, 1]
 ```
 
-以「爱」的 Q 为例：`[0, 1] · W_Q` 取 W_Q 的第 2 行，就是 `[1, 2]`。
+以「爱」的 Q 为例：`[0, 1] · W_Q` 取 $$W_Q$$ 的第 2 行，就是 `[1, 2]`。
 
 **第 1 步：打分。** 每个词的 q 和每个词的 k 做点积，得到一个 3 × 3 的表：
 
@@ -1120,7 +1116,7 @@ W_Q = [[1, 0],     W_K = [[1, 0],     W_V = [[2, 0],
 
 例如「爱」看「猫」：`[1, 2] · [1, 1] = 1 + 2 = 3`。
 
-**第 2 步：缩放。** 全部除以 √d_k = √2 ≈ 1.414：
+**第 2 步：缩放。** 全部除以 $$\sqrt{d_k}$$ = $$\sqrt{2}$$ ≈ 1.414：
 
 ```
 「我」  [0.707, 0.000, 0.707]
@@ -1153,13 +1149,13 @@ W_Q = [[1, 0],     W_K = [[1, 0],     W_V = [[2, 0],
 「猫」 → [1.673, 0.836]
 ```
 
-输入 3 个向量，输出还是 3 个向量，但每一个都混进了整句话的信息。和 Level 2 对比，**计算骨架完全一样（打分 → softmax → 加权平均）**，只多了两步：开头用 W_Q、W_K、W_V 做投影，打分后除以 √d_k。
+输入 3 个向量，输出还是 3 个向量，但每一个都混进了整句话的信息。和 Level 2 对比，**计算骨架完全一样（打分 → softmax → 加权平均）**，只多了两步：开头用 $$W_Q$$、$$W_K$$、$$W_V$$ 做投影，打分后除以 $$\sqrt{d_k}$$。
 
-### 为什么要除以 √d_k？
+### 为什么要除以 √dₖ？
 
 Level 0 提到过：点积会随数值大小变大。这里的问题是**维度越大，点积越大**。
 
-如果 q 和 k 的每个数都是均值 0、方差 1 的随机数，那 `q · k = q₁k₁ + q₂k₂ + … + q_d k_d` 是 d 项相加，方差是 d，标准差是 √d。真实模型里每个头的维度常是 128，点积的典型大小是 ±11 左右，而不是 ±1。
+如果 q 和 k 的每个数都是均值 0、方差 1 的随机数，那 `q · k = q₁k₁ + q₂k₂ + … + q_d k_d` 是 d 项相加，方差是 d，标准差是 $$\sqrt{d}$$。真实模型里每个头的维度常是 128，点积的典型大小是 ±11 左右，而不是 ±1。
 
 分数一大，softmax 就会「饱和」——相对差距不变，结果却完全变了：
 
@@ -1171,11 +1167,11 @@ softmax([30, 60, 90]) = [0.0,   0.0,      1.0]      ← 完全饱和
 
 饱和后，最大那项已经是 1，其他是 0，参数怎么微调输出都不变，梯度接近 0——就是 Level 0 说的「训不动」。
 
-**除以 √d_k 正好把标准差拉回 1**，不管维度多大，分数都留在 softmax 能正常学习的范围里。每头 64 维就除以 8，128 维就除以约 11.3。
+**除以 $$\sqrt{d_k}$$ 正好把标准差拉回 1**，不管维度多大，分数都留在 softmax 能正常学习的范围里。每头 64 维就除以 8，128 维就除以约 11.3。
 
-<Note title="是除以 √d_k，不是除以 d_k">
+<Note title="是除以 √dₖ，不是除以 d_k">
 
-目标是把**标准差**变成 1。方差是 d_k，标准差是 √d_k，所以除以 √d_k。被追问「为什么是根号」时，这样回答就对了。
+目标是把**标准差**变成 1。方差是 $$d_k$$，标准差是 $$\sqrt{d_k}$$，所以除以 $$\sqrt{d_k}$$。被追问「为什么是根号」时，这样回答就对了。
 
 </Note>
 
@@ -1183,9 +1179,9 @@ softmax([30, 60, 90]) = [0.0,   0.0,      1.0]      ← 完全饱和
 
 上面是一个词一个词讲的，真实计算是所有 token 一起用矩阵算，公式就是论文里那一行：
 
-```
-Attention(Q, K, V) = softmax( Q · Kᵀ / √d_k ) · V
-```
+$$
+\operatorname{Attention}(Q, K, V) = \operatorname{softmax}\!\left(\frac{Q K^\top}{\sqrt{d_k}}\right) V
+$$
 
 每一步的形状（n 个 token）：
 
@@ -1227,7 +1223,7 @@ Self-attention:  所有位置同时算       一次矩阵乘法
 1. Self-attention 和 Level 2 的 cross-attention 有什么不同？
 2. Q、K、V 分别怎么得到？为什么要分成三个投影？
 3. 不看笔记，说出缩放点积注意力的四步，以及每一步的形状。
-4. 为什么要除以 √d_k？为什么是根号？
+4. 为什么要除以 $$\sqrt{d_k}$$？为什么是根号？
 5. Self-attention 为什么能并行？它解决了 RNN 的哪个硬伤？
 
 </Note>
@@ -1257,14 +1253,12 @@ In our running example, 爱 looks at 我 and 猫 to learn who loves whom, and �
 
 In Level 2, K and V were simply the encoder's h — the same thing. Self-attention gives each of the three roles **its own linear layer** (the `W · x` from Level 0):
 
-```
-Q = X · W_Q
-K = X · W_K
-V = X · W_V
-```
+$$
+Q = X W_Q, \qquad K = X W_K, \qquad V = X W_V
+$$
 
 - X: the input, shape `[n, d_model]`, one row per token
-- W_Q, W_K, W_V: three learnable matrices, trained once and fixed at inference
+- $$W_Q$$, $$W_K$$, $$W_V$$: three learnable matrices, trained once and fixed at inference
 - each token's vector is multiplied by all three to get its own q, k, and v
 
 Why project the same word into three different vectors? Because they're three different jobs:
@@ -1279,7 +1273,7 @@ With three separate sets of parameters, the model learns for itself both "what c
 
 ### Work it by hand: self-attention on 「我 爱 猫」
 
-Use the word vectors from Level 1 as input, with d_model = d_k = 2:
+Use the word vectors from Level 1 as input, with $$d_{\text{model}}$$ = $$d_k$$ = 2:
 
 ```
 X:  我 = [1, 0]    爱 = [0, 1]    猫 = [1, 1]
@@ -1298,7 +1292,7 @@ W_Q = [[1, 0],     W_K = [[1, 0],     W_V = [[2, 0],
 猫      [2, 2]          [1, 1]          [2, 1]
 ```
 
-For example, 爱's Q is `[0, 1] · W_Q`, which picks out W_Q's second row: `[1, 2]`.
+For example, 爱's Q is `[0, 1] · W_Q`, which picks out $$W_Q$$'s second row: `[1, 2]`.
 
 **Step 1: score.** Dot every word's q with every word's k, giving a 3 × 3 table:
 
@@ -1311,7 +1305,7 @@ For example, 爱's Q is `[0, 1] · W_Q`, which picks out W_Q's second row: `[1, 
 
 For instance, 爱 looking at 猫: `[1, 2] · [1, 1] = 1 + 2 = 3`.
 
-**Step 2: scale.** Divide everything by √d_k = √2 ≈ 1.414:
+**Step 2: scale.** Divide everything by $$\sqrt{d_k}$$ = $$\sqrt{2}$$ ≈ 1.414:
 
 ```
 我  [0.707, 0.000, 0.707]
@@ -1344,13 +1338,13 @@ All three words:
 猫 → [1.673, 0.836]
 ```
 
-Three vectors in, three vectors out, but each now carries information from the whole sentence. Compared with Level 2, **the skeleton is identical (score → softmax → weighted average)**, with two additions: the W_Q, W_K, W_V projections at the start, and dividing the scores by √d_k.
+Three vectors in, three vectors out, but each now carries information from the whole sentence. Compared with Level 2, **the skeleton is identical (score → softmax → weighted average)**, with two additions: the $$W_Q$$, $$W_K$$, $$W_V$$ projections at the start, and dividing the scores by $$\sqrt{d_k}$$.
 
-### Why divide by √d_k?
+### Why divide by √dₖ?
 
 Level 0 mentioned that dot products grow with the size of the numbers. The specific problem here is that **dot products grow with dimension**.
 
-If every component of q and k is random with mean 0 and variance 1, then `q · k = q₁k₁ + q₂k₂ + … + q_d k_d` adds d terms, giving variance d and standard deviation √d. Real models often use 128 dims per head, so a typical dot product lands around ±11, not ±1.
+If every component of q and k is random with mean 0 and variance 1, then `q · k = q₁k₁ + q₂k₂ + … + q_d k_d` adds d terms, giving variance d and standard deviation $$\sqrt{d}$$. Real models often use 128 dims per head, so a typical dot product lands around ±11, not ±1.
 
 Large scores push softmax into saturation — the relative gaps stay the same, but the result changes completely:
 
@@ -1362,11 +1356,11 @@ softmax([30, 60, 90]) = [0.0,   0.0,      1.0]      ← fully saturated
 
 Once saturated, the top entry is already 1 and the rest are 0, so nudging the parameters doesn't change the output and the gradient goes to nearly zero — the "won't train" problem from Level 0.
 
-**Dividing by √d_k brings the standard deviation back to 1**, keeping scores in the range where softmax can learn, whatever the dimension. That's dividing by 8 for 64-dim heads and by about 11.3 for 128-dim heads.
+**Dividing by $$\sqrt{d_k}$$ brings the standard deviation back to 1**, keeping scores in the range where softmax can learn, whatever the dimension. That's dividing by 8 for 64-dim heads and by about 11.3 for 128-dim heads.
 
-<Note title="Divide by √d_k, not by d_k">
+<Note title="Divide by √dₖ, not by d_k">
 
-The goal is a **standard deviation** of 1. The variance is d_k, so the standard deviation is √d_k — hence √d_k. That's the answer when someone asks "why the square root."
+The goal is a **standard deviation** of 1. The variance is $$d_k$$, so the standard deviation is $$\sqrt{d_k}$$ — hence $$\sqrt{d_k}$$. That's the answer when someone asks "why the square root."
 
 </Note>
 
@@ -1374,9 +1368,9 @@ The goal is a **standard deviation** of 1. The variance is d_k, so the standard 
 
 The walkthrough went word by word, but real computation handles every token together with matrices. The formula is the one line from the paper:
 
-```
-Attention(Q, K, V) = softmax( Q · Kᵀ / √d_k ) · V
-```
+$$
+\operatorname{Attention}(Q, K, V) = \operatorname{softmax}\!\left(\frac{Q K^\top}{\sqrt{d_k}}\right) V
+$$
 
 Shapes at each step (n tokens):
 
@@ -1418,7 +1412,7 @@ Look closely at the computation: the scores depend only on the vectors' contents
 1. How does self-attention differ from the cross-attention in Level 2?
 2. How are Q, K, and V produced, and why use three separate projections?
 3. Without looking, name the four steps of scaled dot-product attention and the shape at each step.
-4. Why divide by √d_k, and why the square root?
+4. Why divide by $$\sqrt{d_k}$$, and why the square root?
 5. Why can self-attention run in parallel, and which RNN weakness does that fix?
 
 </Note>
@@ -1445,7 +1439,7 @@ Level 3 里每个词只得到**一组**权重。但一句话里同时存在很�
 
 一组权重只能是这些关系的「平均」，平均之后哪种都表达不清。
 
-**多头注意力（multi-head attention）就是同时跑 h 组独立的 attention**，每组叫一个「头」（head），有自己的 W_Q、W_K、W_V，可以各自学一种关系，最后把结果拼起来：
+**多头注意力（multi-head attention）就是同时跑 h 组独立的 attention**，每组叫一个「头」（head），有自己的 $$W_Q$$、$$W_K$$、$$W_V$$，可以各自学一种关系，最后把结果拼起来：
 
 ```
 头 1:  Q₁ K₁ V₁  → attention → 输出₁
@@ -1456,7 +1450,7 @@ Level 3 里每个词只得到**一组**权重。但一句话里同时存在很�
 拼接 [输出₁, 输出₂, …, 输出_h]  → 乘一个输出矩阵 W_O  → 最终结果
 ```
 
-**维度怎么分？** 不是每个头都用完整维度，而是把 d_model 平均切给 h 个头：
+**维度怎么分？** 不是每个头都用完整维度，而是把 $$d_{\text{model}}$$ 平均切给 h 个头：
 
 ```
 原始 Transformer:  d_model = 512,   8 个头,  每头 512 / 8   = 64 维
@@ -1473,7 +1467,7 @@ X                 [n, 4096]
 × W_O             [n, 4096]
 ```
 
-**总计算量和「一个 4096 维的单头」差不多**：是把一个大空间切成 32 个小空间并行算，不是计算量乘 32。W_O 负责把各个头学到的东西重新混合成一个向量。
+**总计算量和「一个 4096 维的单头」差不多**：是把一个大空间切成 32 个小空间并行算，不是计算量乘 32。$$W_O$$ 负责把各个头学到的东西重新混合成一个向量。
 
 <Note title="「每个头学一种关系」是直觉，不是保证" type="warning">
 
@@ -1483,7 +1477,7 @@ X                 [n, 4096]
 
 ### Self-attention 为什么需要位置信息？
 
-用 Level 3 算过的数字验证。把句子倒过来，变成「猫 爱 我」，W_Q、W_K、W_V 都不变，重新算一遍：
+用 Level 3 算过的数字验证。把句子倒过来，变成「猫 爱 我」，$$W_Q$$、$$W_K$$、$$W_V$$ 都不变，重新算一遍：
 
 ```
                 「我 爱 猫」的输出      「猫 爱 我」的输出
@@ -1508,14 +1502,13 @@ RNN 按顺序读，天然知道先后；self-attention 为了并行放弃了按�
 
 ### Sinusoidal 位置编码怎么算？
 
-原始 Transformer 的方案：用不同频率的 sin 和 cos，给每个位置生成一个和 embedding 一样长（d_model 维）的向量 P，然后**直接加到 embedding 上**：
+原始 Transformer 的方案：用不同频率的 sin 和 cos，给每个位置生成一个和 embedding 一样长（$$d_{\text{model}}$$ 维）的向量 P，然后**直接加到 embedding 上**：
 
-```
-P(pos, 2i)   = sin( pos / 10000^(2i / d) )
-P(pos, 2i+1) = cos( pos / 10000^(2i / d) )
+$$
+\begin{aligned} P(pos, 2i) &= \sin\!\left(pos / 10000^{2i/d}\right) \\ P(pos, 2i+1) &= \cos\!\left(pos / 10000^{2i/d}\right) \end{aligned}
+$$
 
-模型的输入 = X + P      形状仍然是 [n, d_model]
-```
+模型的输入 = X + P，形状仍然是 `[n, d_model]`。
 
 用 d = 4 手算前三个位置（第 0、1 维频率是 1，第 2、3 维频率是 1/100）：
 
@@ -1535,7 +1528,7 @@ pos = 2   [sin 2,  cos 2,  sin 0.02,  cos 0.02]  = [0.909, -0.416, 0.020, 1.000]
 
 <Note title="位置向量直接加到词向量上，会不会把词义搞乱？">
 
-实践中不会。d_model 通常有几千维，空间足够大，Q、K、V 的投影矩阵在训练中会学会从「词义 + 位置」混在一起的向量里分别读出两种信息。就像左右声道混在一起的音乐，你依然听得出旋律和方位。
+实践中不会。$$d_{\text{model}}$$ 通常有几千维，空间足够大，Q、K、V 的投影矩阵在训练中会学会从「词义 + 位置」混在一起的向量里分别读出两种信息。就像左右声道混在一起的音乐，你依然听得出旋律和方位。
 
 </Note>
 
@@ -1629,7 +1622,7 @@ Take `it` in `"The animal didn't cross the street because it was too tired."`:
 
 One set of weights can only average these, and the average expresses none of them clearly.
 
-**Multi-head attention runs h independent attentions at once.** Each one is called a head, has its own W_Q, W_K, W_V, and can learn a different relationship; the results are then concatenated:
+**Multi-head attention runs h independent attentions at once.** Each one is called a head, has its own $$W_Q$$, $$W_K$$, $$W_V$$, and can learn a different relationship; the results are then concatenated:
 
 ```
 head 1:  Q₁ K₁ V₁     → attention → output₁
@@ -1640,7 +1633,7 @@ head h:  Q_h K_h V_h  → attention → output_h
 concatenate [output₁, output₂, …, output_h]  → multiply by an output matrix W_O  → final result
 ```
 
-**How are the dimensions divided?** Each head doesn't get the full width; d_model is split evenly across h heads:
+**How are the dimensions divided?** Each head doesn't get the full width; $$d_{\text{model}}$$ is split evenly across h heads:
 
 ```
 original Transformer:  d_model = 512,   8 heads,  512 / 8   = 64 dims per head
@@ -1657,7 +1650,7 @@ concatenate back           [n, 4096]
 × W_O                      [n, 4096]
 ```
 
-**Total compute is about the same as a single 4096-dim head**: one big space is cut into 32 small ones computed in parallel, not multiplied by 32. W_O mixes what the heads learned back into one vector.
+**Total compute is about the same as a single 4096-dim head**: one big space is cut into 32 small ones computed in parallel, not multiplied by 32. $$W_O$$ mixes what the heads learned back into one vector.
 
 <Note title="“Each head learns one relationship” is intuition, not a guarantee" type="warning">
 
@@ -1667,7 +1660,7 @@ Research does find heads that attend to the previous word or handle coreference,
 
 ### Why does self-attention need position information?
 
-Check with the numbers from Level 3. Reverse the sentence into 「猫 爱 我」, keep W_Q, W_K, W_V the same, and recompute:
+Check with the numbers from Level 3. Reverse the sentence into 「猫 爱 我」, keep $$W_Q$$, $$W_K$$, $$W_V$$ the same, and recompute:
 
 ```
           output for 「我 爱 猫」    output for 「猫 爱 我」
@@ -1692,14 +1685,13 @@ What's needed is a representation that's **bounded, different for every position
 
 ### How is sinusoidal positional encoding computed?
 
-The original Transformer's scheme: sin and cos at different frequencies produce a vector P for each position, the same length as the embedding (d_model), which is **added directly to the embedding**:
+The original Transformer's scheme: sin and cos at different frequencies produce a vector P for each position, the same length as the embedding ($$d_{\text{model}}$$), which is **added directly to the embedding**:
 
-```
-P(pos, 2i)   = sin( pos / 10000^(2i / d) )
-P(pos, 2i+1) = cos( pos / 10000^(2i / d) )
+$$
+\begin{aligned} P(pos, 2i) &= \sin\!\left(pos / 10000^{2i/d}\right) \\ P(pos, 2i+1) &= \cos\!\left(pos / 10000^{2i/d}\right) \end{aligned}
+$$
 
-model input = X + P      shape still [n, d_model]
-```
+The model input is X + P, and the shape is still `[n, d_model]`.
 
 By hand for the first three positions with d = 4 (dims 0–1 use frequency 1, dims 2–3 use 1/100):
 
@@ -1719,7 +1711,7 @@ With positions added, 我 in 「我 爱 猫」 is "[1, 0] + the vector for posit
 
 <Note title="Does adding position vectors to word vectors scramble the meaning?">
 
-Not in practice. d_model is usually thousands of dimensions, which leaves plenty of room, and the Q, K, V projections learn during training to read both kinds of information out of the combined "meaning + position" vector. It's like music with left and right channels mixed together — you can still hear both the melody and where each sound comes from.
+Not in practice. $$d_{\text{model}}$$ is usually thousands of dimensions, which leaves plenty of room, and the Q, K, V projections learn during training to read both kinds of information out of the combined "meaning + position" vector. It's like music with left and right channels mixed together — you can still hear both the melody and where each sound comes from.
 
 </Note>
 
@@ -1833,17 +1825,19 @@ W₁ = [[1, 2],     W₂ = [[1, 0],     x = [1, 1]
 
 FFN（Feed-Forward Network，前馈网络）是一个两层的小网络，中间夹一个激活函数：
 
-```
-FFN(x) = W₂ · ReLU( W₁ · x )
+$$
+\operatorname{FFN}(x) = W_2 \cdot \operatorname{ReLU}(W_1 \cdot x)
+$$
 
+```
 原始 Transformer:  512 维 → W₁ → 2,048 维 → ReLU → W₂ → 512 维
 GPT-2 small:       768 维 → W₁ → 3,072 维 → 激活函数 → W₂ → 768 维
 ```
 
 两个关键点：
 
-- **对每个 token 单独算**，所有位置共用同一套 W₁、W₂，token 之间不交流。所以它也叫 position-wise FFN
-- **中间层通常是 d_model 的 4 倍**：先升维，在更大的空间里做非线性组合，再降回原来的维度
+- **对每个 token 单独算**，所有位置共用同一套 $$W_1$$、$$W_2$$，token 之间不交流。所以它也叫 position-wise FFN
+- **中间层通常是 $$d_{\text{model}}$$ 的 4 倍**：先升维，在更大的空间里做非线性组合，再降回原来的维度
 
 和 attention 对照着记：
 
@@ -1946,7 +1940,7 @@ Decoder 比 encoder 多一个子层：先用 masked self-attention 看自己已�
 
 ### 原始 Transformer 是怎么翻译「我 爱 猫」的？
 
-原始 Transformer（base 版）的配置：d_model = 512，8 个头（每头 64 维），FFN 中间层 2,048，encoder 和 decoder 各 6 层。
+原始 Transformer（base 版）的配置：$$d_{\text{model}}$$ = 512，8 个头（每头 64 维），FFN 中间层 2,048，encoder 和 decoder 各 6 层。
 
 训练时，一句话走一遍的完整流程（batch = 1）：
 
@@ -2050,17 +2044,19 @@ So beyond attention, a Transformer block needs three more things: **an FFN (for 
 
 The FFN (feed-forward network) is a small two-layer network with an activation function in the middle:
 
-```
-FFN(x) = W₂ · ReLU( W₁ · x )
+$$
+\operatorname{FFN}(x) = W_2 \cdot \operatorname{ReLU}(W_1 \cdot x)
+$$
 
+```
 original Transformer:  512 dims → W₁ → 2,048 dims → ReLU → W₂ → 512 dims
 GPT-2 small:           768 dims → W₁ → 3,072 dims → activation → W₂ → 768 dims
 ```
 
 Two key points:
 
-- **It runs on each token independently**, with every position sharing the same W₁ and W₂ and no communication between tokens — hence the name position-wise FFN
-- **The hidden layer is usually 4x d_model**: expand, combine non-linearly in the bigger space, then project back down
+- **It runs on each token independently**, with every position sharing the same $$W_1$$ and $$W_2$$ and no communication between tokens — hence the name position-wise FFN
+- **The hidden layer is usually 4x $$d_{\text{model}}$$**: expand, combine non-linearly in the bigger space, then project back down
 
 It's easiest to remember next to attention:
 
@@ -2163,7 +2159,7 @@ The decoder has one more sublayer than the encoder: masked self-attention to see
 
 ### How does the original Transformer translate 「我 爱 猫」?
 
-The original Transformer (base version): d_model = 512, 8 heads (64 dims each), FFN hidden size 2,048, and 6 layers each for the encoder and decoder.
+The original Transformer (base version): $$d_{\text{model}}$$ = 512, 8 heads (64 dims each), FFN hidden size 2,048, and 6 layers each for the encoder and decoder.
 
 One training pass over a sentence (batch = 1):
 
@@ -2292,7 +2288,7 @@ T5 这类 encoder-decoder 在同等规模下做翻译、摘要并不差；BERT �
 
 ### 一个 token 在 GPT-2 里要经过哪些步骤？
 
-用 GPT-2 small 的真实配置走一遍：12 层，d_model = 768，12 个头（每头 64 维），词表 50,257，上下文 1,024。输入是 5 个 token 的一句话，batch = 1：
+用 GPT-2 small 的真实配置走一遍：12 层，$$d_{\text{model}}$$ = 768，12 个头（每头 64 维），词表 50,257，上下文 1,024。输入是 5 个 token 的一句话，batch = 1：
 
 ```
 ① token ids                          [1, 5]          tokenizer 输出的整数
@@ -2336,7 +2332,7 @@ T = 0.5   softmax([4.0, 2.0, 0.2])   = [0.864, 0.117, 0.019]    更尖锐，更�
 T = 2.0   softmax([1.0, 0.5, 0.05])  = [0.502, 0.304, 0.194]    更平缓，更随机
 ```
 
-T 越小越接近 greedy，T 越大越有变化、也越容易胡说。这和 Level 3「除以 √d_k 防止 softmax 太尖」是同一个原理，只是这里故意用来调节尖锐程度。
+T 越小越接近 greedy，T 越大越有变化、也越容易胡说。这和 Level 3「除以 $$\sqrt{d_k}$$ 防止 softmax 太尖」是同一个原理，只是这里故意用来调节尖锐程度。
 
 **Top-k**：只保留分数最高的 k 个候选，其他的概率清零，再重新归一化后抽样。
 
@@ -2426,7 +2422,7 @@ Encoder-decoder models like T5 hold up well on translation and summarization at 
 
 ### What steps does a token go through inside GPT-2?
 
-Walk through it with GPT-2 small's real config: 12 layers, d_model = 768, 12 heads (64 dims each), vocabulary 50,257, context 1,024. The input is a 5-token sentence with batch = 1:
+Walk through it with GPT-2 small's real config: 12 layers, $$d_{\text{model}}$$ = 768, 12 heads (64 dims each), vocabulary 50,257, context 1,024. The input is a 5-token sentence with batch = 1:
 
 ```
 ① token ids                             [1, 5]          integers from the tokenizer
@@ -2470,7 +2466,7 @@ T = 0.5   softmax([4.0, 2.0, 0.2])   = [0.864, 0.117, 0.019]    sharper, more de
 T = 2.0   softmax([1.0, 0.5, 0.05])  = [0.502, 0.304, 0.194]    flatter, more random
 ```
 
-Lower T approaches greedy; higher T adds variety and also more nonsense. It's the same principle as dividing by √d_k in Level 3 to keep softmax from getting too sharp, used here deliberately to tune the sharpness.
+Lower T approaches greedy; higher T adds variety and also more nonsense. It's the same principle as dividing by $$\sqrt{d_k}$$ in Level 3 to keep softmax from getting too sharp, used here deliberately to tune the sharpness.
 
 **Top-k**: keep only the k highest-scoring candidates, zero out the rest, renormalize, then sample.
 
@@ -2533,10 +2529,9 @@ Pre-LN （GPT-2 起，LLaMA 等）                      x = x + F( LayerNorm(x) 
 
 LayerNorm 的简化版，LLaMA、Mistral 都用它：**不减均值，也不加偏移 β，只除以均方根（RMS）**。
 
-```
-RMS(x)     = √( (x₁² + x₂² + … + x_d²) / d )
-RMSNorm(x) = x / RMS(x) × γ
-```
+$$
+\begin{aligned} \operatorname{RMS}(x) &= \sqrt{\frac{x_1^2 + x_2^2 + \cdots + x_d^2}{d}} \\ \operatorname{RMSNorm}(x) &= \frac{x}{\operatorname{RMS}(x)} \times \gamma \end{aligned}
+$$
 
 同样用 x = [2, 4, 6]：
 
@@ -2686,10 +2681,9 @@ At scale, training reliably matters far more than that small quality gap, so nea
 
 A simplified LayerNorm used by LLaMA and Mistral: **no mean subtraction and no shift β — just divide by the root mean square (RMS)**.
 
-```
-RMS(x)     = √( (x₁² + x₂² + … + x_d²) / d )
-RMSNorm(x) = x / RMS(x) × γ
-```
+$$
+\begin{aligned} \operatorname{RMS}(x) &= \sqrt{\frac{x_1^2 + x_2^2 + \cdots + x_d^2}{d}} \\ \operatorname{RMSNorm}(x) &= \frac{x}{\operatorname{RMS}(x)} \times \gamma \end{aligned}
+$$
 
 Same x = [2, 4, 6]:
 
@@ -2819,7 +2813,7 @@ RoPE's dot product depends only on relative position, but **rotation angles the 
 
 ### 参数量怎么估算？
 
-一个标准 block 的参数集中在两处（Level 3–5）：attention 的 4 个投影矩阵（W_Q、W_K、W_V、W_O，各 d × d），FFN 的 2 个矩阵（d × 4d 和 4d × d）：
+一个标准 block 的参数集中在两处（Level 3–5）：attention 的 4 个投影矩阵（$$W_Q$$、$$W_K$$、$$W_V$$、$$W_O$$，各 d × d），FFN 的 2 个矩阵（d × 4d 和 4d × d）：
 
 ```
 每层参数 ≈ 4d²（attention） + 8d²（FFN） = 12d²
@@ -3027,7 +3021,7 @@ The first seven Levels covered how the model computes. This one converts all of 
 
 ### How do you estimate parameter count?
 
-A standard block's parameters sit in two places (Levels 3–5): attention's four projection matrices (W_Q, W_K, W_V, W_O, each d × d) and the FFN's two matrices (d × 4d and 4d × d):
+A standard block's parameters sit in two places (Levels 3–5): attention's four projection matrices ($$W_Q$$, $$W_K$$, $$W_V$$, $$W_O$$, each d × d) and the FFN's two matrices (d × 4d and 4d × d):
 
 ```
 per layer ≈ 4d² (attention) + 8d² (FFN) = 12d²
@@ -3390,7 +3384,7 @@ Tokenization → token ids → Embedding (+ position)
 
 5. 解释 self-attention。Q、K、V 是怎么得到的？（Explain self-attention. How are Q, K, and V produced?）
 6. 一步步讲一遍缩放点积注意力，并说出每一步的形状。（Walk me through scaled dot-product attention step by step, with the shape at each step.）
-7. 为什么要除以 √d_k？为什么是根号？（Why divide by √d_k, and why the square root?）
+7. 为什么要除以 $$\sqrt{d_k}$$？为什么是根号？（Why divide by $$\sqrt{d_k}$$, and why the square root?）
 8. 为什么 Transformer 训练能并行，而 RNN 不能？（Why can Transformer training run in parallel when RNN training can't?）
 
 **Level 4 — 三个补丁**
@@ -3457,7 +3451,7 @@ Answer out loud first, then check against the matching Level.
 
 5. Explain self-attention. How are Q, K, and V produced?
 6. Walk me through scaled dot-product attention step by step, with the shape at each step.
-7. Why divide by √d_k, and why the square root?
+7. Why divide by $$\sqrt{d_k}$$, and why the square root?
 8. Why can Transformer training run in parallel when RNN training can't?
 
 **Level 4 — Three fixes**

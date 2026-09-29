@@ -5049,6 +5049,758 @@
       "updatedAt": 1789875341525
     }
   ],
+  "/docs/context/caching": [
+    {
+      "id": "db514c31-b051-4102-a2e7-77a2f7efc348",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型 API 或推理服务",
+        "prefix": "n 仍需 decodePrompt / prefix cache",
+        "suffix": "跨请求相同前缀的预处理结果，底层常是 KV 状态新后缀和新回答仍"
+      },
+      "createdAt": 1790706694242,
+      "updatedAt": 1790706694242
+    },
+    {
+      "id": "cc83d13e-6df1-400b-986c-ab9b2a6f194d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "跨请求相同前缀的预处理结果",
+        "prefix": "rompt / prefix cache模型 API 或推理服务",
+        "suffix": "，底层常是 KV 状态新后缀和新回答仍需计算应用层答案缓存你的应"
+      },
+      "createdAt": 1790706709678,
+      "updatedAt": 1790706709678
+    },
+    {
+      "id": "ccd59a0f-3874-42be-8567-5a3f31bc1b0e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "之前的最终答案或业务结果",
+        "prefix": "底层常是 KV 状态新后缀和新回答仍需计算应用层答案缓存你的应用",
+        "suffix": "命中时可跳过模型，但必须验证可复用所以“prompt cache"
+      },
+      "createdAt": 1790706718842,
+      "updatedAt": 1790706718842
+    },
+    {
+      "id": "00f83e56-d99b-475e-9008-a96e913183ec",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "KV cache 帮助后续 token 复用已处理位置",
+        "prefix": "命中是近似的；精确键缓存要求键完全匹配。客服同一请求生成回答时，",
+        "suffix": "；另一位客户发来同一政策前缀时，prompt cache 可能复"
+      },
+      "createdAt": 1790706889838,
+      "updatedAt": 1790706889838
+    },
+    {
+      "id": "10214963-41bb-4cf3-8359-b46c3df505e0",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "prompt cache 可能复用前缀计算",
+        "prefix": "后续 token 复用已处理位置；另一位客户发来同一政策前缀时，",
+        "suffix": "；而“订单 20240915 能退款吗？”的旧答案绝不能仅因问题"
+      },
+      "createdAt": 1790706893921,
+      "updatedAt": 1790706893921
+    },
+    {
+      "id": "eda924f6-874b-49a8-85c5-da4f1e15e90c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "绝不能仅因问题相似",
+        "prefix": "能复用前缀计算；而“订单 20240915 能退款吗？”的旧答案",
+        "suffix": "就给订单 20240916。自测：到这里你应该能回答:\nProm"
+      },
+      "createdAt": 1790706904649,
+      "updatedAt": 1790706904649
+    },
+    {
+      "id": "6238be43-dcd5-4670-a038-4bd9d3cd98b6",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "两次请求都带同一份 10,000-token 指令及政策资料",
+        "prefix": " 让前缀真的可复用怎样设计并验证 prompt cache？想象",
+        "suffix": "，末尾分别追加 500-token 的不同订单信息。若提供商支持"
+      },
+      "createdAt": 1790706981626,
+      "updatedAt": 1790706981626
+    },
+    {
+      "id": "9640bea2-1087-4e99-a421-3444429c0bba",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "若提供商支持并命中相同前缀，第二次可能复用这 10,000 token 的预处理；新订单的 500 token 以及新回答仍要处理",
+        "prefix": "令及政策资料，末尾分别追加 500-token 的不同订单信息。",
+        "suffix": "。示意如下：请求 A: [稳定指令 + 稳定政策 10K] [订"
+      },
+      "createdAt": 1790707013274,
+      "updatedAt": 1790707013274
+    },
+    {
+      "id": "92acb222-842d-448c-9764-39155344f72a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "可复用的相同前缀",
+        "prefix": "] [订单 20240916 0.5K]\n         ↑ ",
+        "suffix": "       ↑ 每次不同\n把动态时间戳、请求 ID 或订单状态"
+      },
+      "createdAt": 1790707579194,
+      "updatedAt": 1790707579194
+    },
+    {
+      "id": "f2fbd040-d4c3-4b5f-b0f9-3e0d6d0d6520",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "缓存节省重复处理的部分成本或延迟",
+        "prefix": "AI · Gemini缓存不扩大 context window:",
+        "suffix": "，缓存内容仍属于本次模型可用输入，并按提供商规则计入窗口。不能因"
+      },
+      "createdAt": 1790707597799,
+      "updatedAt": 1790707597799
+    },
+    {
+      "id": "1eaf1c01-89c8-4611-ab91-9c01c4bbec2d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "缓存内容仍属于本次模型可用输入，并按提供商规则计入窗口",
+        "prefix": "context window:缓存节省重复处理的部分成本或延迟，",
+        "suffix": "。不能因为“已缓存”就把超长材料无上限塞进去。自测：到这里你应该"
+      },
+      "createdAt": 1790707605377,
+      "updatedAt": 1790707605377
+    },
+    {
+      "id": "2e162095-d627-4f09-8480-919b381a5240",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "但答案取决于不同客户、订单实时状态、政策版本、身份授权",
+        "prefix": "什么不宜用相似度直接命中？两个问题字面几乎一样，订单号只差一位，",
+        "suffix": "。若语义缓存只看 embedding 相似度，可能给错人展示另一"
+      },
+      "createdAt": 1790707658245,
+      "updatedAt": 1790707658245
+    },
+    {
+      "id": "a19bb3cc-6049-4912-879c-442c3cdcca4d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "cached input tokens / 可缓存输入、TTFT、输入费用",
+        "prefix": "样知道缓存值得保留？按层分别记录：prompt cache 的 ",
+        "suffix": "；应用缓存的 命中率、命中后正确率、过期率、跨租户泄漏测试、回源"
+      },
+      "createdAt": 1790707878203,
+      "updatedAt": 1790707878203
+    },
+    {
+      "id": "d09814e3-ad75-45f8-b857-567644e6da9c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "观察缓存前缀是否含私有信息，并遵从供应商的数据保留与隔离配置",
+        "prefix": "t 与授权范围分区，避免数据越界。对 prompt cache，",
+        "suffix": "；不要把“命中”理解成已经通过授权检查。面试里的测量闭环:先拿无"
+      },
+      "createdAt": 1790707896372,
+      "updatedAt": 1790707896372
+    },
+    {
+      "id": "fd45ebad-6dba-4117-9139-06609a6efc1d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "prompt cache 天然安全",
+        "prefix": "生成答案影响结果吗会（近似复用）不会（只影响速度和成本）为什么 ",
+        "suffix": "：相同的输入 token 算出来的中间结果本来就一模一样，复用它"
+      },
+      "createdAt": 1790708243014,
+      "updatedAt": 1790708243014
+    },
+    {
+      "id": "deec9627-504a-4b49-a647-981a52a081eb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "生成本身有随机性",
+        "prefix": " 只复用“读输入”那部分计算，答案每次都是模型重新生成的。1. ",
+        "suffix": "。 模型逐 token 抽样：每一步算出下一个 token 的概"
+      },
+      "createdAt": 1790708257014,
+      "updatedAt": 1790708257014
+    },
+    {
+      "id": "4f9cb0fb-9567-477e-9c84-7b62bd6947a1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "缓存只是让它更快走到“开始生成”这一步，不会存下上次的输出",
+        "prefix": "mperature 不是 0，两次回答的措辞甚至内容都可能不同。",
+        "suffix": "。即使 temperature = 0 也不能保证完全一样：服务"
+      },
+      "createdAt": 1790708266979,
+      "updatedAt": 1790708266979
+    },
+    {
+      "id": "c2978123-7a1a-4278-b237-837f286dcf96",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Prompt cache 不是 memory",
+        "prefix": "不同——这正是想要的：结论基于实时数据，而不是上次的记忆。3. ",
+        "suffix": "。 模型不会记得“上次有人问过、我是这么答的”。每次请求都独立，"
+      },
+      "createdAt": 1790708280102,
+      "updatedAt": 1790708280102
+    }
+  ],
+  "/docs/context/compression": [
+    {
+      "id": "79041afb-ca92-4c51-bc99-ff3aa40996b2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "压缩的目标不是最大压缩率，而是让下一步仍能正确采取行动或解释为什么无法行动。",
+        "prefix": "运输中。”后续模型若只看到“未到”，可能误把它当“未发货”。因此",
+        "suffix": "给每条关键信息标上类型：信息压缩处理客户原话：“没收到”保留为客"
+      },
+      "createdAt": 1790706308222,
+      "updatedAt": 1790706308222
+    },
+    {
+      "id": "fec8aa72-c9f9-4b3b-8790-1e3b9cc70d81",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "goal、verified_facts（含来源/时间）、pending_actions、unknowns",
+        "prefix": "”四列 checkpoint:长期任务中可维护一个结构化小状态：",
+        "suffix": "。原始 transcript 存在外部，需要时按引用重取；模型不"
+      },
+      "createdAt": 1790706330219,
+      "updatedAt": 1790706330219
+    },
+    {
+      "id": "21fa5948-6978-47cd-8861-0e2ad970b4c8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "原始 transcript 存在外部，需要时按引用重取",
+        "prefix": "来源/时间）、pending_actions、unknowns。",
+        "suffix": "；模型不必每轮看全量。自测：到这里你应该能回答:\n“客户说没收到"
+      },
+      "createdAt": 1790706333954,
+      "updatedAt": 1790706333954
+    },
+    {
+      "id": "c9b580b6-f70e-4392-a1c5-9a69fbde2192",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "裁剪（pruning）删不再影响当前决策的旧消息",
+        "prefix": "1 · 四种常用压缩动作裁剪、摘要、结构化状态和重取有什么区别？",
+        "suffix": "。工具结果瘦身留下相关字段及可追溯引用，例如从整份订单 JSON"
+      },
+      "createdAt": 1790706345685,
+      "updatedAt": 1790706345685
+    },
+    {
+      "id": "5a991a8e-bc02-43cc-a1fc-90fe8ba5c18f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "摘要（summarization）压缩叙事与决策过程",
+        "prefix": "rder_id、source，而不是无条件截前 2,000 字。",
+        "suffix": "。结构化状态单独保存精确事实和待办，不依赖自然语言摘要。按需重取"
+      },
+      "createdAt": 1790706360158,
+      "updatedAt": 1790706360158
+    },
+    {
+      "id": "db45fcf8-49b4-46d3-b23a-3e52d7270b98",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "结构化状态单独保存精确事实和待办",
+        "prefix": "00 字。摘要（summarization）压缩叙事与决策过程。",
+        "suffix": "，不依赖自然语言摘要。按需重取保留文档 ID/查询句，需要时回到"
+      },
+      "createdAt": 1790706377053,
+      "updatedAt": 1790706377053
+    },
+    {
+      "id": "3f101ba3-075a-4b1d-9aac-7bc83d44ca81",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "按需重取保留文档 ID/查询句，需要时回到权威来源",
+        "prefix": "决策过程。结构化状态单独保存精确事实和待办，不依赖自然语言摘要。",
+        "suffix": "。客服案例：原始工具结果 8,000 tokens\n→ 已核实摘"
+      },
+      "createdAt": 1790706380408,
+      "updatedAt": 1790706380408
+    },
+    {
+      "id": "cb8f4d21-3150-4c53-a05e-63f36a1bc78a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "压缩之后保留外部原始记录",
+        "prefix": "这里不填假时间。只要下一步涉及退款执行，就重新核实会变化的状态。",
+        "suffix": "，才能在冲突或追问时恢复证据。滚动摘要每轮在旧摘要上加新事实，很"
+      },
+      "createdAt": 1790706469016,
+      "updatedAt": 1790706469016
+    },
+    {
+      "id": "ad9a6ab1-7bac-429e-a0e6-878f38ab6822",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "标记绝不能丢的事实与待办",
+        "prefix": "历史10K2K决策摘要与可重取索引合计100K20K步骤是：① ",
+        "suffix": "；② 删除重复及过期日志；③ 把长工具结果变成字段加引用；④ 对"
+      },
+      "createdAt": 1790706496132,
+      "updatedAt": 1790706496132
+    },
+    {
+      "id": "c63c7e82-ffa9-442c-be98-c6711d2e5356",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "删除重复及过期日志",
+        "prefix": "索引合计100K20K步骤是：① 标记绝不能丢的事实与待办；② ",
+        "suffix": "；③ 把长工具结果变成字段加引用；④ 对旧过程做摘要；⑤ 用 C"
+      },
+      "createdAt": 1790706498925,
+      "updatedAt": 1790706498925
+    },
+    {
+      "id": "ed4cbbce-936b-4207-a1b6-69a362a6ade7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把长工具结果变成字段加引用",
+        "prefix": "骤是：① 标记绝不能丢的事实与待办；② 删除重复及过期日志；③ ",
+        "suffix": "；④ 对旧过程做摘要；⑤ 用 Construction 再选本轮"
+      },
+      "createdAt": 1790706501294,
+      "updatedAt": 1790706501294
+    },
+    {
+      "id": "b644ba96-17f4-4365-a0eb-b2a23f09e46d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "对旧过程做摘要",
+        "prefix": "办；② 删除重复及过期日志；③ 把长工具结果变成字段加引用；④ ",
+        "suffix": "；⑤ 用 Construction 再选本轮相关政策。若预算仍不"
+      },
+      "createdAt": 1790706506618,
+      "updatedAt": 1790706506618
+    },
+    {
+      "id": "ba8bc445-9bb9-48d0-a3b8-9b8464b14029",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "比较事实保留率、最终判断、证据引用和不确定性表达",
+        "prefix": "政策版本切换”“客户撤销请求”“工具超时”“尚待批准”五类。逐题",
+        "suffix": "。检查摘要是否把未确认的说法升级为事实、把过去政策当当前政策、把"
+      },
+      "createdAt": 1790706539682,
+      "updatedAt": 1790706539682
+    },
+    {
+      "id": "4b669141-a58f-4aa9-888c-8411d5787880",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不要让模型通过再写一段摘要自行“修复”证据",
+        "prefix": "、关键字段校验结果和原文引用。发现冲突时回到订单系统或原始记录；",
+        "suffix": "。对会变的状态，查询时刻和有效期也要保留。“摘要很像原文”不足以"
+      },
+      "createdAt": 1790706561322,
+      "updatedAt": 1790706561322
+    },
+    {
+      "id": "85d3aaf7-3da6-4b0f-a0f1-ab7af9bf2ce5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "运行中为每次压缩记录原始区间、摘要版本、关键字段校验结果和原文引用",
+        "prefix": "认的说法升级为事实、把过去政策当当前政策、把计划动作写成已执行。",
+        "suffix": "。发现冲突时回到订单系统或原始记录；不要让模型通过再写一段摘要自"
+      },
+      "createdAt": 1790706565410,
+      "updatedAt": 1790706565410
+    }
+  ],
+  "/docs/context/construction": [
+    {
+      "id": "1c93067b-0fdb-4609-b83b-8568145f1727",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "当前步骤只是决定下一步查什么，不必先塞一整份政策",
+        "prefix": "能否直接执行退款用户身份、授权与业务校验应用层权限和订单系统如果",
+        "suffix": "。若下一步要起草解释，则需要核实结果和相关条款。Context "
+      },
+      "createdAt": 1790705769595,
+      "updatedAt": 1790705769595
+    },
+    {
+      "id": "d25d39fb-4276-4458-8959-c4b23a9effb6",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "下一步要起草解释，则需要核实结果和相关条款",
+        "prefix": "订单系统如果当前步骤只是决定下一步查什么，不必先塞一整份政策。若",
+        "suffix": "。Context construction 随步骤变化，不是每轮"
+      },
+      "createdAt": 1790705778110,
+      "updatedAt": 1790705778110
+    },
+    {
+      "id": "2b3ff4fe-7590-40e6-93ee-44e070c4713c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Context construction 随步骤变化",
+        "prefix": "必先塞一整份政策。若下一步要起草解释，则需要核实结果和相关条款。",
+        "suffix": "，不是每轮固定一个巨型模板。相关不等于足够:一段“通常可以退款”"
+      },
+      "createdAt": 1790705781078,
+      "updatedAt": 1790705781078
+    },
+    {
+      "id": "41df52e2-7d41-45e0-ac3a-f33532eb46c5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "先做不能用的过滤，再做有用的排序",
+        "prefix": "l 1 · 从候选资料中筛选检索到 20 段，怎样选出 5 段？",
+        "suffix": "。示例中 20 段是教学数据；真正选择数量要看任务和预算：20 "
+      },
+      "createdAt": 1790705878712,
+      "updatedAt": 1790705878712
+    },
+    {
+      "id": "95bf91fb-d305-4bfa-a5d4-c5cbc5d1f061",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "给每段附文档 ID、版本、生效日期、段落位置，让模型和评测者能追溯来源",
+        "prefix": "去含义，就要保留必要上下文。若一段已覆盖全部条件，可以只放一段。",
+        "suffix": "。权限过滤必须在使用候选之前由应用执行，不能只靠 prompt "
+      },
+      "createdAt": 1790705892660,
+      "updatedAt": 1790705892660
+    },
+    {
+      "id": "cb960f2f-f8e0-489c-8c2a-ad5dd483b723",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "排序可用关键词、向量检索、reranker 或规则组合",
+        "prefix": "候选之前由应用执行，不能只靠 prompt 说“忽略无权资料”。",
+        "suffix": "；具体算法在 Reranking。自测：到这里你应该能回答:\n为"
+      },
+      "createdAt": 1790705912444,
+      "updatedAt": 1790705912444
+    },
+    {
+      "id": "1fa1c74c-36f0-4486-8255-8ca2e7960052",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "记录 context 版本、来源 ID、选入理由和 token 使用量",
+        "prefix": "题，避免摘要把“还没到”误写成“未发货”。可复现比漂亮模板重要:",
+        "suffix": "。面试官追问“为什么没放第六段”，你可以回答：它是旧版、重复、无"
+      },
+      "createdAt": 1790705964284,
+      "updatedAt": 1790705964284
+    },
+    {
+      "id": "29320b08-0c10-44b6-8cec-f6366338850d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "指令与输出要求",
+        "prefix": "的内容组装成一次输入指令、证据、状态与工具如何排布？先保留清楚的",
+        "suffix": "，再给带来源标签的已核实状态与证据，最后明确本轮问题；实际序列化"
+      },
+      "createdAt": 1790705973714,
+      "updatedAt": 1790705973714
+    },
+    {
+      "id": "4aad9aae-b7a8-4ca8-abcc-e40f4e41347e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "已核实状态与证据",
+        "prefix": "状态与工具如何排布？先保留清楚的指令与输出要求，再给带来源标签的",
+        "suffix": "，最后明确本轮问题；实际序列化顺序受所用 API 的消息角色与缓"
+      },
+      "createdAt": 1790705976265,
+      "updatedAt": 1790705976265
+    },
+    {
+      "id": "37286ccb-5d90-4e5e-8356-b0ad63724ff5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "区分高优先级指令与低信任证据",
+        "prefix": " 的消息角色与缓存行为约束，没有对所有模型通用的神奇排序。关键是",
+        "suffix": "，不让检索文档中的“忽略先前指令”变成系统规则。应用指令: 按当"
+      },
+      "createdAt": 1790705982752,
+      "updatedAt": 1790705982752
+    },
+    {
+      "id": "40f9de0a-50b4-4428-8075-1a4e00972d3b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "retrieval recall",
+        "prefix": "7 旧版，系统没标过期数据治理修正版本与生效规则评测时分别统计 ",
+        "suffix": "（正确证据是否在候选）、context coverage（是否真"
+      },
+      "createdAt": 1790706002614,
+      "updatedAt": 1790706002614
+    },
+    {
+      "id": "7dd085e7-9d3e-463c-b69c-ee24e8f97dad",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "评测时",
+        "prefix": "、模型能力P-17 旧版，系统没标过期数据治理修正版本与生效规则",
+        "suffix": "分别统计 retrieval recall（正确证据是否在候选）"
+      },
+      "createdAt": 1790706004897,
+      "updatedAt": 1790706004897
+    },
+    {
+      "id": "89b80773-4fe1-434f-bbc5-89eef80c2bf8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "context coverage",
+        "prefix": "别统计 retrieval recall（正确证据是否在候选）、",
+        "suffix": "（是否真正选入）、grounded decision（回答是否依"
+      },
+      "createdAt": 1790706008852,
+      "updatedAt": 1790706008852
+    },
+    {
+      "id": "0332995a-2af0-4273-a8ab-f59e3453c2e1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "grounded decision",
+        "prefix": "是否在候选）、context coverage（是否真正选入）、",
+        "suffix": "（回答是否依据它作对判断）。把这三层混成一个“回答准确率”，难以"
+      },
+      "createdAt": 1790706014829,
+      "updatedAt": 1790706014829
+    }
+  ],
+  "/docs/context/isolation": [
+    {
+      "id": "970c0206-d91f-4a45-a430-edef0ee76528",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "最小必要上下文 + 最小权限要同时成立",
+        "prefix": "过来，即使工具只读，泄露给它的敏感上下文本身也可能造成数据暴露。",
+        "suffix": "。本轮客服决策: 客户 A、订单 20240915、退款政策 P"
+      },
+      "createdAt": 1790708170787,
+      "updatedAt": 1790708170787
+    },
+    {
+      "id": "83fc2ec0-e277-4092-8d34-128197b2aba5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "MCP 专注上下文交换协议，不规定 AI 应用怎样管理模型上下文",
+        "prefix": "接，发现并调用该 server 提供的能力。官方架构文档明确说 ",
+        "suffix": "。MCP Architecture在我们的客服系统中，host "
+      },
+      "createdAt": 1790708303269,
+      "updatedAt": 1790708303269
+    },
+    {
+      "id": "fa755d27-2db2-438b-a05e-918e5c155975",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "MCP 是 host 连接外部工具、资源和 prompt 的协议",
+        "prefix": "自动只看到最小 context 吗？不会自动替应用作业务判断。 ",
+        "suffix": "。Host 是 AI 应用；它为每个 server 建立 cli"
+      },
+      "createdAt": 1790708315042,
+      "updatedAt": 1790708315042
+    },
+    {
+      "id": "dd9f5b01-eed3-400f-a541-27313cadcc1a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "MCP server 可能是本地进程，也可能是远端服务",
+        "prefix": "读这笔订单；不能因为 host 说“已授权”就无条件返回。实际 ",
+        "suffix": "；请求里带什么数据、鉴权怎么做，取决于应用实现与部署。Host "
+      },
+      "createdAt": 1790708519185,
+      "updatedAt": 1790708519185
+    },
+    {
+      "id": "aff0ddfc-ab01-40ab-a372-4ab2b2858385",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "间接 prompt injection",
+        "prefix": "t 把整页直接给有发信权限的模型，模型可能受诱导尝试发邮件。这是",
+        "suffix": "：攻击指令藏在工具结果或文档中。防护要逐层落地：① 先按 ten"
+      },
+      "createdAt": 1790708606902,
+      "updatedAt": 1790708606902
+    },
+    {
+      "id": "7f715469-7df1-457f-a167-ef32c61d6214",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "给模型的资料明确标为引用数据",
+        "prefix": "要逐层落地：① 先按 tenant、用户权限过滤可检索资源；② ",
+        "suffix": "，并尽量减少无关内容；③ 发信和退款工具由服务端再做授权、收件人"
+      },
+      "createdAt": 1790708622583,
+      "updatedAt": 1790708622583
+    },
+    {
+      "id": "ba68470f-dfa1-41e4-a1cf-56a0b710975f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "先按 tenant、用户权限过滤可检索资源",
+        "prefix": "ection：攻击指令藏在工具结果或文档中。防护要逐层落地：① ",
+        "suffix": "；② 给模型的资料明确标为引用数据，并尽量减少无关内容；③ 发信"
+      },
+      "createdAt": 1790708626933,
+      "updatedAt": 1790708626933
+    },
+    {
+      "id": "51d7b85c-0efc-415d-b0a4-dc5965cee2e6",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "记录原始来源",
+        "prefix": "和退款工具由服务端再做授权、收件人约束、业务规则与必要确认；④ ",
+        "suffix": "、请求与拒绝原因。提示词里的“不要听文档指令”是辅助，不能代替服"
+      },
+      "createdAt": 1790708633000,
+      "updatedAt": 1790708633000
+    },
+    {
+      "id": "74f27a97-7e63-40a8-aec7-277ad9c765a2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "允许路径",
+        "prefix": "、下一轮模型看哪些片段。对订单 20240915 做四类测试：\n",
+        "suffix": "：客户 A 查自己的订单，收到必要状态与正确政策，客服能给出基于"
+      },
+      "createdAt": 1790708680082,
+      "updatedAt": 1790708680082
+    },
+    {
+      "id": "40895985-3722-4520-b6ca-f47cf8b8075e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "跨租户拒绝",
+        "prefix": "自己的订单，收到必要状态与正确政策，客服能给出基于证据的答复。\n",
+        "suffix": "：客户 B 用同一订单号查询，server 返回拒绝；trace"
+      },
+      "createdAt": 1790708688732,
+      "updatedAt": 1790708688732
+    },
+    {
+      "id": "5138fab3-79a5-49f6-a2ef-208f063146c1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "注入拒绝",
+        "prefix": "，server 返回拒绝；trace 中也不出现 A 的内容。\n",
+        "suffix": "：政策段落含发信指令，模型即使尝试发信，工具服务端拒绝越权收件人"
+      },
+      "createdAt": 1790708691750,
+      "updatedAt": 1790708691750
+    },
+    {
+      "id": "22b9c236-ee1f-46bb-87ce-236918a4867e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "缺事实处理",
+        "prefix": "策段落含发信指令，模型即使尝试发信，工具服务端拒绝越权收件人。\n",
+        "suffix": "：隔离后政策 specialist 缺少地区信息，应请求补充或明"
+      },
+      "createdAt": 1790708694282,
+      "updatedAt": 1790708694282
+    },
+    {
+      "id": "05105a41-28aa-44a8-b93d-a71253463b91",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "分别记录泄漏率/越权成功率与合法任务完成率",
+        "prefix": "ialist 缺少地区信息，应请求补充或明确不确定，不能编造。\n",
+        "suffix": "。只测“没泄漏”可能把系统做成永远拒绝；只测完成率可能忽略安全。"
+      },
+      "createdAt": 1790708700182,
+      "updatedAt": 1790708700182
+    },
+    {
+      "id": "22f09557-c41e-422e-b428-df7e991c97bf",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "LLM 负责提出请求和利用获准数据，不负责最终授权",
+        "prefix": "成率可能忽略安全。与普通微服务一样，权限应由接触资源的服务验证；",
+        "suffix": "。Agent Security 继续讲威胁模型和攻击测试。面试回"
+      },
+      "createdAt": 1790708710874,
+      "updatedAt": 1790708710874
+    },
+    {
+      "id": "8ed7cdcf-76ae-4f95-85b3-60dd106abf45",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "资源访问和写操作必须由应用、工具或后端服务根据真实身份与业务规则验证。",
+        "prefix": "ystem prompt，所以权限安全”:模型输出不是授权凭据。",
+        "suffix": "连接Construction → 选哪些资料进入本轮\nCachi"
+      },
+      "createdAt": 1790708751566,
+      "updatedAt": 1790708751566
+    }
+  ],
   "/docs/context/model-context": [
     {
       "id": "a53a0256-92e1-46a3-9ad3-469ea372e3d5",
@@ -7584,7 +8336,7 @@
       "kind": "highlight",
       "locale": "zh",
       "quote": {
-        "exact": "除以 √d_k」就是为了处理这个问题。",
+        "exact": "除以 dk」就是为了处理这个问题。",
         "prefix": " [2, 1] 的 4 倍，但方向完全一样。Level 3 里「",
         "suffix": "矩阵乘法：为什么说「线性层」就是一次矩阵乘法？矩阵是一张数字表，"
       },

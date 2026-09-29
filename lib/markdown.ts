@@ -10,6 +10,7 @@ import rehypePrism from 'rehype-prism-plus'
 import rehypeSlug from 'rehype-slug'
 import remarkCjkFriendly from 'remark-cjk-friendly/parseOnly'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
 import { type Node } from 'unist'
 import { visit } from 'unist-util-visit'
 
@@ -49,7 +50,8 @@ async function parseMdx<Frontmatter>(rawMdx: string) {
           rehypeAutolinkHeadings,
           postCopy,
         ],
-        remarkPlugins: [remarkGfm, remarkCjkFriendly],
+        // Math uses `$$…$$` only: single `$` is left alone because prose quotes prices like $0.40.
+        remarkPlugins: [remarkGfm, remarkCjkFriendly, [remarkMath, { singleDollarTextMath: false }]],
       },
     },
     components,

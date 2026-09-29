@@ -197,6 +197,54 @@ Caching can save repeat processing cost or latency. Cached content remains avail
 
 用一个教学例子看误命中：100 个相似问题里，语义缓存命中 40 个；其中 2 个把“未发货”误配到“已发货”。命中率是 40%，但**命中后正确率只有 38/40 = 95%**，这 2 个恰好可能造成错误承诺。判断是否上线要看业务损失与关键错误类型，不能只看省了 40 次模型调用。
 
+<MyQuestion q="如果是隐式的 prompt cache，LLM 怎么判断哪些部分可以安全缓存？">
+
+关键在于：**隐式 prompt cache 根本不需要判断“哪些可以安全缓存”**，它和上面讨论的语义缓存是两种完全不同的东西。
+
+| | 语义缓存 / 答案缓存 | Prompt cache（含 Gemini 隐式缓存） |
+|---|---|---|
+| 缓存什么 | **最终答案** | 模型读输入时的**中间计算结果** |
+| 怎么命中 | 问题“看起来差不多” | 前缀**逐 token 完全相同** |
+| 模型参与吗 | 不参与，直接返回旧答案 | 每次都重新生成答案 |
+| 影响结果吗 | 会（近似复用） | 不会（只影响速度和成本） |
+
+**为什么 prompt cache 天然安全**：相同的输入 token 算出来的中间结果本来就一模一样，复用它和重新计算在数学上等价。套回订单例子：
+
+```text
+请求 A: [退款政策文档] [订单 20240915 实时状态]
+请求 B: [退款政策文档] [订单 20240916 实时状态]
+         ↑ 命中缓存      ↑ 从这里 token 不同，重新计算
+```
+
+订单号差一位就是不同的 token，不可能被误配。另外厂商会按账号或项目隔离缓存，你的缓存不会被其他客户的请求命中。
+
+**风险转移到了哪里？** Prompt cache 保证“同样的输入得到同样的处理”，但不保证**输入本身是对的**。如果 harness 把一小时前查到的订单状态塞进 prompt，答案就基于过期数据——这是数据新鲜度问题，和缓存无关。所以原则的落点不同：
+
+- **Prompt cache**：责任在 prompt 组装。动态、个性化数据每次从权威系统实时查询，放在 prompt 后部。
+- **语义 / 答案缓存**：才需要考虑缓存键覆盖 tenant、用户、订单 ID、政策版本、TTL、失效事件。
+
+一句话：隐式 prompt cache 是**精确复用计算**，不改变结果；语义缓存是**近似复用答案**，改变了结果，所以才需要整套谨慎设计。
+
+</MyQuestion>
+
+<MyQuestion q="有 prompt cache 的话，两个问题完全一致，agent 会直接给一样的答案吗？（假设 agent 没有 memory）">
+
+**不会。** Prompt cache 只复用“读输入”那部分计算，答案每次都是模型重新生成的。
+
+**1. 生成本身有随机性。** 模型逐 token 抽样：每一步算出下一个 token 的概率分布，再从中选一个。只要 temperature 不是 0，两次回答的措辞甚至内容都可能不同。缓存只是让它更快走到“开始生成”这一步，不会存下上次的输出。即使 temperature = 0 也不能保证完全一样：服务端批处理、浮点计算顺序会带来细微差异，某一步选了不同的词，后面就逐渐分叉。
+
+**2. Agent 会重新执行工具。** 同样问“我的订单能退款吗”，agent 会重新查询订单状态。若两次之间订单从“未发货”变成“已发货”，工具结果不同，输入从那里开始就不同，答案自然不同——这正是想要的：结论基于实时数据，而不是上次的记忆。
+
+**3. Prompt cache 不是 memory。** 模型不会记得“上次有人问过、我是这么答的”。每次请求都独立，模型只能看到这次发给它的输入；缓存只是服务器上的计算加速器，模型察觉不到它的存在。
+
+| | 做什么 | 会给一样的答案吗 |
+|---|---|---|
+| Prompt cache | 同样的输入，省掉重复计算 | 不会，输出照常重新生成 |
+| Memory | 把过去的信息写进这次的输入 | 不一定，模型“知道”以前发生过什么 |
+| 语义 / 答案缓存 | 直接返回旧答案，模型不参与 | **会**——所以才需要上面的安全设计 |
+
+</MyQuestion>
+
 <Note title="自测：到这里你应该能回答">
 
 1. 为什么订单号只差一位的两个问题不能共用旧退款答案？
@@ -218,6 +266,54 @@ Two questions may sound identical and differ by only one order digit, while the 
 Safer cache objects include parsed public policy text, versioned read-only retrieval results, or generic explanations without personal data. A final-answer key would at least need **tenant, user/scope, task, order ID, policy version, and relevant state version**, plus TTL and invalidation events. Even an exact key can be wrong if it omits a mutable condition; some decisions still require revalidation.
 
 Illustrative math: among 100 similar questions, a semantic cache hits 40. Two confuse an unshipped order with a shipped one. Hit rate is 40%, but **correctness on hits is 38/40 = 95%**. Those two errors may cause false commitments. Evaluate business harm and critical error categories, not only 40 model calls saved.
+
+<MyQuestion q="With implicit prompt caching, how does the LLM decide which parts are safe to cache?">
+
+The key point: **implicit prompt caching never needs to decide what is “safe”**. It is a completely different thing from the semantic cache discussed above.
+
+| | Semantic / answer cache | Prompt cache (incl. Gemini implicit caching) |
+|---|---|---|
+| What is cached | The **final answer** | **Intermediate computation** from reading the input |
+| How it hits | The question “looks similar” | The prefix matches **token for token** |
+| Does the model run? | No, the old answer is returned | Yes, the answer is regenerated every time |
+| Changes the result? | Yes (approximate reuse) | No (only speed and cost) |
+
+**Why prompt caching is inherently safe**: identical input tokens produce identical intermediate results, so reusing them is mathematically equivalent to recomputing. Back to the order example:
+
+```text
+Request A: [refund policy doc] [live status of order 20240915]
+Request B: [refund policy doc] [live status of order 20240916]
+            ↑ cache hit         ↑ tokens differ from here; recomputed
+```
+
+A one-digit difference in the order ID is a different token, so it cannot be mismatched. Providers also isolate caches per account or project, so other customers' requests cannot hit your cache.
+
+**Where did the risk go?** Prompt caching guarantees “the same input gets the same processing”, not that **the input itself is correct**. If the harness puts an order status fetched an hour ago into the prompt, the answer rests on stale data. That is a freshness problem, unrelated to caching. The principle lands in different places:
+
+- **Prompt cache**: responsibility sits with prompt assembly. Fetch dynamic, personalized data live from the source of truth each time and place it late in the prompt.
+- **Semantic / answer cache**: this is where keys must cover tenant, user, order ID, policy version, TTL, and invalidation events.
+
+In one line: implicit prompt caching is **exact reuse of computation** and does not change the result; semantic caching is **approximate reuse of answers** and does, which is why it needs the careful design.
+
+</MyQuestion>
+
+<MyQuestion q="With prompt caching, will an agent give the same answer to two identical questions? (Assume the agent has no memory.)">
+
+**No.** Prompt caching reuses only the “reading the input” computation; the answer is generated fresh every time.
+
+**1. Generation is stochastic.** The model samples token by token: at each step it computes a probability distribution over the next token and picks one. With temperature above 0, wording and even content can differ between runs. The cache only gets the model to “start generating” faster; it does not store the previous output. Even at temperature 0 identical output is not guaranteed: server-side batching and floating-point ordering introduce tiny differences, and one different token makes the rest diverge.
+
+**2. The agent re-runs its tools.** Asked “Can I refund my order?” again, the agent queries the order status again. If the order moved from “unshipped” to “shipped” in between, the tool result differs, the input diverges from there, and so does the answer. That is the desired behavior: conclusions based on live data, not on last time.
+
+**3. A prompt cache is not memory.** The model does not remember “someone asked this before and I answered like this”. Each request is independent and the model sees only the input sent this time; the cache is a server-side accelerator the model cannot perceive.
+
+| | What it does | Same answer? |
+|---|---|---|
+| Prompt cache | Same input, skips repeated computation | No, output is regenerated as usual |
+| Memory | Writes past information into this input | Not necessarily; the model “knows” what happened before |
+| Semantic / answer cache | Returns the old answer; the model does not run | **Yes**, which is why it needs the safety design above |
+
+</MyQuestion>
 
 <Note title="Self-check: you should be able to answer">
 

@@ -479,9 +479,9 @@ B · 1 = [1, 0, 2, 1]                       再放大回 4 维
 
 一个线性层加 LoRA，新增的参数量是：
 
-```
-LoRA 参数 = r × d_in + d_out × r = r × (d_in + d_out)
-```
+$$
+\text{LoRA 参数} = r \times d_{in} + d_{out} \times r = r \times (d_{in} + d_{out})
+$$
 
 **单个 4096 × 4096 的矩阵，r = 8：**
 
@@ -555,9 +555,9 @@ rank 不是越大越好：rank 越大参数越多，更容易在小数据上过�
 
 **1. 合并回原权重：**
 
-```
-W' = W + (α / r) · B · A
-```
+$$
+W' = W + \frac{\alpha}{r} \cdot B A
+$$
 
 W' 和 W 形状完全一样，替换进去之后模型结构没有任何变化，**推理没有额外延迟**。这是 LoRA 相比 Adapter 最大的优点。
 
@@ -640,9 +640,9 @@ Multiplying x by the full ΔW above also gives [1, 0, 2, 1] — identical. Compu
 
 Adding LoRA to one linear layer adds this many parameters:
 
-```
-LoRA parameters = r × d_in + d_out × r = r × (d_in + d_out)
-```
+$$
+\text{LoRA parameters} = r \times d_{in} + d_{out} \times r = r \times (d_{in} + d_{out})
+$$
 
 **One 4096 × 4096 matrix, r = 8:**
 
@@ -716,9 +716,9 @@ Two ways:
 
 **1. Merge it back into the weights:**
 
-```
-W' = W + (α / r) · B · A
-```
+$$
+W' = W + \frac{\alpha}{r} \cdot B A
+$$
 
 W' has exactly the same shape as W, so swapping it in changes nothing about the model's structure and **adds no inference latency**. That's LoRA's biggest advantage over adapters.
 
