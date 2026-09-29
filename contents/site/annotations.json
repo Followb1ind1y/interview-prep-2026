@@ -5049,6 +5049,322 @@
       "updatedAt": 1789875341525
     }
   ],
+  "/docs/context/model-context": [
+    {
+      "id": "a53a0256-92e1-46a3-9ad3-469ea372e3d5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "一次推理时模型实际可用的输入",
+        "prefix": "是什么，为什么模型不知道订单状态？Model Context 是",
+        "suffix": "。对普通文本调用，可以先想成：服务端把本轮消息、指令和提供的数据"
+      },
+      "createdAt": 1790695971610,
+      "updatedAt": 1790695971610
+    },
+    {
+      "id": "ae32ab72-01dd-4751-9cd7-977824d58afe",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "服务端把本轮消息、指令和提供的数据处理为 token，模型据此生成回答或工具调用请求",
+        "prefix": "t 是一次推理时模型实际可用的输入。对普通文本调用，可以先想成：",
+        "suffix": "。多模态与各家 API 的包装不同，但「本轮可用输入」这个边界不"
+      },
+      "createdAt": 1790695987810,
+      "updatedAt": 1790695987810
+    },
+    {
+      "id": "178f1274-b835-45dc-807f-ea469cbcf7a8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "学到的一般能力",
+        "prefix": "威订单系统，再把结果提供给后续调用。四个边界先分清:\n模型参数：",
+        "suffix": "，不是这笔订单的实时记录。\n外部状态：数据库、文件、网页中的实际"
+      },
+      "createdAt": 1790696011732,
+      "updatedAt": 1790696011732
+    },
+    {
+      "id": "cf63d945-c31d-45fb-a450-800ab17c01dc",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "数据库、文件、网页中的实际内容",
+        "prefix": "\n模型参数：学到的一般能力，不是这笔订单的实时记录。\n外部状态：",
+        "suffix": "；存放在那里不等于模型已读到。\n候选信息：保存的历史、检索结果、"
+      },
+      "createdAt": 1790696016909,
+      "updatedAt": 1790696016909
+    },
+    {
+      "id": "17fb30e5-4999-4394-a8e9-a3c2f280c68c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "可以被选择进入本轮",
+        "prefix": "在那里不等于模型已读到。\n候选信息：保存的历史、检索结果、记忆；",
+        "suffix": "。\n本轮 context：真正提供给这次推理的部分。\nPromp"
+      },
+      "createdAt": 1790696022625,
+      "updatedAt": 1790696022625
+    },
+    {
+      "id": "3c585f93-cd0f-43f4-a319-f55826ffb18d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "真正提供给这次推理的部分",
+        "prefix": "史、检索结果、记忆；可以被选择进入本轮。\n本轮 context：",
+        "suffix": "。\nPrompt 与 context 是什么关系？日常说“发 p"
+      },
+      "createdAt": 1790696026441,
+      "updatedAt": 1790696026441
+    },
+    {
+      "id": "d984cb92-51be-4d7a-a1f1-944a7e8440b4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "侧重指令、示例、格式怎样写",
+        "prefix": "mpt 可能泛指整份输入。Prompt Engineering ",
+        "suffix": "；context engineering 更关心每一步给模型哪些"
+      },
+      "createdAt": 1790696045298,
+      "updatedAt": 1790696045298
+    },
+    {
+      "id": "19bf7712-0a54-45f3-a0c3-39aa3c8923f2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每一步给模型哪些指令、工具、证据和状态，以及它们怎样更新",
+        "prefix": "示例、格式怎样写；context engineering 更关心",
+        "suffix": "。两者有交集，不能把 prompt 硬定义成仅有 system "
+      },
+      "createdAt": 1790696052608,
+      "updatedAt": 1790696052608
+    },
+    {
+      "id": "b561b1df-7d9c-44f9-a2fb-13380a968c33",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "记忆只保存在外部时，不占本轮 context",
+        "prefix": "证据，应有来源和版本取回的记忆客户偏好邮件联系按需取回的长期信息",
+        "suffix": "。环境状态也一样：整个订单库、库存、权限还在模型之外；只有经查询"
+      },
+      "createdAt": 1790696098443,
+      "updatedAt": 1790696098443
+    },
+    {
+      "id": "5f5118f6-85a3-4569-817b-6fca919c416a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "告诉模型可以请求“查订单”以及所需参数，并不包含查询答案",
+        "prefix": " token。为什么工具定义和工具结果要分开说？工具定义像菜单：",
+        "suffix": "。模型提出工具调用后，应用层（harness / 编排层）检查权"
+      },
+      "createdAt": 1790696154174,
+      "updatedAt": 1790696154174
+    },
+    {
+      "id": "13366f61-3311-4af0-9cbe-1e46443101c1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "变化不是模型“想起了”订单，而是应用把新观察提供给第二次推理",
+        "prefix": "\n  → 根据已核实资料答复；政策不足就继续查询或说明无法判断\n",
+        "suffix": "。应用可以挑选消息，也可以使用 API 的跨轮状态机制；无论哪种"
+      },
+      "createdAt": 1790696201692,
+      "updatedAt": 1790696201692
+    },
+    {
+      "id": "16f0e0eb-8f81-44c9-83f5-ed1d363611e1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "工具结果、检索资料和取回的记忆也可能进入",
+        "prefix": "m prompt + 全部历史”:这是可能的组装方式，不是定义。",
+        "suffix": "；保存的全部历史不必然进入本轮。“有长窗口就把数据库全塞进去”:"
+      },
+      "createdAt": 1790696280173,
+      "updatedAt": 1790696280173
+    },
+    {
+      "id": "581187c9-f3de-453b-94f2-89e758acedb7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "窗口大只说明可能容纳更多输入，不保证事实最新、相关或被正确使用",
+        "prefix": "；保存的全部历史不必然进入本轮。“有长窗口就把数据库全塞进去”:",
+        "suffix": "。先辨认当前决策需要的事实。连接Tokenization → 输"
+      },
+      "createdAt": 1790696294919,
+      "updatedAt": 1790696294919
+    }
+  ],
+  "/docs/context/window": [
+    {
+      "id": "1c963ff7-2c77-44a1-8f41-a8a442c5d0b1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "窗口是模型一次生成能够利用的上下文长度上限，通常按 token 表达",
+        "prefix": " 0 · 先会算窗口Context window 到底限制什么？",
+        "suffix": "。工程里还要区分模型公布的上限、提供商对特定接口设置的输入或输出"
+      },
+      "createdAt": 1790696323592,
+      "updatedAt": 1790696323592
+    },
+    {
+      "id": "f329df06-0c46-45a6-9304-b82e821cc6cc",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "这里的 1,000 输出预留是上限规划",
+        "prefix": "00\n余量                     3,500\n",
+        "suffix": "，并非一定生成 1,000。还要给模板包装、特殊 token、多"
+      },
+      "createdAt": 1790696398271,
+      "updatedAt": 1790696398271
+    },
+    {
+      "id": "2a3a00a3-0669-4c61-9832-01247f1b4a4c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "预留最大输出",
+        "prefix": "----\n预计输入                11,500\n",
+        "suffix": "             1,000\n合计           "
+      },
+      "createdAt": 1790696440347,
+      "updatedAt": 1790696440347
+    },
+    {
+      "id": "8d52eb30-2159-4447-b7fd-20afec018fe4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "预计输入",
+        "prefix": "0\n-----------------------------\n",
+        "suffix": "                11,500\n预留最大输出   "
+      },
+      "createdAt": 1790696442681,
+      "updatedAt": 1790696442681
+    },
+    {
+      "id": "b9645b20-0023-46a3-a8fd-2488e2f3eb60",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "还要给模板包装、特殊 token、多模态输入和计数差异留空间",
+        "prefix": "里的 1,000 输出预留是上限规划，并非一定生成 1,000。",
+        "suffix": "。若再原样附加 6,000 token 工具日志，合计会变成 1"
+      },
+      "createdAt": 1790696461176,
+      "updatedAt": 1790696461176
+    },
+    {
+      "id": "55e6ab20-03ed-4c4e-8c1a-7502c0259ac6",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Prefill 是处理已经提供的输入，建立供后续生成使用的内部状态",
+        "prefix": "efill、decode 与 KV cache 在这里各做什么？",
+        "suffix": "；decode 是一次生成一个新 token。自注意力让 tok"
+      },
+      "createdAt": 1790696478265,
+      "updatedAt": 1790696478265
+    },
+    {
+      "id": "5bed801b-7c09-4c40-862f-05ec5700a9ec",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "decode 是一次生成一个新 token。自注意力让 token 可以参考其他允许的位置",
+        "prefix": "efill 是处理已经提供的输入，建立供后续生成使用的内部状态；",
+        "suffix": "。在普通 dense attention 的简化分析中，处理长度"
+      },
+      "createdAt": 1790696486043,
+      "updatedAt": 1790696486043
+    },
+    {
+      "id": "23524fa7-a681-42e5-b81d-8923c119d317",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "生成时的 KV cache 保存已处理位置的 key/value，避免每生成一个 token 就从头重复计算旧位置",
+        "prefix": "ion、批处理、硬件与服务实现影响，不能直接用 n² 预测账单。",
+        "suffix": "。随着本轮保留的 token 增加，它占用更多推理显存；这不等于"
+      },
+      "createdAt": 1790696498598,
+      "updatedAt": 1790696498598
+    },
+    {
+      "id": "d68a3f96-bb01-4033-802a-52e2782e5f60",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "工程目标是保住决定所需证据，同时控制 token",
+        "prefix": "0，不自动保证回答更好；如果删掉了退款例外条件，质量反而会下降。",
+        "suffix": "。面试别把复杂度和价格混为一谈:可说：“Dense attent"
+      },
+      "createdAt": 1790696552112,
+      "updatedAt": 1790696552112
+    },
+    {
+      "id": "bd74ac9d-cf81-42b2-baf2-5a3ea4b9cb98",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "一些模型在中间位置的表现明显较差；这就是 “lost in the middle” 的经典观察",
+        "prefix": "在长文档问答实验中，把相同的关键证据放在输入的开头、中间、结尾，",
+        "suffix": "。原始研究 测了多文档问答与 key-value 检索。它是特定"
+      },
+      "createdAt": 1790696570313,
+      "updatedAt": 1790696570313
+    },
+    {
+      "id": "36121b3e-9601-4df6-ac54-f38eb9da8f97",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "若中部版本更常答错，你得到的是这个模型、这类问题、这组长度下的位置敏感性",
+        "prefix": "别放到一组长政策资料的前部、中部和末尾，其余内容与问题保持相同。",
+        "suffix": "。下一步可先提高检索命中与相关段落可见性，再测不同排序；不能只凭"
+      },
+      "createdAt": 1790696594913,
+      "updatedAt": 1790696594913
+    },
+    {
+      "id": "3535aeae-856d-4f58-a47d-63e55c69b6f0",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "长窗口与 RAG 可以组合",
+        "prefix": "单数据频繁变化，或知识库很大，通常要查询权威状态并检索相关版本。",
+        "suffix": "：检索先缩小候选，再给模型足够的上下文做判断；也可以用长窗口处理"
+      },
+      "createdAt": 1790696675859,
+      "updatedAt": 1790696675859
+    },
+    {
+      "id": "643516bf-784f-4191-a1ef-5e81feb0d153",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "检索先缩小候选，再给模型足够的上下文做判断；也可以用长窗口处理少量完整文档。",
+        "prefix": "，通常要查询权威状态并检索相关版本。长窗口与 RAG 可以组合：",
+        "suffix": "拿一组真实或仿真的客服题比较三种方案：A 只送整份政策；B 只送"
+      },
+      "createdAt": 1790696684391,
+      "updatedAt": 1790696684391
+    }
+  ],
   "/docs/llm": [
     {
       "id": "35cbba85-f254-4b01-a505-3e193ea7ba21",
