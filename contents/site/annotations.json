@@ -6117,6 +6117,576 @@
       "updatedAt": 1790696684391
     }
   ],
+  "/docs/evaluation/fundamentals": [
+    {
+      "id": "bae37f19-5dab-48b8-a9e3-2bb3638f707d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不能只存“用户问题 + 模型答案",
+        "prefix": "\n\n\nLevel 0 · 一个 eval case 是什么为什么",
+        "suffix": "”？答案是否正确，取决于当时可用的事实与规则。同一句“可以退款”"
+      },
+      "createdAt": 1790816867862,
+      "updatedAt": 1790816867862
+    },
+    {
+      "id": "932a7e34-494c-4073-be83-516e2cac8be9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "答案是否正确，取决于当时可用的事实与规则",
+        "prefix": "al case 是什么为什么不能只存“用户问题 + 模型答案”？",
+        "suffix": "。同一句“可以退款”，在订单未发货且政策允许时可能正确，在已发货"
+      },
+      "createdAt": 1790816874830,
+      "updatedAt": 1790816874830
+    },
+    {
+      "id": "cee5d8c1-939b-4e1e-9b3f-74dc77c5a37f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型、prompt、检索、工具和代码",
+        "prefix": "ronment 是订单、政策、权限等权威状态；system 包括",
+        "suffix": "；output 不仅是文字，也可能有工具调用与外部副作用。Gra"
+      },
+      "createdAt": 1790816898625,
+      "updatedAt": 1790816898625
+    },
+    {
+      "id": "23985625-f306-45bc-a8f2-cfeb12b9d1e2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不仅是文字，也可能有工具调用与外部副作用",
+        "prefix": "tem 包括模型、prompt、检索、工具和代码；output ",
+        "suffix": "。Grader（评分器）按明确规则比较实际行为和期望行为。如果没"
+      },
+      "createdAt": 1790816903625,
+      "updatedAt": 1790816903625
+    },
+    {
+      "id": "26438be9-5045-4c03-bff7-631798381191",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "如果没有政策版本或订单状态",
+        "prefix": "副作用。Grader（评分器）按明确规则比较实际行为和期望行为。",
+        "suffix": "，可能根本无法判“可以退款”是否正确。这时样本应标为待补事实 /"
+      },
+      "createdAt": 1790816940984,
+      "updatedAt": 1790816940984
+    },
+    {
+      "id": "72d6381e-ac37-46b0-b67d-fbe45b7ae4f3",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "这时样本应标为待补事实 / 不可评分",
+        "prefix": "如果没有政策版本或订单状态，可能根本无法判“可以退款”是否正确。",
+        "suffix": "，而不是猜一个标签。评测会失败的第一个原因，常常是 ground"
+      },
+      "createdAt": 1790816943685,
+      "updatedAt": 1790816943685
+    },
+    {
+      "id": "38f041fc-f2be-4d7e-a91b-778341237ee4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "评测会失败的第一个原因，常常是 ground truth 自己不完整",
+        "prefix": "否正确。这时样本应标为待补事实 / 不可评分，而不是猜一个标签。",
+        "suffix": "。自测：到这里你应该能回答:\n为什么同一句“可以退款”不能脱离订"
+      },
+      "createdAt": 1790817023439,
+      "updatedAt": 1790817023439
+    },
+    {
+      "id": "9d3fe85e-1a90-4783-b54d-9e107f8a28c8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "pass rate（评分样本里的通过率）",
+        "prefix": "分子/分母，避免把 1/1 的“100%”当稳定结论。还要区分 ",
+        "suffix": "、coverage（进入可评分或获真实结果的比例）与 busin"
+      },
+      "createdAt": 1790817174512,
+      "updatedAt": 1790817174512
+    },
+    {
+      "id": "58d7e705-f9a4-4711-9d80-0b67099c7c55",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "coverage（进入可评分或获真实结果的比例）",
+        "prefix": "当稳定结论。还要区分 pass rate（评分样本里的通过率）、",
+        "suffix": "与 business KPI（真正解决了多少客户问题）。离线正确"
+      },
+      "createdAt": 1790817178067,
+      "updatedAt": 1790817178067
+    },
+    {
+      "id": "c06afa9f-5c52-4753-a13f-dc4a4932ac29",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "business KPI（真正解决了多少客户问题）",
+        "prefix": "的通过率）、coverage（进入可评分或获真实结果的比例）与 ",
+        "suffix": "。离线正确率不能自动代表线上解决率。自测：到这里你应该能回答:\n"
+      },
+      "createdAt": 1790817183563,
+      "updatedAt": 1790817183563
+    },
+    {
+      "id": "35ed20cc-4a46-4923-864b-9bcf665097dc",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "开放式生成怎样进入可比较的闭环",
+        "prefix": "明系统稳定吗？\n\n\n\nLevel 3 · 没有唯一标准答案也能评",
+        "suffix": "？客户答复没有唯一措辞，可以改评可验证的行为约束：不得承诺退款、"
+      },
+      "createdAt": 1790817198105,
+      "updatedAt": 1790817198105
+    },
+    {
+      "id": "5426f57e-cd7c-4f95-b5da-c5bb3defed6c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "可验证的行为约束",
+        "prefix": "评开放式生成怎样进入可比较的闭环？客户答复没有唯一措辞，可以改评",
+        "suffix": "：不得承诺退款、必须引用正确条款、必须说明下一步、不能泄露他人订"
+      },
+      "createdAt": 1790817201653,
+      "updatedAt": 1790817201653
+    },
+    {
+      "id": "25869b4d-a1a1-4048-92cf-5e2909134a37",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "剩余主观质量用带锚点的 rubric（评分细则）让人工或 judge 判断",
+        "prefix": "得承诺退款、必须引用正确条款、必须说明下一步、不能泄露他人订单。",
+        "suffix": "。比如“清楚”应有可观察定义：客户能否从回复里知道当前订单状态、"
+      },
+      "createdAt": 1790817215430,
+      "updatedAt": 1790817215430
+    },
+    {
+      "id": "9e3fa86b-47aa-4060-87c2-eee1dbefd6fc",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "标注少量复杂样本",
+        "prefix": "行 → 分层结果与失败 trace → 改动/再测\n可让领域专家",
+        "suffix": "，先核对标注者是否一致，再用自动评分扩大覆盖。对同一个输入的 A"
+      },
+      "createdAt": 1790817358916,
+      "updatedAt": 1790817358916
+    },
+    {
+      "id": "cea6c1ce-8313-4ad7-8f94-14cf3120eb79",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "但开发过程中反复看同一小集合也会过拟合评测集",
+        "prefix": "盖。对同一个输入的 A/B 系统输出做配对比较，可减少样本差异；",
+        "suffix": "，需要留一批未参与调参的样本。具体数据集与门槛见 Offline"
+      },
+      "createdAt": 1790817367351,
+      "updatedAt": 1790817367351
+    },
+    {
+      "id": "ead2cce7-8b44-4792-9f09-0638a27d8fbd",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不要求逐字相同的标准回复",
+        "prefix": "“只能凭感觉”:可以有参考条件、参考证据、禁止动作和人工偏好，而",
+        "suffix": "。自测：到这里你应该能回答:\n没有唯一回复文本，如何判“退款解释"
+      },
+      "createdAt": 1790817391073,
+      "updatedAt": 1790817391073
+    },
+    {
+      "id": "c75540b0-b238-413b-9705-3c7e9de24d33",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "可以有参考条件、参考证据、禁止动作和人工偏好",
+        "prefix": "e Evaluation。“没有参考答案”不等于“只能凭感觉”:",
+        "suffix": "，而不要求逐字相同的标准回复。自测：到这里你应该能回答:\n没有唯"
+      },
+      "createdAt": 1790817394100,
+      "updatedAt": 1790817394100
+    },
+    {
+      "id": "95218a88-ba0b-4f49-a15a-d6b319e8dad8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "决策",
+        "prefix": "合同可以分四轴，而非揉成一个“质量分”：轴本例通过条件常见假通过",
+        "suffix": "不承诺未发货退款；给正确下一步文风好却承诺退款证据订单状态与政策"
+      },
+      "createdAt": 1790818092816,
+      "updatedAt": 1790818092816
+    },
+    {
+      "id": "45a6a6ee-4c8f-40cd-b212-81edff56118b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "证据",
+        "prefix": "条件常见假通过决策不承诺未发货退款；给正确下一步文风好却承诺退款",
+        "suffix": "订单状态与政策引用可追溯引用不存在或旧版条款行动与权限不执行未授"
+      },
+      "createdAt": 1790818095856,
+      "updatedAt": 1790818095856
+    },
+    {
+      "id": "afb58bbe-322d-4d7b-afb2-c52a0841db04",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "行动与权限",
+        "prefix": "文风好却承诺退款证据订单状态与政策引用可追溯引用不存在或旧版条款",
+        "suffix": "不执行未授权退款文字说没退款，后台却调用了写工具表达清楚说明已知"
+      },
+      "createdAt": 1790818098628,
+      "updatedAt": 1790818098628
+    },
+    {
+      "id": "05945261-de76-4f83-8f01-791fe4998b55",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "表达",
+        "prefix": "版条款行动与权限不执行未授权退款文字说没退款，后台却调用了写工具",
+        "suffix": "清楚说明已知与未知语气好却把猜测说成事实某些指标可以自动、确定地"
+      },
+      "createdAt": 1790818100865,
+      "updatedAt": 1790818100865
+    },
+    {
+      "id": "e3f9f0b6-1568-407c-b5da-62c9f0929073",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Accuracy（准确率）",
+        "prefix": "风险TP = 8FP = 4报无风险FN = 2TN = 86\n",
+        "suffix": " = (TP+TN)/总数 = 94/100 = 94%：整体判"
+      },
+      "createdAt": 1790819915214,
+      "updatedAt": 1790819915214
+    },
+    {
+      "id": "7f088d29-c177-4be5-8655-6e01b6a128c2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Precision（精确率）",
+        "prefix": "/100 = 94%：整体判对多少；无风险样本多时会掩盖漏检。\n",
+        "suffix": " = TP/(TP+FP) = 8/12 ≈ 66.7%：报出的"
+      },
+      "createdAt": 1790819917038,
+      "updatedAt": 1790819917038
+    },
+    {
+      "id": "a7acb9a2-e4d5-4d9a-b18a-8a8118d08ab0",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Recall（召回率）",
+        "prefix": " 66.7%：报出的风险里多少是真的；低了会增加人工误报负担。\n",
+        "suffix": " = TP/(TP+FN) = 8/10 = 80%：真实风险找"
+      },
+      "createdAt": 1790819918793,
+      "updatedAt": 1790819918793
+    },
+    {
+      "id": "24c98692-cd57-4e3c-88ce-990804b055ab",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "F1",
+        "prefix": "0 = 80%：真实风险找出多少；本例仍漏掉 2 条危险承诺。\n",
+        "suffix": " = 2PR/(P+R) = 2TP/(2TP+FP+FN) ="
+      },
+      "createdAt": 1790819922832,
+      "updatedAt": 1790819922832
+    },
+    {
+      "id": "4bf6276c-ecfd-44f7-a3c8-c8f504296f70",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "整体判对多少",
+        "prefix": "确率） = (TP+TN)/总数 = 94/100 = 94%：",
+        "suffix": "；无风险样本多时会掩盖漏检。\nPrecision（精确率） = "
+      },
+      "createdAt": 1790819927431,
+      "updatedAt": 1790819927431
+    },
+    {
+      "id": "07851501-1a71-48fb-a36a-f921b93e6072",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "报出的风险里多少是真的",
+        "prefix": "确率） = TP/(TP+FP) = 8/12 ≈ 66.7%：",
+        "suffix": "；低了会增加人工误报负担。\nRecall（召回率） = TP/("
+      },
+      "createdAt": 1790819932028,
+      "updatedAt": 1790819932028
+    },
+    {
+      "id": "5e34b2fc-3cf4-428d-a17e-90689c5b6475",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "真实风险找出多少",
+        "prefix": "（召回率） = TP/(TP+FN) = 8/10 = 80%：",
+        "suffix": "；本例仍漏掉 2 条危险承诺。\nF1 = 2PR/(P+R) ="
+      },
+      "createdAt": 1790819936857,
+      "updatedAt": 1790819936857
+    },
+    {
+      "id": "66ef2b9b-c303-463f-8101-c9d7f44fa2af",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "综合 Precision 和 Recall",
+        "prefix": "2TP/(2TP+FP+FN) = 16/22 ≈ 72.7%：",
+        "suffix": "，但不反映 TN，也不表达两种错误的业务代价。\nFPR（误报率）"
+      },
+      "createdAt": 1790819943007,
+      "updatedAt": 1790819943007
+    }
+  ],
+  "/docs/evaluation/offline": [
+    {
+      "id": "8232701b-8c82-4f5e-a003-f8a9b53babc0",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把样本变成能反复比较系统版本的离线评测",
+        "prefix": "ateFundamentals 定义了一个可评分客服样本。现在要",
+        "suffix": "集。若只收集“普通未发货、政策明确”的好答题，换模型后整体分数可"
+      },
+      "createdAt": 1790818145527,
+      "updatedAt": 1790818145527
+    },
+    {
+      "id": "5a1a4de0-2b9f-43ae-bd5c-34d615cefe12",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "数据来源可以是脱敏生产 trace、专家构造边界题、历史事故和合成变体",
+        "prefix": "人的订单、恶意文档测不能越权历史回归上次上线真实失败防老问题重现",
+        "suffix": "。合成样本可扩充覆盖，但应检查它是否像真实用户话语；不能让合成题"
+      },
+      "createdAt": 1790818179527,
+      "updatedAt": 1790818179527
+    },
+    {
+      "id": "83402cf6-e6f6-42f9-bde7-3f100e919477",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "复现时固定模拟环境",
+        "prefix": "策 ID/版本/生效时间、期望决策、允许动作、拒绝条件和标注者。",
+        "suffix": "，不要每次去真实订单库查同一订单，导致标签随状态变化。对有争议的"
+      },
+      "createdAt": 1790818206639,
+      "updatedAt": 1790818206639
+    },
+    {
+      "id": "f4b274a8-2e5a-4567-9161-78921f975242",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "评测订单与训练/示例订单同源",
+        "prefix": " needs_review，不把它当通过或失败。数据泄漏有几种：",
+        "suffix": "；同一客户的近重复问题分别落到开发和 holdout；开发者反复"
+      },
+      "createdAt": 1790818217685,
+      "updatedAt": 1790818217685
+    },
+    {
+      "id": "066e79cc-067a-4739-8afc-3bdd9a28c849",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "开发者反复查看 holdout 错题并据此调 prompt",
+        "prefix": "例订单同源；同一客户的近重复问题分别落到开发和 holdout；",
+        "suffix": "。按客户/事件或政策版本切分，去重，限制 holdout 暴露；"
+      },
+      "createdAt": 1790818223839,
+      "updatedAt": 1790818223839
+    },
+    {
+      "id": "cae3cd46-024b-41ad-8907-9f899a255f0a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "同一客户的近重复问题分别落到开发和 holdout",
+        "prefix": "把它当通过或失败。数据泄漏有几种：评测订单与训练/示例订单同源；",
+        "suffix": "；开发者反复查看 holdout 错题并据此调 prompt。按"
+      },
+      "createdAt": 1790818227610,
+      "updatedAt": 1790818227610
+    },
+    {
+      "id": "ad13b2ac-0127-401d-8358-b10baf53945e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "生成有随机性时可在同一 case 上重复运行，但不要把同一 case 的重复生成当成独立用户样本",
+        "prefix": "分子/分母、差异和不确定性；较小差异需要更多独立样本或置信区间。",
+        "suffix": "。自测：到这里你应该能回答:\n为什么固定环境比只固定用户问题更重"
+      },
+      "createdAt": 1790818269662,
+      "updatedAt": 1790818269662
+    },
+    {
+      "id": "1fd15ca5-d34a-4286-94ca-d9f202bfd043",
+      "kind": "note",
+      "locale": "zh",
+      "quote": {
+        "exact": "holdout",
+        "prefix": "直接外推到所有真实用户？\n\n\n\nLevel 3 · 回归门槛与 ",
+        "suffix": "哪些退步应该挡发布？门槛应映射产品风险，而非“一切分数涨就发”。"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "保留的测试集，用于检验模型在未见数据上的性能",
+        "pos": "n.",
+        "note": "在回归评估中与train/validation set并用，holdout数据不参与任何训练或调参过程"
+      },
+      "createdAt": 1790818289085,
+      "updatedAt": 1790818289085
+    },
+    {
+      "id": "19f8f610-f67c-40f6-a136-ecc0f503d331",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "门槛应映射产品风险，而非“一切分数涨就发”",
+        "prefix": "evel 3 · 回归门槛与 holdout哪些退步应该挡发布？",
+        "suffix": "。示意发布合同：硬门槛：跨租户泄漏 0；未授权退款写入 0；关键"
+      },
+      "createdAt": 1790818295686,
+      "updatedAt": 1790818295686
+    },
+    {
+      "id": "a14b8a73-ab5f-4efd-9f40-4ace2dd1681e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "运营门槛",
+        "prefix": "不退步\n质量门槛：已标注 case 的正确决策率不低于当前基线\n",
+        "suffix": "：P95 延迟与单次成本在约定预算内\n人工检查：新失败、judg"
+      },
+      "createdAt": 1790818314625,
+      "updatedAt": 1790818314625
+    },
+    {
+      "id": "52e69e6b-8176-4743-899a-e1e02be6cf56",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "质量门槛",
+        "prefix": "硬门槛：跨租户泄漏 0；未授权退款写入 0；关键政策例外不退步\n",
+        "suffix": "：已标注 case 的正确决策率不低于当前基线\n运营门槛：P95"
+      },
+      "createdAt": 1790818316624,
+      "updatedAt": 1790818316624
+    },
+    {
+      "id": "99da999d-d5b3-4d92-a63c-5ee2b1f5bf0e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "硬门槛",
+        "prefix": "发布？门槛应映射产品风险，而非“一切分数涨就发”。示意发布合同：",
+        "suffix": "：跨租户泄漏 0；未授权退款写入 0；关键政策例外不退步\n质量门"
+      },
+      "createdAt": 1790818318125,
+      "updatedAt": 1790818318125
+    },
+    {
+      "id": "68a76b18-69ba-4156-8598-7ac71176905b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "人工检查",
+        "prefix": "率不低于当前基线\n运营门槛：P95 延迟与单次成本在约定预算内\n",
+        "suffix": "：新失败、judge 分歧和不可评分样本经过复核\n这里的“0”是"
+      },
+      "createdAt": 1790818321036,
+      "updatedAt": 1790818321036
+    },
+    {
+      "id": "a0dac881-799c-4a5c-ae7d-9e7699880054",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "这里的“0”是测试集中零次违规，不代表真实世界违规概率已被证明为零",
+        "prefix": "算内\n人工检查：新失败、judge 分歧和不可评分样本经过复核\n",
+        "suffix": "；样本量要随风险增加。把快速小集合放 CI 作冒烟和硬约束；更大"
+      },
+      "createdAt": 1790818328460,
+      "updatedAt": 1790818328460
+    },
+    {
+      "id": "e6e47c9d-ac9c-4d64-95de-94c4549e6ee6",
+      "kind": "note",
+      "locale": "zh",
+      "quote": {
+        "exact": "CI",
+        "prefix": "影响，详见 Production Evaluation。不要把 ",
+        "suffix": " 分数当产品结果:离线数据覆盖不到新政策、真实用户措辞和环境故障"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "Confidence Interval，置信区间，表示对评估结果的不确定性范围",
+        "pos": "n.",
+        "note": "这里 CI 不是 Continuous Integration 的意思，而是统计学的置信区间"
+      },
+      "createdAt": 1790818442387,
+      "updatedAt": 1790818442387
+    },
+    {
+      "id": "fd52c4ed-fbd6-4339-b8e4-372e0a8395f2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "已知风险受控到一定程度",
+        "prefix": "数据覆盖不到新政策、真实用户措辞和环境故障。通过发布门槛意味着“",
+        "suffix": "”，不是上线后无需观察。自测：到这里你应该能回答:\n为什么“测试"
+      },
+      "createdAt": 1790818468503,
+      "updatedAt": 1790818468503
+    },
+    {
+      "id": "b7d51694-c447-4fc0-986d-545067d927c7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "离线数据覆盖不到新政策、真实用户措辞和环境故障",
+        "prefix": "ction Evaluation。不要把 CI 分数当产品结果:",
+        "suffix": "。通过发布门槛意味着“已知风险受控到一定程度”，不是上线后无需观"
+      },
+      "createdAt": 1790818471547,
+      "updatedAt": 1790818471547
+    }
+  ],
   "/docs/llm": [
     {
       "id": "35cbba85-f254-4b01-a505-3e193ea7ba21",

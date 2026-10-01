@@ -35,12 +35,19 @@ export async function getAnnotationStudyLevel(
   const source = await sourceForPage(pagePath, sourceByPage)
   if (!source) return null
 
-  const quoteIndex = source.indexOf(exactQuote)
-  if (quoteIndex < 0) return null
-
-  const headings = [...source.slice(0, quoteIndex).matchAll(/^#{2,3}\s+Level\s+(\d+)\b/gm)]
-  const level = headings.at(-1)?.[1]
-  return level === undefined ? null : Number(level)
+  // Browser selections contain rendered text, while MDX can split that text with
+  // inline emphasis or code markers (for example **pass rate**（...）).
+  const renderedText = (text: string) => text.replace(/\*\*|__|`/g, '')
+  const quote = renderedText(exactQuote)
+  const headings = [...source.matchAll(/^#{2,3}\s+Level\s+(\d+)\b/gm)]
+  for (let index = 0; index < headings.length; index++) {
+    const start = headings[index].index
+    const end = headings[index + 1]?.index ?? source.length
+    if (renderedText(source.slice(start, end)).includes(quote)) {
+      return Number(headings[index][1])
+    }
+  }
+  return null
 }
 
 export function getStudyPageSource(

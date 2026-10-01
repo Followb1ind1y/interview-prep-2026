@@ -23,7 +23,7 @@ mastery: { talk: 0, probe: 0 }
 | --- | --- | --- |
 | 0 · 评测单元 | 一个 eval case 应该包含什么？ | 20 min |
 | 1 · 成功标准 | 同一个回答为何可能“流畅但错”？ | 25 min |
-| 2 · 分母和切片 | 80% 成功率到底来自哪些样本？ | 25 min |
+| 2 · 分母和切片 | 80% 成功率来自哪些样本？Precision、Recall、F1 怎样算？ | 35 min |
 | 3 · 闭环 | 参考答案不足或没有参考答案时怎样评？ | 25 min |
 
 贯穿案例：客服查询订单系统、检索当前政策，决定是否能承诺退款。所有订单、政策和计数均为教学示意，不对应真实客户。
@@ -33,6 +33,7 @@ mastery: { talk: 0, probe: 0 }
 - 定义输入、系统版本、可观察输出、环境真相、评分规则及可评分状态
 - 分开评 **正确决策、证据依据、权限/安全、语气**；拒答或升级有时才是正确结果
 - 写清分子、分母、失败类型、未验证样本，不把未知算作通过
+- 从混淆矩阵手算 Accuracy、Precision、Recall、F1，并按错误代价选指标
 - 解释自动检查、人工标注、LLM judge 和业务结果各适合哪类判断
 
 </Locale>
@@ -49,7 +50,7 @@ This page is the foundation for all six pages. Define one scoreable case and its
 | --- | --- | --- |
 | 0 · Eval unit | What belongs in one eval case? | 20 min |
 | 1 · Success criteria | Why can a fluent answer still fail? | 25 min |
-| 2 · Denominators and slices | What does “80% success” actually count? | 25 min |
+| 2 · Denominators and slices | What does “80% success” count? How do Precision, Recall, and F1 work? | 35 min |
 | 3 · Feedback loop | How do we score with a partial or absent reference answer? | 25 min |
 
 The running case is a support assistant that queries an order system and current policy before deciding whether it may promise a refund. All orders, policies, and counts below are teaching examples.
@@ -59,6 +60,7 @@ The running case is a support assistant that queries an order system and current
 - Define input, system version, observable output, environment truth, grading rule, and scoreability.
 - Score **decision correctness, evidence, permission/safety, and tone** separately; abstention or escalation can be correct.
 - State numerator, denominator, failure types, and unverified cases; unknown is not a pass.
+- Calculate Accuracy, Precision, Recall, and F1 from a confusion matrix; choose by error cost.
 - Know when code checks, human labels, LLM judges, and business outcomes each apply.
 
 </Locale>
@@ -99,6 +101,8 @@ grader: decision + evidence + action checks
 
 </Note>
 
+
+
 </Locale>
 
 <Locale lang="en">
@@ -134,6 +138,8 @@ Without policy version or order status, you may not know whether “refund avail
 3. How should a case without a policy version be marked?
 
 </Note>
+
+
 
 </Locale>
 
@@ -219,6 +225,35 @@ Set failure priority. An unauthorized write should block release even if tone is
 
 </Note>
 
+### 面试常问的分类指标怎样手算？
+
+先定义**正类**，否则 Precision 和 Recall 没有业务含义。假设我们评测一个“识别危险退款承诺”的检查器：它预测「有风险」就转人工。以下 **100 条已获人工真值的教学样本**与上面的 10 条通过率示例是两套独立计数；未验证样本不进入这张表。
+
+| 检查器预测 / 人工真值 | 有风险 | 无风险 |
+| --- | ---: | ---: |
+| 报有风险 | TP = 8 | FP = 4 |
+| 报无风险 | FN = 2 | TN = 86 |
+
+- **Accuracy（准确率）** = `(TP+TN)/总数 = 94/100 = 94%`：整体判对多少；无风险样本多时会掩盖漏检。
+- **Precision（精确率）** = `TP/(TP+FP) = 8/12 ≈ 66.7%`：报出的风险里多少是真的；低了会增加人工误报负担。
+- **Recall（召回率）** = `TP/(TP+FN) = 8/10 = 80%`：真实风险找出多少；本例仍漏掉 2 条危险承诺。
+- **F1** = `2PR/(P+R) = 2TP/(2TP+FP+FN) = 16/22 ≈ 72.7%`：综合 Precision 和 Recall，但不反映 TN，也不表达两种错误的业务代价。
+- **FPR（误报率）** = `FP/(FP+TN) = 4/90 ≈ 4.4%`：真实无风险里被误报的比例；与 Precision 的分母不同。
+
+若漏掉危险承诺（FN）代价最高，先要求足够高的 Recall，再看 Precision 是否让人工队列可承受；不能只优化 F1。阈值变化会改变 TP/FP/FN/TN，因此比较模型时要固定或明确报告阈值。正类从「危险」改成「安全」会交换指标的含义。若系统从不报正类，`TP+FP=0`，Precision **无定义**，不能默认为 100%。这些定义参照 [Google 的分类指标教程](https://developers.google.com/machine-learning/crash-course/classification/accuracy-precision-recall)；这里的计数与阈值均为教学示意。
+
+如果检查器输出连续风险分，可移动阈值画 **ROC 曲线**（纵轴 Recall/TPR，横轴 FPR）或 **PR 曲线**（Precision 对 Recall）。**ROC-AUC** 概括跨阈值的排序能力；风险正类稀少时，也要看 PR 曲线或 **AP（Average Precision）**，因为大量 TN 可能让 ROC 表现看起来不错。AUC/AP 都**不替你选择上线阈值**；阈值仍要按漏检代价和人工复核容量确定。[Google 的 ROC/AUC 教程](https://developers.google.com/machine-learning/crash-course/classification/roc-and-auc) 解释了这层区别。
+
+多类意图识别要先逐类看 Precision/Recall/F1 和样本数；**macro F1** 平均各类 F1，让少数类也有一票，**micro F1** 先汇总各类 TP/FP/FN 再算，通常更受多数类影响。面试中先说正类、分母和错判代价，再报汇总分数。
+
+<Note title="自测：用这张混淆矩阵回答">
+
+1. 12 次报风险中为什么只有 8 次是真的？10 条真实风险中漏了几条？
+2. 为什么 94% Accuracy 不能单独证明这个安全检查器可用？
+3. 如果漏检比误报更贵，你会先约束哪个指标？
+
+</Note>
+
 </Locale>
 
 <Locale lang="en">
@@ -238,6 +273,35 @@ Separate **pass rate** on scoreable cases, **coverage** of scoreable or observed
 1. With 8 right, 1 wrong, and 1 unknown, how do you report pass rate and verified coverage?
 2. Why isolate the shipped-order exception slice?
 3. Does 1/1 passing prove stability?
+
+</Note>
+
+### How do you calculate common classification metrics?
+
+Define the **positive class** first. Suppose a checker flags unsafe refund promises for human review. These **100 teaching cases with human labels** are separate from the ten-case pass-rate example above; unverified cases do not enter this matrix.
+
+| Checker prediction / human truth | Unsafe | Safe |
+| --- | ---: | ---: |
+| Flags unsafe | TP = 8 | FP = 4 |
+| Flags safe | FN = 2 | TN = 86 |
+
+- **Accuracy** = `(TP+TN)/total = 94/100 = 94%`: overall correctness; many safe cases can hide missed risks.
+- **Precision** = `TP/(TP+FP) = 8/12 ≈ 66.7%`: how many flags are real; low precision burdens reviewers.
+- **Recall** = `TP/(TP+FN) = 8/10 = 80%`: how many actual risks are found; two unsafe promises were missed.
+- **F1** = `2PR/(P+R) = 2TP/(2TP+FP+FN) = 16/22 ≈ 72.7%`: combines Precision and Recall but omits TN and does not encode the business cost of each error.
+- **False positive rate (FPR)** = `FP/(FP+TN) = 4/90 ≈ 4.4%`: the fraction of safe cases falsely flagged; its denominator differs from Precision.
+
+If missing an unsafe promise (FN) is most costly, require sufficient Recall first, then check whether Precision makes the review queue manageable. Do not optimize F1 alone. Changing the decision threshold changes TP/FP/FN/TN, so fix or report the threshold when comparing models. Redefining the positive class from “unsafe” to “safe” changes the interpretation. If nothing is predicted positive, `TP+FP=0` and Precision is **undefined**, not automatically 100%. Definitions follow [Google's classification metrics guide](https://developers.google.com/machine-learning/crash-course/classification/accuracy-precision-recall); all counts here are illustrative.
+
+If the checker emits a continuous risk score, sweep the threshold to draw an **ROC curve** (Recall/TPR versus FPR) or a **PR curve** (Precision versus Recall). **ROC-AUC** summarizes ranking across thresholds. When unsafe cases are rare, also inspect the PR curve or **AP (Average Precision)**: many TN cases can make ROC results look reassuring. AUC and AP **do not choose the deployment threshold**; use the cost of misses and review capacity. See [Google's ROC/AUC guide](https://developers.google.com/machine-learning/crash-course/classification/roc-and-auc).
+
+For multiclass intent classification, inspect per-class Precision/Recall/F1 and support first. **Macro F1** averages class F1 scores, giving rare classes a voice. **Micro F1** pools TP/FP/FN before calculation and is usually dominated by common classes. In an interview, state the positive class, denominator, and error costs before an aggregate score.
+
+<Note title="Self-check: use the confusion matrix">
+
+1. Why are only 8 of 12 risk flags correct, and how many of 10 real risks were missed?
+2. Why does 94% Accuracy alone not qualify this safety checker?
+3. Which metric would you constrain first if misses cost more than false alarms?
 
 </Note>
 
@@ -292,6 +356,7 @@ Production → 把真实失败送回离线
 3. 8 对、1 错、1 未知怎样报告？（How do you report eight correct, one wrong, one unknown?）
 4. 如何区分产品 KPI 与离线 proxy metric？（How do you distinguish a business KPI from an offline proxy?）
 5. 为什么总体通过率之外还要看切片？（Why inspect slices beyond aggregate pass rate?）
+6. 以危险承诺为正类，怎样从 TP/FP/FN/TN 手算 Precision、Recall、F1，并选发布护栏？（Calculate and choose classification metrics.）
 
 ## 我的答案
 
@@ -344,6 +409,7 @@ Production → real failures back into offline tests
 3. How do you report eight correct, one wrong, one unknown?
 4. How do you distinguish a business KPI from an offline proxy?
 5. Why inspect slices beyond aggregate pass rate?
+6. With unsafe promises as positive, calculate Precision, Recall, and F1 from TP/FP/FN/TN and choose a release guardrail.
 
 ## My answer
 
