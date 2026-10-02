@@ -6467,6 +6467,236 @@
       "updatedAt": 1790819943007
     }
   ],
+  "/docs/evaluation/llm-eval": [
+    {
+      "id": "b119b629-93c4-45c7-b3ad-ad366224986d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "exact match",
+        "prefix": "_for_unshipped_refund，结构化决策字段可做 ",
+        "suffix": "。若目标是“不要调用退款写工具”，可查真实工具 trace / "
+      },
+      "createdAt": 1790979207760,
+      "updatedAt": 1790979207760
+    },
+    {
+      "id": "10da6ee9-ea3e-4bc2-9aa4-8b6a7b7a369e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "BLEU/ROUGE 衡量候选与参考文本的词或片段重叠，适合了解表面相似度",
+        "prefix": "ce / 数据库状态。二者比让 LLM judge 猜测更直接。",
+        "suffix": "，不能证明业务事实正确。Embedding similarity"
+      },
+      "createdAt": 1790979250127,
+      "updatedAt": 1790979250127
+    },
+    {
+      "id": "5705dc1d-b06e-4fb4-84a9-aa8ebaa06acf",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Embedding similarity 测语义接近",
+        "prefix": "考文本的词或片段重叠，适合了解表面相似度，不能证明业务事实正确。",
+        "suffix": "，也可能把“可以退款”与“不能退款”判得很像，因为两句主题相同、"
+      },
+      "createdAt": 1790979260536,
+      "updatedAt": 1790979260536
+    },
+    {
+      "id": "587e2646-b210-4cc0-b002-5eec161f74f6",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "人或 LLM judge",
+        "prefix": "、只差否定。对于客服自然语言的清晰度、完整解释等开放属性，可引入",
+        "suffix": "。把同一回答拆开检查：回复: “订单运输中，按 P-17 不能走"
+      },
+      "createdAt": 1790979276920,
+      "updatedAt": 1790979276920
+    },
+    {
+      "id": "4c204279-5104-4c6d-8064-db4052073178",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Rubric",
+        "prefix": "dge 猜？\n\n\n\nLevel 1 · 写出可审核的 Judge",
+        "suffix": " 怎样把“回答好不好”变成判断标准？让评审只判一个轴，例如“是否"
+      },
+      "createdAt": 1790979320736,
+      "updatedAt": 1790979320736
+    },
+    {
+      "id": "eb1f493b-203b-485c-a84f-b68fc071f19e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "并给它问题、订单与政策证据、候选回答、判定规则",
+        "prefix": "断标准？让评审只判一个轴，例如“是否作出有证据支持的退款判断”，",
+        "suffix": "。示意评分合同：输入: 用户问题 + 已核实订单状态 + 当前政"
+      },
+      "createdAt": 1790979328296,
+      "updatedAt": 1790979328296
+    },
+    {
+      "id": "a49a2deb-fd4a-45fb-985c-7061974ba2c2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "让 judge 标出具体主张与证据",
+        "prefix": "n 在代码块里作为示意，实际 JSON Schema 应用枚举。",
+        "suffix": "，便于人工复核；但理由文本不保证一定真实，仍要与原始 trace"
+      },
+      "createdAt": 1790979341472,
+      "updatedAt": 1790979341472
+    },
+    {
+      "id": "cb0258d5-4b10-4ba5-886a-6d9d295f003e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每个维度单独判 2=满足、1=部分满足、0=失败",
+        "prefix": "评分。下面是客服对话的一套示例 rubric，并非行业统一指标。",
+        "suffix": "；不适用标 N/A，证据不足标 unknown 并送人工，不能当"
+      },
+      "createdAt": 1790979428185,
+      "updatedAt": 1790979428185
+    },
+    {
+      "id": "b76c5c5c-02b4-40e2-b2a0-526ff921dd4e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不要把风险不同的维度压成一个 1–5 分",
+        "prefix": "ubric 版本，否则分数变化可能来自尺子变了，而不是系统变了。",
+        "suffix": "。可以分别判“决策”“证据”“语气”，关键错误单独触发 hard"
+      },
+      "createdAt": 1790979433394,
+      "updatedAt": 1790979433394
+    },
+    {
+      "id": "c6bcb2b6-c4fb-4695-bf22-5f0db73b9a31",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "relevance",
+        "prefix": "质量维度本例 2 分的可观察条件0 分的典型错误切题 / 有用（",
+        "suffix": ", helpfulness）回答当前退款问题，并给能执行的下一步"
+      },
+      "createdAt": 1790979449252,
+      "updatedAt": 1790979449252
+    },
+    {
+      "id": "b6892382-b4fd-4646-9a44-4f4457632ac6",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "completeness",
+        "prefix": "题，并给能执行的下一步绕开退款问题，只重复空泛致歉必要信息完整（",
+        "suffix": "）说明已核实状态、适用限制、下一步；缺条件时明确要补什么漏掉会改"
+      },
+      "createdAt": 1790979456234,
+      "updatedAt": 1790979456234
+    },
+    {
+      "id": "0d6b86e7-3d5b-4120-8e0d-800675d4558a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "grounding / correctness",
+        "prefix": "更新判断反复索要已提供信息，或继续引用被纠正的旧状态有据且正确（",
+        "suffix": "）每项关键事实能对应当前订单/政策证据，结论与权威状态一致编造“"
+      },
+      "createdAt": 1790979485489,
+      "updatedAt": 1790979485489
+    },
+    {
+      "id": "7609f787-756d-4011-9600-4a6e1501754d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "各维度通过率 = 该维度得 2 分的可评分对话数 / 该维度适用且证据足够的对话数",
+        "prefix": "入仍由工具/数据库检查，不靠 Judge 的自信语气。汇总时先报",
+        "suffix": "，同时列出 N/A、unknown 和各维度的 0/1/2 分布"
+      },
+      "createdAt": 1790979532971,
+      "updatedAt": 1790979532971
+    },
+    {
+      "id": "60545d51-1612-44c3-b7ee-78311d4607c4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "整段对话质量通过率 = 所有必需维度达标且无硬失败的对话数 / 可评分对话数",
+        "prefix": "同时列出 N/A、unknown 和各维度的 0/1/2 分布。",
+        "suffix": "。不要直接平均各维度分数就宣布“质量 80%”：一个错误退款承诺"
+      },
+      "createdAt": 1790979542469,
+      "updatedAt": 1790979542469
+    },
+    {
+      "id": "e1f4192f-1ddf-454d-bfb8-a70865cff355",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "在相同问题、证据与标准下选更好的答案",
+        "prefix": " B 都答对退款资格，但措辞和解释不同，成对比较让 judge ",
+        "suffix": "。它通常比“各打一个抽象 1–5 分”更容易定义差异，但不是天然"
+      },
+      "createdAt": 1790979598269,
+      "updatedAt": 1790979598269
+    },
+    {
+      "id": "90374587-d036-4873-a32b-334fb580e5ed",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "LLM judge 可能有位置、冗长、风格或同系列模型偏好",
+        "prefix": "若 B 额外编造“免费退货”，应判失败，不因更长、更自信而获胜。",
+        "suffix": "；研究已观察到这些偏差，具体大小依模型与任务变化。MT-Benc"
+      },
+      "createdAt": 1790979620718,
+      "updatedAt": 1790979620718
+    },
+    {
+      "id": "5265a636-c63f-4553-b28d-f270994e0869",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "false pass = 2/4 = 50% 的人工失败被放过",
+        "prefix": "e 失败12一致数为 (5+2)/10 = 70%；更关键的是 ",
+        "suffix": "。这么小的样本只用于手算，不能稳定估计总体表现。若两条假通过都是"
+      },
+      "createdAt": 1790979654194,
+      "updatedAt": 1790979654194
+    },
+    {
+      "id": "721f9da4-703d-42c3-98a9-40399c1192ac",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "未用于调 judge 的样本",
+        "prefix": "；③ 改进 rubric、证据输入、阈值或改为确定性检查；④ 在",
+        "suffix": "上重测；⑤ 版本更新后持续抽样审计。也要检查不同语言、订单状态和"
+      },
+      "createdAt": 1790979672475,
+      "updatedAt": 1790979672475
+    },
+    {
+      "id": "a6c8da0c-096d-4673-94a9-05caaa2055e6",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Recall 正好对应上面的 50% false pass",
+        "prefix": "1=2×2/(2×2+1+2)≈57.1%。50% 的失败检测 ",
+        "suffix": "：两个值共用 4 条人工失败作分母。面试里要明确正类；若把「通过"
+      },
+      "createdAt": 1790979807511,
+      "updatedAt": 1790979807511
+    }
+  ],
   "/docs/evaluation/offline": [
     {
       "id": "8232701b-8c82-4f5e-a003-f8a9b53babc0",
