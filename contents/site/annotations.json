@@ -6117,6 +6117,80 @@
       "updatedAt": 1790696684391
     }
   ],
+  "/docs/evaluation/agent-eval": [
+    {
+      "id": "308439c6-359e-468a-89bc-fce1f4f36d28",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "同时看最终结果、过程和外部副作用",
+        "prefix": "别人订单。Agent Loop 让模型多步观察与行动，评测就必须",
+        "suffix": "。本页沿用订单 20240915，用一个可重置的模拟订单系统跑完"
+      },
+      "createdAt": 1791052507192,
+      "updatedAt": 1791052507192
+    },
+    {
+      "id": "b353d08a-5ab9-48b8-b94d-26467b510c05",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "没有未经授权的写入",
+        "prefix": "：查询到本人的订单、拿到适用政策、不作虚假承诺、给出正确下一步、",
+        "suffix": "。若订单系统不可用，明确说明当前无法核实并安全停止，也可能算受控"
+      },
+      "createdAt": 1791052553274,
+      "updatedAt": 1791052553274
+    },
+    {
+      "id": "9d7de9f8-8368-4828-a535-aa8ba19163f2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "受控失败",
+        "prefix": "写入。若订单系统不可用，明确说明当前无法核实并安全停止，也可能算",
+        "suffix": "，而不是凭空给答案。如果任务换成“在获批准后执行退款”，验收应读"
+      },
+      "createdAt": 1791052557317,
+      "updatedAt": 1791052557317
+    },
+    {
+      "id": "3c242ce9-1385-414d-a89c-37f803e509cc",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "关键约束",
+        "prefix": "策再查订单。不要要求 agent 逐步复刻唯一“标准轨迹”。改评",
+        "suffix": "：作退款判断前必须查真实订单与适用政策；不得读取别人的订单；写入"
+      },
+      "createdAt": 1791052584741,
+      "updatedAt": 1791052584741
+    },
+    {
+      "id": "f3d88489-610b-442e-a3a8-a71cdb71cc4d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "最终状态、重复动作次数、错误归类、停止条件与恢复步骤",
+        "prefix": "403 转成“系统暂忙”或换另一工具绕过。\n每个 case 检查",
+        "suffix": "。对“超时后已成功”不能只看 agent 回答“已退款”，也不能"
+      },
+      "createdAt": 1791052649568,
+      "updatedAt": 1791052649568
+    },
+    {
+      "id": "78d7146b-407c-4ed6-ac94-3481c2714962",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "可能越权读取、重复写入、跳过核实或碰巧猜对",
+        "prefix": "ent 更好？\n陷阱“最后说对了，所以 agent 评测通过”:",
+        "suffix": "。必须同时验收真实环境状态和轨迹约束。连接Fundamental"
+      },
+      "createdAt": 1791052666700,
+      "updatedAt": 1791052666700
+    }
+  ],
   "/docs/evaluation/fundamentals": [
     {
       "id": "bae37f19-5dab-48b8-a9e3-2bb3638f707d",
@@ -6915,6 +6989,135 @@
       },
       "createdAt": 1790818471547,
       "updatedAt": 1790818471547
+    }
+  ],
+  "/docs/evaluation/production-eval": [
+    {
+      "id": "36a3d91d-ced5-4819-8c77-3b6503a83e0b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Trace 可观察事实，不是模型内部思维链：不要靠生成的“我想过了”充当工具执行证据。",
+        "prefix": "，至少保留可关联的版本、来源 ID、错误类型和获授权的复盘路径。",
+        "suffix": "通过这些字段，答错时可以确认是旧政策检索进来、正确政策没选入、模"
+      },
+      "createdAt": 1791052730804,
+      "updatedAt": 1791052730804
+    },
+    {
+      "id": "1779601e-cdb3-4ecf-b9aa-e818fdf79260",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "按政策版本、语言、订单状态、工具故障与客户群切片；线上抽样比例、过滤规则、人工队列积压也要报出",
+        "prefix": "g 都是复杂投诉，87.5% 还存在选择偏差，不能当全量成功率。",
+        "suffix": "。静默丢弃没有标签的样本，会让系统看起来越来越好。对风险事件，监"
+      },
+      "createdAt": 1791052864073,
+      "updatedAt": 1791052864073
+    },
+    {
+      "id": "96b668a3-348d-4c1f-be7b-31cba4dea08a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Shadow / 回放：新版本在历史或镜像请求上运行，结果不给用户，写工具必须在隔离环境中禁用或模拟",
+        "prefix": "步验证Shadow、canary 和线上 A/B 分别说明什么？",
+        "suffix": "。它可比较质量与成本，却不能证明真实用户会怎样反应。Canary"
+      },
+      "createdAt": 1791052882111,
+      "updatedAt": 1791052882111
+    },
+    {
+      "id": "75596c13-a1a0-4e46-8ccf-970a40cb19b6",
+      "kind": "note",
+      "locale": "zh",
+      "quote": {
+        "exact": "Canary",
+        "prefix": "中禁用或模拟。它可比较质量与成本，却不能证明真实用户会怎样反应。",
+        "suffix": "：让一小部分真实请求使用新版本，观察错误、延迟和越权信号，设自动"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "金丝雀部署/灰度发布，一种发布策略：先让一小部分真实用户流量使用新版本，同时监测错误率、响应时间等异常信号，如果发现问题则自动停止并回滚到旧版本",
+        "pos": "n.",
+        "note": "Canary 在生产环境验证中通常配合监控告警，相比 Shadow 用真实流量但风险更高，相比 A/B 测试追求快速问题发现而非长期数据统计"
+      },
+      "createdAt": 1791052902162,
+      "updatedAt": 1791052902162
+    },
+    {
+      "id": "13dab528-da15-4a2c-b15c-52efb228a9ae",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Canary：让一小部分真实请求使用新版本，观察错误、延迟和越权信号，设自动停止与回滚",
+        "prefix": "中禁用或模拟。它可比较质量与成本，却不能证明真实用户会怎样反应。",
+        "suffix": "。A/B：按用户或会话等稳定单位随机分配版本，在明确的业务指标与"
+      },
+      "createdAt": 1791052907372,
+      "updatedAt": 1791052907372
+    },
+    {
+      "id": "69755874-f4f8-4acb-bd58-9bfe883ed4e6",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "保全去标识化 trace",
+        "prefix": "退款流程。闭环不是把这句话复制进 prompt 当特例，而是：\n",
+        "suffix": "：用户原话、订单状态与查询时间、政策版本、检索候选与选入证据、模"
+      },
+      "createdAt": 1791052987605,
+      "updatedAt": 1791052987605
+    },
+    {
+      "id": "b52c2a0d-68ff-4383-8dbd-af106c700216",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "在可重置环境里复现",
+        "prefix": "层：把“未收到”误写为“未发货”、选错政策，还是忽略已有证据。\n",
+        "suffix": "，写明确 grader：不承诺未发货退款、正确解释已发货流程、不"
+      },
+      "createdAt": 1791052992232,
+      "updatedAt": 1791052992232
+    },
+    {
+      "id": "09767936-9ed7-4109-8430-91c02e364400",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "加到固定事故回归集",
+        "prefix": "der：不承诺未发货退款、正确解释已发货流程、不得未授权写入。\n",
+        "suffix": "，在当前 baseline 与修复版上运行；同时检查其他切片，防"
+      },
+      "createdAt": 1791052994533,
+      "updatedAt": 1791052994533
+    },
+    {
+      "id": "2d36b1ab-040c-4eb1-a077-a65875b7b643",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "没有可核实环境状态或人工裁决的 trace，先标待验证",
+        "prefix": "样本、风险边界集、未见过的 holdout，并定期更新政策版本。",
+        "suffix": "；不能直接作为绝对正确率样本。Offline Evaluatio"
+      },
+      "createdAt": 1791053008562,
+      "updatedAt": 1791053008562
+    },
+    {
+      "id": "b4bb67f6-65c7-4c6c-a4f8-5f68b1a47c39",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "通常在离线评测和基本系统验证之后做，但“有用户参与”不等于 A/B",
+        "prefix": "/B Test 是 offline eval 之后的用户测试吗？",
+        "suffix": "。 Offline eval 在固定场景上重复运行候选版本，检查"
+      },
+      "createdAt": 1791053933212,
+      "updatedAt": 1791053933212
     }
   ],
   "/docs/llm": [

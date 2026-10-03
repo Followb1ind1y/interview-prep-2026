@@ -185,6 +185,31 @@ Slice by policy version, language, order state, tool fault, and customer segment
 
 对退款客服，A/B 主指标可能是有证据的实际问题解决率；护栏包括错误承诺、越权写入、人工升级率、延迟和成本。若“解决率”要几天才成熟，就不能第二天只凭即时 judge 分宣布胜利。实验先定样本量和观察期，分析各切片与不确定性；高风险写动作先在受控环境测试，再小流量放量。
 
+<MyQuestion q="A/B Test 是 offline eval 之后的用户测试吗？">
+
+**通常在离线评测和基本系统验证之后做，但“有用户参与”不等于 A/B。** Offline eval 在固定场景上重复运行候选版本，检查已知质量与安全门槛；内部试用（dogfooding / UAT）或 pilot 让真实人完成任务，发现数据集没覆盖的措辞、反悔和流程困惑，未必比较两个版本。A/B 则把符合上线门槛的 A、B 版本按稳定的用户或会话单位随机分配给可比流量，预先规定主指标、护栏和观察期，再估计真实用户结果的差异。
+
+例如谈判 agent 的 V6 和 V7：先用相同离线案例检查报价状态、数字归属、越权操作与结束条件；内部用户试用再发现“接受价格但要求更长账期”这种新行为。如果两个版本都过门槛且流量足够，才用线上 A/B 比较经核实的任务完成率，同时守住错误承诺、延迟与成本。**A/B 不能代替离线安全门槛**；流量太少时，可以用离线配对比较、内部 UAT 和小范围 pilot，明确说明线上因果结论仍有限。
+
+</MyQuestion>
+
+<MyQuestion q="一个 Agent 从开发测试到上线，通常会经过哪些轮次？A/B 和 canary 放在哪里？">
+
+可以按要回答的风险逐步推进，下面是常见路径，**不是每个团队都必须按固定九轮、固定周数执行**：
+
+1. **开发与组件测试**：验证工具权限、参数/schema、状态更新、重试和停止条件；例如退款写工具拒绝未授权请求。
+2. **离线评测**：用正常、边界、历史故障、对抗和工具故障案例比较版本，设质量与安全发布门槛。
+3. **集成 / 端到端测试**：贯穿前端、API、agent、工具、数据库与外部服务，查会话状态、认证和连接故障。
+4. **内部试用 / UAT**：让团队和业务专家真实操作，收集意外行为与 UX 问题，并把可核实失败补进离线集。
+5. **预发环境的负载与可靠性测试**：测并发下的 p95 延迟、超时、错误率、模型配额和成本。
+6. **小范围 pilot**：让少量目标用户使用，观察离线质量能否转化为真实任务表现。
+7. **受控上线**：流量和安全条件允许时，A/B 随机比较两个合格版本的用户结果；canary 从小比例逐步放量，观察故障护栏并准备回滚。两者目的不同，也可按风险需要组合或省略。
+8. **全量上线与持续评测**：监控 trace 和成熟业务结果，人工核实新故障，补回归，再评下一版。
+
+这条路径的关键是**每一步都有相应证据和进入下一步的门槛**。例如单机运行 5 秒不能证明百人并发仍是 5 秒；pilot 的正面反馈也不能替代 A/B 的随机对照结论。
+
+</MyQuestion>
+
 <Note type="warning" title="Shadow 的副作用必须隔离">
 
 把真实请求复制给新 agent，又让它调用真实退款写工具，不是无害的 shadow。写操作需模拟、只读或与生产状态严格隔离。
@@ -210,6 +235,31 @@ Slice by policy version, language, order state, tool fault, and customer segment
 **Shadow / replay** runs a new version on historical or mirrored requests without showing its output to users; write tools must be disabled, simulated, or isolated. It compares quality and cost but cannot prove real user response. **Canary** sends a small fraction of real requests to the new version and watches errors, latency, and unauthorized-action signals with stop and rollback rules. **A/B** randomly assigns a stable unit such as user or session to versions and estimates real impact under specified outcomes and guardrails; avoid a customer switching versions across turns.
 
 For refund support, a primary outcome may be evidence-backed real issue resolution. Guardrails include false promises, unauthorized writes, escalation rate, latency, and cost. If resolution takes days to mature, do not declare victory from next-day judge scores. Predefine sample size and observation window, then inspect slices and uncertainty. Exercise risky write actions in controlled environments before limited exposure.
+
+<MyQuestion q="Is A/B testing the user test that comes after offline eval?">
+
+**It commonly follows offline evaluation and basic system validation, but having users test a product does not by itself make it A/B.** Offline eval repeatedly runs candidates on fixed cases to check known quality and safety gates. Dogfooding, UAT, or a pilot lets people try real tasks and expose unseen wording, reversals, and workflow confusion without necessarily comparing versions. A/B randomly assigns two release-qualified versions to comparable traffic by a stable user or session unit, then estimates the difference in predefined outcomes over an observation window with guardrails.
+
+For a negotiation agent, first test V6 and V7 on the same offline cases for offer state, number ownership, unauthorized actions, and stopping conditions. Internal users may then reveal a new pattern such as accepting a price only if payment terms change. If both versions pass the gates and traffic is sufficient, an online A/B can compare verified task completion while monitoring false promises, latency, and cost. **A/B does not replace offline safety gates.** With little traffic, use paired offline comparisons, internal UAT, and a limited pilot, while stating that the online causal evidence remains limited.
+
+</MyQuestion>
+
+<MyQuestion q="What testing rounds does an agent usually pass before launch, and where do A/B and canary fit?">
+
+Progress according to the risk each step must resolve. This is a common path, **not a required nine-stage or week-by-week schedule**:
+
+1. **Developer and component tests:** check tool permissions, arguments/schema, state updates, retries, and stop conditions; a refund-write tool should reject unauthorized requests.
+2. **Offline eval:** compare versions on normal, boundary, historical-failure, adversarial, and tool-failure cases against quality and safety release gates.
+3. **Integration / end-to-end tests:** exercise frontend, API, agent, tools, database, and external services for session, auth, and connection failures.
+4. **Internal dogfooding / UAT:** have staff and domain experts do real tasks; capture UX surprises and add verified failures to the offline set.
+5. **Staging load and reliability tests:** measure p95 latency, timeouts, errors, model quota, and cost under concurrency.
+6. **Limited pilot:** let a small target-user group test whether offline quality carries into real tasks.
+7. **Controlled rollout:** where traffic and safety allow, A/B randomly compares user outcomes for two qualified versions; canary increases exposure gradually while watching failure guardrails and retaining rollback. Their purposes differ, and a project may combine or omit them according to risk.
+8. **Full release and continuous evaluation:** monitor traces and mature outcomes, adjudicate new failures, add regressions, and evaluate the next version.
+
+Each step needs evidence and a gate for moving forward. A five-second local run does not establish five-second latency at a hundred concurrent users; positive pilot feedback also does not establish the causal comparison of a randomized A/B.
+
+</MyQuestion>
 
 <Note type="warning" title="Shadow side effects must be isolated">
 
