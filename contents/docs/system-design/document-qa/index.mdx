@@ -1,304 +1,353 @@
 ---
-title: "L1 · Document Q&A"
-titleEn: "L1 · Document Q&A"
-description: 单库 / 单产品文档问答。表格、PDF、引用页码。
-descriptionEn: "Document Q&A: PDFs, tables, page-level citations."
-date: 2026-09-07
-keywords: ["document qa"]
+title: L1 · Document Q&A
+titleEn: L1 · Document Q&A
+description: 用户上传文档后提问（合同、财报、论文）：上传即时处理、长上下文还是 RAG、页码与原文定位的引用、表格与图表、多文档对比、临时数据的隐私与删除。
+descriptionEn: "Q&A over user-uploaded documents (contracts, reports, papers): processing on upload, long context vs RAG, page-level citations, tables and charts, multi-document comparison, and privacy and deletion of transient data."
+date: 2026-10-04
+keywords: ['system design', 'document qa', 'chat with pdf', 'long context', 'citations', 'bounding box', 'multimodal', 'prompt caching', 'data retention']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-设计一个文档问答系统。（Design document Q&A.）
+> 题目：设计一个“和文档对话”的产品：用户上传 PDF（合同、财报、论文，最多 500 页），然后用自然语言提问，回答要能定位到原文页码。
 
-<Note title="开口框架">
-每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
+和 [RAG Chatbot](/docs/system-design/rag-chatbot) 的关键区别：**知识库是用户临时上传的**——不能提前花几小时建索引；文档少而长；用户期望“点击引用就跳到原文那一页、那一段”；而且文档往往敏感（合同、财报），隐私要求高。这道题最能考出你对**长上下文 vs RAG** 的判断。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 面试中的时间 |
+| --- | --- | --- |
+| 0 · 澄清与估算 | 文档多大？要多快可以开始提问？ | 5 min |
+| 1 · 高层架构 | 上传后发生什么？ | 8 min |
+| 2 · 深挖：长上下文还是 RAG | 一份 100 页的文档该怎么喂给模型？ | 12 min |
+| 3 · 深挖：引用与复杂内容 | 怎么定位到页码？表格和图表怎么办？ | 10 min |
+| 4 · 隐私、评测与成本 | 敏感文档怎么处理？ | 5 min |
+
+## 需要掌握
+
+- “上传到可提问”的延迟预算
+- 按文档长度选择：全文放入 + 前缀缓存，或会话级临时索引
+- 带页码 / 坐标的解析结果与引用跳转
+- 表格、图表、扫描件的处理；多文档对比
+- 临时数据的保留期限与删除
+
+</Locale>
+
+<Locale lang="en">
+
+> Design a "chat with your documents" product: users upload PDFs (contracts, reports, papers, up to 500 pages) and ask questions; answers must cite the source page.
+
+Unlike a RAG chatbot, the corpus is uploaded on the spot (no hours of indexing), documents are few but long, users expect citations that jump to the exact passage, and the data is often sensitive. It tests your long-context vs RAG judgment.
+
+## How to work through this page
+
+| Level | Question it answers | Interview time |
+| --- | --- | --- |
+| 0 · Clarify and estimate | How big, and how soon can users ask? | 5 min |
+| 1 · High-level design | What happens on upload? | 8 min |
+| 2 · Deep dive: long context or RAG | How do you feed a 100-page document? | 12 min |
+| 3 · Deep dive: citations and complex content | Page-level citations, tables, charts? | 10 min |
+| 4 · Privacy, eval, cost | Sensitive documents? | 5 min |
+
+## Must know
+
+- upload-to-ask latency budget
+- full context + prefix caching vs a session-scoped index
+- page/coordinate-aware parsing and jump-to citations
+- tables, charts, scans; multi-document comparison
+- retention and deletion
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 澄清需求与估算
+
+| 问题 | 本题假设 |
+| --- | --- |
+| 文档类型和长度？ | PDF 为主；中位数 30 页，最长 500 页；部分是扫描件 |
+| 上传后多久能提问？ | 30 页文档 10 秒内；500 页 1 分钟内（可先回答已处理部分） |
+| 一次问几份？ | 一个会话最多 10 份，支持跨文档对比 |
+| 引用要求？ | 点击引用跳到页码并高亮原文 |
+| 数据保留？ | 会话结束后 30 天删除；企业版可选“不保留” |
+
+```text
+1 页 ≈ 500–800 token → 30 页 ≈ 2 万 token；500 页 ≈ 30 万 token
+→ 中位数文档可以整份放进上下文；最长的文档超过很多模型的有效长度，需要检索
+```
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么“上传到可提问”的延迟是这道题的关键约束？
+2. 估算 30 页和 500 页文档的 token 数，各意味着什么？
+
 </Note>
 
-## 本题要练什么
-
-入库质量、表格、OCR、页码引用。parent-child 切块在这里很常见。
-
-## 白板草图
-
 </Locale>
 
 <Locale lang="en">
 
-Design document Q&A.
+## Level 0 · Clarify and estimate
 
-<Note title="Opening framework">
-Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+Assume mostly PDFs (median 30 pages, max 500, some scanned), askable within 10 s for 30 pages and 1 minute for 500 (answer from processed parts early), up to 10 documents per session with comparison, jump-to highlighted citations, 30-day retention or zero retention for enterprise. At ~500–800 tokens per page, 30 pages ≈ 20K tokens (fits in context) and 500 pages ≈ 300K (needs retrieval).
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is upload-to-ask latency the key constraint?
+2. Token estimates for 30 and 500 pages, and what they imply?
+
 </Note>
 
-## What this problem trains
-
-Ingestion quality, tables, OCR, and page-level citations. Parent-child chunking is common here.
-
-## Whiteboard sketch
-
 </Locale>
-
-```
-PDF/HTML → parse (tables/OCR) → chunk + page metadata
-         → retrieve → quote spans → answer
-```
 
 <Locale lang="zh">
 
-## 容易被追问
+## Level 1 · 高层架构
 
-1. 表格和正文怎么一起检索？（How do you retrieve tables and body text together?）
-2. 怎么引用到具体的页码或段落？（How do you cite down to the page or paragraph?）
-3. 长文档的 lost-in-the-middle 怎么处理？（How do you handle lost-in-the-middle on long documents?）
-4. 用户上传的文档怎么做隔离和病毒扫描？（How do you isolate and virus-scan user-uploaded documents?）
+```text
+上传 ─► 对象存储（加密）─► 处理队列
+           │
+           ▼
+   解析：有文字层 → 版面分析；扫描件 → OCR / VLM
+   输出：按页的块，每块带 page、bbox（在页面上的坐标）、类型（正文 / 表格 / 图）
+           │
+           ├─ 文档短（≤ 约 5 万 token）：存全文的结构化文本，标记“走长上下文”
+           └─ 文档长：切块 + embedding → 会话级临时索引（按 session_id 隔离）
+           │
+           ▼
+   状态推送给前端：“已处理 120 / 500 页，可以开始提问”
 
-## 14 个维度
-
-```
-1. 需求（Requirements）
-2. 约束（Constraints）
-3. 架构（Architecture）
-4. 数据流（Data Flow）
-5. 模型（Model）
-6. 检索（Retrieval）
-7. 智能体（Agent）
-8. 评测（Evaluation）
-9. 扩展（Scaling）
-10. 延迟（Latency）
-11. 成本（Cost）
-12. 可靠性（Reliability）
-13. 安全（Security）
-14. 可观测性（Observability）
+提问 ─► 选择策略
+   短文档：全文 + 问题 → LLM（前缀缓存全文）
+   长文档：混合检索本会话索引 → 重排 → 相关块 + 问题 → LLM
+   → 回答（引用 = doc_id + page + bbox）→ 前端跳转并高亮
 ```
 
+<Note title="自测：到这里你应该能回答">
+
+1. 解析结果为什么要带 page 和 bbox？
+2. 为什么索引要按会话隔离？
+
+</Note>
+
 </Locale>
 
 <Locale lang="en">
 
-## Likely follow-ups
+## Level 1 · High-level design
 
-1. How do you retrieve tables and body text together?
-2. How do you cite down to the page or paragraph?
-3. How do you handle lost-in-the-middle on long documents?
-4. How do you isolate and virus-scan user-uploaded documents?
+Upload to encrypted object storage → queue → parse (layout analysis or OCR/VLM for scans) into page-level blocks with page, bounding box, and type → short documents stored as structured full text for long-context answering; long ones chunked and embedded into a session-scoped index → progress pushed to the UI so users can ask early. At question time: short → full text (prefix-cached) + question; long → hybrid retrieval in the session index → rerank → chunks + question; answers cite doc, page, and bbox for jump-and-highlight.
 
-## Dimensions
+<Note title="Self-check: you should be able to answer">
 
+1. Why store page and bbox?
+2. Why isolate indexes per session?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 深挖：长上下文还是 RAG
+
+这是本题的核心取舍：
+
+| | 整份放进上下文 | 会话级 RAG |
+| --- | --- | --- |
+| 准备时间 | 只需解析，几秒 | 还要切块 + embedding，更久 |
+| 回答质量 | 能回答需要通读的问题（“总结这份合同的主要风险”“第 3 节和第 9 节矛盾吗”） | 擅长定位具体条款；全局问题容易漏 |
+| 每次提问成本 | 高：每问都带全部 token（**前缀缓存**能大幅降低） | 低：只带相关块 |
+| 长度上限 | 受有效上下文长度限制（见 [Context Window](/docs/context/window) Level 4） | 无上限 |
+
+实用策略：**按长度分档 + 按问题类型路由**。
+
+```text
+文档 ≤ 约 5 万 token：全文放入，用前缀缓存——同一文档追问 10 次，后 9 次输入成本约为一折
+文档更长：
+  具体问题（“违约金是多少”）→ RAG 检索相关块
+  全局问题（“总结主要风险”）→ 分段摘要再汇总（map-reduce），或先检索各章节摘要
 ```
-1. Requirements
-2. Constraints
-3. Architecture
-4. Data Flow
-5. Model
-6. Retrieval
-7. Agent
-8. Evaluation
-9. Scaling
-10. Latency
-11. Cost
-12. Reliability
-13. Security
-14. Observability
-```
 
-</Locale>
+前缀缓存在这里非常关键：用户通常会对同一份文档连续追问，文档全文是稳定前缀，缓存命中后输入成本和首 token 延迟都会大幅下降（见 [Caching](/docs/context/caching) Level 4）。
 
-<Locale lang="zh">
+<Note type="tip" title="面试加分">
 
-## 需求
+“我不会一刀切。中短文档直接全文进上下文并开前缀缓存，效果最好、实现最简单；长文档对具体问题用检索，对全局问题用分段摘要汇总。判断标准是有效上下文长度，而不是模型宣称的窗口。”
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 列出长上下文和 RAG 在四个维度上的差异。
+2. 为什么前缀缓存在这道题里特别有价值？
+3. 长文档的全局问题怎么处理？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Requirements
+## Level 2 · Deep dive: long context or RAG
+
+Full context: seconds to prepare, handles read-everything questions, costly per question unless prefix-cached, bounded by effective length. Session RAG: slower to prepare, cheap per question, good at pinpointing clauses, weak on global questions. Strategy: up to ~50K tokens, full text with prefix caching (follow-ups pay ~10% for input); longer documents route specific questions to retrieval and global ones to map-reduce section summaries. Caching shines because users ask repeated follow-ups over the same stable document prefix.
+
+<Note type="tip" title="Interview move">
+
+"Short and medium documents go in whole with prefix caching; long ones use retrieval for specifics and summaries for global questions — judged by effective, not advertised, context length."
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Four differences between the approaches?
+2. Why is prefix caching so valuable here?
+3. Global questions over long documents?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 约束
+## Level 3 · 深挖：引用与复杂内容
+
+### 怎样让引用精确到页码和段落？
+
+解析时为每个块记录 `page` 和 `bbox`。长上下文模式下，把全文按块编号嵌入（如 `<chunk id="p12-3" page="12">…</chunk>`），要求模型引用块 ID；RAG 模式下块本身带位置。返回后：
+
+1. **校验引用存在**：引用的块 ID 必须在本次输入里。
+2. **校验引用支持**：可选地用小模型或字符串匹配检查回答中的关键数字、条款是否出现在被引用的块中（数字不一致是合同和财报场景最危险的错误）。
+3. 前端根据 page + bbox 跳转并高亮。
+
+### 表格、图表、扫描件怎么办？
+
+| 内容 | 处理 |
+| --- | --- |
+| 表格（财报） | 版面分析识别表格并转 Markdown；数值问题要求模型引用具体单元格所在的表 |
+| 图表 | 用多模态模型把图表转成文字描述 + 数据；或直接把页面图像交给多模态模型回答 |
+| 扫描件 | OCR；对数字敏感的场景标记低置信度区域 |
+| 整页复杂版面 | 直接把页面图像发给多模态模型（见 [Ingestion](/docs/rag/ingestion) Level 1 的 VLM 解析与 ColPali） |
+
+### 多文档对比怎么做？
+
+“比较这两份合同的违约条款”：分别在两份文档中检索“违约”相关块，按文档分组放进上下文，要求模型分文档引用、逐项对比。不能把两份文档的块混在一起，否则模型会张冠李戴。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 引用的两层校验是什么？为什么数字要特别检查？
+2. 财报里的图表怎么处理？
+3. 多文档对比时，上下文为什么要按文档分组？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Constraints
+## Level 3 · Deep dive: citations and complex content
+
+Record page and bbox per block; in long-context mode wrap blocks with IDs and require ID citations. Verify cited IDs exist and optionally that key numbers appear in cited blocks — mismatched numbers are the most dangerous error in contracts and reports — then jump and highlight. Tables become Markdown with cell-level citation; charts go through a multimodal model as descriptions or page images; scans get OCR with low-confidence flags. For comparisons, retrieve per document and group context by document to avoid cross-attribution.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Two citation checks, and why numbers?
+2. Charts in financial reports?
+3. Why group context by document?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 架构
+## Level 4 · 隐私、评测与成本
+
+- **隐私**：文档加密存储；会话索引按 `session_id` 隔离（不能被别的用户检索到）；保留期到期后删除原件、解析结果、向量、缓存、日志中的原文（见 [Ingestion](/docs/rag/ingestion) Level 3）；企业版确认模型供应商的数据保留策略（零保留选项）。
+- **评测**：按文档类型（合同 / 财报 / 论文 / 扫描件）构造问答集；重点看**数字和条款的精确性**、引用定位准确率、全局问题的覆盖度；长文档分别测长上下文和 RAG 路线。
+- **成本**：长上下文路线每问成本高，但前缀缓存让追问很便宜；解析（尤其 VLM / OCR）是一次性成本，500 页扫描件可能比多次问答还贵。
+
+## 14 维度速查
+
+| 维度 | 本题关键决策 |
+| --- | --- |
+| 需求 | 上传即问；页码级引用；多文档对比 |
+| 约束 | 30 页 10 秒可问；最长 500 页；敏感数据 |
+| 架构 | 上传 → 解析队列 → 按长度分流（全文 / 会话索引） |
+| 数据流 | 渐进处理并推送进度；提问时按长度和问题类型路由 |
+| 模型 | 长上下文模型 + 前缀缓存；多模态模型处理图表 |
+| 检索 | 仅长文档；会话级索引；混合检索 + 重排 |
+| 智能体 | 不需要 |
+| 评测 | 按文档类型；数字精确性与引用定位 |
+| 扩展 | 解析是瓶颈，队列 + 并行按页处理 |
+| 延迟 | 渐进可用；缓存降低追问延迟 |
+| 成本 | 解析一次性成本 + 每问 token；缓存是关键 |
+| 可靠性 | 解析失败的页标记并告知用户 |
+| 安全 | 加密、会话隔离、保留期删除、零保留选项 |
+| 可观测性 | 解析耗时与失败页、缓存命中率、引用校验失败率 |
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- 所有文档一律走 RAG（全局问题答不好）或一律全文（超长文档质量下降）。
+- 引用只给文档名，不给页码。
+- 会话索引不隔离、到期不删除。
+
+</Note>
+
+## 连接
+
+- 机制：[Context Window](/docs/context/window)、[Caching](/docs/context/caching)、[Ingestion](/docs/rag/ingestion)
+- 相关题：[RAG Chatbot](/docs/system-design/rag-chatbot)、[Document Extraction](/docs/system-design/document-extraction)
+
+## 面试问题
+
+1. 设计一个“和 PDF 对话”的产品。（Design a chat-with-PDF product.）
+2. 什么时候把整份文档放进上下文，什么时候用检索？（When full context, when retrieval?）
+3. 怎样让引用精确到页码并能跳转？（How do you make citations jump to the page?）
+4. 表格和图表怎么处理？（How do you handle tables and charts?）
+5. 用户上传的敏感文档怎么保护和删除？（How do you protect and delete sensitive uploads?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Architecture
+## Level 4 · Privacy, eval, cost
+
+Privacy: encrypted storage, session-isolated indexes, deletion of originals, parses, vectors, caches, and logged text at expiry, and zero-retention provider options. Evaluation by document type, focused on numeric and clause precision, citation accuracy, and global coverage, testing both routes on long documents. Cost: long-context answers are pricier per question but caching makes follow-ups cheap; OCR/VLM parsing of a 500-page scan can exceed many Q&A turns.
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- One route for everything.
+- Citations by document name only.
+- Shared or never-deleted session indexes.
+
+</Note>
+
+## Connections
+
+- Mechanics: [Context Window](/docs/context/window), [Caching](/docs/context/caching), [Ingestion](/docs/rag/ingestion)
+- Related: [RAG Chatbot](/docs/system-design/rag-chatbot), [Document Extraction](/docs/system-design/document-extraction)
+
+## Interview questions
+
+1. Design a chat-with-PDF product.
+2. When full context, when retrieval?
+3. How do you make citations jump to the page?
+4. How do you handle tables and charts?
+5. How do you protect and delete sensitive uploads?
 
 </Locale>
-
--
-
-<Locale lang="zh">
-
-## 数据流
-
-</Locale>
-
-<Locale lang="en">
-
-## Data Flow
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 模型
-
-</Locale>
-
-<Locale lang="en">
-
-## Model
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 检索
-
-</Locale>
-
-<Locale lang="en">
-
-## Retrieval
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 智能体
-
-</Locale>
-
-<Locale lang="en">
-
-## Agent
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 评测
-
-</Locale>
-
-<Locale lang="en">
-
-## Evaluation
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 扩展
-
-</Locale>
-
-<Locale lang="en">
-
-## Scaling
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 延迟
-
-</Locale>
-
-<Locale lang="en">
-
-## Latency
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 成本
-
-</Locale>
-
-<Locale lang="en">
-
-## Cost
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可靠性
-
-</Locale>
-
-<Locale lang="en">
-
-## Reliability
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 安全
-
-</Locale>
-
-<Locale lang="en">
-
-## Security
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可观测性
-
-</Locale>
-
-<Locale lang="en">
-
-## Observability
-
-</Locale>
-
--
 
 <Locale lang="zh">
 
@@ -309,6 +358,22 @@ PDF/HTML → parse (tables/OCR) → chunk + page metadata
 <Locale lang="en">
 
 ## My answer
+
+</Locale>
+
+- 30s 电梯版:
+
+- 5 分钟白板版:
+
+<Locale lang="zh">
+
+## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
 
 </Locale>
 

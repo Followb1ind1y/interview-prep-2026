@@ -1,306 +1,373 @@
 ---
-title: L4 · LLM Inference Platform
-titleEn: L4 · LLM Inference Platform
-description: serving、KV、batching、量化、多模型路由。
-descriptionEn: Serving, KV cache, batching, quantization, multi-model routing.
-date: 2026-09-07
-keywords: ["llm serving", "vllm", "kv cache"]
+title: L4 · Inference Platform
+titleEn: L4 · Inference Platform
+description: 公司内部 LLM 推理平台：显存账（权重 + KV cache）、并行方式选择、连续批处理与吞吐 / 延迟 SLO 的取舍、前缀缓存与 KV 感知路由、prefill / decode 分离、多租户优先级与配额、慢冷启动下的扩缩容、多 LoRA 服务、GPU 利用率与成本。
+descriptionEn: "An internal LLM inference platform: memory math (weights + KV cache), parallelism choices, continuous batching vs latency SLOs, prefix caching and KV-aware routing, prefill/decode disaggregation, multi-tenant priority and quotas, autoscaling with slow cold starts, multi-LoRA serving, GPU utilization and cost."
+date: 2026-10-04
+keywords: ['system design', 'inference platform', 'llm serving', 'vllm', 'kv cache', 'continuous batching', 'tensor parallelism', 'prefix caching', 'disaggregated prefill', 'lora', 'autoscaling', 'gpu utilization']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-设计一个 LLM 推理平台。（Design an LLM inference platform.）
+> 题目：为一家公司设计内部 LLM 推理平台：托管几个开源模型（8B 到 70B）和若干微调版本，供几十个业务团队通过统一 API 调用，有在线（低延迟）和离线（高吞吐）两类负载。
 
-<Note title="开口框架">
-每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
+这道题偏 infra，考的是你对 [Inference](/docs/llm/inference) 的机制能否落到系统设计上：一张 GPU 能放几个模型、能服务多少并发、批处理开多大、怎么扩缩容。面试官会追问具体数字——**显存账**是这道题的地基，必须能现场算。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 面试中的时间 |
+| --- | --- | --- |
+| 0 · 澄清与显存账 | 70B 模型要几张卡？能并发多少请求？ | 8 min |
+| 1 · 高层架构 | 网关、调度、推理引擎、模型仓库怎么组合？ | 8 min |
+| 2 · 深挖：吞吐与延迟 | 批处理、缓存、投机解码、prefill / decode 分离怎么用？ | 12 min |
+| 3 · 深挖：多租户与扩缩容 | 在线和离线怎么共存？冷启动几分钟怎么办？ | 10 min |
+| 4 · 可观测、可靠性与成本 | 看什么指标？GPU 利用率怎么提高？ | 5 min |
+
+## 需要掌握
+
+- 权重显存、KV cache 显存手算；张量并行的选择
+- 连续批处理与 SLO（TTFT / TPOT）之间的取舍
+- 前缀缓存与 KV 感知路由；投机解码；量化
+- prefill / decode 分离（disaggregation）的动机
+- 在线 / 离线负载隔离、优先级、配额、抢占
+- 冷启动、预热池、按队列长度扩缩容；多 LoRA 服务
+
+</Locale>
+
+<Locale lang="en">
+
+> Design an internal LLM inference platform hosting several open models (8B–70B) plus fine-tuned variants for dozens of teams via one API, with online (low-latency) and offline (high-throughput) workloads.
+
+Infra-heavy: can you turn [Inference](/docs/llm/inference) mechanics into a system — models per GPU, concurrency, batch sizes, autoscaling? Interviewers probe numbers; memory math is the foundation.
+
+## How to work through this page
+
+| Level | Question it answers | Interview time |
+| --- | --- | --- |
+| 0 · Clarify and memory math | GPUs for 70B? Concurrency? | 8 min |
+| 1 · High-level design | Gateway, scheduler, engines, model registry? | 8 min |
+| 2 · Deep dive: throughput vs latency | Batching, caching, speculative decoding, disaggregation? | 12 min |
+| 3 · Deep dive: multi-tenancy and scaling | Online + offline? Minutes-long cold starts? | 10 min |
+| 4 · Observability, reliability, cost | Metrics? GPU utilization? | 5 min |
+
+## Must know
+
+- weight and KV memory math; tensor parallelism choices
+- continuous batching vs TTFT/TPOT SLOs
+- prefix caching and KV-aware routing; speculative decoding; quantization
+- prefill/decode disaggregation
+- online/offline isolation, priority, quotas, preemption
+- cold starts, warm pools, queue-based scaling; multi-LoRA
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 澄清需求与显存账
+
+| 问题 | 本题假设 |
+| --- | --- |
+| 模型？ | 8B（高频、简单任务）、70B（复杂任务）、各团队的 LoRA 微调版本 |
+| 负载？ | 在线：客服、助手，要求 TTFT P95 小于 1 s、TPOT 小于 50 ms；离线：批量抽取、评估，要求吞吐 |
+| 硬件？ | 80 GB 显存的 GPU（H100 级），8 卡一台机器 |
+| 规模？ | 在线峰值 300 QPS（多数走 8B），离线每天 50 亿 token |
+
+### 70B 模型要几张卡？
+
+```text
+权重：70B 参数 × 2 字节（BF16）= 140 GB  → 单卡 80 GB 放不下
+     FP8 量化后 70 GB → 单卡勉强放下，但几乎没有 KV cache 空间
+
+KV cache（见 Context Window Level 4，Llama 3 70B 用 GQA）：
+  每 token ≈ 0.31 MB
+  一个 8K token 的请求 ≈ 2.5 GB
+
+方案：4 卡张量并行（TP=4），BF16
+  总显存 320 GB − 权重 140 GB − 运行时开销约 20 GB ≈ 160 GB 给 KV cache
+  160 GB / 2.5 GB ≈ 64 个 8K 请求同时在途
+```
+
+8B 模型：权重 16 GB，单卡即可，剩余约 60 GB 给 KV cache，每 token 约 0.13 MB，8K 请求约 1 GB → 单卡约 60 个并发。
+
+### 为什么选 TP=4 而不是 8？
+
+张量并行把每层切到多张卡上，每一层都要卡间通信。卡越多：每张卡的显存压力越小、单请求 TPOT 越低（每卡读的权重少）；但通信开销越大、同样卡数下的副本数越少。TP=4 让每台 8 卡机器跑两个 70B 副本，在 KV 空间和通信之间取得平衡。具体选择要压测（见 [Inference](/docs/llm/inference) Level 7）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 算出 70B BF16 在 TP=4 下的 KV cache 空间和 8K 请求并发数。
+2. 8B 模型单卡能放多少个 8K 请求？
+3. 张量并行卡数增加的好处和代价是什么？
+
 </Note>
 
-## 本题要练什么
-
-接到 Inference 页：prefill / decode、continuous batching、PagedAttention、量化、配额。
-
-## 白板草图
-
 </Locale>
 
 <Locale lang="en">
 
-Design an LLM inference platform.
+## Level 0 · Clarify and memory math
 
-<Note title="Opening framework">
-Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+Assume 8B (frequent, simple), 70B (complex), and per-team LoRAs; online SLOs of TTFT P95 under 1 s and TPOT under 50 ms; offline throughput; 80 GB GPUs, 8 per node; 300 peak online QPS (mostly 8B) and 5B offline tokens/day. 70B in BF16 is 140 GB (FP8 70 GB fits one GPU with no KV room). Llama 3 70B KV ≈ 0.31 MB/token, ~2.5 GB per 8K request. TP=4: 320 − 140 − ~20 ≈ 160 GB of KV → ~64 concurrent 8K requests. 8B: 16 GB weights, ~60 GB KV at ~0.13 MB/token → ~60 concurrent 8K requests per GPU. More TP lowers per-GPU memory and TPOT but adds communication and reduces replicas; TP=4 gives two 70B replicas per node — confirm by load testing.
+
+<Note title="Self-check: you should be able to answer">
+
+1. KV space and 8K concurrency for 70B at TP=4?
+2. 8K concurrency for 8B on one GPU?
+3. Benefits and costs of more TP?
+
 </Note>
 
-## What this problem trains
-
-Tie it to the Inference page: prefill / decode, continuous batching, PagedAttention, quantization, quotas.
-
-## Whiteboard sketch
-
 </Locale>
-
-```
-API → scheduler / router
-    → GPU replicas (vLLM)
-    → KV / prefix cache
-    → metrics (TTFT, tokens/sec)
-```
 
 <Locale lang="zh">
 
-## 容易被追问
+## Level 1 · 高层架构
 
-1. KV cache 什么时候会成为瓶颈？（When does the KV cache become a bottleneck?）
-2. 怎么隔离不同租户之间的延迟影响？（How do you isolate latency between tenants?）
-3. 批处理怎么在吞吐和首 token 延迟之间折中？（How does batching trade off throughput against TTFT?）
-4. 多个模型怎么共享 GPU？（How do multiple models share GPUs?）
-
-## 14 个维度
-
-```
-1. 需求（Requirements）
-2. 约束（Constraints）
-3. 架构（Architecture）
-4. 数据流（Data Flow）
-5. 模型（Model）
-6. 检索（Retrieval）
-7. 智能体（Agent）
-8. 评测（Evaluation）
-9. 扩展（Scaling）
-10. 延迟（Latency）
-11. 成本（Cost）
-12. 可靠性（Reliability）
-13. 安全（Security）
-14. 可观测性（Observability）
+```text
+业务团队 ─► 统一 API（OpenAI 兼容）
+              │ 鉴权、团队识别、配额与限流、优先级标签（在线 / 离线）
+              ▼
+          推理网关 / 路由器
+              │ 按模型选择副本池；KV / 前缀感知路由；队列与优先级调度
+              ▼
+   ┌──────── 副本池（每个模型独立扩缩容）─────────┐
+   │ 8B 池：单卡副本 × N                          │
+   │ 70B 池：TP=4 副本 × M                        │
+   │ 推理引擎：vLLM / SGLang / TensorRT-LLM        │
+   │   连续批处理、PagedAttention、前缀缓存        │
+   │   多 LoRA：基座模型共享，按请求加载适配器      │
+   └──────────────────────────────────────────────┘
+              │
+   离线批处理通道：独立队列 → 填充空闲容量 / 专用副本
+   模型仓库：权重、LoRA、版本、评估结果；发布走灰度
+   可观测：TTFT / TPOT / 队列长度 / KV 使用率 / GPU 利用率 / 每团队用量
 ```
 
+<Note title="自测：到这里你应该能回答">
+
+1. 画出平台架构，标出路由器在哪做决策。
+2. 为什么要提供 OpenAI 兼容 API？
+
+</Note>
+
 </Locale>
 
 <Locale lang="en">
 
-## Likely follow-ups
+## Level 1 · High-level design
 
-1. When does the KV cache become a bottleneck?
-2. How do you isolate latency between tenants?
-3. How does batching trade off throughput against TTFT?
-4. How do multiple models share GPUs?
+An OpenAI-compatible API (auth, team identity, quotas, limits, online/offline priority) → an inference gateway choosing replica pools with KV/prefix-aware routing and priority queues → per-model pools (8B single-GPU, 70B TP=4) on vLLM/SGLang/TensorRT-LLM with continuous batching, PagedAttention, prefix caching, and multi-LoRA adapters over shared bases → a separate offline queue filling idle capacity or dedicated replicas → a model registry with versions, eval results, and canary releases → observability of TTFT, TPOT, queues, KV usage, GPU utilization, per-team usage. OpenAI compatibility lets teams switch between external APIs and the platform.
 
-## Dimensions
+<Note title="Self-check: you should be able to answer">
 
+1. Draw it; where does routing decide?
+2. Why OpenAI-compatible?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 深挖：吞吐与延迟
+
+### 批处理开多大？
+
+连续批处理让每一步 decode 同时为一批请求各生成一个 token（见 [Inference](/docs/llm/inference) Level 2）：
+
+```text
+批越大 → GPU 利用率越高、每 token 成本越低
+       → 但每步计算更多，TPOT 上升；新请求的 prefill 插队会造成在途请求卡顿
 ```
-1. Requirements
-2. Constraints
-3. Architecture
-4. Data Flow
-5. Model
-6. Retrieval
-7. Agent
-8. Evaluation
-9. Scaling
-10. Latency
-11. Cost
-12. Reliability
-13. Security
-14. Observability
-```
 
-</Locale>
+做法：**按 SLO 定上限**。压测不同的最大批大小，画出“吞吐 vs TPOT P95”曲线，选满足 TPOT 小于 50 ms 时吞吐最高的点。在线和离线用不同的配置（离线可以开很大的批）。
 
-<Locale lang="zh">
+### 有哪些提效手段？
 
-## 需求
+| 手段 | 改善 | 适用 |
+| --- | --- | --- |
+| **前缀缓存** | TTFT、prefill 算力 | 共享 system prompt、多轮对话、RAG 中重复文档 |
+| **KV / 前缀感知路由** | 缓存命中率 | 把同前缀、同会话的请求发到同一副本 |
+| **投机解码** | TPOT | 小草稿模型猜、大模型验证；接受率高时收益大（见 Inference Level 5） |
+| **量化**（FP8 / INT4） | 显存、TPOT、成本 | 要在评估集上确认质量损失可接受 |
+| **分块 prefill（chunked prefill）** | 长 prompt 不再阻塞 decode | 长输入与短输入混合的在线负载 |
+| **prefill / decode 分离** | 两种负载互不干扰 | 大规模部署 |
 
-</Locale>
+### 为什么要把 prefill 和 decode 分开？
 
-<Locale lang="en">
+prefill 是计算密集（长输入一次算完），decode 是显存带宽密集（一次一个 token）——见 [Latency](/docs/production/latency) Level 1。放在同一批里，一个 3 万 token 的 prefill 会让所有在途请求的 decode 停顿，TPOT 出现尖刺。**分离式部署**把 prefill 和 decode 放在不同的 GPU 池，prefill 算完把 KV cache 传给 decode 节点。好处是两类 SLO 可以独立优化、独立扩容；代价是 KV cache 跨节点传输需要高速网络，系统更复杂。规模较小时用分块 prefill 就能缓解大部分问题。
 
-## Requirements
+<Note title="自测：到这里你应该能回答">
 
-</Locale>
+1. 怎样根据 SLO 确定最大批大小？
+2. 前缀缓存和 KV 感知路由为什么要一起用？
+3. prefill / decode 分离解决什么问题？代价是什么？
 
--
-
-<Locale lang="zh">
-
-## 约束
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Constraints
+## Level 2 · Deep dive: throughput vs latency
+
+Larger batches raise utilization and cut cost per token but raise TPOT and let prefills stall decodes; load-test max batch size and pick the highest throughput meeting TPOT P95 under 50 ms, with separate online and offline configs. Levers: prefix caching (TTFT, prefill compute), KV/prefix-aware routing (hit rate), speculative decoding (TPOT when acceptance is high), FP8/INT4 quantization (memory, TPOT, cost — verify quality), chunked prefill (long prompts stop blocking decode), and disaggregation: compute-bound prefill and bandwidth-bound decode run on separate pools, transferring KV over fast networks, so each SLO scales independently at the cost of complexity; chunked prefill covers most needs at smaller scale.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Choosing max batch size from SLOs?
+2. Why pair prefix caching with KV-aware routing?
+3. What does disaggregation solve, and its cost?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 架构
+## Level 3 · 深挖：多租户与扩缩容
+
+### 在线和离线负载怎么共存？
+
+| 手段 | 做法 |
+| --- | --- |
+| 优先级队列 | 在线请求优先调度；离线请求只在有空闲容量时进入批 |
+| 抢占 | 在线流量突增时，暂停（换出 KV cache）离线请求，之后恢复或重算 |
+| 容量分池 | 在线保留最低副本数；离线可以使用夜间和低峰的空闲 GPU |
+| 团队配额 | 每个团队有 TPM / 并发配额；超额进入低优先级或拒绝（防 noisy neighbor） |
+
+### 冷启动要几分钟，怎么扩容？
+
+启动一个 70B 副本：分配 GPU、拉取 140 GB 权重、加载到显存、编译 / 预热——可能要几分钟到十几分钟。自动扩容来不及应对突发。
+
+- **扩容信号**：队列长度、等待时间、KV cache 使用率——而不是 GPU 利用率（GPU 可能已经 100% 但队列在堆积）。
+- **预留余量**：在线池保持一定冗余（例如峰值的 1.3 倍）。
+- **加速加载**：权重放在节点本地 NVMe 或高速共享存储；常用模型预先缓存在节点上；使用支持快速加载的格式。
+- **按时间预测扩容**：工作日早上提前扩。
+- **降级**：在线池满载时，把部分请求路由到 8B 或拒绝离线请求，而不是让所有在线请求都超时（见 [Reliability](/docs/production/reliability) Level 2 的减载）。
+
+### 几十个团队的微调模型怎么服务？
+
+为每个团队部署一个完整的 70B 副本太浪费。**多 LoRA 服务**：所有 LoRA 适配器共享同一个基座模型，每个适配器只有几十到几百 MB；推理引擎在同一批中可以混合不同适配器的请求。只有全参数微调的模型才需要独立部署。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 在线和离线负载共存的四种手段是什么？
+2. 为什么用队列长度而不是 GPU 利用率作为扩容信号？
+3. 多 LoRA 服务为什么省资源？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Architecture
+## Level 3 · Deep dive: multi-tenancy and scaling
+
+Coexist via priority queues (online first, offline fills spare capacity), preemption (swap out offline KV during spikes), capacity floors for online with off-peak offline use, and per-team TPM/concurrency quotas. A 70B replica can take minutes or more to start (allocate, pull 140 GB, load, warm up), so scale on queue length, wait time, and KV usage — not GPU utilization — keep ~1.3× headroom, stage weights on local NVMe or fast storage, pre-scale on schedules, and shed load (route to 8B, reject offline) when saturated. Serve team fine-tunes as LoRA adapters over shared bases, mixing adapters in one batch; only full fine-tunes need their own replicas.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Four ways to coexist?
+2. Why queue length over GPU utilization?
+3. Why does multi-LoRA save resources?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 数据流
+## Level 4 · 可观测、可靠性与成本
+
+- **指标**：每个模型的 TTFT / TPOT P50 / P95、队列等待时间、KV cache 使用率、前缀缓存命中率、批大小分布、GPU 利用率（算力与显存带宽）、每团队 token 用量与成本分摊（见 [Observability](/docs/production/observability)）。
+- **可靠性**：副本健康检查（GPU 故障、显存错误很常见）；故障副本自动摘除；模型发布走灰度，同时在评估集上回归质量（见 [Reliability](/docs/production/reliability) Level 4）；多可用区。
+- **成本**：GPU 按小时计费，**利用率就是成本**（见 [Cost](/docs/production/cost) Level 4）。提高利用率的手段：在线低峰期跑离线任务、合理批大小、量化、多 LoRA 共享基座、按团队计费促使团队优化用量。
+
+## 14 维度速查
+
+| 维度 | 本题关键决策 |
+| --- | --- |
+| 需求 | 多模型、多团队、在线 + 离线、统一 API |
+| 约束 | TTFT P95 小于 1 s、TPOT 小于 50 ms；80 GB GPU |
+| 架构 | API → 网关 / 路由 → 按模型的副本池 → 推理引擎 |
+| 数据流 | 优先级队列 → 连续批处理 → 流式返回 |
+| 模型 | 8B 单卡；70B TP=4；多 LoRA |
+| 检索 | 不适用（平台为上层 RAG 提供推理） |
+| 智能体 | 不适用 |
+| 评测 | 吞吐 vs 延迟曲线压测；模型发布的质量回归 |
+| 扩展 | 队列长度扩容；预留余量；权重本地缓存 |
+| 延迟 | 批大小按 SLO；分块 prefill；必要时 P / D 分离 |
+| 成本 | GPU 利用率；离线填谷；量化；LoRA 共享 |
+| 可靠性 | 副本健康检查、灰度、多可用区 |
+| 安全 | 团队鉴权与隔离；日志中的 prompt 脱敏 |
+| 可观测性 | TTFT / TPOT、队列、KV 使用率、缓存命中、每团队用量 |
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- 算显存时只算权重，忘了 KV cache。
+- 按 GPU 利用率自动扩容。
+- 批越大越好。
+- 每个微调模型独立部署一份基座。
+
+</Note>
+
+## 连接
+
+- 机制：[Inference](/docs/llm/inference)、[Latency](/docs/production/latency)、[Scaling](/docs/production/scaling)、[Caching](/docs/context/caching) Level 4
+- 相关题：[ChatGPT-like](/docs/system-design/chatgpt)、[Agent Platform](/docs/system-design/agent-platform)
+
+## 面试问题
+
+1. 设计一个公司内部的 LLM 推理平台。（Design an internal LLM inference platform.）
+2. 70B 模型要几张 GPU？能同时服务多少请求？（How many GPUs for 70B, and how many concurrent requests?）
+3. 批大小怎么定？（How do you choose batch size?）
+4. 为什么要做 prefill / decode 分离？（Why disaggregate prefill and decode?）
+5. 在线和离线负载怎么共存？（How do online and offline workloads coexist?）
+6. 冷启动要几分钟，怎么扩容？（How do you autoscale with multi-minute cold starts?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Data Flow
+## Level 4 · Observability, reliability, cost
+
+Track per-model TTFT/TPOT percentiles, queue wait, KV usage, prefix hit rate, batch sizes, GPU compute and bandwidth utilization, and per-team usage and chargeback. Health-check replicas (GPU faults are common), eject failures, canary model releases with quality regression, span zones. GPUs bill hourly, so utilization is cost: fill troughs with offline work, tune batches, quantize, share bases with LoRA, and charge teams back.
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- Counting weights but not KV cache.
+- Autoscaling on GPU utilization.
+- "Bigger batches are always better."
+- A separate base model per fine-tune.
+
+</Note>
+
+## Connections
+
+- Mechanics: [Inference](/docs/llm/inference), [Latency](/docs/production/latency), [Scaling](/docs/production/scaling), [Caching](/docs/context/caching) Level 4
+- Related: [ChatGPT-like](/docs/system-design/chatgpt), [Agent Platform](/docs/system-design/agent-platform)
+
+## Interview questions
+
+1. Design an internal LLM inference platform.
+2. How many GPUs for 70B, and how many concurrent requests?
+3. How do you choose batch size?
+4. Why disaggregate prefill and decode?
+5. How do online and offline workloads coexist?
+6. How do you autoscale with multi-minute cold starts?
 
 </Locale>
-
--
-
-<Locale lang="zh">
-
-## 模型
-
-</Locale>
-
-<Locale lang="en">
-
-## Model
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 检索
-
-</Locale>
-
-<Locale lang="en">
-
-## Retrieval
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 智能体
-
-</Locale>
-
-<Locale lang="en">
-
-## Agent
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 评测
-
-</Locale>
-
-<Locale lang="en">
-
-## Evaluation
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 扩展
-
-</Locale>
-
-<Locale lang="en">
-
-## Scaling
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 延迟
-
-</Locale>
-
-<Locale lang="en">
-
-## Latency
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 成本
-
-</Locale>
-
-<Locale lang="en">
-
-## Cost
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可靠性
-
-</Locale>
-
-<Locale lang="en">
-
-## Reliability
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 安全
-
-</Locale>
-
-<Locale lang="en">
-
-## Security
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可观测性
-
-</Locale>
-
-<Locale lang="en">
-
-## Observability
-
-</Locale>
-
--
 
 <Locale lang="zh">
 
@@ -311,6 +378,22 @@ API → scheduler / router
 <Locale lang="en">
 
 ## My answer
+
+</Locale>
+
+- 30s 电梯版:
+
+- 5 分钟白板版:
+
+<Locale lang="zh">
+
+## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
 
 </Locale>
 

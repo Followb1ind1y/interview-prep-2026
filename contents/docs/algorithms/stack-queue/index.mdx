@@ -1,0 +1,306 @@
+---
+title: 栈与队列
+titleEn: Stacks & Queues
+description: 栈处理“最近的未匹配项”（括号、表达式）；单调栈解决“下一个更大元素”；单调双端队列解决滑动窗口最大值。
+descriptionEn: "Stacks for the most recent unmatched item (brackets, expressions); monotonic stacks for next-greater-element problems; monotonic deques for sliding-window maximum."
+date: 2026-10-04
+keywords: ['stack', 'monotonic stack', 'queue', 'deque', 'monotonic deque', 'parentheses', 'next greater element']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
+---
+
+<Locale lang="zh">
+
+栈和队列的题目数量不多，但单调栈是一个“不知道就很难想到”的模式。三个信号：**配对与嵌套 → 栈；“下一个更大 / 更小” → 单调栈；“窗口内的最大 / 最小” → 单调队列**。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 栈 | 括号匹配、表达式求值为什么用栈？ | 20 min |
+| 1 · 单调栈 | “下一个更高的温度”怎么 O(n) 做？ | 35 min |
+| 2 · 单调队列 | 滑动窗口最大值怎么 O(n) 做？ | 25 min |
+
+## 需要掌握
+
+- 栈：后进先出，处理“最近的未完成项”
+- 单调栈：栈内保持单调，弹出时得到“下一个更大元素”
+- `collections.deque` 两端 O(1)；单调双端队列
+
+</Locale>
+
+<Locale lang="en">
+
+Few problems, but monotonic stacks are hard to invent on the spot. Signals: pairing and nesting → stack; next greater/smaller → monotonic stack; max/min in a window → monotonic deque.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Stacks | Why stacks for brackets and expressions? | 20 min |
+| 1 · Monotonic stacks | Next warmer day in O(n)? | 35 min |
+| 2 · Monotonic deques | Sliding-window maximum in O(n)? | 25 min |
+
+## Must know
+
+- LIFO for the most recent unfinished item
+- monotonic stacks yield next-greater on pop
+- `deque` O(1) at both ends; monotonic deques
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 栈
+
+括号匹配：遇到左括号入栈，遇到右括号检查栈顶是否是对应的左括号。栈处理的是“**最近一个还没配对的东西**”。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Stacks
+
+Push openers; on a closer, the top must be its partner — the stack tracks the most recent unmatched item.
+
+</Locale>
+
+```python
+def is_valid(s: str) -> bool:
+    pairs = {')': '(', ']': '[', '}': '{'}
+    stack = []
+    for ch in s:
+        if ch in pairs:
+            if not stack or stack[-1] != pairs[ch]:
+                return False
+            stack.pop()
+        else:
+            stack.append(ch)
+    return not stack          # leftovers mean unmatched openers
+```
+
+<Locale lang="zh">
+
+同类：最小栈（155，辅助栈记录每个位置的当前最小值）、逆波兰表达式求值（150）、字符串解码（394，栈存“外层的字符串和重复次数”）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么最后要检查 `not stack`？
+2. 最小栈怎样做到 O(1) 取最小值？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Related: Min Stack (155, an auxiliary stack of running minimums), Evaluate RPN (150), Decode String (394, stack of outer string and repeat count).
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why check `not stack` at the end?
+2. How does Min Stack get O(1) minimum?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 单调栈
+
+### “下一个更大元素”怎么 O(n)？
+
+每日温度（739）：对每一天，求几天后会出现更高温度。暴力 O(n²)。单调栈：栈里存**还没找到答案的天的下标**，温度从栈底到栈顶递减。新的一天比栈顶高时，栈顶那天的答案就找到了——弹出并记录。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Monotonic stacks
+
+Daily Temperatures (739): keep indexes of days still waiting for a warmer day, with decreasing temperatures; a warmer new day resolves and pops them.
+
+</Locale>
+
+```python
+def daily_temperatures(temps: list[int]) -> list[int]:
+    ans = [0] * len(temps)
+    stack = []                                    # indexes, temps decreasing
+    for i, t in enumerate(temps):
+        while stack and temps[stack[-1]] < t:
+            j = stack.pop()
+            ans[j] = i - j                        # day i is j's next warmer day
+        stack.append(i)
+    return ans
+```
+
+<Locale lang="zh">
+
+手推 `[73, 74, 75, 71, 69, 72, 76]`：
+
+| i | 温度 | 弹出（找到答案） | 栈（下标） |
+| --- | --- | --- | --- |
+| 0 | 73 | — | [0] |
+| 1 | 74 | 0 → 1 天 | [1] |
+| 2 | 75 | 1 → 1 天 | [2] |
+| 3 | 71 | — | [2, 3] |
+| 4 | 69 | — | [2, 3, 4] |
+| 5 | 72 | 4 → 1 天，3 → 2 天 | [2, 5] |
+| 6 | 76 | 5 → 1 天，2 → 4 天 | [6] |
+
+每个下标入栈、出栈各一次，O(n)。**柱状图中最大的矩形**（84）也是单调栈：对每根柱子，找左右第一个比它矮的位置，就知道它能延伸多宽。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 栈里存的是什么？为什么存下标而不是温度？
+2. 为什么总复杂度是 O(n)？
+3. “下一个更小元素”要怎么改？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Trace `[73,74,75,71,69,72,76]`: 72 resolves 69 (1 day) and 71 (2 days); 76 resolves 72 and 75 (4 days). Each index is pushed and popped once — O(n). Largest Rectangle in Histogram (84) uses the same idea to find each bar's nearest shorter neighbors.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What's on the stack, and why indexes?
+2. Why O(n)?
+3. How to change it for next smaller?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 单调队列
+
+滑动窗口最大值（239）：窗口大小 k，求每个窗口的最大值。用双端队列存下标，**值从队头到队尾递减**：
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Monotonic deques
+
+Sliding Window Maximum (239): keep indexes in a deque with decreasing values.
+
+</Locale>
+
+```python
+from collections import deque
+
+def max_sliding_window(nums: list[int], k: int) -> list[int]:
+    dq, out = deque(), []                 # indexes, values decreasing
+    for i, x in enumerate(nums):
+        while dq and nums[dq[-1]] <= x:
+            dq.pop()                      # smaller elements can never be a max again
+        dq.append(i)
+        if dq[0] <= i - k:
+            dq.popleft()                  # front fell out of the window
+        if i >= k - 1:
+            out.append(nums[dq[0]])       # front is the window max
+    return out
+```
+
+<Locale lang="zh">
+
+关键洞察：新元素 x 进来时，队尾比 x 小的元素**永远不可能再成为最大值**（x 比它们大，且比它们更晚离开窗口），可以直接丢掉。队头是当前窗口最大值；过期了就从队头弹出。O(n)。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么比新元素小的队尾元素可以丢掉？
+2. 队头什么时候需要弹出？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Smaller tail elements can never be a maximum again (x is larger and leaves later), so drop them; the front is the max and is popped when it expires. O(n).
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why drop smaller tail elements?
+2. When does the front pop?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 题单
+
+| 模式 | 题目 | 优先级 |
+| --- | --- | --- |
+| 栈 | Valid Parentheses (20)、Min Stack (155)、Evaluate Reverse Polish Notation (150) | 🔴 |
+| 栈 | Decode String (394)、Simplify Path (71) | 🟡 |
+| 单调栈 | Daily Temperatures (739)、Next Greater Element I (496) | 🔴 |
+| 单调栈 | Largest Rectangle in Histogram (84) | 🟡 |
+| 单调队列 | Sliding Window Maximum (239) | 🟡 |
+
+## 陷阱
+
+<Note type="warning" title="常见错误">
+
+- 弹栈前不检查栈是否为空。
+- 单调栈存值而不是下标，导致无法计算距离。
+- 单调队列忘记弹出过期的队头。
+
+</Note>
+
+## 连接
+
+- 上一页：[二分与堆](/docs/algorithms/search-sort)；下一页：[链表](/docs/algorithms/linked-list)
+- 队列在 [图](/docs/algorithms/graphs) 的 BFS 中是核心数据结构
+
+</Locale>
+
+<Locale lang="en">
+
+## Problem list
+
+Stacks: 20, 155, 150 🔴; 394, 71 🟡. Monotonic stacks: 739, 496 🔴; 84 🟡. Monotonic deque: 239 🟡.
+
+## Pitfalls
+
+<Note type="warning" title="Common mistakes">
+
+- Popping an empty stack.
+- Storing values instead of indexes.
+- Not expiring the deque front.
+
+</Note>
+
+## Connections
+
+- Previous: [Binary Search & Heaps](/docs/algorithms/search-sort); next: [Linked Lists](/docs/algorithms/linked-list)
+- Queues drive BFS in [Graphs](/docs/algorithms/graphs)
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+| 题目 | 日期 | 用时 | 一次通过？ | 卡在哪 |
+| --- | --- | --- | --- | --- |
+| | | | | |

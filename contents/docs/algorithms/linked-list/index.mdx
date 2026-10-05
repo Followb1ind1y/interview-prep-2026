@@ -1,46 +1,300 @@
 ---
 title: 链表
 titleEn: Linked Lists
-description: 反转、双指针、环检测、合并有序链表。
-descriptionEn: Reverse, two pointers, cycle detection, merge.
-date: 2026-08-30
-keywords: ["linked list"]
+description: 三个技巧覆盖大部分链表题：哑节点、原地反转、快慢指针（找中点、判环、倒数第 k 个）；以及合并有序链表。
+descriptionEn: "Three techniques cover most linked-list problems: dummy nodes, in-place reversal, and fast/slow pointers (middle, cycles, k-th from end), plus merging sorted lists."
+date: 2026-10-04
+keywords: ['linked list', 'dummy node', 'reverse', 'fast slow pointers', 'floyd cycle', 'merge']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-## 模式
+链表题考的不是算法思想，而是**指针操作不出错**。掌握三个技巧，并养成“画图 + 手推”的习惯即可。LRU 缓存（哈希 + 双向链表）放在 [AI 实用编码题](/docs/algorithms/ml-coding)。
 
-- 用 dummy head（哑节点）处理头节点的边界情况
-- 快慢指针找中点 / 判断环
-- 反转一段区间时，记清 `pre / cur / next` 三个指针
+## 这一页怎么学
 
-## 代表题
-
-| 题 | 模式 | 状态 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| Reverse Linked List | 反转 | 待刷 |
-| Merge Two Sorted Lists | 哑节点 | 待刷 |
-| Linked List Cycle | 快慢指针 | 待刷 |
-| Reorder List | 拆分 + 反转 | 待刷 |
+| 0 · 哑节点与合并 | 头节点可能变化时怎么写才不用特判？ | 20 min |
+| 1 · 原地反转 | 三个指针怎么配合？ | 25 min |
+| 2 · 快慢指针 | 中点、判环、倒数第 k 个怎么找？ | 30 min |
+
+## 需要掌握
+
+- 哑节点（dummy）消除头节点特判
+- 迭代反转：`prev`、`cur`、`nxt` 三指针
+- 快慢指针：快指针走两步、慢指针走一步；Floyd 判环
 
 </Locale>
 
 <Locale lang="en">
 
-## Patterns
+Linked lists test pointer handling, not ideas. Three techniques plus drawing and tracing suffice. LRU cache lives in [AI Practical Coding](/docs/algorithms/ml-coding).
 
-- A dummy head handles edge cases at the head node
-- Fast and slow pointers find the middle or detect a cycle
-- When reversing a sub-range, keep `pre / cur / next` straight
+## How to work through this page
 
-## Representative problems
-
-| Problem | Pattern | Status |
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| Reverse Linked List | Reverse | To do |
-| Merge Two Sorted Lists | Dummy | To do |
-| Linked List Cycle | Fast / slow | To do |
-| Reorder List | Split + reverse | To do |
+| 0 · Dummy nodes and merging | Avoiding head special cases? | 20 min |
+| 1 · In-place reversal | How do three pointers cooperate? | 25 min |
+| 2 · Fast/slow pointers | Middle, cycles, k-th from end? | 30 min |
+
+## Must know
+
+- dummy nodes remove head special cases
+- `prev`/`cur`/`nxt` reversal
+- fast/slow pointers and Floyd's cycle detection
 
 </Locale>
+
+---
+
+```python
+class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val, self.next = val, next
+```
+
+<Locale lang="zh">
+
+## Level 0 · 哑节点与合并
+
+结果链表的头节点不确定时（合并、删除），先建一个哑节点，最后返回 `dummy.next`，所有节点的处理方式就一致了。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Dummy nodes and merging
+
+When the result's head is uncertain (merging, deleting), start from a dummy node and return `dummy.next`.
+
+</Locale>
+
+```python
+def merge_two_lists(a: ListNode | None, b: ListNode | None) -> ListNode | None:
+    dummy = tail = ListNode()
+    while a and b:
+        if a.val <= b.val:
+            tail.next, a = a, a.next
+        else:
+            tail.next, b = b, b.next
+        tail = tail.next
+    tail.next = a or b            # append the remainder
+    return dummy.next
+```
+
+<Locale lang="zh">
+
+<Note title="自测：到这里你应该能回答">
+
+1. 不用哑节点时，合并链表要多写哪段特判？
+2. 最后为什么可以直接 `tail.next = a or b`？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+<Note title="Self-check: you should be able to answer">
+
+1. What special case does the dummy remove?
+2. Why is `tail.next = a or b` enough?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 原地反转
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · In-place reversal
+
+</Locale>
+
+```python
+def reverse_list(head: ListNode | None) -> ListNode | None:
+    prev, cur = None, head
+    while cur:
+        nxt = cur.next        # 1. remember the rest
+        cur.next = prev       # 2. reverse this link
+        prev, cur = cur, nxt  # 3. advance
+    return prev
+```
+
+<Locale lang="zh">
+
+手推 `1 → 2 → 3`：
+
+| 步 | prev | cur | 已反转部分 |
+| --- | --- | --- | --- |
+| 开始 | None | 1 | — |
+| 1 | 1 | 2 | 1 → None |
+| 2 | 2 | 3 | 2 → 1 → None |
+| 3 | 3 | None | 3 → 2 → 1 → None |
+
+**第 1 步必须先保存 `nxt`**，否则改了 `cur.next` 就找不到后面的节点了。变体：反转链表 II（92，反转一段区间）、K 个一组翻转（25）、回文链表（234：找中点 + 反转后半段 + 比较）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 三个步骤的顺序为什么不能换？
+2. 回文链表怎样在 O(1) 额外空间内判断？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Trace `1 → 2 → 3` until `prev` is 3. Save `nxt` first or the rest is lost. Variants: Reverse Linked List II (92), Reverse Nodes in k-Group (25), Palindrome Linked List (234: find middle, reverse second half, compare).
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why can't the three steps be reordered?
+2. O(1)-space palindrome check?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 快慢指针
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Fast and slow pointers
+
+</Locale>
+
+```python
+def middle_node(head: ListNode) -> ListNode:
+    slow = fast = head
+    while fast and fast.next:
+        slow, fast = slow.next, fast.next.next
+    return slow                       # second middle for even lengths
+
+def has_cycle(head: ListNode | None) -> bool:
+    slow = fast = head
+    while fast and fast.next:
+        slow, fast = slow.next, fast.next.next
+        if slow is fast:              # fast laps slow inside a cycle
+            return True
+    return False
+
+def remove_nth_from_end(head: ListNode, n: int) -> ListNode | None:
+    dummy = ListNode(0, head)
+    fast = slow = dummy
+    for _ in range(n + 1):
+        fast = fast.next              # gap of n nodes between slow and fast
+    while fast:
+        slow, fast = slow.next, fast.next
+    slow.next = slow.next.next        # slow is just before the target
+    return dummy.next
+```
+
+<Locale lang="zh">
+
+- **中点**：快指针走到尾时，慢指针在中间。
+- **判环（Floyd）**：有环时快指针每步比慢指针多走 1，一定会在环内追上。找环的入口（142）：相遇后，一个指针回到头，两者都每次走一步，再次相遇处就是入口。
+- **倒数第 n 个**：先让快指针领先 n+1 步，两者同速前进，快指针到尾时慢指针正好在目标的前一个。用哑节点处理“删除头节点”的情况。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么有环时快慢指针一定会相遇？
+2. 删除倒数第 n 个节点时，为什么快指针要领先 n+1 步而不是 n 步？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Middle: slow is mid when fast ends. Floyd: fast gains one node per step and must catch slow inside a cycle; for the entry (142), reset one pointer to head and advance both by one. k-th from end: lead by n+1 so slow stops just before the target; the dummy handles deleting the head.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why must fast and slow meet in a cycle?
+2. Why lead by n+1 rather than n?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 题单
+
+| 模式 | 题目 | 优先级 |
+| --- | --- | --- |
+| 基础 | Reverse Linked List (206)、Merge Two Sorted Lists (21)、Linked List Cycle (141)、Remove Nth Node From End (19) | 🔴 |
+| 进阶 | Reorder List (143)、Linked List Cycle II (142)、Palindrome Linked List (234)、Add Two Numbers (2) | 🟡 |
+| 综合 | LRU Cache (146)——见 [AI 实用编码题](/docs/algorithms/ml-coding) | 🔴 |
+
+## 陷阱
+
+<Note type="warning" title="常见错误">
+
+- 反转时没先保存 `next`。
+- 访问 `fast.next.next` 前没检查 `fast.next`。
+- 删除头节点没用哑节点。
+- 不画图直接写。
+
+</Note>
+
+## 连接
+
+- 上一页：[栈与队列](/docs/algorithms/stack-queue)；下一页：[树](/docs/algorithms/trees)
+
+</Locale>
+
+<Locale lang="en">
+
+## Problem list
+
+Basics: 206, 21, 141, 19 🔴. Next: 143, 142, 234, 2 🟡. LRU Cache (146) in [AI Practical Coding](/docs/algorithms/ml-coding) 🔴.
+
+## Pitfalls
+
+<Note type="warning" title="Common mistakes">
+
+- Not saving `next` before reversing.
+- Touching `fast.next.next` without checking `fast.next`.
+- Deleting the head without a dummy.
+- Coding without drawing.
+
+</Note>
+
+## Connections
+
+- Previous: [Stacks & Queues](/docs/algorithms/stack-queue); next: [Trees](/docs/algorithms/trees)
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+| 题目 | 日期 | 用时 | 一次通过？ | 卡在哪 |
+| --- | --- | --- | --- | --- |
+| | | | | |

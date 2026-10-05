@@ -1,0 +1,419 @@
+---
+title: 二分、排序与堆
+titleEn: Binary Search, Sorting & Heaps
+description: 二分查找的统一模板（找第一个满足条件的位置）、在答案空间上二分、旋转数组；排序作为预处理与区间合并；堆与 Top-K、多路归并、数据流中位数。
+descriptionEn: "A unified binary-search template (first position satisfying a condition), binary search on the answer space, rotated arrays; sorting as preprocessing and interval merging; heaps for Top-K, k-way merge, and streaming medians."
+date: 2026-10-04
+keywords: ['binary search', 'lower bound', 'search on answer', 'sorting', 'intervals', 'heap', 'heapq', 'top k', 'k-way merge', 'median']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
+---
+
+<Locale lang="zh">
+
+二分查找是最容易“思路对、代码错”的模式：边界差一、死循环。这一页用**一个统一模板**解决所有二分题；然后讲排序的预处理作用和区间问题；最后是堆——Top-K 在 AI 工程里也很常见（检索结果取前 k、流式统计）。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 二分模板 | 怎样写出永不出错的二分？ | 40 min |
+| 1 · 在答案上二分 | “最小的可行速度”这类题怎么想到二分？ | 30 min |
+| 2 · 排序与区间 | 什么时候先排序？区间合并怎么做？ | 30 min |
+| 3 · 堆 | Top-K、多路归并、中位数怎么用堆？ | 40 min |
+
+## 需要掌握
+
+- “找第一个满足条件的位置”统一模板；循环不变量
+- 在答案空间上二分：单调的可行性函数
+- 排序 + 扫描；区间合并与会议室问题
+- `heapq` 是最小堆；Top-K 用大小为 k 的堆，O(n log k)
+
+</Locale>
+
+<Locale lang="en">
+
+Binary search is where right ideas become wrong code — off-by-one and infinite loops. One unified template handles them all; then sorting as preprocessing and intervals; then heaps, common in AI engineering too (top-k retrieval, streaming stats).
+
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Binary search template | How do you write bug-free binary search? | 40 min |
+| 1 · Search on the answer | How do you see binary search in "minimum feasible speed"? | 30 min |
+| 2 · Sorting and intervals | When to sort first? Merging intervals? | 30 min |
+| 3 · Heaps | Top-K, k-way merge, medians? | 40 min |
+
+## Must know
+
+- the first-true template and its invariant
+- binary search on a monotonic feasibility function
+- sort + scan; interval merging and meeting rooms
+- `heapq` is a min-heap; Top-K with a size-k heap in O(n log k)
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 二分模板
+
+### 统一模板：找第一个让条件为真的位置
+
+把所有二分题都改写成：**有一个单调的条件 `ok(i)`，前面一段全是 False、后面一段全是 True，找第一个 True。**
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · The template
+
+Rewrite every problem as: a monotonic `ok(i)` that is False then True; find the first True.
+
+</Locale>
+
+```python
+def first_true(lo: int, hi: int, ok) -> int:
+    """Smallest i in [lo, hi) with ok(i) True; returns hi if none."""
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if ok(mid):
+            hi = mid          # mid might be the answer: keep it
+        else:
+            lo = mid + 1      # mid is definitely not: drop it
+    return lo
+
+# Search insert position / lower_bound: first index with nums[i] >= target
+def search_insert(nums: list[int], target: int) -> int:
+    return first_true(0, len(nums), lambda i: nums[i] >= target)
+```
+
+<Locale lang="zh">
+
+为什么不会出错：
+
+- **区间是左闭右开 `[lo, hi)`**，循环条件 `lo < hi`，结束时 `lo == hi`，就是答案。
+- `mid` 向下取整，`lo = mid + 1` 保证区间每次至少缩小 1，**不会死循环**。
+- 循环不变量：答案始终在 `[lo, hi]` 中。
+
+手推 `nums = [1, 3, 5, 6]`，找第一个 ≥ 5 的位置：`[0,4)` → mid=2，5≥5 真 → `hi=2`；`[0,2)` → mid=1，3≥5 假 → `lo=2`；结束，返回 2。
+
+“精确查找某个值”= 先找第一个 ≥ target 的位置，再检查那个位置是否等于 target。Python 标准库 `bisect.bisect_left` 就是这个模板。
+
+### 旋转排序数组
+
+`[4,5,6,7,0,1,2]` 中找最小值：条件 `ok(i) = nums[i] <= nums[-1]`——旋转点之后的元素都 ≤ 最后一个元素，之前的都 >。它是单调的，直接套模板。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么用左闭右开区间和 `lo < hi`？
+2. `lo = mid + 1` 写成 `lo = mid` 会怎样？
+3. 写出旋转数组找最小值的 `ok` 函数。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Why it's safe: half-open `[lo, hi)` with `lo < hi` ends at `lo == hi`, the answer; floor `mid` plus `lo = mid + 1` always shrinks the range (no infinite loop); the answer stays in `[lo, hi]`. Trace `[1,3,5,6]` for first ≥ 5 → 2. Exact search: find first ≥ target, then compare; `bisect.bisect_left` is this template. Rotated array minimum: `ok(i) = nums[i] <= nums[-1]` is monotonic.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why half-open and `lo < hi`?
+2. What breaks with `lo = mid`?
+3. The `ok` for the rotated minimum?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 在答案上二分
+
+### 怎么想到二分？
+
+题目问“**最小的 X 使得某件事可行**”（或最大），且 X 越大越容易可行——可行性关于 X 单调。那就对 X 的取值范围二分，每次用一个 O(n) 的函数检查“X 可不可行”。
+
+例：Koko 吃香蕉（875）——每小时吃 k 根，h 小时内吃完所有堆，求最小的 k。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Search on the answer
+
+When asked for the minimum X that makes something feasible, and feasibility is monotonic in X, binary search X with an O(n) feasibility check. Example: Koko Eating Bananas (875).
+
+</Locale>
+
+```python
+def min_eating_speed(piles: list[int], h: int) -> int:
+    def can_finish(k: int) -> bool:
+        return sum((p + k - 1) // k for p in piles) <= h   # ceil(p / k) hours per pile
+    return first_true(1, max(piles) + 1, can_finish)
+```
+
+<Locale lang="zh">
+
+复杂度：答案范围 `[1, max(piles)]`，二分 `log(max)` 次，每次 O(n)，共 O(n log max)。同类题：分割数组的最大值最小（410）、在 D 天内送达包裹（1011）。
+
+<Note type="tip" title="串联">
+
+“在答案上二分”在工程里也常见：压测时找满足 P95 SLO 的最大并发、找满足召回率目标的最小 `efSearch`（见 [Vector Search](/docs/rag/vector-search) Level 4）——只要可行性是单调的。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 什么特征提示“在答案上二分”？
+2. Koko 题的答案范围和复杂度是多少？
+3. `(p + k - 1) // k` 计算的是什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Complexity O(n log max). Similar: Split Array Largest Sum (410), Ship Packages Within D Days (1011).
+
+<Note type="tip" title="Connection">
+
+The same idea finds the max concurrency meeting an SLO or the minimum `efSearch` meeting a recall target — whenever feasibility is monotonic.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. What signals search-on-answer?
+2. Range and complexity for Koko?
+3. What does `(p + k - 1) // k` compute?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 排序与区间
+
+### 什么时候先排序？
+
+排序 O(n log n) 往往是“打开思路”的一步：排序后相邻元素有关系、可以双指针、可以贪心扫描。题目没有要求保持原顺序、且 n 不太大时，先想“排序之后会不会简单？”
+
+Python 排序要点：`sorted(items, key=lambda x: (x[0], -x[1]))` 用元组实现多关键字；Python 的排序是稳定的（Timsort）。
+
+### 区间合并
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Sorting and intervals
+
+Sorting in O(n log n) often unlocks neighbors, two pointers, or greedy scans; ask "would sorted input make this easy?" Use tuple keys for multi-key sorts; Python's Timsort is stable.
+
+</Locale>
+
+```python
+def merge_intervals(intervals: list[list[int]]) -> list[list[int]]:
+    intervals.sort(key=lambda x: x[0])        # by start
+    merged = []
+    for start, end in intervals:
+        if merged and start <= merged[-1][1]:  # overlaps the last merged interval
+            merged[-1][1] = max(merged[-1][1], end)
+        else:
+            merged.append([start, end])
+    return merged
+```
+
+<Locale lang="zh">
+
+按起点排序后，只需要和**最后一个已合并区间**比较。注意 `max`：`[1,10]` 和 `[2,3]` 合并后仍是 `[1,10]`。
+
+会议室 II（最少需要几间会议室）：按开始时间排序，用最小堆存每间会议室的结束时间——下一节的堆。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 区间合并为什么只需要和最后一个合并区间比较？
+2. 为什么合并时要取 `max`？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+After sorting by start, compare only with the last merged interval, taking `max` of ends (`[1,10]` absorbs `[2,3]`). Meeting Rooms II sorts by start and keeps end times in a min-heap.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why compare only with the last merged interval?
+2. Why `max` on merge?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 堆
+
+### Python 的堆
+
+`heapq` 是**最小堆**：`heappush` / `heappop` 都是 O(log n)，`heap[0]` 是最小值。要最大堆就存负数。
+
+### Top-K：为什么用大小为 k 的最小堆？
+
+求最大的 k 个数：维护一个只有 k 个元素的**最小堆**，堆顶是“当前第 k 大”。新元素比堆顶大就替换。复杂度 **O(n log k)**，比全排序 O(n log n) 好，且适合**数据流**（不需要一次拿到所有数据）。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Heaps
+
+`heapq` is a min-heap (push/pop O(log n), `heap[0]` is the minimum); negate for a max-heap. For the k largest, keep a size-k min-heap whose top is the current k-th largest — O(n log k), streaming-friendly.
+
+</Locale>
+
+```python
+import heapq
+from collections import Counter
+
+def top_k_frequent(nums: list[int], k: int) -> list[int]:
+    heap = []                                   # (freq, value), size <= k
+    for value, freq in Counter(nums).items():
+        heapq.heappush(heap, (freq, value))
+        if len(heap) > k:
+            heapq.heappop(heap)                 # drop the smallest freq
+    return [v for _, v in heap]
+
+def merge_k_sorted(lists: list[list[int]]) -> list[int]:
+    heap = [(lst[0], i, 0) for i, lst in enumerate(lists) if lst]
+    heapq.heapify(heap)
+    out = []
+    while heap:
+        val, i, j = heapq.heappop(heap)
+        out.append(val)
+        if j + 1 < len(lists[i]):
+            heapq.heappush(heap, (lists[i][j + 1], i, j + 1))
+    return out
+```
+
+<Locale lang="zh">
+
+- **多路归并**：k 个有序列表，堆里放每个列表的当前元素，O(N log k)。这正是 RRF 融合前合并多路检索结果、外部排序的基础。
+- **数据流中位数**（295）：一个最大堆存较小的一半、一个最小堆存较大的一半，保持大小平衡，中位数在堆顶。
+
+<Note type="tip" title="串联">
+
+向量检索的“取 Top-k”内部就是堆：ANN 搜索维护一个大小为 `efSearch` 的候选堆（见 [Vector Search](/docs/rag/vector-search) Level 1）。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 求最大的 k 个数为什么用**最小**堆？复杂度是多少？
+2. 多路归并时堆里为什么要存列表下标？
+3. 数据流中位数的两个堆各存什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+K-way merge keeps each list's current head in a heap, O(N log k) — the basis of merging retrieval branches and external sorting. Streaming median (295): a max-heap for the lower half and a min-heap for the upper half, balanced.
+
+<Note type="tip" title="Connection">
+
+ANN search keeps an `efSearch`-sized candidate heap internally.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why a min-heap for the k largest, and its complexity?
+2. Why store list indexes in the merge heap?
+3. What does each median heap hold?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 题单
+
+| 模式 | 题目 | 优先级 |
+| --- | --- | --- |
+| 二分模板 | Binary Search (704)、Search Insert Position (35)、Find Minimum in Rotated Sorted Array (153)、Search in Rotated Sorted Array (33) | 🔴 |
+| 答案二分 | Koko Eating Bananas (875)、Capacity To Ship Packages (1011) | 🔴 |
+| 答案二分 | Split Array Largest Sum (410)、Median of Two Sorted Arrays (4) | 🟡 |
+| 排序 / 区间 | Merge Intervals (56)、Insert Interval (57)、Non-overlapping Intervals (435) | 🔴 |
+| 堆 | Kth Largest Element (215)、Top K Frequent Elements (347)、Merge k Sorted Lists (23)、Meeting Rooms II (253) | 🔴 |
+| 堆 | Find Median from Data Stream (295)、Task Scheduler (621) | 🟡 |
+
+## 陷阱
+
+<Note type="warning" title="常见错误">
+
+- 二分边界混用（左闭右闭配 `lo < hi`），导致漏解或死循环。
+- 在答案上二分时上界设错（应包含可能的最大答案）。
+- Top-K 用最大堆存全部元素（O(n log n)，没利用 k）。
+- 区间合并忘记先排序或忘记取 `max`。
+
+</Note>
+
+## 连接
+
+- 上一页：[数组与哈希](/docs/algorithms/arrays)；下一页：[栈与队列](/docs/algorithms/stack-queue)
+- 实用题：[AI 实用编码题](/docs/algorithms/ml-coding)（向量 Top-K、流式统计）
+
+</Locale>
+
+<Locale lang="en">
+
+## Problem list
+
+Template: 704, 35, 153, 33 🔴. Answer search: 875, 1011 🔴; 410, 4 🟡. Sorting/intervals: 56, 57, 435 🔴. Heaps: 215, 347, 23, 253 🔴; 295, 621 🟡.
+
+## Pitfalls
+
+<Note type="warning" title="Common mistakes">
+
+- Mixing interval conventions with the loop condition.
+- Wrong upper bound when searching the answer.
+- A full max-heap for Top-K.
+- Forgetting to sort or `max` when merging.
+
+</Note>
+
+## Connections
+
+- Previous: [Arrays & Hashing](/docs/algorithms/arrays); next: [Stacks & Queues](/docs/algorithms/stack-queue)
+- Practical: [AI Practical Coding](/docs/algorithms/ml-coding)
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+| 题目 | 日期 | 用时 | 一次通过？ | 卡在哪 |
+| --- | --- | --- | --- | --- |
+| | | | | |

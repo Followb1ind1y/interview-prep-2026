@@ -1,304 +1,354 @@
 ---
 title: L2 · Meeting Summarization
 titleEn: L2 · Meeting Summarization
-description: 长音频 / 纪要：ASR、说话人、长上下文、异步。
-descriptionEn: "Meetings: ASR, speakers, long context, async jobs."
-date: 2026-09-07
-keywords: ["meeting summarization", "asr"]
+description: 会议录音到纪要：语音识别与说话人分离、长转写的摘要策略（整段 / map-reduce / 分层）、行动项的结构化抽取、实时与会后两种模式、隐私与同意、怎样评估摘要不漏不编。
+descriptionEn: "From meeting audio to notes: speech recognition and diarization, summarizing long transcripts (full context, map-reduce, hierarchical), structured action items, real-time vs post-meeting, privacy and consent, and evaluating summaries for omissions and fabrication."
+date: 2026-10-04
+keywords: ['system design', 'meeting summarization', 'asr', 'speaker diarization', 'map-reduce', 'action items', 'structured output', 'privacy']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-设计一个会议纪要生成系统。（Design a meeting summarization system.）
+> 题目：设计一个会议纪要产品（类似 Zoom AI Companion、飞书妙记）：会议结束后几分钟内生成摘要、决策和行动项（谁、做什么、截止时间），并支持会中实时字幕。
 
-<Note title="开口框架">
-每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
+这道题的特点是**多阶段流水线**：音频 → 转写 → 说话人 → 摘要 → 结构化行动项。每一阶段的错误都会向下游传递——转写把“周五”听成“周四”，行动项的截止时间就错了。面试官会追问：长会议怎么摘要？行动项怎么保证不漏、不编？谁说的怎么识别？
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 面试中的时间 |
+| --- | --- | --- |
+| 0 · 澄清与估算 | 实时还是会后？1 小时会议多少 token？ | 5 min |
+| 1 · 高层架构 | 从音频到纪要的流水线 | 10 min |
+| 2 · 深挖：长转写摘要 | 2 小时会议怎么摘要？ | 10 min |
+| 3 · 深挖：行动项与说话人 | 怎样抽取准确的“谁做什么”？ | 10 min |
+| 4 · 隐私、评测与成本 | 录音合规？摘要怎么评？ | 5 min |
+
+## 需要掌握
+
+- ASR（语音识别）与说话人分离（diarization）的作用和错误类型
+- 1 小时 ≈ 1.5 万 token 的量感；整段放入 vs map-reduce vs 分层摘要
+- 用结构化输出抽取行动项，并用原文时间戳做证据
+- 实时字幕与会后精修两条路径
+- 录音同意、数据保留；摘要的忠实度与覆盖度评估
+
+</Locale>
+
+<Locale lang="en">
+
+> Design a meeting-notes product (like Zoom AI Companion): within minutes after a meeting, produce a summary, decisions, and action items (who, what, when), plus live captions during the meeting.
+
+A multi-stage pipeline — audio → transcript → speakers → summary → structured action items — where errors propagate ("Friday" heard as "Thursday" corrupts a deadline). Expect questions on long meetings, complete and non-fabricated action items, and speaker attribution.
+
+## How to work through this page
+
+| Level | Question it answers | Interview time |
+| --- | --- | --- |
+| 0 · Clarify and estimate | Real time or after? Tokens per hour? | 5 min |
+| 1 · High-level design | Audio-to-notes pipeline | 10 min |
+| 2 · Deep dive: long transcripts | How do you summarize two hours? | 10 min |
+| 3 · Deep dive: action items and speakers | Accurate "who does what"? | 10 min |
+| 4 · Privacy, eval, cost | Consent? Evaluating summaries? | 5 min |
+
+## Must know
+
+- ASR and diarization and their errors
+- ~15K tokens per hour; full context vs map-reduce vs hierarchical
+- structured action items grounded by timestamps
+- live captions vs post-meeting refinement
+- consent, retention, faithfulness and coverage evaluation
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 澄清需求与估算
+
+| 问题 | 本题假设 |
+| --- | --- |
+| 实时还是会后？ | 会中实时字幕；会后 5 分钟内出纪要 |
+| 会议长度？ | 中位数 45 分钟，最长 3 小时 |
+| 语言？ | 中英混杂常见 |
+| 输出？ | 摘要、决策、行动项（负责人、事项、截止时间）、可点击跳转到录音对应时间点 |
+| 规模？ | 每天 5 万场会议 |
+
+```text
+语速约 150 字（词）/ 分钟 → 1 小时约 9,000 词 ≈ 1.2–1.5 万 token
+3 小时会议 ≈ 4 万 token → 大多数长上下文模型放得下，但有效利用会下降（见 Context Window Level 4）
+5 万场 × 45 分钟 = 3.75 万小时音频 / 天 → ASR 是主要的计算成本
+```
+
+<Note title="自测：到这里你应该能回答">
+
+1. 估算 1 小时会议的 token 数。
+2. 为什么这道题里 ASR 可能比 LLM 更贵？
+
 </Note>
 
-## 本题要练什么
-
-必须异步处理。长转录稿要么切块做 map-reduce，要么用长窗口 + 压缩。行动项要用结构化输出。
-
-## 白板草图
-
 </Locale>
 
 <Locale lang="en">
 
-Design a meeting summarization system.
+## Level 0 · Clarify and estimate
 
-<Note title="Opening framework">
-Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+Assume live captions plus notes within 5 minutes, median 45 minutes and up to 3 hours, frequent Chinese–English code-switching, outputs with timestamped links, 50K meetings/day. At ~150 words/min, an hour is ~12–15K tokens; 3 hours ~40K (fits, but effective use drops). 37,500 audio hours/day make ASR the main compute cost.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Tokens per meeting hour?
+2. Why might ASR cost more than the LLM?
+
 </Note>
 
-## What this problem trains
-
-It has to be asynchronous. Long transcripts need chunking with map-reduce, or a long window plus compression. Action items should come out as structured output.
-
-## Whiteboard sketch
-
 </Locale>
-
-```
-audio → ASR + diarization → transcript store
-      → chunk summarize → reduce → actions/JSON
-```
 
 <Locale lang="zh">
 
-## 容易被追问
+## Level 1 · 高层架构
 
-1. 2 小时的会议怎么避免漏掉行动项？（How do you avoid missing action items in a 2-hour meeting?）
-2. 语音识别的错误怎么纳入评测？（How do you factor ASR errors into evaluation?）
-3. 为什么这道题通常不需要 agent？（Why is this usually not an agent problem?）
-4. 隐私和数据保留策略怎么定？（How do you handle privacy and data retention?）
+```text
+会中（实时路径）
+  音频流 ─► 流式 ASR（低延迟、准确率稍低）─► 实时字幕推送
+                                 └─► 暂存分段转写
 
-## 14 个维度
-
-```
-1. 需求（Requirements）
-2. 约束（Constraints）
-3. 架构（Architecture）
-4. 数据流（Data Flow）
-5. 模型（Model）
-6. 检索（Retrieval）
-7. 智能体（Agent）
-8. 评测（Evaluation）
-9. 扩展（Scaling）
-10. 延迟（Latency）
-11. 成本（Cost）
-12. 可靠性（Reliability）
-13. 安全（Security）
-14. 可观测性（Observability）
+会后（精修路径，后台任务）
+  完整录音 ─► 离线 ASR（更大的模型、更准）+ 说话人分离
+          ─► 带时间戳与说话人标签的转写稿
+             [00:12:31 张三] 这个需求我们周五前给出方案。
+          ─► 清洗：去口头禅、合并碎句、术语纠正（用会议标题、参会人名、公司词表作提示）
+          ─► 摘要与抽取（Level 2、3）
+          ─► 纪要：摘要 / 决策 / 行动项（每条带时间戳链接）
+          ─► 推送给参会人；可编辑；用户修改作为反馈
 ```
 
+关键设计：**实时和会后两条路径分开**。实时要低延迟，可以接受错误；会后要准确，可以多花几分钟用更强的模型重新转写。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么实时路径和会后路径要分开？
+2. 转写稿为什么要带时间戳和说话人？
+
+</Note>
+
 </Locale>
 
 <Locale lang="en">
 
-## Likely follow-ups
+## Level 1 · High-level design
 
-1. How do you avoid missing action items in a 2-hour meeting?
-2. How do you factor ASR errors into evaluation?
-3. Why is this usually not an agent problem?
-4. How do you handle privacy and data retention?
+Live path: streaming ASR (fast, less accurate) → captions, buffering segments. Post-meeting job: full recording → offline ASR with a larger model plus diarization → timestamped, speaker-labeled transcript → cleanup (fillers, fragments, term correction using title, attendee names, and a company glossary) → summarization and extraction → notes with timestamp links → delivered, editable, with edits logged as feedback. Separate paths: live tolerates errors for latency; post-meeting spends minutes for accuracy.
 
-## Dimensions
+<Note title="Self-check: you should be able to answer">
 
+1. Why two paths?
+2. Why keep timestamps and speakers?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 深挖：长转写摘要
+
+### 三种策略怎么选？
+
+| 策略 | 做法 | 优点 | 缺点 |
+| --- | --- | --- | --- |
+| 整段放入 | 全部转写稿 + 指令，一次生成 | 能看到全局，跨时段的关联不会丢 | 长会议质量下降（中间部分易被忽略）；单次 token 多 |
+| **map-reduce** | 按 10 分钟切段 → 每段生成要点（map）→ 合并成总摘要（reduce） | 可并行、可处理任意长度；每段注意力集中 | 跨段的关联可能丢失（第 10 分钟提出、第 50 分钟决定的事） |
+| refine（滚动） | 按顺序处理，每段在上一段摘要基础上更新 | 保留时序 | 串行慢；越往后早期信息越容易被冲淡 |
+
+实用组合：
+
+```text
+会议 ≤ 约 1 小时：整段放入（约 1.5 万 token，质量最好）
+更长：按议题 / 10 分钟切段 map → 每段输出结构化要点（议题、观点、决策、行动项候选，带时间戳）
+     → reduce：合并时把所有段的结构化要点一起给模型，要求识别跨段的同一议题和最终决策
 ```
-1. Requirements
-2. Constraints
-3. Architecture
-4. Data Flow
-5. Model
-6. Retrieval
-7. Agent
-8. Evaluation
-9. Scaling
-10. Latency
-11. Cost
-12. Reliability
-13. Security
-14. Observability
+
+关键技巧：**map 阶段输出结构化要点而不是自由文本摘要**，这样 reduce 阶段可以按议题合并，“前面讨论、后面决定”的关系不容易丢。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 比较三种摘要策略的优缺点。
+2. map-reduce 中“跨段关联丢失”的例子是什么？怎么缓解？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Deep dive: long transcripts
+
+Full context sees everything but degrades on long meetings; map-reduce (10-minute segments → points → merge) parallelizes and scales but can lose cross-segment links (raised at minute 10, decided at minute 50); refine keeps order but is serial and dilutes early content. Combine: up to ~1 hour, full context; longer, map segments into **structured** points (topic, positions, decisions, candidate actions, timestamps) and reduce by topic so earlier discussion links to later decisions.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Compare the three strategies.
+2. Example of lost cross-segment links, and the mitigation?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 深挖：行动项与说话人
+
+### 行动项怎样不漏、不编？
+
+用结构化输出（见 [Structured Output](/docs/application/structured-output)）：
+
+```json
+{
+  "action_items": [
+    {
+      "owner": "张三",
+      "task": "给出需求方案",
+      "due": "2026-10-09",
+      "evidence": {"timestamp": "00:12:31", "quote": "这个需求我们周五前给出方案"},
+      "confidence": "high"
+    }
+  ]
+}
 ```
 
-</Locale>
+- **必须带证据**：每条行动项附原文时间戳和引用。没有原话支撑的行动项不输出——这是防“编造”的最有效手段，也让用户一键核对。
+- **字段顺序**：`evidence` 放在前面，让模型先找到原话再写结论（见 Structured Output Level 6）。
+- **日期规范化**：“周五”要结合会议日期换算成具体日期；模型换算后由代码再校验一次。
+- **负责人对齐**：把“我”“你们组”解析成具体的人，需要说话人信息和参会人名单。
+- **低置信度标记**：模糊的承诺（“我们看看”）标为低置信度，让用户确认。
 
-<Locale lang="zh">
+### 说话人怎么识别？
 
-## 需求
+**说话人分离（diarization）**只能区分“说话人 A、B、C”，不知道是谁。把 A 对应到“张三”的办法：
 
-</Locale>
+- 线上会议：会议平台知道每个音频流来自哪个参会人——最可靠。
+- 会议室共用麦克风：用声纹（预先注册）、或根据“我是张三”这类自我介绍、或让用户手动标注一次。
 
-<Locale lang="en">
+说话人错了，行动项的负责人就错了——这是这道题最容易被追问的连锁错误。
 
-## Requirements
+<Note title="自测：到这里你应该能回答">
 
-</Locale>
+1. 行动项为什么必须带时间戳证据？
+2. “周五”这种相对日期怎么处理？
+3. 会议室共用麦克风时，怎样把说话人 A 对应到真实的人？
 
--
-
-<Locale lang="zh">
-
-## 约束
-
-</Locale>
-
-<Locale lang="en">
-
-## Constraints
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 架构
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Architecture
+## Level 3 · Deep dive: action items and speakers
+
+Extract with structured output: owner, task, due date, evidence (timestamp + quote), confidence. Require evidence — no quote, no action item — which curbs fabrication and enables one-click checks; put evidence first; normalize relative dates against the meeting date and validate in code; resolve "I" and "your team" via speakers and attendee lists; flag vague commitments as low confidence. Diarization yields anonymous speakers: online platforms know each stream's participant; shared room mics need voiceprints, self-introductions, or one-time manual labels. Wrong speakers mean wrong owners.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why require timestamp evidence?
+2. How are relative dates handled?
+3. Mapping speakers to people with a shared mic?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 数据流
+## Level 4 · 隐私、评测与成本
+
+- **隐私与合规**：录音前所有参会人可见的提示和同意；按租户隔离；保留期（如 90 天后删除音频，只留纪要）；敏感会议可选“不录音只字幕”或“不保存”；纪要只发给参会人。
+- **评测**：
+  - 转写：字错误率（WER / CER），按口音、中英混杂分桶。
+  - 摘要：**忠实度**（是否有原文没说的内容）和**覆盖度**（标注的关键决策 / 行动项被抓到的比例）；用人工标注的会议集 + LLM judge。
+  - 行动项：精确率（输出的是否都是真的）和召回率（真的行动项是否都抓到了），负责人和日期的准确率。
+  - 线上：用户对纪要的编辑率——用户改得越多，说明质量越差。
+- **成本**：ASR 按音频时长计费或占用 GPU，是大头；LLM 每场会议约 2–4 万 token 输入，相对便宜；实时字幕的流式 ASR 并发成本最高。
+
+## 14 维度速查
+
+| 维度 | 本题关键决策 |
+| --- | --- |
+| 需求 | 实时字幕 + 会后纪要 + 带证据的行动项 |
+| 约束 | 5 分钟出纪要；最长 3 小时；中英混杂 |
+| 架构 | 实时路径与会后精修路径分离 |
+| 数据流 | 音频 → ASR → 说话人 → 清洗 → 摘要 / 抽取 → 推送 |
+| 模型 | 流式 ASR + 离线 ASR；中档 LLM 摘要与抽取 |
+| 检索 | 一般不需要；可检索往期会议做关联 |
+| 智能体 | 不需要（固定流水线） |
+| 评测 | WER、忠实度、覆盖度、行动项精确率 / 召回率、编辑率 |
+| 扩展 | ASR 计算是瓶颈；会后任务排队 |
+| 延迟 | 实时字幕低延迟；纪要分钟级可接受 |
+| 成本 | ASR 为主 |
+| 可靠性 | ASR 失败重试；摘要失败保留原始转写 |
+| 安全 | 同意、隔离、保留期、仅参会人可见 |
+| 可观测性 | 各阶段耗时、WER 抽检、编辑率 |
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- 直接把录音转写丢给 LLM“总结一下”。
+- 行动项不带证据。
+- 忽略说话人错误对负责人的影响。
+- 不提录音同意。
+
+</Note>
+
+## 连接
+
+- 机制：[Structured Output](/docs/application/structured-output)、[Context Window](/docs/context/window)、[Compression](/docs/context/compression)
+- 相关题：[Document Extraction](/docs/system-design/document-extraction)
+
+## 面试问题
+
+1. 设计一个会议纪要产品。（Design a meeting summarization product.）
+2. 2 小时的会议怎么摘要？（How do you summarize a two-hour meeting?）
+3. 行动项怎样保证不漏、不编？（How do you make action items complete and non-fabricated?）
+4. 说话人怎么识别？错了有什么后果？（How do you attribute speakers, and what if it's wrong?）
+5. 怎样评估摘要质量？（How do you evaluate summary quality?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Data Flow
+## Level 4 · Privacy, eval, cost
+
+Privacy: visible notice and consent, tenant isolation, retention (e.g. delete audio after 90 days, keep notes), caption-only or no-save options, notes only to attendees. Evaluation: WER/CER by accent and code-switching; summary faithfulness and coverage of labeled decisions and actions; action-item precision, recall, owner and date accuracy; online edit rate. Cost: ASR dominates (streaming concurrency most of all); the LLM sees ~20–40K tokens per meeting.
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- "Feed the transcript to an LLM and summarize."
+- Action items without evidence.
+- Ignoring speaker errors.
+- Forgetting consent.
+
+</Note>
+
+## Connections
+
+- Mechanics: [Structured Output](/docs/application/structured-output), [Context Window](/docs/context/window), [Compression](/docs/context/compression)
+- Related: [Document Extraction](/docs/system-design/document-extraction)
+
+## Interview questions
+
+1. Design a meeting summarization product.
+2. How do you summarize a two-hour meeting?
+3. How do you make action items complete and non-fabricated?
+4. How do you attribute speakers, and what if it's wrong?
+5. How do you evaluate summary quality?
 
 </Locale>
-
--
-
-<Locale lang="zh">
-
-## 模型
-
-</Locale>
-
-<Locale lang="en">
-
-## Model
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 检索
-
-</Locale>
-
-<Locale lang="en">
-
-## Retrieval
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 智能体
-
-</Locale>
-
-<Locale lang="en">
-
-## Agent
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 评测
-
-</Locale>
-
-<Locale lang="en">
-
-## Evaluation
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 扩展
-
-</Locale>
-
-<Locale lang="en">
-
-## Scaling
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 延迟
-
-</Locale>
-
-<Locale lang="en">
-
-## Latency
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 成本
-
-</Locale>
-
-<Locale lang="en">
-
-## Cost
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可靠性
-
-</Locale>
-
-<Locale lang="en">
-
-## Reliability
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 安全
-
-</Locale>
-
-<Locale lang="en">
-
-## Security
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可观测性
-
-</Locale>
-
-<Locale lang="en">
-
-## Observability
-
-</Locale>
-
--
 
 <Locale lang="zh">
 
@@ -309,6 +359,22 @@ audio → ASR + diarization → transcript store
 <Locale lang="en">
 
 ## My answer
+
+</Locale>
+
+- 30s 电梯版:
+
+- 5 分钟白板版:
+
+<Locale lang="zh">
+
+## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
 
 </Locale>
 

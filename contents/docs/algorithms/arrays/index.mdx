@@ -1,79 +1,553 @@
 ---
 title: 数组与哈希
 titleEn: Arrays & Hashing
-description: 双指针、滑动窗口、前缀和、哈希表。
-descriptionEn: Two pointers, sliding window, prefix sums, hash maps.
-date: 2026-08-30
-keywords: ["array", "hash", "two pointers"]
+description: 最高频的一类：哈希计数与查找、相向双指针、滑动窗口（可变与固定）、前缀和与“前缀和 + 哈希”。每个模式给出模板、手推例子、复杂度与代表题。
+descriptionEn: "The most frequent family: hash counting and lookup, opposing two pointers, sliding windows (variable and fixed), prefix sums and prefix-sum-plus-hash — each with a template, a worked trace, complexity, and representative problems."
+date: 2026-10-04
+keywords: ['array', 'hash map', 'two pointers', 'sliding window', 'prefix sum', 'leetcode', 'python']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-## 模式
+数组与哈希占了面试题的很大一部分，而且是其他模式的地基。目标不是背题，而是看到题目能**在 1 分钟内识别出模式**，然后套模板、讲清复杂度。
 
-- 用哈希表做 **O(1) 查找 / 计数**
-- 左右指针处理有序数组
-- 滑动窗口维护区间约束
-- 前缀和把区间查询变成两个前缀相减
+这一页四个模式，每个都按“什么信号 → 模板 → 手推 → 代表题”组织。代码统一用 Python。
 
-## 骨架
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 哈希表 | 什么时候用哈希把 O(n²) 降到 O(n)？ | 30 min |
+| 1 · 相向双指针 | 有序数组上怎么用两个指针夹逼？ | 30 min |
+| 2 · 滑动窗口 | “最长 / 最短的满足条件的子数组”怎么做？ | 45 min |
+| 3 · 前缀和 | 区间和、“和为 k 的子数组个数”怎么做？ | 40 min |
+
+建议每个 Level 学完立刻做该 Level 题单里的 2 题。
+
+## 需要掌握
+
+- 识别信号：“找配对 / 计数 / 去重” → 哈希；“有序 + 两数关系” → 双指针；“连续子数组 + 约束” → 滑动窗口；“区间和 + 次数” → 前缀和 + 哈希
+- 四个模板能默写
+- 滑动窗口什么时候**不能**用（有负数时的“和为 k”）
+- 讲题时先说暴力解与复杂度，再说优化
 
 </Locale>
 
 <Locale lang="en">
 
-## Patterns
+Arrays and hashing make up a large share of interview problems and underpin other patterns. The goal is recognizing the pattern within a minute, applying a template, and stating complexity.
 
-- Hash maps for **O(1) lookup / counting**
-- Left and right pointers on sorted arrays
-- Sliding window to maintain a range constraint
-- Prefix sums turn a range query into the difference of two prefixes
+Four patterns, each as signal → template → trace → problems, in Python.
 
-## Skeleton
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Hash maps | When does hashing turn O(n²) into O(n)? | 30 min |
+| 1 · Opposing pointers | How do two pointers squeeze a sorted array? | 30 min |
+| 2 · Sliding window | Longest/shortest subarray meeting a constraint? | 45 min |
+| 3 · Prefix sums | Range sums and counting subarrays summing to k? | 40 min |
+
+Do two problems from each level's list right after reading it.
+
+## Must know
+
+- signals: pairs/counts/dedup → hash; sorted + pair relation → two pointers; contiguous + constraint → window; range sum + count → prefix + hash
+- all four templates from memory
+- when windows fail (negatives with sum = k)
+- brute force and complexity first, then optimize
 
 </Locale>
 
-```ts
-function twoSum(nums: number[], target: number) {
-  const seen = new Map<number, number>()
-  for (let i = 0; i < nums.length; i++) {
-    const need = target - nums[i]
-    if (seen.has(need)) return [seen.get(need)!, i]
-    seen.set(nums[i], i)
-  }
-}
+---
+
+<Locale lang="zh">
+
+## Level 0 · 哈希表
+
+### 什么信号说明该用哈希？
+
+- “找两个数满足某关系”、“是否出现过”、“计数 / 分组”、“去重”。
+- 暴力解是双重循环 O(n²)，内层循环在“找某个值”——**把内层的查找换成哈希表的 O(1) 查找**。
+
+### 模板：边遍历边查
+
+Two Sum：找两个下标使 `nums[i] + nums[j] == target`。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Hash maps
+
+### Signals
+
+Find a pair with a relation, "seen before?", counting or grouping, dedup. If the brute-force inner loop searches for a value, replace it with an O(1) hash lookup.
+
+### Template: look up while iterating
+
+Two Sum: find indices with `nums[i] + nums[j] == target`.
+
+</Locale>
+
+```python
+def two_sum(nums: list[int], target: int) -> list[int]:
+    seen = {}                      # value -> index
+    for i, x in enumerate(nums):
+        need = target - x
+        if need in seen:           # O(1) lookup replaces the inner loop
+            return [seen[need], i]
+        seen[x] = i                # insert after checking, so x can't pair with itself
+    return []
 ```
 
 <Locale lang="zh">
 
-## 代表题
+手推 `nums = [2, 7, 11, 15]`，`target = 9`：
 
-| 题 | 模式 | 状态 |
-| --- | --- | --- |
-| Two Sum | 哈希 | 待刷 |
-| Valid Anagram | 计数 | 待刷 |
-| Product of Array Except Self | 前缀积 | 待刷 |
-| Longest Consecutive Sequence | 哈希集合 | 待刷 |
+| i | x | need | seen（查之前） | 结果 |
+| --- | --- | --- | --- | --- |
+| 0 | 2 | 7 | 空 | 存 2→0 |
+| 1 | 7 | 2 | 2→0 | 命中，返回 [0, 1] |
 
-## 复盘
+时间 O(n)，空间 O(n)。**先查再存**是关键细节：先存会让 `x + x == target` 的情况错误地和自己配对。
 
-把做错的题和「当时卡在哪」写在这里。
+### 计数与分组
+
+- 计数：`collections.Counter`。“两个字符串是不是字母异位词” → 比较两个 Counter。
+- 分组：用一个“签名”作为键。“字母异位词分组” → 键为排序后的字符串（或 26 个字母的计数元组）。
 
 </Locale>
 
 <Locale lang="en">
 
-## Representative problems
+Trace `[2, 7, 11, 15]`, target 9: store 2→0, then 7 needs 2 → found, return [0, 1]. O(n) time and space. Check before inserting so an element never pairs with itself.
 
-| Problem | Pattern | Status |
-| --- | --- | --- |
-| Two Sum | Hash | To do |
-| Valid Anagram | Count | To do |
-| Product of Array Except Self | Prefix | To do |
-| Longest Consecutive Sequence | Hash set | To do |
+### Counting and grouping
 
-## Retro
-
-Write down the problems you got wrong and where you got stuck.
+Count with `Counter` (anagram check compares counters); group by a signature key (sorted string or a 26-count tuple for grouping anagrams).
 
 </Locale>
+
+```python
+from collections import Counter, defaultdict
+
+def is_anagram(s: str, t: str) -> bool:
+    return Counter(s) == Counter(t)
+
+def group_anagrams(words: list[str]) -> list[list[str]]:
+    groups = defaultdict(list)
+    for w in words:
+        groups[tuple(sorted(w))].append(w)   # signature as the key
+    return list(groups.values())
+```
+
+<Locale lang="zh">
+
+<Note title="自测：到这里你应该能回答">
+
+1. Two Sum 为什么要“先查再存”？
+2. 字母异位词分组的键有哪两种选法？各自复杂度？
+3. 什么样的暴力解可以用哈希优化？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why check before inserting in Two Sum?
+2. Two key choices for grouping anagrams, and their complexity?
+3. Which brute-force shapes does hashing optimize?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 相向双指针
+
+### 什么信号？
+
+数组**有序**（或可以先排序），要找满足某关系的一对数 / 判断回文 / 原地去重。两个指针从两端向中间走，每一步根据当前结果**排除一整排不可能的答案**。
+
+### 模板：有序数组两数之和
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Opposing two pointers
+
+### Signals
+
+A sorted (or sortable) array and a pair relation, palindromes, in-place dedup. Pointers move inward, each step ruling out a whole row of candidates.
+
+### Template: two sum on a sorted array
+
+</Locale>
+
+```python
+def two_sum_sorted(nums: list[int], target: int) -> list[int]:
+    lo, hi = 0, len(nums) - 1
+    while lo < hi:
+        s = nums[lo] + nums[hi]
+        if s == target:
+            return [lo, hi]
+        if s < target:
+            lo += 1        # nums[lo] + anything <= nums[hi] is too small: drop lo
+        else:
+            hi -= 1        # nums[hi] + anything >= nums[lo] is too large: drop hi
+    return []
+```
+
+<Locale lang="zh">
+
+为什么正确：如果 `nums[lo] + nums[hi] < target`，那么 `nums[lo]` 加上任何 `≤ nums[hi]` 的数都更小，`lo` 不可能是答案的一部分，可以放心丢掉。每步排除一个元素，O(n)。
+
+### 3Sum：排序 + 固定一个 + 双指针
+
+找所有不重复的三元组和为 0。排序 O(n log n)；固定第一个数 `i`，在其右侧用双指针找两数之和为 `-nums[i]`，O(n²)。**难点是去重**：
+
+</Locale>
+
+<Locale lang="en">
+
+Correctness: if the sum is too small, `nums[lo]` with anything at most `nums[hi]` is too small, so `lo` can't be in the answer. One element eliminated per step, O(n).
+
+### 3Sum: sort, fix one, two pointers
+
+Sort (O(n log n)), fix `i`, and two-pointer for `-nums[i]` to its right — O(n²). The hard part is deduplication.
+
+</Locale>
+
+```python
+def three_sum(nums: list[int]) -> list[list[int]]:
+    nums.sort()
+    res = []
+    for i in range(len(nums) - 2):
+        if i > 0 and nums[i] == nums[i - 1]:
+            continue                          # skip duplicate first numbers
+        lo, hi = i + 1, len(nums) - 1
+        while lo < hi:
+            s = nums[i] + nums[lo] + nums[hi]
+            if s < 0:
+                lo += 1
+            elif s > 0:
+                hi -= 1
+            else:
+                res.append([nums[i], nums[lo], nums[hi]])
+                lo += 1
+                while lo < hi and nums[lo] == nums[lo - 1]:
+                    lo += 1                   # skip duplicate second numbers
+                hi -= 1
+    return res
+```
+
+<Locale lang="zh">
+
+<Note title="自测：到这里你应该能回答">
+
+1. 用“排除一整排”解释有序两数之和为什么正确。
+2. 3Sum 的两处去重分别在哪？为什么第一处用 `nums[i] == nums[i-1]` 而不是 `nums[i] == nums[i+1]`？
+3. 3Sum 的时间复杂度是多少？排序会不会成为瓶颈？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+<Note title="Self-check: you should be able to answer">
+
+1. Explain sorted two-sum via eliminating rows.
+2. Where are 3Sum's two dedup points, and why compare with `i-1` not `i+1`?
+3. 3Sum's complexity — is sorting the bottleneck?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 滑动窗口
+
+### 什么信号？
+
+**连续**子数组 / 子串，求满足某约束的**最长 / 最短 / 个数**。约束要有“单调性”：窗口扩大只会让约束更难（或更容易）满足。
+
+### 模板：可变窗口（最长）
+
+无重复字符的最长子串：
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Sliding window
+
+### Signals
+
+Contiguous subarray/substring, longest/shortest/count under a constraint that changes monotonically as the window grows.
+
+### Template: variable window (longest)
+
+Longest substring without repeating characters:
+
+</Locale>
+
+```python
+def length_of_longest_substring(s: str) -> int:
+    count = {}
+    best = left = 0
+    for right, ch in enumerate(s):
+        count[ch] = count.get(ch, 0) + 1          # 1. expand: add s[right]
+        while count[ch] > 1:                      # 2. shrink while the window is invalid
+            count[s[left]] -= 1
+            left += 1
+        best = max(best, right - left + 1)        # 3. window is valid: record
+    return best
+```
+
+<Locale lang="zh">
+
+手推 `s = "abcabcbb"`：
+
+| right | 加入 | 窗口 | 是否收缩 | best |
+| --- | --- | --- | --- | --- |
+| 0–2 | a, b, c | abc | 否 | 3 |
+| 3 | a | abca → 收缩到 bca | 是 | 3 |
+| 4 | b | bcab → 收缩到 cab | 是 | 3 |
+| … | | | | 3 |
+
+每个元素最多进窗口一次、出窗口一次，所以虽然有嵌套 `while`，总复杂度仍是 **O(n)**——面试时要主动说出这个“摊还”理由。
+
+### “最短”窗口
+
+把模板的第 2、3 步调换：**窗口满足条件时**记录答案并收缩，尽量变短。例：长度最小的子数组（和 ≥ target）、最小覆盖子串。
+
+### 什么时候不能用滑动窗口？
+
+“和为 k 的子数组个数”且数组**有负数**时：扩大窗口和不一定变大，单调性被破坏，左指针不知道该不该动——要用 Level 3 的前缀和 + 哈希。
+
+<Note type="warning" title="固定窗口">
+
+窗口长度固定为 k 时（如“长度为 k 的子数组最大平均值”），每次右移一格：加入新元素、移出最左元素即可，不需要 `while`。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 嵌套 `while` 为什么总复杂度仍是 O(n)？
+2. “最长”和“最短”窗口的模板差在哪？
+3. 为什么数组有负数时“和为 k”不能用滑动窗口？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Trace "abcabcbb": the window grows to "abc" (best 3), then each new duplicate shrinks it from the left. Each element enters and leaves once, so the nested loop is still amortized O(n) — say so explicitly.
+
+### Shortest windows
+
+Swap steps 2 and 3: while the window satisfies the constraint, record and shrink (minimum size subarray sum, minimum window substring).
+
+### When windows fail
+
+Counting subarrays with sum k when negatives exist breaks monotonicity — use prefix sums.
+
+<Note type="warning" title="Fixed windows">
+
+For fixed size k, add the new element and drop the oldest each step; no inner loop.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is the nested loop O(n)?
+2. Longest vs shortest template difference?
+3. Why do negatives break the window for sum = k?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 前缀和
+
+### 前缀和是什么？
+
+`prefix[i]` = 前 i 个元素之和（`prefix[0] = 0`）。区间 `[l, r]` 的和 = `prefix[r+1] - prefix[l]`，O(1) 回答任意区间和。
+
+### 前缀和 + 哈希：和为 k 的子数组个数
+
+子数组 `(j, i]` 的和为 k ⟺ `prefix[i] - prefix[j] = k` ⟺ `prefix[j] = prefix[i] - k`。遍历时用哈希记录**每个前缀和出现了几次**：
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Prefix sums
+
+`prefix[i]` sums the first i elements (`prefix[0] = 0`), so any range sum is `prefix[r+1] - prefix[l]` in O(1).
+
+### Prefix sums + hash: count subarrays summing to k
+
+Subarray `(j, i]` sums to k iff `prefix[j] = prefix[i] - k`; count previous prefix sums in a hash map.
+
+</Locale>
+
+```python
+def subarray_sum(nums: list[int], k: int) -> int:
+    count = {0: 1}          # empty prefix: lets subarrays starting at index 0 count
+    prefix = ans = 0
+    for x in nums:
+        prefix += x
+        ans += count.get(prefix - k, 0)
+        count[prefix] = count.get(prefix, 0) + 1
+    return ans
+```
+
+<Locale lang="zh">
+
+手推 `nums = [1, 2, 3]`，`k = 3`：
+
+| x | prefix | 找 prefix - k | count 中的次数 | ans | 更新 count |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 1 | -2 | 0 | 0 | 0:1, 1:1 |
+| 2 | 3 | 0 | 1（子数组 [1,2]） | 1 | +3:1 |
+| 3 | 6 | 3 | 1（子数组 [3]） | 2 | +6:1 |
+
+**`count = {0: 1}` 这一步最容易漏**：它代表“空前缀”，让从下标 0 开始的子数组也能被统计到。
+
+### 前缀积
+
+“除自身以外数组的乘积”（不能用除法）：左侧前缀积 × 右侧后缀积，两次遍历，O(n)，可做到 O(1) 额外空间（输出数组不计）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么 `count` 要初始化为 `{0: 1}`？去掉会怎样？
+2. 这个解法能处理负数吗？为什么滑动窗口不行？
+3. 二维矩阵的区域和怎么用前缀和做？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Trace `[1, 2, 3]`, k = 3: prefix 3 finds 0 once ([1,2]); prefix 6 finds 3 once ([3]); answer 2. The `{0: 1}` seed is the empty prefix, so subarrays starting at index 0 count — the most commonly forgotten line.
+
+### Prefix products
+
+Product of array except self without division: left prefix products times right suffix products, two passes, O(n), O(1) extra space besides output.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why seed `{0: 1}`?
+2. Does this handle negatives, and why don't windows?
+3. How do 2D prefix sums answer region sums?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 题单
+
+按顺序做，括号是 LeetCode 题号。🔴 必做，🟡 有余力再做。
+
+| 模式 | 题目 | 优先级 |
+| --- | --- | --- |
+| 哈希 | Two Sum (1)、Valid Anagram (242)、Group Anagrams (49)、Top K Frequent Elements (347)、Longest Consecutive Sequence (128) | 🔴 |
+| 哈希 | Contains Duplicate (217)、Valid Sudoku (36) | 🟡 |
+| 双指针 | Valid Palindrome (125)、Two Sum II (167)、3Sum (15)、Container With Most Water (11) | 🔴 |
+| 双指针 | Trapping Rain Water (42) | 🟡 |
+| 滑动窗口 | Longest Substring Without Repeating Characters (3)、Longest Repeating Character Replacement (424)、Minimum Size Subarray Sum (209) | 🔴 |
+| 滑动窗口 | Minimum Window Substring (76)、Permutation in String (567) | 🟡 |
+| 前缀和 | Product of Array Except Self (238)、Subarray Sum Equals K (560) | 🔴 |
+| 前缀和 | Range Sum Query 2D (304)、Continuous Subarray Sum (523) | 🟡 |
+
+## 陷阱
+
+<Note type="warning" title="常见错误">
+
+- Two Sum 先存后查，导致元素和自己配对。
+- 3Sum 忘记去重或去重位置错。
+- 滑动窗口用在有负数的“和为 k”上。
+- 前缀和哈希忘记初始化 `{0: 1}`。
+- 不说复杂度，或嵌套循环时说成 O(n²)。
+
+</Note>
+
+## 讲题话术
+
+1. 复述题目、确认输入范围（有没有负数、是否有序、是否有重复）。
+2. 先说暴力解和复杂度：“双重循环 O(n²)”。
+3. 说优化的关键观察：“内层在找一个值 → 哈希”、“连续子数组 + 单调约束 → 滑动窗口”。
+4. 写代码，边写边说每个变量的含义。
+5. 用一个小例子手推，再说边界情况（空数组、全相同、负数）。
+6. 总结时间和空间复杂度。
+
+## 连接
+
+- 下一页：[二分与堆](/docs/algorithms/search-sort)；前缀和的思想在 [动态规划](/docs/algorithms/dp) 中会再次出现
+- 实用编码题中的 Top-K 检索见 [AI 实用编码题](/docs/algorithms/ml-coding)
+
+</Locale>
+
+<Locale lang="en">
+
+## Problem list
+
+🔴 must, 🟡 if time allows. Hash: Two Sum (1), Valid Anagram (242), Group Anagrams (49), Top K Frequent (347), Longest Consecutive (128) 🔴; Contains Duplicate (217), Valid Sudoku (36) 🟡. Two pointers: Valid Palindrome (125), Two Sum II (167), 3Sum (15), Container With Most Water (11) 🔴; Trapping Rain Water (42) 🟡. Window: 3, 424, 209 🔴; Minimum Window Substring (76), Permutation in String (567) 🟡. Prefix: 238, 560 🔴; 304, 523 🟡.
+
+## Pitfalls
+
+<Note type="warning" title="Common mistakes">
+
+- Inserting before checking in Two Sum.
+- Missing or misplaced 3Sum dedup.
+- Windows with negatives for sum = k.
+- Forgetting `{0: 1}`.
+- Calling amortized loops O(n²) or skipping complexity.
+
+</Note>
+
+## How to talk through a problem
+
+Restate and confirm constraints → brute force and complexity → the key observation → code while narrating → trace a small example and edge cases → final complexity.
+
+## Connections
+
+- Next: [Binary Search & Heaps](/docs/algorithms/search-sort); prefix ideas return in [DP](/docs/algorithms/dp)
+- Top-K retrieval: [AI Practical Coding](/docs/algorithms/ml-coding)
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+| 题目 | 日期 | 用时 | 一次通过？ | 卡在哪 |
+| --- | --- | --- | --- | --- |
+| | | | | |

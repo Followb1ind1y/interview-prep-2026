@@ -1,0 +1,308 @@
+---
+title: 回溯
+titleEn: Backtracking
+description: “列出所有组合 / 排列 / 方案”的通用模板：选择 → 递归 → 撤销；子集、排列、组合总和的区别；去重与剪枝；指数级复杂度怎么讲。
+descriptionEn: "The general template for enumerating combinations, permutations, and solutions: choose → recurse → undo; subsets vs permutations vs combination sum; dedup and pruning; explaining exponential complexity."
+date: 2026-10-04
+keywords: ['backtracking', 'subsets', 'permutations', 'combination sum', 'pruning', 'dfs']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
+---
+
+<Locale lang="zh">
+
+题目要求“**列出所有**”满足条件的组合、排列、方案时，几乎都是回溯。回溯 = 在一棵“决策树”上做 DFS：每一层做一个选择，走到底记录答案，回来时撤销选择。掌握一个模板 + 三种变体即可。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 模板 | 选择、递归、撤销怎么写？ | 25 min |
+| 1 · 三种变体 | 子集、组合、排列的区别在哪？ | 30 min |
+| 2 · 去重与剪枝 | 输入有重复怎么办？怎么减少搜索？ | 25 min |
+
+## 需要掌握
+
+- 回溯模板与“路径 / 选择列表 / 结束条件”
+- 子集（`start` 下标）、组合（`start` + 目标）、排列（`used` 数组）
+- 排序后跳过同层重复；剪枝
+- 复杂度：子集 O(n·2ⁿ)，排列 O(n·n!)
+
+</Locale>
+
+<Locale lang="en">
+
+"List all" combinations, permutations, or solutions almost always means backtracking: DFS over a decision tree — choose, recurse, undo. One template plus three variants.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Template | How do choose, recurse, undo fit? | 25 min |
+| 1 · Three variants | Subsets vs combinations vs permutations? | 30 min |
+| 2 · Dedup and pruning | Duplicate inputs? Cutting the search? | 25 min |
+
+## Must know
+
+- path, choices, end condition
+- subsets (`start`), combinations (`start` + target), permutations (`used`)
+- sort and skip same-level duplicates; pruning
+- complexity: subsets O(n·2ⁿ), permutations O(n·n!)
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 模板
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Template
+
+</Locale>
+
+```python
+def subsets(nums: list[int]) -> list[list[int]]:
+    res, path = [], []
+    def backtrack(start: int) -> None:
+        res.append(path[:])               # every node of the tree is a subset (copy!)
+        for i in range(start, len(nums)):
+            path.append(nums[i])          # choose
+            backtrack(i + 1)              # explore with later elements only
+            path.pop()                    # undo
+    backtrack(0)
+    return res
+```
+
+<Locale lang="zh">
+
+三个要点：
+
+- **`path[:]` 要拷贝**：`path` 是同一个列表，后面还会被修改；直接 `append(path)` 会让结果全变成空列表。
+- **`start` 控制只往后选**，避免 `[1,2]` 和 `[2,1]` 重复。
+- **撤销**（`pop`）让 `path` 回到选择前的状态，才能尝试下一个分支。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么要 `path[:]` 而不是 `path`？
+2. `start` 参数的作用是什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Copy `path` when recording (it's mutated later); `start` only looks forward, avoiding `[1,2]`/`[2,1]` duplicates; `pop` restores state for the next branch.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why `path[:]`?
+2. What does `start` do?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 三种变体
+
+| 变体 | 顺序重要吗 | 关键控制 | 何时记录 | 例题 |
+| --- | --- | --- | --- | --- |
+| 子集 | 否 | `start` | 每个节点 | Subsets (78) |
+| 组合 / 组合总和 | 否 | `start` + 剩余目标 | 剩余目标为 0 | Combination Sum (39) |
+| 排列 | 是 | `used` 数组 | 路径长度 = n | Permutations (46) |
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Three variants
+
+Subsets: order irrelevant, `start`, record at every node (78). Combinations / combination sum: `start` + remaining target, record at zero (39). Permutations: order matters, a `used` array, record at full length (46).
+
+</Locale>
+
+```python
+def combination_sum(candidates: list[int], target: int) -> list[list[int]]:
+    res, path = [], []
+    def backtrack(start: int, remain: int) -> None:
+        if remain == 0:
+            res.append(path[:])
+            return
+        for i in range(start, len(candidates)):
+            if candidates[i] > remain:
+                continue
+            path.append(candidates[i])
+            backtrack(i, remain - candidates[i])   # i, not i + 1: reuse allowed
+            path.pop()
+    backtrack(0, target)
+    return res
+
+def permute(nums: list[int]) -> list[list[int]]:
+    res, path, used = [], [], [False] * len(nums)
+    def backtrack() -> None:
+        if len(path) == len(nums):
+            res.append(path[:])
+            return
+        for i in range(len(nums)):
+            if used[i]:
+                continue
+            used[i] = True
+            path.append(nums[i])
+            backtrack()
+            path.pop()
+            used[i] = False
+    backtrack()
+    return res
+```
+
+<Locale lang="zh">
+
+组合总和允许重复使用同一个数，所以递归传 `i` 而不是 `i + 1`。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 子集和排列的根本区别是什么？分别用什么控制？
+2. 组合总和为什么递归传 `i`？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Combination sum passes `i` (reuse allowed), not `i + 1`.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Subsets vs permutations, and their controls?
+2. Why pass `i` in combination sum?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 去重与剪枝
+
+### 输入有重复元素
+
+子集 II（90）：`[1, 2, 2]` 不能输出两次 `[1, 2]`。做法：**先排序**，在同一层循环中跳过和前一个相同的元素：
+
+```text
+for i in range(start, n):
+    if i > start and nums[i] == nums[i - 1]:
+        continue          # 同一层已经用这个值开过一个分支
+```
+
+注意是 `i > start` 而不是 `i > 0`：只跳过**同一层**的重复，不同层（更深的递归）可以使用相同的值。
+
+### 剪枝
+
+在进入分支前判断它不可能产生答案就跳过。组合总和中 `candidates[i] > remain` 就是剪枝；若先排序，可以直接 `break`（后面的更大）。N 皇后用集合记录已占用的列和对角线，O(1) 判断是否冲突。
+
+### 复杂度怎么讲？
+
+回溯是指数级的：子集有 2ⁿ 个，每个拷贝 O(n)，共 O(n·2ⁿ)；排列 O(n·n!)。面试时直接说出来，并说明“输出本身就有这么大，所以无法更优”。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么去重条件是 `i > start` 而不是 `i > 0`？
+2. 组合总和排序后为什么可以 `break` 而不是 `continue`？
+3. 子集的复杂度是多少？为什么不可能更优？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Dedup and pruning
+
+Subsets II (90): sort, then skip `nums[i] == nums[i-1]` when `i > start` — same-level duplicates only; deeper levels may reuse the value. Prune before branching (`candidates[i] > remain`; after sorting, `break`). N-Queens tracks occupied columns and diagonals in sets. Complexity is exponential — O(n·2ⁿ) for subsets, O(n·n!) for permutations — and the output size makes it unavoidable.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why `i > start` and not `i > 0`?
+2. Why `break` after sorting?
+3. Subset complexity, and why it can't improve?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 题单
+
+| 变体 | 题目 | 优先级 |
+| --- | --- | --- |
+| 子集 / 排列 / 组合 | Subsets (78)、Permutations (46)、Combination Sum (39) | 🔴 |
+| 去重 | Subsets II (90)、Combination Sum II (40) | 🟡 |
+| 应用 | Letter Combinations of a Phone Number (17)、Word Search (79)、Generate Parentheses (22) | 🔴 |
+| 应用 | Palindrome Partitioning (131)、N-Queens (51) | 🟡 |
+
+## 陷阱
+
+<Note type="warning" title="常见错误">
+
+- 记录答案时没拷贝 `path`。
+- 忘记撤销选择。
+- 去重条件写成 `i > 0`。
+- 不说复杂度，或说不出为什么是指数级。
+
+</Note>
+
+## 连接
+
+- 上一页：[图](/docs/algorithms/graphs)；下一页：[动态规划](/docs/algorithms/dp)（回溯有重复子问题时就变成记忆化搜索 / DP）
+
+</Locale>
+
+<Locale lang="en">
+
+## Problem list
+
+Core: 78, 46, 39 🔴. Dedup: 90, 40 🟡. Applications: 17, 79, 22 🔴; 131, 51 🟡.
+
+## Pitfalls
+
+<Note type="warning" title="Common mistakes">
+
+- Not copying `path`.
+- Forgetting to undo.
+- Dedup with `i > 0`.
+- Not explaining exponential complexity.
+
+</Note>
+
+## Connections
+
+- Previous: [Graphs](/docs/algorithms/graphs); next: [DP](/docs/algorithms/dp) — backtracking with overlapping subproblems becomes memoization
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+| 题目 | 日期 | 用时 | 一次通过？ | 卡在哪 |
+| --- | --- | --- | --- | --- |
+| | | | | |

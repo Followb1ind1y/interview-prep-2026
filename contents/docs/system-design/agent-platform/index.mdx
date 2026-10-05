@@ -1,306 +1,360 @@
 ---
-title: L4 · Enterprise Agent Platform
-titleEn: L4 · Enterprise Agent Platform
-description: 企业 Agent 平台：权限、评测、可观测、MCP、多团队。
-descriptionEn: "Enterprise agent platform: authz, eval, observability, MCP, multi-team."
-date: 2026-09-07
-keywords: ["agent platform", "mcp", "enterprise"]
+title: L4 · Agent Platform
+titleEn: L4 · Agent Platform
+description: 企业级 agent 平台：让几十个团队自助构建和上线 agent。agent 定义与运行时、MCP 工具注册与治理、身份与权限委托、沙箱与审批策略、agent 的评估与发布流水线、追踪与成本归因。
+descriptionEn: "An enterprise agent platform for dozens of teams to build and ship agents: agent definitions and runtime, an MCP tool registry with governance, identity and delegated permissions, sandbox and approval policies, eval and release pipelines, tracing and cost attribution."
+date: 2026-10-04
+keywords: ['system design', 'agent platform', 'mcp registry', 'tool governance', 'delegated authorization', 'agent runtime', 'durable execution', 'agent evaluation', 'cost attribution']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-设计一个企业级 Agent 平台。（Design an enterprise agent platform.）
+> 题目：为一家大企业设计内部 agent 平台：几十个业务团队（客服、财务、HR、研发）可以在平台上配置和上线自己的 agent，接入公司内部系统，平台负责安全、可靠、可观测和成本控制。
 
-<Note title="开口框架">
-每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
+前面的题都是“设计一个 agent”，这道题是“**设计一个让别人造 agent 的平台**”。面试官关心的是：平台抽象出哪些共性能力？团队需要自己做什么？怎么防止某个团队的 agent 越权访问别的系统？怎么保证上线的 agent 质量？这和 [Agent Harness](/docs/ai-native/harness)、[MCP](/docs/ai-native/mcp) 两页直接相关。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 面试中的时间 |
+| --- | --- | --- |
+| 0 · 澄清 | 平台和团队的边界在哪？ | 5 min |
+| 1 · 高层架构 | 平台提供哪些组件？ | 10 min |
+| 2 · 深挖：工具治理与权限 | 工具怎么注册？agent 用谁的身份访问系统？ | 12 min |
+| 3 · 深挖：质量与发布 | agent 怎么评估、怎么上线、怎么回滚？ | 10 min |
+| 4 · 运维与成本 | 追踪、配额、成本归因 | 5 min |
+
+## 需要掌握
+
+- 平台提供的共性能力 vs 团队自己负责的部分
+- agent 定义（声明式配置）与托管运行时
+- MCP 工具注册中心、审核、版本、权限范围
+- 代表用户的权限委托（OAuth、令牌交换）与禁止令牌透传
+- 风险策略：哪些动作需要审批、沙箱
+- agent 的评估流水线、灰度发布、回滚；追踪与成本归因
+
+</Locale>
+
+<Locale lang="en">
+
+> Design an internal agent platform where dozens of teams (support, finance, HR, engineering) configure and ship agents connected to internal systems, with the platform owning safety, reliability, observability, and cost.
+
+Not "design an agent" but "design a platform for others to build agents." What's shared vs team-owned? How do you stop one team's agent from reaching other systems? How do you assure quality before launch? Related: [Agent Harness](/docs/ai-native/harness), [MCP](/docs/ai-native/mcp).
+
+## How to work through this page
+
+| Level | Question it answers | Interview time |
+| --- | --- | --- |
+| 0 · Clarify | Platform vs team boundary? | 5 min |
+| 1 · High-level design | Which components? | 10 min |
+| 2 · Deep dive: tool governance and identity | Tool registration; whose identity? | 12 min |
+| 3 · Deep dive: quality and release | Evaluating, launching, rolling back agents? | 10 min |
+| 4 · Operations and cost | Tracing, quotas, attribution | 5 min |
+
+## Must know
+
+- shared capabilities vs team responsibilities
+- declarative agent definitions and a managed runtime
+- an MCP tool registry with review, versions, scopes
+- delegated user authorization (OAuth, token exchange), no passthrough
+- risk policies for approvals and sandboxes
+- eval pipelines, canaries, rollback; tracing and attribution
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 澄清：平台和团队的边界
+
+| 平台负责（共性） | 团队负责（业务） |
+| --- | --- |
+| agent 运行时：循环、状态、重试、超时、预算 | agent 的目标、指令（system prompt）、工作流 |
+| 模型网关：统一接入多个模型、限流、缓存、路由 | 选择用哪个模型档位 |
+| 工具注册中心与权限框架 | 开发自己系统的 MCP server、定义工具 |
+| 身份与权限委托、审批流程、沙箱 | 声明自己的 agent 需要哪些权限 |
+| 评估框架、发布流水线、追踪、成本归因 | 编写评估集、定义成功标准 |
+| 安全护栏（注入防护、输出审核、审计） | 业务规则校验 |
+
+假设：50 个团队、200 个 agent、每天 100 万次 agent 任务；公司要求所有访问可审计、敏感操作需人工审批、数据不出公司云账号。
+
+一句话定位：**平台把 [Agent Harness](/docs/ai-native/harness) 里每个团队都要重复造的部分做成服务，并把安全和治理变成默认值**。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 列出平台负责和团队负责的各五项。
+2. 为什么安全和治理要由平台“默认提供”？
+
 </Note>
 
-## 本题要练什么
-
-平台题：租户、工具注册、权限、评测门禁、审计、MCP host。不是再设计一个聊天机器人。
-
-## 白板草图
-
 </Locale>
 
 <Locale lang="en">
 
-Design an enterprise agent platform.
+## Level 0 · Clarify
 
-<Note title="Opening framework">
-Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+The platform owns the runtime (loop, state, retries, timeouts, budgets), a model gateway, the tool registry and permission framework, identity delegation, approvals, sandboxes, eval and release pipelines, tracing, attribution, and guardrails. Teams own goals, instructions, workflows, model tier choices, their MCP servers and tools, declared permissions, eval sets, success criteria, and business validation. Assume 50 teams, 200 agents, 1M tasks/day, full auditability, human approval for sensitive actions, data in the company cloud. The platform turns the parts every harness rebuilds into services and makes safety the default.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Five platform and five team responsibilities?
+2. Why make safety a platform default?
+
 </Note>
 
-## What this problem trains
-
-A platform problem: tenants, tool registration, permissions, eval gates, auditing, the MCP host. It's not another chatbot design.
-
-## Whiteboard sketch
-
 </Locale>
-
-```
-builders → register tools/agents (MCP)
-        → policy / secrets / sandbox
-        → runtime + traces + eval gates
-        → business apps
-```
 
 <Locale lang="zh">
 
-## 容易被追问
+## Level 1 · 高层架构
 
-1. 工具的发现和授权怎么做？（How do tool discovery and authorization work?）
-2. 怎么防止一个团队的 agent 访问到另一个团队的数据？（How do you stop one team's agent from reaching another team's data?）
-3. 平台层和应用层的 harness 怎么分层？（How do you split the harness between the platform layer and the application layer?）
-4. 默认的评测门禁是什么？（What are the default eval gates?）
+```text
+团队 ─► 控制面（Control Plane）
+          ├─ Agent 定义（声明式配置，版本化）：
+          │    模型档位、system prompt、工具列表、权限范围、预算、审批策略、评估集
+          ├─ 工具注册中心：MCP server 清单、审核状态、版本、所需 scope
+          ├─ 策略引擎：哪些工具 / 动作需要审批、哪些数据可访问
+          ├─ 评估与发布流水线
+          └─ 成本与配额管理
 
-## 14 个维度
+用户 / 系统触发 ─► 数据面（Data Plane）
+          ├─ Agent 运行时（托管 harness）：
+          │    durable 执行（长任务、等待审批）、上下文管理、预算与步数上限
+          ├─ 模型网关 ─► 外部模型 API / 内部推理平台（见 Inference Platform）
+          ├─ 工具网关 ─► MCP server（各团队的内部系统）
+          │    每次调用：身份、scope 校验、策略检查、审计
+          ├─ 沙箱服务：代码执行、浏览器
+          └─ 审批服务：推送给审批人，结果回调运行时
 
-```
-1. 需求（Requirements）
-2. 约束（Constraints）
-3. 架构（Architecture）
-4. 数据流（Data Flow）
-5. 模型（Model）
-6. 检索（Retrieval）
-7. 智能体（Agent）
-8. 评测（Evaluation）
-9. 扩展（Scaling）
-10. 延迟（Latency）
-11. 成本（Cost）
-12. 可靠性（Reliability）
-13. 安全（Security）
-14. 可观测性（Observability）
+横向：追踪（OpenTelemetry GenAI）、审计日志、成本归因、护栏服务
 ```
 
+<Note title="自测：到这里你应该能回答">
+
+1. 控制面和数据面各包含什么？
+2. 为什么工具调用要经过统一的“工具网关”，而不是 agent 直连 MCP server？
+
+</Note>
+
 </Locale>
 
 <Locale lang="en">
 
-## Likely follow-ups
+## Level 1 · High-level design
 
-1. How do tool discovery and authorization work?
-2. How do you stop one team's agent from reaching another team's data?
-3. How do you split the harness between the platform layer and the application layer?
-4. What are the default eval gates?
+Control plane: versioned declarative agent definitions (model tier, prompt, tools, scopes, budgets, approval policy, eval set), a tool registry of MCP servers with review status, versions, and scopes, a policy engine, eval and release pipelines, cost and quota management. Data plane: a managed runtime with durable execution, context management, and caps; a model gateway to external APIs or the internal inference platform; a tool gateway to MCP servers that checks identity, scopes, and policy and audits each call; sandbox and approval services. Cross-cutting: OpenTelemetry GenAI tracing, audit logs, attribution, guardrails. A single tool gateway centralizes enforcement and audit.
 
-## Dimensions
+<Note title="Self-check: you should be able to answer">
 
+1. Contents of control and data planes?
+2. Why route tool calls through a gateway?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 深挖：工具治理与权限
+
+### 工具怎么注册和审核？
+
+团队把自己系统的能力做成 MCP server 并注册到平台：
+
+| 环节 | 平台检查 |
+| --- | --- |
+| 注册 | 工具名、描述、输入输出 schema、风险等级（只读 / 写 / 不可逆）、所需 scope |
+| 审核 | 安全团队审核写操作和不可逆操作；描述中不能含指令性文字（防工具投毒） |
+| 版本 | 工具定义变更需重新审核；平台记录已批准定义的哈希，运行时比对（防 rug pull，见 [MCP](/docs/ai-native/mcp) Level 4） |
+| 使用 | agent 定义中只能引用已审核的工具；声明需要的 scope |
+
+### agent 用谁的身份访问系统？
+
+两种情况：
+
+| 场景 | 身份 | 做法 |
+| --- | --- | --- |
+| 用户触发（“帮我查一下我的报销”） | **代表该用户** | 平台通过 OAuth / 令牌交换获得一个**专门签发给目标 MCP server**、scope 受限、短期有效的令牌；目标系统按用户自己的权限返回数据 |
+| 后台自动任务（每晚对账） | **agent 自己的服务身份** | 服务账号，权限只覆盖该 agent 声明的范围 |
+
+关键原则：
+
+- **不做令牌透传**：不能把用户的原始令牌直接转给下游（MCP 规范明确禁止，见 [MCP](/docs/ai-native/mcp) Level 3）。
+- **权限取交集**：agent 能做的 = 用户本人的权限 ∩ agent 声明的 scope ∩ 平台策略。即使用户是管理员，一个“报销查询 agent”也不能删除记录。
+- 策略引擎在工具网关上执行：高风险动作（付款、对外发送、删除）触发审批。
+
+<Note type="tip" title="面试加分">
+
+“权限我用交集：用户权限 ∩ agent 声明的 scope ∩ 平台策略。代表用户时用令牌交换拿一个只给目标 server、短期、限 scope 的令牌，不做透传。工具定义变更必须重新审核，运行时比对哈希防 rug pull。”
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 工具注册要声明哪些信息？为什么要比对定义哈希？
+2. 用户触发和后台任务分别用谁的身份？
+3. 为什么权限要取三者的交集？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Deep dive: tool governance and identity
+
+Teams register MCP servers declaring names, descriptions, schemas, risk tier, and scopes; security reviews writes and irreversible actions and rejects instruction-like descriptions (tool poisoning); definition changes require re-review, with approved hashes checked at runtime (rug pulls); agent definitions reference only reviewed tools. User-triggered tasks act on the user's behalf via token exchange for short-lived, scope-limited, audience-bound tokens; background jobs use per-agent service identities. Never pass tokens through; effective permission = user rights ∩ declared agent scopes ∩ platform policy; the gateway triggers approvals for payments, outbound sends, deletions.
+
+<Note type="tip" title="Interview move">
+
+"Permissions are an intersection; delegated tokens are exchanged, not passed through; tool definition changes are re-reviewed and hash-checked."
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. What does registration declare, and why hash checks?
+2. Whose identity for user-triggered vs background tasks?
+3. Why intersect three permission sets?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 深挖：质量与发布
+
+### agent 怎么评估和上线？
+
+把 agent 当软件发布，**agent 定义（prompt、工具、模型版本）的每次变更都走流水线**：
+
+```text
+1. 团队提交变更（例如改了 system prompt）
+2. 自动评估：
+   - 团队的业务评估集（按最终状态评分，见 Agent Eval Level 4）
+   - 平台通用评估：注入测试集、越权测试、预算是否超标
+   - 与当前线上版本对比：成功率、pass^k、成本、步数
+3. 门槛：任何安全测试失败 → 阻断；业务指标退化超过阈值 → 阻断或人工审批
+4. 灰度：1% → 10% → 100%，监控线上指标
+5. 自动回滚：错误率、转人工率、成本异常超过阈值
 ```
-1. Requirements
-2. Constraints
-3. Architecture
-4. Data Flow
-5. Model
-6. Retrieval
-7. Agent
-8. Evaluation
-9. Scaling
-10. Latency
-11. Cost
-12. Reliability
-13. Security
-14. Observability
-```
 
-</Locale>
+平台还要处理**底层变化**：模型网关升级模型版本时，所有使用该模型的 agent 都要重新跑评估——这是平台集中管理的一大价值，单个团队很难自己发现“模型悄悄变了”（见 [Reliability](/docs/production/reliability) Level 4）。
 
-<Locale lang="zh">
+<Note title="自测：到这里你应该能回答">
 
-## 需求
+1. agent 变更的发布流水线有哪五步？
+2. 平台为什么要在模型升级时重跑所有 agent 的评估？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Requirements
+## Level 3 · Deep dive: quality and release
+
+Treat every agent-definition change (prompt, tools, model version) as a release: run the team's state-based business evals plus platform suites (injection, privilege escalation, budget), compare with production (success, pass^k, cost, steps), block on any security failure or regressions beyond thresholds, canary 1% → 10% → 100%, and auto-roll back on error, escalation, or cost anomalies. When the model gateway upgrades a model, rerun every dependent agent's evals — something individual teams would rarely catch.
+
+<Note title="Self-check: you should be able to answer">
+
+1. The five release steps?
+2. Why rerun evals on model upgrades?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 约束
+## Level 4 · 运维与成本
+
+- **追踪**：每次 agent 任务一个 trace：模型调用、工具调用（含身份和 scope）、审批、成本；用 OpenTelemetry GenAI 约定，跨 MCP server 传播 trace 上下文（见 [Observability](/docs/production/observability)）。
+- **审计**：谁（用户 / agent）在什么时候通过哪个工具对哪个系统做了什么，不可篡改存储。
+- **配额与成本**：每个团队 / agent 有 token、并发、每日成本上限；成本按团队和 agent 归因并分账（见 [Cost](/docs/production/cost) Level 5）；卡住检测与失控熔断由运行时统一提供。
+- **可靠性**：运行时用 durable execution，长任务和等待审批的任务不怕重启（见 [Long-running Agent](/docs/system-design/long-running-agent)）；某个 MCP server 故障只影响用到它的 agent。
+
+## 14 维度速查
+
+| 维度 | 本题关键决策 |
+| --- | --- |
+| 需求 | 多团队自助构建 agent；平台负责安全、可靠、可观测、成本 |
+| 约束 | 50 团队 / 200 agent / 100 万任务每天；全审计；敏感操作审批 |
+| 架构 | 控制面（定义、注册、策略、发布）+ 数据面（运行时、网关、沙箱、审批） |
+| 数据流 | 触发 → 运行时 → 模型网关 / 工具网关（鉴权、策略、审计）→ 系统 |
+| 模型 | 模型网关统一接入；按档位选择 |
+| 检索 | 作为平台提供的标准工具（知识库 MCP server） |
+| 智能体 | 托管 harness；声明式定义 |
+| 评测 | 业务集 + 平台安全集；变更与模型升级都要回归 |
+| 扩展 | 运行时无状态 + durable 状态存储；按团队配额 |
+| 延迟 | 由各 agent 自定 SLO；平台提供流式与进度 |
+| 成本 | 团队归因与分账；上限与熔断 |
+| 可靠性 | durable 执行；工具故障隔离；灰度与自动回滚 |
+| 安全 | 工具审核与哈希、权限交集、令牌交换、审批、沙箱 |
+| 可观测性 | 统一 trace、审计日志、每 agent 指标看板 |
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- 让每个团队自己处理权限和安全。
+- 把用户令牌透传给下游系统。
+- agent 的 prompt 改了直接上线，不评估。
+- 工具定义可以随时修改不需审核。
+
+</Note>
+
+## 连接
+
+- 机制：[Agent Harness](/docs/ai-native/harness)、[MCP](/docs/ai-native/mcp)、[Agent Security](/docs/agent/security)、[Agent Eval](/docs/evaluation/agent-eval)
+- 相关题：[AI Agent](/docs/system-design/ai-agent)、[Long-running Agent](/docs/system-design/long-running-agent)、[Inference Platform](/docs/system-design/inference-platform)
+
+## 面试问题
+
+1. 设计一个企业内部 agent 平台。（Design an enterprise agent platform.）
+2. 平台和业务团队的边界怎么划？（Where's the boundary between platform and teams?）
+3. agent 用谁的身份访问内部系统？（Whose identity does an agent use?）
+4. 工具怎么注册、审核、防篡改？（How are tools registered, reviewed, and protected from tampering?）
+5. agent 的变更怎么评估和上线？（How are agent changes evaluated and released?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Constraints
+## Level 4 · Operations and cost
+
+One trace per task across model calls, tool calls (with identity and scope), approvals, and cost, propagated through MCP servers; tamper-proof audit logs; per-team and per-agent token, concurrency, and daily cost limits with chargeback; runtime-level stall detection and kill switches; durable execution for long and approval-waiting tasks; MCP server failures isolated to dependent agents.
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- Leaving permissions and safety to each team.
+- Passing user tokens through.
+- Shipping prompt changes without evals.
+- Unreviewed tool definition changes.
+
+</Note>
+
+## Connections
+
+- Mechanics: [Agent Harness](/docs/ai-native/harness), [MCP](/docs/ai-native/mcp), [Agent Security](/docs/agent/security), [Agent Eval](/docs/evaluation/agent-eval)
+- Related: [AI Agent](/docs/system-design/ai-agent), [Long-running Agent](/docs/system-design/long-running-agent), [Inference Platform](/docs/system-design/inference-platform)
+
+## Interview questions
+
+1. Design an enterprise agent platform.
+2. Where's the boundary between platform and teams?
+3. Whose identity does an agent use?
+4. How are tools registered, reviewed, and protected from tampering?
+5. How are agent changes evaluated and released?
 
 </Locale>
-
--
-
-<Locale lang="zh">
-
-## 架构
-
-</Locale>
-
-<Locale lang="en">
-
-## Architecture
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 数据流
-
-</Locale>
-
-<Locale lang="en">
-
-## Data Flow
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 模型
-
-</Locale>
-
-<Locale lang="en">
-
-## Model
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 检索
-
-</Locale>
-
-<Locale lang="en">
-
-## Retrieval
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 智能体
-
-</Locale>
-
-<Locale lang="en">
-
-## Agent
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 评测
-
-</Locale>
-
-<Locale lang="en">
-
-## Evaluation
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 扩展
-
-</Locale>
-
-<Locale lang="en">
-
-## Scaling
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 延迟
-
-</Locale>
-
-<Locale lang="en">
-
-## Latency
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 成本
-
-</Locale>
-
-<Locale lang="en">
-
-## Cost
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可靠性
-
-</Locale>
-
-<Locale lang="en">
-
-## Reliability
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 安全
-
-</Locale>
-
-<Locale lang="en">
-
-## Security
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可观测性
-
-</Locale>
-
-<Locale lang="en">
-
-## Observability
-
-</Locale>
-
--
 
 <Locale lang="zh">
 
@@ -311,6 +365,22 @@ builders → register tools/agents (MCP)
 <Locale lang="en">
 
 ## My answer
+
+</Locale>
+
+- 30s 电梯版:
+
+- 5 分钟白板版:
+
+<Locale lang="zh">
+
+## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
 
 </Locale>
 

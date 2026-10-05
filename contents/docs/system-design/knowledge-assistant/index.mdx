@@ -1,307 +1,358 @@
 ---
 title: L1 · Knowledge Assistant
 titleEn: L1 · Knowledge Assistant
-description: 企业知识助手：权限、过期文档、多数据源。
-descriptionEn: "Enterprise knowledge assistant: ACL, freshness, multiple sources."
-date: 2026-09-07
-keywords: ["knowledge assistant", "enterprise rag"]
+description: 企业内部知识助手：在 RAG Chatbot 之上加入多数据源连接器、文档级权限与权限同步、身份感知检索、新鲜度与冲突处理。核心难点是“每个人只能看到自己有权看的内容”。
+descriptionEn: "Enterprise knowledge assistant: RAG plus many source connectors, document-level permissions and sync, identity-aware retrieval, freshness, and conflicting sources. The core difficulty: everyone sees only what they're allowed to."
+date: 2026-10-04
+keywords: ['system design', 'enterprise search', 'knowledge assistant', 'acl', 'permission sync', 'connectors', 'identity-aware retrieval', 'freshness']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-设计一个企业知识助手。（Design an enterprise knowledge assistant.）
+> 题目：为一家 5,000 人的公司设计内部知识助手，员工可以用自然语言查询 Confluence、Google Drive、Slack、Jira 中的信息。
 
-<Note title="开口框架">
-每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
+和 [RAG Chatbot](/docs/system-design/rag-chatbot) 相比，这道题多了三个难点：**数据源多且各自有 API 和权限模型**、**每个员工能看到的内容不同**、**内容频繁变化且互相矛盾**。面试官最想听的是权限——这是企业买不买单的决定因素（Glean、Microsoft Copilot 这类产品的核心卖点就是“权限感知”）。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 面试中的时间 |
+| --- | --- | --- |
+| 0 · 澄清与估算 | 和公开 chatbot 有什么不同？量级多大？ | 5 min |
+| 1 · 高层架构 | 连接器、索引、身份服务怎么组合？ | 10 min |
+| 2 · 深挖：权限 | 怎样保证不泄露？权限变了怎么办？ | 12 min |
+| 3 · 深挖：多源与新鲜度 | 多个来源冲突、内容过时怎么处理？ | 8 min |
+| 4 · 评测、可靠性与成本 | 怎么测权限没漏？ | 5 min |
+
+## 需要掌握
+
+- 连接器的增量同步（webhook / 轮询）与速率限制
+- 文档级 ACL、用户 → 组的展开、检索时过滤
+- 权限同步的延迟与“删除 / 撤权优先”
+- 多源冲突：权威来源、时间、作者
+- 权限负例测试
+
+</Locale>
+
+<Locale lang="en">
+
+> Design an internal knowledge assistant for a 5,000-person company that answers questions over Confluence, Google Drive, Slack, and Jira.
+
+Beyond the [RAG Chatbot](/docs/system-design/rag-chatbot): many sources with their own APIs and permission models, per-employee visibility, and frequently changing, conflicting content. Interviewers most want permissions — the reason enterprises buy products like Glean or Microsoft Copilot.
+
+## How to work through this page
+
+| Level | Question it answers | Interview time |
+| --- | --- | --- |
+| 0 · Clarify and estimate | How does it differ from a public bot? | 5 min |
+| 1 · High-level design | Connectors, indexes, identity? | 10 min |
+| 2 · Deep dive: permissions | How do you prevent leaks and handle changes? | 12 min |
+| 3 · Deep dive: sources and freshness | Conflicts and staleness? | 8 min |
+| 4 · Eval, reliability, cost | How do you test permissions? | 5 min |
+
+## Must know
+
+- incremental connector sync and rate limits
+- document ACLs, group expansion, retrieval-time filtering
+- sync latency, revocations first
+- source conflicts
+- permission negative tests
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 澄清需求与估算
+
+| 问题 | 本题假设 |
+| --- | --- |
+| 数据源？ | Confluence、Google Drive、Slack（公开频道 + 用户所在私有频道）、Jira |
+| 权限模型？ | 沿用各源系统的权限：员工在源系统里能看的，助手里才能看到 |
+| 能执行操作吗？ | 本版只读；不创建工单、不发消息 |
+| 规模？ | 5,000 员工；约 200 万份文档 / 页面 + 5,000 万条 Slack 消息 |
+| 新鲜度？ | 新文档 / 权限变更在 15 分钟内生效；撤权要更快 |
+| 部署？ | 公司要求数据不出自己的云账号 |
+
+```text
+文档：200 万 × 平均 2,000 token = 40 亿 token；Slack 按线程聚合约 500 万线程 × 500 token = 25 亿 token
+切块后约 1,500 万块 → 1,024 维 float32 ≈ 61 GB 向量 → 需要专用向量库或量化（见 Embedding Level 2）
+首次全量 embedding：65 亿 token，一次性成本需要预算
+流量：5,000 人 × 每天 5 次 = 2.5 万请求 / 天，峰值约 5 QPS → 查询侧压力很小
+```
+
+结论：**索引侧规模大、查询侧流量小；难点在权限和同步，不在 QPS。**
+
+<Note title="自测：到这里你应该能回答">
+
+1. 这道题和公开 chatbot 最大的三个差异是什么？
+2. 估算向量存储，并说明为什么需要量化或专用向量库。
+
 </Note>
 
-## 本题要练什么
-
-和玩具 chatbot 的区别在于权限、版本、审计和多数据源（wiki / Drive / 数据库）。接到 Unilever 的企业检索经验。
-
-## 白板草图
-
 </Locale>
 
 <Locale lang="en">
 
-Design an enterprise knowledge assistant.
+## Level 0 · Clarify and estimate
 
-<Note title="Opening framework">
-Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+Assume Confluence, Drive, Slack (public plus the user's private channels), Jira; inherit source permissions; read-only; 5,000 employees; ~2M documents plus ~50M Slack messages; changes visible within 15 minutes, revocations faster; data stays in the company's cloud. ~15M chunks ≈ 61 GB of float32 vectors (quantize or use a dedicated store), ~6.5B tokens for the initial embedding, but only ~25K queries/day. The hard part is permissions and sync, not QPS.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Three main differences from a public bot?
+2. Vector storage estimate and why it needs quantization or a dedicated store?
+
 </Note>
 
-## What this problem trains
-
-What separates it from a toy chatbot: permissions, versioning, auditing, and multiple sources (wiki / Drive / databases). Tie it to the enterprise retrieval work at Unilever.
-
-## Whiteboard sketch
-
 </Locale>
-
-```
-User + identity
-      ↓
-ACL-aware retrieval (wiki / files / warehouse)
-      ↓
-Grounded answer + citations + audit log
-```
 
 <Locale lang="zh">
 
-## 容易被追问
+## Level 1 · 高层架构
 
-1. 怎么保证用户没有权限的文档不会被检索到？（How do you guarantee documents a user can't access never get retrieved?）
-2. 文档更新后怎么让索引失效？（How do you invalidate the index when documents are updated?）
-3. 多个数据源互相矛盾时信谁？（When sources conflict, which one do you trust?）
-4. 怎么评估「找不到」比乱答更好？（How do you show that "I couldn't find it" beats a made-up answer?）
+```text
+                     ┌──────────── 同步层 ────────────┐
+Confluence / Drive / Slack / Jira
+   │ webhook 或增量轮询（遵守各 API 速率限制）
+   ▼
+连接器 ─► 原始内容 + 权限信息（ACL：允许的用户 / 组）─► 解析、切块、embedding
+   ▼
+索引：向量 + BM25，每块带 source、doc_id、acl_principals、updated_at、author
+                     └───────────────────────────────┘
 
-## 14 个维度
+身份服务：员工 → 所属组（从 IdP 如 Okta / Azure AD 同步，含嵌套组展开）
 
-```
-1. 需求（Requirements）
-2. 约束（Constraints）
-3. 架构（Architecture）
-4. 数据流（Data Flow）
-5. 模型（Model）
-6. 检索（Retrieval）
-7. 智能体（Agent）
-8. 评测（Evaluation）
-9. 扩展（Scaling）
-10. 延迟（Latency）
-11. 成本（Cost）
-12. 可靠性（Reliability）
-13. 安全（Security）
-14. 可观测性（Observability）
+在线：员工 ─SSO─► 助手 API
+   → 取该员工的“权限主体集合”（用户 ID + 所有组 ID）
+   → 混合检索，过滤条件 = acl_principals 与权限主体集合有交集
+   → 重排 → 生成（引用带来源系统和链接）
+   → 可选：返回前对引用的文档做一次实时权限复核
 ```
 
+关键设计：**权限在检索时过滤**，而不是检索后再交给模型判断（见 [Isolation](/docs/context/isolation)）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 画出同步层、身份服务和在线流程。
+2. 为什么权限必须在检索时过滤？
+
+</Note>
+
 </Locale>
 
 <Locale lang="en">
 
-## Likely follow-ups
+## Level 1 · High-level design
 
-1. How do you guarantee documents a user can't access never get retrieved?
-2. How do you invalidate the index when documents are updated?
-3. When sources conflict, which one do you trust?
-4. How do you show that "I couldn't find it" beats a made-up answer?
+Connectors pull changes via webhooks or incremental polling within API rate limits, capturing content plus ACLs; content is parsed, chunked, embedded, and indexed (dense + BM25) with source, doc ID, ACL principals, timestamps, author. An identity service syncs users and nested groups from the IdP. Online: SSO → expand the user's principals → hybrid retrieval filtered to chunks whose ACL intersects them → rerank → cited generation → optional live permission recheck of cited docs. Filter at retrieval, never by asking the model.
 
-## Dimensions
+<Note title="Self-check: you should be able to answer">
 
-```
-1. Requirements
-2. Constraints
-3. Architecture
-4. Data Flow
-5. Model
-6. Retrieval
-7. Agent
-8. Evaluation
-9. Scaling
-10. Latency
-11. Cost
-12. Reliability
-13. Security
-14. Observability
-```
+1. Draw sync, identity, and online flow.
+2. Why filter at retrieval time?
+
+</Note>
 
 </Locale>
 
 <Locale lang="zh">
 
-## 需求
+## Level 2 · 深挖：权限
+
+### 权限怎么表示和过滤？
+
+每块存一个 `acl_principals` 列表（允许访问的用户 ID 和组 ID），例如 `["user:alice", "group:finance", "group:all-employees"]`。查询时把员工的用户 ID 和所属的所有组 ID 作为过滤条件——有交集才可见。
+
+难点：
+
+| 难点 | 处理 |
+| --- | --- |
+| **嵌套组** | “财务部”包含“应付组”，员工在“应付组”里 → 身份服务要展开所有上级组 |
+| 组成员很多 | 一个员工可能属于几百个组 → 过滤条件很长；向量库要支持高效的集合过滤（见 [Vector Search](/docs/rag/vector-search) Level 3） |
+| 各源权限模型不同 | Drive 有“知道链接的人可见”、Slack 有私有频道、Jira 有项目角色 → 连接器负责翻译成统一的 principals |
+| “知道链接即可见”的文档 | 不能等同于公开——默认按“仅显式授权用户”处理，宁严勿松 |
+
+### 权限变了怎么办？
+
+员工被移出“并购项目组”后，**必须尽快**看不到相关文档。
+
+- 权限变更事件（IdP 的组成员变化、文档共享设置变化）的**优先级高于内容变更**，进入单独的快速队列。
+- 撤权比加权更紧急：加权晚 15 分钟只是“暂时搜不到”，撤权晚 15 分钟是**数据泄露**。
+- **双重保险**：返回答案前，对引用的少数文档调用源系统 API 做一次实时权限检查。只检查最终引用的 5 篇，成本可控；不通过就从答案中移除并重新生成。
+- 缓存（答案缓存、检索缓存）的键要包含用户或其权限集合，否则 A 的答案会被 B 命中。
+
+### 生成结果会不会“间接泄露”？
+
+即使检索过滤正确，**摘要也可能泄露**：例如回答里写“根据并购项目文档……”。所以引用和生成都只能基于过滤后的块；日志和 trace 中的内容也要按权限控制访问。
+
+<Note type="tip" title="面试加分">
+
+“权限我会做三层：检索时按 ACL 主体过滤；撤权事件走高优先级队列，目标分钟级生效；返回前对引用的文档做一次源系统实时复核。并用一组‘不该看到’的负例账号做持续测试。”
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 嵌套组为什么是难点？怎么处理？
+2. 为什么撤权比加权更紧急？给出两种保障手段。
+3. 实时权限复核为什么只对最终引用的文档做？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Requirements
+## Level 2 · Deep dive: permissions
+
+Store `acl_principals` per chunk and filter by intersection with the user's ID and all expanded groups. Challenges: nested groups (expand ancestors), users in hundreds of groups (efficient set filters), heterogeneous source models translated by connectors, and "anyone with the link" treated conservatively. Changes: ACL events go to a priority queue — a late grant is an inconvenience, a late revocation is a leak; recheck the few cited documents against the source API before answering; key caches by user or permission set. Generation can leak indirectly, so generate only from filtered chunks and protect logs.
+
+<Note type="tip" title="Interview move">
+
+"Three layers: ACL filtering at retrieval, high-priority revocation sync, and a live recheck of cited documents — tested continuously with negative accounts."
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why are nested groups hard?
+2. Why are revocations more urgent, and two safeguards?
+3. Why recheck only cited documents?
+
+</Note>
 
 </Locale>
-
--
 
 <Locale lang="zh">
 
-## 约束
+## Level 3 · 深挖：多源与新鲜度
+
+### 多个来源说法冲突怎么办？
+
+Confluence 上的报销政策是 2024 年的，Slack 上有人说“上个月改了”。处理：
+
+- **元数据进 context**：每段带来源、更新时间、作者，让模型能看到并说明“Confluence 页面（2024-03 更新）写的是……，Slack 中 2026-09 有讨论提到已调整，建议以 HR 最新公告为准”。
+- **权威来源加权**：官方文档空间 / HR 系统的权重高于聊天记录；可在重排或融合时加入来源权重。
+- **时间衰减**：对时效性强的问题，较新的内容排序靠前。
+
+### Slack 这类聊天数据怎么入库？
+
+单条消息太短、缺上下文。按**线程**聚合成一个文档，带频道名和参与者；过滤掉表情、无内容的回复；私有频道严格按成员权限。
+
+### 同步怎么保证新鲜度又不被限流？
+
+各源 API 都有速率限制。用 webhook 接收变更通知（有的源支持），否则增量轮询（只拉 `updated_since`）；首次全量回填要分批、限速，可能需要数天；监控每个连接器的**同步延迟**和**失败率**。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 多源冲突的三种处理方式是什么？
+2. Slack 消息为什么要按线程聚合？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Constraints
+## Level 3 · Deep dive: sources and freshness
+
+Conflicts: put source, timestamp, and author in context so the model can explain discrepancies; weight authoritative spaces over chat; apply recency decay for time-sensitive questions. Slack: aggregate by thread with channel and participants, drop noise, enforce membership. Freshness under rate limits: webhooks where available, `updated_since` polling otherwise, throttled backfills that may take days, and per-connector lag and failure monitoring.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Three ways to handle conflicting sources?
+2. Why aggregate Slack by thread?
+
+</Note>
 
 </Locale>
-
--
 
 <Locale lang="zh">
 
-## 架构
+## Level 4 · 评测、可靠性与成本
+
+- **权限测试最重要**：准备一组测试账号（新员工、外包、财务、高管），每个账号有“应该看到”和“不应该看到”的文档清单；每次发版和每天定时跑，**越权数必须为 0**。
+- **质量评测**：按来源和部门构造问题集；看答案正确率、引用准确率、“过时信息”比例。
+- **可靠性**：某个连接器挂了，其他源照常服务，回答中注明“Jira 数据暂时不可用”；同步积压时告警。
+- **成本**：查询侧便宜（2.5 万次 / 天）；主要成本是**首次全量 embedding 和持续增量同步**，以及向量存储。
+
+## 14 维度速查
+
+| 维度 | 本题关键决策 |
+| --- | --- |
+| 需求 | 只读、多源、权限感知、带来源引用 |
+| 约束 | 1,500 万块；15 分钟新鲜度；数据不出云账号 |
+| 架构 | 连接器 + 同步队列 + 索引 + 身份服务 + 在线 RAG |
+| 数据流 | webhook / 轮询 → 解析 → 带 ACL 入库；查询 → 展开组 → 过滤检索 |
+| 模型 | 可私有部署或云厂商托管的模型（数据驻留） |
+| 检索 | 混合检索 + ACL 过滤 + 来源权重 + 时间衰减 |
+| 智能体 | 本版不需要 |
+| 评测 | 权限负例（必须 0）+ 分来源的质量集 |
+| 扩展 | 索引侧大、查询侧小；向量量化 |
+| 延迟 | 组展开结果缓存；实时复核只查引用文档 |
+| 成本 | 主要在 embedding 与同步 |
+| 可靠性 | 连接器隔离；部分源不可用时降级说明 |
+| 安全 | 检索时过滤、撤权优先、实时复核、日志权限 |
+| 可观测性 | 每个连接器的同步延迟、失败率、权限事件积压 |
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- “检索后让模型判断用户有没有权限。”
+- 只考虑内容同步，忘了权限同步。
+- 答案缓存不区分用户。
+
+</Note>
+
+## 连接
+
+- 前一题：[RAG Chatbot](/docs/system-design/rag-chatbot)；相关：[Isolation](/docs/context/isolation)、[Ingestion](/docs/rag/ingestion)、[Large-scale RAG](/docs/system-design/rag-platform)
+
+## 面试问题
+
+1. 设计一个企业内部知识助手。（Design an enterprise knowledge assistant.）
+2. 怎样保证员工只能看到有权限的内容？（How do you enforce per-user permissions?）
+3. 员工被撤权后，多快能生效？怎么保证？（How quickly do revocations apply, and how?）
+4. 多个来源说法冲突怎么办？（How do you handle conflicting sources?）
+5. 怎样测试权限没有泄露？（How do you test for permission leaks?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Architecture
+## Level 4 · Eval, reliability, cost
+
+Permission tests come first: test personas with must-see and must-not-see lists, run on every release and daily, zero violations allowed. Quality sets per source and department, including stale-info rate. A failed connector degrades only its source with a visible note; alert on backlog. Cost lives in initial embedding, ongoing sync, and vector storage, not queries.
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- "Let the model decide whether the user may see it."
+- Syncing content but not permissions.
+- Answer caches not keyed by user.
+
+</Note>
+
+## Connections
+
+- Previous: [RAG Chatbot](/docs/system-design/rag-chatbot); related: [Isolation](/docs/context/isolation), [Ingestion](/docs/rag/ingestion), [Large-scale RAG](/docs/system-design/rag-platform)
+
+## Interview questions
+
+1. Design an enterprise knowledge assistant.
+2. How do you enforce per-user permissions?
+3. How quickly do revocations apply, and how?
+4. How do you handle conflicting sources?
+5. How do you test for permission leaks?
 
 </Locale>
-
--
-
-<Locale lang="zh">
-
-## 数据流
-
-</Locale>
-
-<Locale lang="en">
-
-## Data Flow
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 模型
-
-</Locale>
-
-<Locale lang="en">
-
-## Model
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 检索
-
-</Locale>
-
-<Locale lang="en">
-
-## Retrieval
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 智能体
-
-</Locale>
-
-<Locale lang="en">
-
-## Agent
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 评测
-
-</Locale>
-
-<Locale lang="en">
-
-## Evaluation
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 扩展
-
-</Locale>
-
-<Locale lang="en">
-
-## Scaling
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 延迟
-
-</Locale>
-
-<Locale lang="en">
-
-## Latency
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 成本
-
-</Locale>
-
-<Locale lang="en">
-
-## Cost
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可靠性
-
-</Locale>
-
-<Locale lang="en">
-
-## Reliability
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 安全
-
-</Locale>
-
-<Locale lang="en">
-
-## Security
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可观测性
-
-</Locale>
-
-<Locale lang="en">
-
-## Observability
-
-</Locale>
-
--
 
 <Locale lang="zh">
 
@@ -312,6 +363,22 @@ Grounded answer + citations + audit log
 <Locale lang="en">
 
 ## My answer
+
+</Locale>
+
+- 30s 电梯版:
+
+- 5 分钟白板版:
+
+<Locale lang="zh">
+
+## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
 
 </Locale>
 

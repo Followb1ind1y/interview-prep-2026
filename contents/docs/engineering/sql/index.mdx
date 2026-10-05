@@ -1,66 +1,520 @@
 ---
-title: SQL
-titleEn: SQL
-description: AI/ML 面试常考。结合 BigQuery 与 PMI。
-descriptionEn: Often tested in AI/ML interviews. Tie to BigQuery and PMI.
-date: 2026-09-06
-keywords: ["sql", "bigquery", "window functions"]
+title: SQL 与数据存储
+titleEn: SQL & Data Storage
+description: 用 LLM 调用日志练 SQL：JOIN、GROUP BY / HAVING、窗口函数、CTE；索引（B-tree、复合索引最左前缀）与 EXPLAIN；事务与隔离级别；BigQuery 的列存与按扫描量计费；Postgres / MongoDB / Redis / 向量库怎么选。
+descriptionEn: "Practice SQL on LLM call logs: joins, GROUP BY/HAVING, window functions, CTEs; indexes (B-trees, leftmost prefixes) and EXPLAIN; transactions and isolation levels; BigQuery's columnar, bytes-scanned pricing; choosing Postgres, MongoDB, Redis, or a vector store."
+date: 2026-10-04
+keywords: ['sql', 'join', 'group by', 'window functions', 'cte', 'index', 'b-tree', 'explain', 'transactions', 'isolation level', 'bigquery', 'partition', 'mongodb', 'redis', 'postgres']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-SQL 考的仍然是面试表现：既要能写出来，也要能讲清为什么这样写。
+SQL 在 AI 工程面试中常以两种形式出现：**现场写查询**（“统计每个租户每天的 token 用量，取前 3 名”），和**追问数据存储设计**（“对话历史存哪？为什么用 MongoDB？BigQuery 查询为什么贵？”）。你的 PMI 和 Tariff 项目都用了 BigQuery，Negotiation 用了 MongoDB——都是追问点。
 
-项目锚点：[PMI Logistics](/docs/projects/pmi) —— *怎么防止 LLM 生成错误的 SQL？*（*How do you prevent an LLM from generating incorrect SQL?*）
+本页所有 SQL 例子都基于同一组表（LLM 调用日志），并已在 SQLite 上实际运行验证。
 
-## 覆盖点
+## 这一页怎么学
 
-- JOIN（包括 LEFT JOIN 和 INNER JOIN 在业务上的含义差别）
-- GROUP BY / 聚合
-- 窗口函数
-- CTE（公用表表达式）
-- 排名函数（`ROW_NUMBER` / `RANK` / `DENSE_RANK`）
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 查询基础 | JOIN、GROUP BY、HAVING 怎么写对？ | 30 min |
+| 1 · 窗口函数与 CTE | “每组前 N 名”“累计值”“和上一行比较”怎么写？ | 40 min |
+| 2 · 索引与执行计划 | 查询为什么慢？索引怎么建？ | 30 min |
+| 3 · 事务 | 隔离级别解决什么问题？ | 25 min |
+| 4 · 存储选型与 BigQuery | Postgres、MongoDB、Redis、BigQuery 怎么选？ | 25 min |
 
-## 骨架
+## 需要掌握
 
-把做过的一条分析查询贴在这里：业务问题、用到的表、关键的 JOIN、窗口函数、一个容易出错的点。
-
-## 代表题
-
-| 题型 | 状态 |
-| --- | --- |
-| 多表 JOIN + 过滤 | 待练 |
-| GROUP BY + HAVING | 待练 |
-| 窗口函数排名 / 滚动聚合 | 待练 |
-| 用 CTE 拆解复杂查询 | 待练 |
+- INNER / LEFT JOIN 的区别与常见错误；WHERE 与 HAVING
+- 窗口函数：`ROW_NUMBER`、`RANK`、`SUM() OVER`、`LAG`；CTE
+- B-tree 索引、复合索引最左前缀、覆盖索引、EXPLAIN；N+1 查询
+- ACID；隔离级别与脏读 / 不可重复读 / 幻读
+- OLTP 与 OLAP；BigQuery 的分区、聚簇与扫描量计费
+- 按访问模式选存储
 
 </Locale>
 
 <Locale lang="en">
 
-SQL is still about interview performance: you have to write it and explain why you wrote it that way.
+SQL appears as live queries ("daily token usage per tenant, top 3") and storage-design follow-ups ("where do conversations live? why MongoDB? why is this BigQuery query expensive?"). Your PMI and Tariff projects use BigQuery and Negotiation uses MongoDB. All examples use one schema of LLM call logs and were run on SQLite.
 
-Project anchor: [PMI Logistics](/docs/projects/pmi) — *How do you prevent an LLM from generating incorrect SQL?*
+## How to work through this page
 
-## Coverage
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Query basics | Correct joins, GROUP BY, HAVING? | 30 min |
+| 1 · Windows and CTEs | Top N per group, running totals, previous-row comparisons? | 40 min |
+| 2 · Indexes and plans | Why is a query slow? How to index? | 30 min |
+| 3 · Transactions | What do isolation levels solve? | 25 min |
+| 4 · Storage choices and BigQuery | Postgres, MongoDB, Redis, BigQuery? | 25 min |
 
-- JOIN (including what LEFT vs INNER means for the business question)
-- GROUP BY / aggregation
-- Window functions
-- CTE
-- Ranking (`ROW_NUMBER` / `RANK` / `DENSE_RANK`)
+## Must know
 
-## Skeleton
-
-Paste an analysis query you've actually written here: the business question, the tables, the key JOIN, the window function, and one easy-to-miss pitfall.
-
-## Representative problems
-
-| Problem type | Status |
-| --- | --- |
-| Multi-table JOIN + filtering | To practice |
-| GROUP BY + HAVING | To practice |
-| Window-function ranking / rolling aggregates | To practice |
-| Breaking down a complex query with CTEs | To practice |
+- INNER vs LEFT JOIN pitfalls; WHERE vs HAVING
+- window functions and CTEs
+- B-tree and composite indexes, covering indexes, EXPLAIN, N+1
+- ACID, isolation levels and anomalies
+- OLTP vs OLAP; BigQuery partitioning, clustering, bytes-scanned pricing
+- choosing storage by access pattern
 
 </Locale>
+
+---
+
+```sql
+-- Schema used throughout
+CREATE TABLE tenants (id INTEGER PRIMARY KEY, name TEXT, plan TEXT);
+CREATE TABLE llm_calls (
+  id INTEGER PRIMARY KEY,
+  tenant_id INTEGER REFERENCES tenants(id),
+  model TEXT,
+  created_at TEXT,          -- e.g. '2026-10-01 09:15:00'
+  input_tokens INTEGER,
+  output_tokens INTEGER,
+  cost_usd REAL,
+  status TEXT               -- 'ok' | 'error'
+);
+```
+
+<Locale lang="zh">
+
+## Level 0 · 查询基础
+
+### JOIN 和 GROUP BY
+
+“每个租户的调用次数和总成本，包括没有任何调用的租户”：
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Query basics
+
+Calls and cost per tenant, including tenants with no calls:
+
+</Locale>
+
+```sql
+SELECT t.name,
+       COUNT(c.id)               AS calls,       -- COUNT(c.id), not COUNT(*): 0 for no calls
+       COALESCE(SUM(c.cost_usd), 0) AS cost
+FROM tenants t
+LEFT JOIN llm_calls c ON c.tenant_id = t.id
+GROUP BY t.id, t.name
+ORDER BY cost DESC;
+```
+
+<Locale lang="zh">
+
+三个易错点：
+
+1. **INNER JOIN 会丢掉没有调用的租户**；要包含它们必须 LEFT JOIN。
+2. LEFT JOIN 时用 `COUNT(c.id)` 而不是 `COUNT(*)`——没有匹配的行 `c.id` 是 NULL，`COUNT(c.id)` 得 0，`COUNT(*)` 会得 1。
+3. **把对右表的过滤写在 WHERE 里会把 LEFT JOIN 变回 INNER JOIN**：`WHERE c.status = 'ok'` 会过滤掉 c 为 NULL 的行。要保留，把条件写进 `ON`：`LEFT JOIN llm_calls c ON c.tenant_id = t.id AND c.status = 'ok'`。
+
+### WHERE 和 HAVING
+
+`WHERE` 在分组**前**过滤行；`HAVING` 在分组**后**过滤组。“错误率超过 5% 的模型”：
+
+</Locale>
+
+<Locale lang="en">
+
+Three traps: INNER JOIN drops tenants without calls; use `COUNT(c.id)` (NULL → 0) not `COUNT(*)`; filtering the right table in WHERE turns a LEFT JOIN into an INNER JOIN — put the condition in `ON`. WHERE filters rows before grouping; HAVING filters groups after. Models with error rates above 5%:
+
+</Locale>
+
+```sql
+SELECT model,
+       COUNT(*) AS calls,
+       AVG(CASE WHEN status = 'error' THEN 1.0 ELSE 0 END) AS error_rate
+FROM llm_calls
+WHERE created_at >= '2026-10-01'          -- row filter, before grouping
+GROUP BY model
+HAVING AVG(CASE WHEN status = 'error' THEN 1.0 ELSE 0 END) > 0.05;   -- group filter
+```
+
+<Locale lang="zh">
+
+<Note title="自测：到这里你应该能回答">
+
+1. LEFT JOIN 时为什么要用 `COUNT(c.id)`？
+2. 为什么把右表条件写在 WHERE 里会让 LEFT JOIN 失效？
+3. WHERE 和 HAVING 分别在什么时候过滤？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why `COUNT(c.id)` with LEFT JOIN?
+2. Why does a WHERE on the right table break a LEFT JOIN?
+3. When do WHERE and HAVING filter?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 窗口函数与 CTE
+
+### 窗口函数和 GROUP BY 有什么区别？
+
+GROUP BY 把多行**折叠成一行**；窗口函数**保留每一行**，同时在一个“窗口”（分组 + 排序）内计算值。三个最常考的场景：
+
+**每组前 N 名**——“每个租户成本最高的 2 天”：
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Window functions and CTEs
+
+GROUP BY collapses rows; window functions keep every row while computing over a partition and order. Top N per group — each tenant's two most expensive days:
+
+</Locale>
+
+```sql
+WITH daily AS (                                   -- CTE: a named intermediate result
+  SELECT tenant_id, DATE(created_at) AS day, SUM(cost_usd) AS cost
+  FROM llm_calls
+  GROUP BY tenant_id, DATE(created_at)
+),
+ranked AS (
+  SELECT *, ROW_NUMBER() OVER (PARTITION BY tenant_id ORDER BY cost DESC) AS rn
+  FROM daily
+)
+SELECT tenant_id, day, cost FROM ranked WHERE rn <= 2;
+```
+
+<Locale lang="zh">
+
+**累计值**——每个租户按天的累计成本：
+
+```sql
+SELECT tenant_id, day, cost,
+       SUM(cost) OVER (PARTITION BY tenant_id ORDER BY day) AS running_cost
+FROM daily;
+```
+
+**和上一行比较**——每天成本相对前一天的变化（发现账单暴涨，见 [Cost](/docs/production/cost) Level 5）：
+
+```sql
+SELECT tenant_id, day, cost,
+       cost - LAG(cost) OVER (PARTITION BY tenant_id ORDER BY day) AS change
+FROM daily;
+```
+
+| 函数 | 平局时 | 例：值 100, 100, 90 |
+| --- | --- | --- |
+| `ROW_NUMBER` | 任意分配不同序号 | 1, 2, 3 |
+| `RANK` | 并列同名次，后面跳号 | 1, 1, 3 |
+| `DENSE_RANK` | 并列同名次，不跳号 | 1, 1, 2 |
+
+**CTE（`WITH`）**：给中间结果起名字，让多步查询可读；不改变结果。窗口函数的结果不能直接在同一层的 WHERE 里用（WHERE 先于窗口函数执行），所以“每组前 N 名”要先在 CTE 或子查询里算排名，外层再过滤。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 窗口函数和 GROUP BY 的根本区别？
+2. 为什么“每组前 N 名”要用 CTE 或子查询包一层？
+3. `ROW_NUMBER`、`RANK`、`DENSE_RANK` 在平局时有什么不同？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Running totals use `SUM() OVER (PARTITION BY … ORDER BY …)`; day-over-day changes use `LAG` (spotting bill spikes, see [Cost](/docs/production/cost)). On ties 100, 100, 90: ROW_NUMBER 1,2,3; RANK 1,1,3; DENSE_RANK 1,1,2. CTEs name intermediate steps; window results can't be filtered in the same level's WHERE (it runs first), so wrap them.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Window functions vs GROUP BY?
+2. Why wrap top-N-per-group?
+3. Tie behavior of the three ranking functions?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 索引与执行计划
+
+### 查询为什么慢？
+
+没有合适的索引时，数据库要**全表扫描**。“查某租户最近 7 天的调用”在 1 亿行的表上全表扫描，要读所有行。
+
+### B-tree 索引
+
+大多数关系数据库的默认索引是 **B-tree**：有序的多叉树，支持等值查找、范围查找、排序，复杂度 O(log n)。
+
+**复合索引的最左前缀原则**：索引 `(tenant_id, created_at)` 按先 `tenant_id`、再 `created_at` 排序：
+
+| 查询条件 | 能用这个索引吗 |
+| --- | --- |
+| `tenant_id = 5` | ✓ |
+| `tenant_id = 5 AND created_at >= '2026-10-01'` | ✓（最佳） |
+| `created_at >= '2026-10-01'` | ✗（跳过了最左列） |
+
+经验：**等值条件的列放前面，范围条件的列放后面**。
+
+**覆盖索引**：查询需要的列全部在索引里时，数据库不需要回表读原始行，更快。
+
+### EXPLAIN 与 N+1
+
+- `EXPLAIN`（PostgreSQL 用 `EXPLAIN ANALYZE` 看实际耗时）显示执行计划：是 Index Scan 还是 Seq Scan（全表扫描）。
+- **N+1 查询**：先查 20 个会话，再对每个会话单独查一次消息——21 次查询。用 JOIN 或 `WHERE conversation_id IN (...)` 一次查完。ORM 里很常见。
+
+### 索引的代价
+
+每个索引都会让写入变慢（每次插入要更新索引）、占用存储。日志表写多读少时，只建真正需要的索引。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 索引 `(tenant_id, created_at)` 能支持哪些查询？
+2. 为什么等值列放前面、范围列放后面？
+3. 什么是 N+1 查询？怎么解决？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Indexes and plans
+
+Without a suitable index the database scans every row. B-trees support equality, ranges, and ordering in O(log n). A composite `(tenant_id, created_at)` serves `tenant_id = …` and `tenant_id = … AND created_at >= …` but not `created_at` alone (leftmost prefix) — equality columns first, range columns last. Covering indexes avoid reading base rows. Use `EXPLAIN` (`EXPLAIN ANALYZE` in Postgres) to see Index vs Seq Scan; fix N+1 queries with a join or `IN (...)`. Indexes slow writes and use storage — index only what queries need.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Which queries use `(tenant_id, created_at)`?
+2. Why equality before range columns?
+3. What is N+1 and its fix?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 事务
+
+### ACID
+
+- **原子性（A）**：事务里的操作要么全部成功，要么全部回滚。
+- **一致性（C）**：事务前后满足约束（外键、唯一性等）。
+- **隔离性（I）**：并发事务互不干扰的程度。
+- **持久性（D）**：提交后的数据不会因崩溃丢失。
+
+例：“创建退款记录 + 扣减订单可退金额”必须在一个事务里，否则崩溃时可能只完成一半。
+
+### 隔离级别解决什么？
+
+| 异常 | 描述 | 例子 |
+| --- | --- | --- |
+| 脏读 | 读到别人未提交的数据 | 读到一笔随后被回滚的退款 |
+| 不可重复读 | 同一事务两次读同一行，结果不同 | 两次读订单状态，中间被别人改了 |
+| 幻读 | 同一事务两次范围查询，行数不同 | 两次统计今天的退款笔数，中间有人插入 |
+
+| 隔离级别 | 防止 | 说明 |
+| --- | --- | --- |
+| Read Committed | 脏读 | PostgreSQL 默认 |
+| Repeatable Read | + 不可重复读 | MySQL InnoDB 默认（其实现也能防大部分幻读） |
+| Serializable | 全部 | 最安全、并发性能最差，冲突时需要重试事务 |
+
+**丢失更新**是常见的实际问题：两个请求同时读“可退金额 100”，各退 80，都写回 20——实际退了 160。解决：`SELECT ... FOR UPDATE` 加行锁，或乐观锁（带版本号更新：`UPDATE ... SET amount = ?, version = version + 1 WHERE id = ? AND version = ?`，影响行数为 0 就重试）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 举一个必须放在一个事务里的业务操作。
+2. 三种读异常分别是什么？
+3. 丢失更新怎么发生？给出两种解决方法。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Transactions
+
+ACID: atomicity (all or nothing — refund record plus balance decrement together), consistency, isolation, durability. Anomalies: dirty reads (uncommitted data), non-repeatable reads (a row changes between reads), phantoms (range results change). Read Committed (Postgres default) prevents dirty reads; Repeatable Read (InnoDB default) also non-repeatable reads; Serializable prevents all at a concurrency cost with retries. Lost updates (two requests read 100, each refunds 80) need `SELECT … FOR UPDATE` or optimistic version checks with retry.
+
+<Note title="Self-check: you should be able to answer">
+
+1. An operation that must be one transaction?
+2. The three read anomalies?
+3. How lost updates happen, and two fixes?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 存储选型与 BigQuery
+
+### OLTP 与 OLAP
+
+| | OLTP（事务型） | OLAP（分析型） |
+| --- | --- | --- |
+| 例子 | PostgreSQL、MySQL | BigQuery、Snowflake、ClickHouse |
+| 负载 | 大量小的读写，按主键 / 索引查几行 | 少量大查询，扫描海量行做聚合 |
+| 存储 | 行存 | **列存**：只读需要的列，压缩率高 |
+
+### BigQuery 为什么有时很贵？
+
+BigQuery 按需计费按**扫描的数据量**收费（不是按结果大小）。列存意味着：
+
+- **`SELECT *` 最贵**：扫描所有列。只选需要的列。
+- **`LIMIT` 不减少扫描量**：`SELECT * ... LIMIT 10` 仍然扫描全表。
+- **分区（partition）**：按日期分区后，`WHERE created_at >= ...` 只扫描相关分区。
+- **聚簇（clustering）**：按常用过滤列（如 `tenant_id`）聚簇，进一步减少扫描。
+- 查询前看“预计处理的数据量”。
+
+<Note type="tip" title="项目锚点提示">
+
+PMI / Tariff 项目中让 agent 生成 BigQuery 查询时：怎么防止 agent 生成 `SELECT *` 扫全表？有没有设置最大扫描量（`maximum_bytes_billed`）、限定可查询的表、只读服务账号？这些既是成本问题也是安全问题，面试官很可能追问。
+
+</Note>
+
+### 怎么选存储？
+
+| 需求 | 选择 | 理由 |
+| --- | --- | --- |
+| 业务数据、需要事务和关联查询（用户、订单、退款） | PostgreSQL | ACID、JOIN、成熟 |
+| 对话历史、结构多变的文档、按会话读写 | MongoDB（或 Postgres 的 JSONB） | 灵活 schema，一个会话一个文档读写方便 |
+| 缓存、会话状态、限流计数、队列 | Redis | 内存级速度，丰富的数据结构，支持 TTL |
+| 分析、日志、报表 | BigQuery 等数仓 | 列存，适合大规模聚合 |
+| 向量检索 | pgvector / 专用向量库 | 见 [Vector Search](/docs/rag/vector-search) Level 4 |
+
+一个常见的好答案：**很多 AI 应用用一个 PostgreSQL（加 JSONB 和 pgvector）就能起步**，等规模和需求明确后再拆分专用存储——少一个系统就少一份运维。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 行存和列存分别适合什么负载？
+2. BigQuery 中 `LIMIT 10` 为什么不能省钱？什么能省钱？
+3. 对话历史放 MongoDB 还是 Postgres？说出取舍。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Storage choices and BigQuery
+
+OLTP (Postgres, MySQL: many small indexed reads/writes, row storage) vs OLAP (BigQuery, Snowflake, ClickHouse: few large scans, columnar). BigQuery on-demand bills bytes scanned: `SELECT *` is costliest, `LIMIT` doesn't reduce scanning, partition by date and cluster by common filters, check the estimate first.
+
+<Note type="tip" title="Project anchor prompt">
+
+For agent-generated BigQuery in PMI/Tariff: preventing `SELECT *`, `maximum_bytes_billed`, table allowlists, read-only service accounts — cost and security.
+
+</Note>
+
+Choose by access pattern: Postgres for transactional business data; MongoDB (or Postgres JSONB) for flexible per-conversation documents; Redis for caches, session state, counters, queues with TTLs; a warehouse for analytics; pgvector or a vector DB for retrieval. Many AI apps start on one Postgres with JSONB and pgvector.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Row vs columnar workloads?
+2. Why `LIMIT 10` doesn't save money, and what does?
+3. MongoDB or Postgres for conversations?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- LEFT JOIN 后在 WHERE 里过滤右表。
+- 在 WHERE 里直接使用窗口函数的结果。
+- “建个索引就快了”——不说明列顺序和最左前缀。
+- “BigQuery 加 LIMIT 就便宜了。”
+
+</Note>
+
+## 连接
+
+- [分布式基础](/docs/engineering/distributed)（复制、分片、一致性）、[API 设计与网络](/docs/engineering/rest)（游标分页依赖索引）
+- [Cost](/docs/production/cost)、[Observability](/docs/production/observability)（日志分析）、[Vector Search](/docs/rag/vector-search)
+
+## 面试问题
+
+1. 写一个查询：每个租户成本最高的 3 天。（Write a query for each tenant's top 3 cost days.）
+2. INNER JOIN 和 LEFT JOIN 的区别？LEFT JOIN 有什么常见错误？（INNER vs LEFT JOIN, and common LEFT JOIN mistakes?）
+3. 复合索引的最左前缀原则是什么？（What is the leftmost-prefix rule?）
+4. 隔离级别解决哪些问题？丢失更新怎么防？（What do isolation levels solve, and how do you prevent lost updates?）
+5. BigQuery 怎么控制查询成本？（How do you control BigQuery costs?）
+6. 对话历史、订单、缓存分别存在哪？（Where do you store conversations, orders, and caches?）
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- Filtering the right table in WHERE after a LEFT JOIN.
+- Using window results in the same WHERE.
+- "Just add an index" without column order.
+- "LIMIT makes BigQuery cheap."
+
+</Note>
+
+## Connections
+
+- [Distributed Basics](/docs/engineering/distributed), [API Design & Networking](/docs/engineering/rest)
+- [Cost](/docs/production/cost), [Observability](/docs/production/observability), [Vector Search](/docs/rag/vector-search)
+
+## Interview questions
+
+1. Write a query for each tenant's top 3 cost days.
+2. INNER vs LEFT JOIN, and common LEFT JOIN mistakes?
+3. What is the leftmost-prefix rule?
+4. What do isolation levels solve, and how do you prevent lost updates?
+5. How do you control BigQuery costs?
+6. Where do you store conversations, orders, and caches?
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+- 30s:
+
+<Locale lang="zh">
+
+## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
+
+</Locale>
+
+-

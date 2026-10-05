@@ -1,305 +1,370 @@
 ---
 title: L3 · Coding Agent
 titleEn: L3 · Coding Agent
-description: 接到 Harness / Sandbox / feedback loop。
-descriptionEn: Tie to harness, sandbox, and the test feedback loop.
-date: 2026-09-07
-keywords: ["coding agent", "harness", "sandbox"]
+description: 云端后台 coding agent（issue 进、PR 出）：每任务一个隔离沙箱与预热池、仓库与依赖缓存、harness 与工具设计、复现优先的验证、PR 质量与人工审查、用历史 issue 做内部基准、成本与并发。
+descriptionEn: "A cloud background coding agent (issue in, PR out): isolated per-task sandboxes and warm pools, repo and dependency caching, harness and tool design, reproduce-first verification, PR quality and review, an internal benchmark from historical issues, cost and concurrency."
+date: 2026-10-04
+keywords: ['system design', 'coding agent', 'sandbox', 'microvm', 'warm pool', 'harness', 'swe-bench', 'pull request', 'verification', 'reward hacking']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-设计一个 coding agent / 生产级 coding agent。（Design a coding agent. / Design a production coding agent.）
+> 题目：为一家有 500 名工程师的公司设计云端 coding agent：工程师把 issue 分配给 agent，agent 在后台修改代码、运行测试，最后提交 PR 供人审查。
 
-<Note title="开口框架">
-每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
+这道题和你每天用的 Claude Code / Codex 直接相关，面试官会期待你有实际经验。它和本地 CLI 的区别在于：**在云端为成百上千个任务同时提供隔离的执行环境**，并且产出要经得起人工审查。机制细节在 [Agent Harness](/docs/ai-native/harness)、[Agentic Coding](/docs/ai-native/agentic-coding)、[Sandbox](/docs/ai-native/sandbox)；这里练怎么组织成一个系统设计答案。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 面试中的时间 |
+| --- | --- | --- |
+| 0 · 澄清与估算 | 并发多少？单任务多久、多少钱？ | 5 min |
+| 1 · 高层架构 | 从 issue 到 PR 的组件 | 10 min |
+| 2 · 深挖：执行环境 | 沙箱怎么快速启动、怎么隔离？ | 10 min |
+| 3 · 深挖：质量与验证 | 怎样保证 PR 是对的、值得审？ | 10 min |
+| 4 · 评测、安全与成本 | 怎么评？怎么防它搞破坏？ | 5 min |
+
+## 需要掌握
+
+- 任务队列、每任务隔离沙箱、预热池与仓库 / 依赖缓存
+- harness 关键选择：编辑工具、上下文管理、hooks、步数预算
+- 复现优先的验证；reward hacking 防护；PR 描述规范
+- 用历史 issue 构建内部基准；接受率与返工率
+- 凭证与网络隔离；成本与并发
+
+</Locale>
+
+<Locale lang="en">
+
+> Design a cloud coding agent for a 500-engineer company: engineers assign issues; the agent edits code and runs tests in the background, then opens a PR for review.
+
+Close to the Claude Code and Codex you use daily — interviewers expect real experience. Unlike a local CLI, it must provide isolated execution for hundreds of concurrent tasks and produce reviewable PRs. Mechanics live in [Agent Harness](/docs/ai-native/harness), [Agentic Coding](/docs/ai-native/agentic-coding), and [Sandbox](/docs/ai-native/sandbox).
+
+## How to work through this page
+
+| Level | Question it answers | Interview time |
+| --- | --- | --- |
+| 0 · Clarify and estimate | Concurrency, duration, cost per task? | 5 min |
+| 1 · High-level design | Issue-to-PR components | 10 min |
+| 2 · Deep dive: execution environment | Fast, isolated sandboxes? | 10 min |
+| 3 · Deep dive: quality | Correct, reviewable PRs? | 10 min |
+| 4 · Eval, security, cost | Evaluation and blast radius? | 5 min |
+
+## Must know
+
+- task queue, per-task sandboxes, warm pools, repo/dependency caches
+- harness choices: edit tools, context management, hooks, budgets
+- reproduce-first verification, reward-hacking guards, PR descriptions
+- internal benchmark from historical issues; acceptance and rework rates
+- credential and network isolation; cost and concurrency
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 澄清需求与估算
+
+| 问题 | 本题假设 |
+| --- | --- |
+| 任务类型？ | bug 修复、小功能、测试补充、依赖升级、重构 |
+| 仓库？ | 约 200 个仓库，主要是 Python / TypeScript / Go；最大的单体仓库 2 GB |
+| 产出？ | PR + 描述（改了什么、为什么、怎么验证的）；绝不直接合并 |
+| 并发？ | 工作日高峰同时运行 200 个任务 |
+| 单任务时长？ | 5–30 分钟 |
+| 安全？ | 不能接触生产环境和生产凭证 |
+
+```text
+每任务平均 40 轮模型调用；上下文逐轮增长到约 8 万 token
+无缓存时累计输入约 200 万 token；有前缀缓存时成本降为约 1/5（见 Cost Level 2）
+单任务模型成本大致 $1–5；每天 1,000 个任务 → $1,000–5,000 / 天
+计算：200 个并发沙箱，每个 4 vCPU / 8 GB 内存
+```
+
+和人力比：一个工程师修一个小 bug 可能要 1–2 小时，成本远高于几美元——**只要 PR 接受率足够高，这笔账很划算**。所以核心指标是 PR 接受率，而不是模型成本。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 估算单任务的模型成本。为什么前缀缓存对 coding agent 特别重要？
+2. 为什么核心指标是 PR 接受率？
+
 </Note>
 
-## 本题要练什么
-
-模型和 harness 的区别。文件系统、终端、测试、git、沙箱、上下文压缩。见 [Harness](/docs/ai-native/harness)。
-
-## 白板草图
-
 </Locale>
 
 <Locale lang="en">
 
-Design a coding agent. / Design a production coding agent.
+## Level 0 · Clarify and estimate
 
-<Note title="Opening framework">
-Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+Assume bug fixes, small features, tests, dependency upgrades, refactors across ~200 repos (Python/TS/Go, largest 2 GB); PRs with descriptions, never auto-merged; 200 concurrent tasks at peak; 5–30 minutes each; no production access. ~40 turns growing to ~80K tokens ≈ 2M cumulative input tokens uncached, ~5× cheaper with caching; $1–5 per task, $1–5K/day for 1,000 tasks; 200 sandboxes at 4 vCPU/8 GB. Versus 1–2 engineer-hours per small bug, the economics hinge on PR acceptance rate.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Per-task model cost, and why caching matters?
+2. Why is acceptance rate the core metric?
+
 </Note>
 
-## What this problem trains
-
-Model vs harness. Filesystem, terminal, tests, git, sandbox, compaction. See [Harness](/docs/ai-native/harness).
-
-## Whiteboard sketch
-
 </Locale>
-
-```
-goal → explore repo → plan → edit → test → observe → fix
-     → sandbox + permissions
-     → verify
-```
 
 <Locale lang="zh">
 
-## 容易被追问
+## Level 1 · 高层架构
 
-1. 什么是 agent harness？（What is an agent harness?）
-2. 怎么验证 agent 生成的代码？（How do you verify agent-generated code?）
-3. 怎么给 agent 做沙箱？（How do you sandbox an agent?）
-4. 上下文压缩时应该保留什么？（What should context compaction preserve?）
-
-## 14 个维度
-
-```
-1. 需求（Requirements）
-2. 约束（Constraints）
-3. 架构（Architecture）
-4. 数据流（Data Flow）
-5. 模型（Model）
-6. 检索（Retrieval）
-7. 智能体（Agent）
-8. 评测（Evaluation）
-9. 扩展（Scaling）
-10. 延迟（Latency）
-11. 成本（Cost）
-12. 可靠性（Reliability）
-13. 安全（Security）
-14. 可观测性（Observability）
+```text
+Issue 系统 ─分配给 agent─► 任务 API ─► 任务队列（按仓库 / 优先级 / 配额）
+                                        │
+                                        ▼
+                                  调度器：从预热池领取沙箱
+                                        │
+          ┌─────────────── 每任务一个沙箱（microVM）───────────────┐
+          │ 仓库 checkout（从缓存的镜像增量拉取）+ 依赖缓存          │
+          │ Harness：                                               │
+          │   上下文：system prompt + AGENTS.md + issue + 历史      │
+          │   工具：read / grep / glob / edit（字符串替换）/ bash   │
+          │   hooks：编辑后自动格式化；禁止改已有测试；停止前跑测试  │
+          │   预算：最多 60 轮 / 30 分钟 / $5                       │
+          │ 网络：出口代理，仅允许包镜像与内部代码托管              │
+          └─────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+                    验证器：在沙箱外独立重跑测试、lint、类型检查
+                                        │
+                                        ▼
+               PR 服务：用 agent 的服务账号推分支、开 PR（沙箱内无推送凭证）
+                                        │
+                                        ▼
+              工程师审查 → 评论 → agent 根据评论继续修改（新任务，带上下文）
+       状态与 trace：任务进度、每轮工具调用、成本、最终结果
 ```
 
+<Note title="自测：到这里你应该能回答">
+
+1. 画出从 issue 到 PR 的组件。
+2. 为什么推分支和开 PR 要在沙箱外完成？
+
+</Note>
+
 </Locale>
 
 <Locale lang="en">
 
-## Likely follow-ups
+## Level 1 · High-level design
 
-1. What is an agent harness?
-2. How do you verify agent-generated code?
-3. How do you sandbox an agent?
-4. What should context compaction preserve?
+Issue assignment → task API → queue (by repo, priority, quota) → scheduler takes a warm sandbox → per-task microVM with incremental checkout from cached mirrors and dependency caches; the harness assembles system prompt, `AGENTS.md`, issue, history; tools read/grep/glob/string-replace edit/bash; hooks format after edits, block edits to existing tests, run tests before stopping; budgets of 60 turns/30 min/$5; egress only to package mirrors and internal code hosting → an independent verifier reruns tests, lint, types outside the sandbox → a PR service pushes with its own account (no push credentials in the sandbox) → engineer review comments start follow-up tasks with context; traces record everything.
 
-## Dimensions
+<Note title="Self-check: you should be able to answer">
 
+1. Draw issue-to-PR.
+2. Why push from outside the sandbox?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 深挖：执行环境
+
+### 沙箱用什么隔离？
+
+运行的是 agent 生成、未经审查的代码，且多个团队的任务共用基础设施——用**每任务一个 microVM**（如 Firecracker），而不是共享内核的容器（见 [Sandbox](/docs/ai-native/sandbox) Level 1）。任务结束销毁，不复用状态。
+
+### 怎样让沙箱快速可用？
+
+冷启动的耗时来源：启动虚拟机、克隆 2 GB 仓库、安装依赖（可能 5–10 分钟）。优化：
+
+| 手段 | 效果 |
+| --- | --- |
+| **预热池** | 提前启动一批空闲 microVM，任务来了直接领取（秒级） |
+| 仓库镜像缓存 | 每个仓库维护一个定期更新的镜像 / 快照，任务启动时只拉增量 |
+| 依赖缓存 | 按 lockfile 哈希缓存 `node_modules` / 虚拟环境；或每个仓库预构建一个基础镜像 |
+| 快照恢复 | 对常用仓库，在“依赖装好”的状态做 VM 快照，直接从快照启动 |
+
+目标：从领取任务到 agent 开始第一轮，在 1 分钟内。
+
+### 并发和配额
+
+- 预热池大小按工作日的到达曲线动态调整（夜间缩小）。
+- 每个团队 / 仓库有并发配额，防止一个团队的批量依赖升级占满所有沙箱（noisy neighbor，见 [Scaling](/docs/production/scaling) Level 2）。
+- 模型调用侧同样要按 TPM 配额限流（见 [API Engineering](/docs/production/api-engineering) Level 3）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么用 microVM 而不是容器？
+2. 列出四种缩短沙箱就绪时间的手段。
+3. 为什么需要按团队设并发配额？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Deep dive: execution environment
+
+Run unreviewed code from many teams in per-task microVMs (e.g. Firecracker), destroyed afterward — not shared-kernel containers. Cold start costs: VM boot, cloning 2 GB, dependency installs (5–10 minutes). Fix with warm pools, refreshed repo mirrors with incremental fetch, dependency caches keyed by lockfile hash or prebuilt base images, and post-install VM snapshots — aiming for under a minute to the first turn. Size pools to the workday arrival curve, set per-team concurrency quotas against noisy neighbors, and rate-limit model calls by TPM.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why microVMs?
+2. Four ways to speed sandbox readiness?
+3. Why per-team quotas?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 深挖：质量与验证
+
+### 怎样保证 PR 是对的？
+
+按 [Agentic Coding](/docs/ai-native/agentic-coding) 的复现优先流程，并用系统强制：
+
+1. **先复现**：bug 类任务要求先写一个失败的测试；没有复现测试的 PR 标为“未验证”。
+2. **独立验证**：不信 agent 报告的测试结果，由沙箱外的验证器重新运行全量测试、lint、类型检查。
+3. **防 reward hacking**：hook 禁止修改或删除已有测试；验证器检查 diff 中是否新增 `skip`、宽泛的异常捕获、针对测试输入的特判（见 Agentic Coding Level 3）。
+4. **范围控制**：diff 超过一定行数或触及敏感目录（迁移、权限、计费）时，标记需要资深审查或直接拒绝。
+
+### PR 描述应该写什么？
+
+```text
+## 问题
+issue #1234：订单状态“运输中”被误判为“未发货”
+
+## 改动
+support/intent.py：意图判断结合订单 API 状态（+18 / -4）
+tests/test_intent.py：新增复现测试 test_not_arrived_in_transit
+
+## 验证
+- 新测试修改前失败、修改后通过
+- 全量测试 312 通过；mypy、ruff 通过（由验证器独立运行）
+
+## 未验证 / 风险
+- routing.py 的回退逻辑依赖旧行为，已调整对应测试断言（请重点审查）
 ```
-1. Requirements
-2. Constraints
-3. Architecture
-4. Data Flow
-5. Model
-6. Retrieval
-7. Agent
-8. Evaluation
-9. Scaling
-10. Latency
-11. Cost
-12. Reliability
-13. Security
-14. Observability
-```
 
-</Locale>
+如实写出**证据级别和风险**，让审查者知道该看哪里——这直接决定 PR 接受率。
 
-<Locale lang="zh">
+### 审查后怎么迭代？
 
-## 需求
+工程师在 PR 上评论 → 触发新任务，上下文包含原 issue、已有 diff、评论内容 → agent 修改后推新 commit。保持一个任务一个 PR，不在同一个 PR 里扩大范围。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 列出保证 PR 质量的四个机制。
+2. PR 描述中为什么要写“未验证 / 风险”？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Requirements
+## Level 3 · Deep dive: quality
+
+Enforce reproduce-first (bug PRs without a failing-then-passing test are marked unverified), independent verification outside the sandbox, reward-hacking guards (hooks block edits to existing tests; the verifier flags new skips, broad excepts, test-input special cases), and scope limits (large diffs or sensitive directories need senior review or are rejected). PR descriptions state problem, changes, evidence, and unverified risks so reviewers know where to look. Review comments trigger follow-up tasks with the issue, diff, and comments; one task, one PR.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Four quality mechanisms?
+2. Why list unverified risks?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 约束
+## Level 4 · 评测、安全与成本
+
+- **内部基准**（见 Agentic Coding Level 4）：从公司历史上已合并的 bug 修复中取 200 个，回退到修复前，用当时的 issue 作为输入、当时 PR 的测试作为隐藏验收；比较不同模型、harness 配置、prompt 的解决率、pass^k、成本、轮数。私有仓库也避免了公开基准的污染问题。
+- **线上指标**：PR 接受率（合并 / 提交）、合并前的修改量（返工率）、审查时间、合并后回滚率、每个合并 PR 的成本。
+- **安全**：沙箱无生产凭证、无推送权限；出口白名单（包镜像、内部代码托管）；仓库内容可能含注入（README、issue 评论），所以写操作只能通过 PR 服务；所有 PR 需人工审查才能合并。
+- **成本**：前缀缓存；子 agent 做代码搜索以保持主上下文干净；预算上限；按任务类型路由模型（简单依赖升级用便宜模型）。
+
+## 14 维度速查
+
+| 维度 | 本题关键决策 |
+| --- | --- |
+| 需求 | issue → 已验证的 PR；人工审查后合并 |
+| 约束 | 200 并发；不碰生产；最大仓库 2 GB |
+| 架构 | 队列 + 预热沙箱池 + harness + 独立验证器 + PR 服务 |
+| 数据流 | 任务 → 沙箱 → 循环 → 验证 → PR → 评论迭代 |
+| 模型 | 强模型主循环；子 agent 搜索；按任务类型路由 |
+| 检索 | agentic search（grep / 读文件），不建向量索引 |
+| 智能体 | 单 agent + 子 agent 探索；预算上限 |
+| 评测 | 历史 issue 内部基准 + PR 接受率 / 返工率 |
+| 扩展 | 预热池、仓库与依赖缓存、团队配额 |
+| 延迟 | 后台任务；沙箱 1 分钟内就绪 |
+| 成本 | 每合并 PR 成本；缓存与路由 |
+| 可靠性 | 任务检查点；沙箱失败重领；超预算交还人工 |
+| 安全 | microVM、无凭证、出口白名单、PR 服务代推 |
+| 可观测性 | 每任务轨迹、轮数、成本、验证结果、拒绝原因 |
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- 用共享容器跑所有任务。
+- 把 Git 推送凭证放进沙箱。
+- 相信 agent 报告的测试结果。
+- 只用 SWE-bench 分数评价自己的系统。
+
+</Note>
+
+## 连接
+
+- 机制：[Agent Harness](/docs/ai-native/harness)、[Agentic Coding](/docs/ai-native/agentic-coding)、[Sandbox](/docs/ai-native/sandbox)、[Claude Code / Codex](/docs/ai-native/coding-workflow)
+- 相关题：[AI Agent](/docs/system-design/ai-agent)、[Long-running Agent](/docs/system-design/long-running-agent)、[Agent Platform](/docs/system-design/agent-platform)
+
+## 面试问题
+
+1. 设计一个云端 coding agent。（Design a cloud coding agent.）
+2. 沙箱怎么隔离、怎么快速启动？（How do you isolate and quickly start sandboxes?）
+3. 怎样保证 agent 提交的 PR 是对的？（How do you ensure the agent's PRs are correct?）
+4. 怎样防止 agent 为了通过测试改测试？（How do you stop the agent from gaming tests?）
+5. 怎样评估这个系统？（How do you evaluate the system?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Constraints
+## Level 4 · Eval, security, cost
+
+Internal benchmark: 200 historical merged fixes reset to pre-fix with original issues and hidden PR tests, comparing models, harnesses, and prompts on solve rate, pass^k, cost, and turns — private repos avoid contamination. Online: acceptance rate, rework, review time, post-merge rollbacks, cost per merged PR. Security: no production credentials or push rights in sandboxes, egress allowlists, writes only via the PR service, mandatory human review. Cost: caching, sub-agents for search, budgets, model routing by task type.
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- Shared containers for all tasks.
+- Push credentials inside the sandbox.
+- Trusting the agent's test report.
+- Judging your system by SWE-bench alone.
+
+</Note>
+
+## Connections
+
+- Mechanics: [Agent Harness](/docs/ai-native/harness), [Agentic Coding](/docs/ai-native/agentic-coding), [Sandbox](/docs/ai-native/sandbox), [Claude Code / Codex](/docs/ai-native/coding-workflow)
+- Related: [AI Agent](/docs/system-design/ai-agent), [Long-running Agent](/docs/system-design/long-running-agent), [Agent Platform](/docs/system-design/agent-platform)
+
+## Interview questions
+
+1. Design a cloud coding agent.
+2. How do you isolate and quickly start sandboxes?
+3. How do you ensure the agent's PRs are correct?
+4. How do you stop the agent from gaming tests?
+5. How do you evaluate the system?
 
 </Locale>
-
--
-
-<Locale lang="zh">
-
-## 架构
-
-</Locale>
-
-<Locale lang="en">
-
-## Architecture
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 数据流
-
-</Locale>
-
-<Locale lang="en">
-
-## Data Flow
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 模型
-
-</Locale>
-
-<Locale lang="en">
-
-## Model
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 检索
-
-</Locale>
-
-<Locale lang="en">
-
-## Retrieval
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 智能体
-
-</Locale>
-
-<Locale lang="en">
-
-## Agent
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 评测
-
-</Locale>
-
-<Locale lang="en">
-
-## Evaluation
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 扩展
-
-</Locale>
-
-<Locale lang="en">
-
-## Scaling
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 延迟
-
-</Locale>
-
-<Locale lang="en">
-
-## Latency
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 成本
-
-</Locale>
-
-<Locale lang="en">
-
-## Cost
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可靠性
-
-</Locale>
-
-<Locale lang="en">
-
-## Reliability
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 安全
-
-</Locale>
-
-<Locale lang="en">
-
-## Security
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可观测性
-
-</Locale>
-
-<Locale lang="en">
-
-## Observability
-
-</Locale>
-
--
 
 <Locale lang="zh">
 
@@ -310,6 +375,22 @@ goal → explore repo → plan → edit → test → observe → fix
 <Locale lang="en">
 
 ## My answer
+
+</Locale>
+
+- 30s 电梯版:
+
+- 5 分钟白板版:
+
+<Locale lang="zh">
+
+## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
 
 </Locale>
 

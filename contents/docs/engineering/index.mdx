@@ -3,60 +3,58 @@ title: 工程基础
 titleEn: Engineering
 description: ML/SE 会被追问的那一层。不系统重学。LLM 生产问题在 Production AI。
 descriptionEn: The ML/SE layer interviewers probe. LLM production topics live under Production AI.
-date: 2026-09-07
+date: 2026-10-04
 keywords: ["python", "asyncio", "sql", "docker", "rest", "distributed"]
 ---
 
 <Locale lang="zh">
 
-你面的是 Production LLM / AI Engineer，但很多公司仍然会问工程基础。标准是：**面试官顺着你的 FastAPI / BigQuery / Voice 管线往下追问，你还能答得上来。**
-
-延迟 / 成本 / 可观测性 / 可靠性写在 [Production AI](/docs/production)。这里只留编程语言、接口、数据和上云部署。
-
-不单独开操作系统 / 网络专栏，只在分布式或 REST 被追问到时补一句。
+你面的是 Production LLM / AI Engineer，但面试官仍会顺着你的 FastAPI / WebSocket / BigQuery / Gemini 项目往下追问工程基础。标准是：**被追问到第二层时还能答得上来**。LLM 特有的延迟、成本、可靠性写在 [Production AI](/docs/production)；这里是支撑它们的通用工程能力。
 
 <CardGrid>
-  <Card title="Python" description="dict / 生成器 / 面向对象。能写也能讲。" href="/docs/engineering/python" />
-  <Card title="并发" description="AsyncIO、GIL、什么时候用多进程。" href="/docs/engineering/concurrency" />
-  <Card title="REST API" description="鉴权、幂等、流式接口。" href="/docs/engineering/rest" />
-  <Card title="SQL" description="JOIN / 窗口函数 / CTE。对照 BigQuery 与 PMI 项目。" href="/docs/engineering/sql" />
-  <Card title="Docker / Cloud" description="镜像、GCP、怎么把 Agent 部署起来。" href="/docs/engineering/cloud" />
-  <Card title="分布式" description="超时、重试、队列、一致性，准备到面试够用。" href="/docs/engineering/distributed" />
-  <Card title="测试 / Git" description="DeepEval 之外的单元测试、CI、代码协作。" href="/docs/engineering/testing" />
+  <Card title="Python 核心" description="引用与可变性、dict 原理、生成器与流式、装饰器、Pydantic。" href="/docs/engineering/python" />
+  <Card title="Async 与并发" description="GIL、线程 / 进程 / asyncio、事件循环、阻塞调用的坑。" href="/docs/engineering/concurrency" />
+  <Card title="API 设计与网络" description="HTTP 幂等、REST、JWT / OAuth、SSE vs WebSocket、FastAPI。" href="/docs/engineering/rest" />
+  <Card title="SQL 与数据存储" description="JOIN、窗口函数、索引、事务、BigQuery 成本、存储选型。" href="/docs/engineering/sql" />
+  <Card title="容器与部署" description="Dockerfile、Cloud Run、Kubernetes 探针、密钥、CI/CD。" href="/docs/engineering/cloud" />
+  <Card title="分布式基础" description="CAP、复制与分片、队列投递语义、缓存与锁。" href="/docs/engineering/distributed" />
+  <Card title="测试与工程实践" description="怎么测 LLM 应用、mock、CI 质量门槛、Git。" href="/docs/engineering/testing" />
 </CardGrid>
 
-## 本专栏计划
+## 学习顺序与深度
 
-1. Python + 并发：结合 Voice AI / Negotiation 项目里的异步和流式输出
-2. SQL：JOIN 和窗口函数，各写一道自己业务里的查询
-3. REST + Cloud：能讲清一次请求从 API 到 Gemini / BigQuery 的全过程
-4. 分布式与测试：只准备会被追问的超时、重试、回归测试
+| 页面 | 深度 | 为什么 |
+| --- | --- | --- |
+| [Async 与并发](/docs/engineering/concurrency) | 🔴 学透 | LLM 应用的核心负载是 I/O 等待，几乎必问 |
+| [API 设计与网络](/docs/engineering/rest) | 🔴 学透 | 你的项目用了 FastAPI、JWT、WebSocket，会被追问 |
+| [Python 核心](/docs/engineering/python) | 🔴 学透 | 生成器、装饰器、Pydantic 和流式输出直接相关 |
+| [SQL 与数据存储](/docs/engineering/sql) | 🔴 学透 | 现场写 SQL + BigQuery / MongoDB 的追问 |
+| [测试与工程实践](/docs/engineering/testing) | 🟡 抓要点 | “你怎么测 LLM 应用”是高频问题 |
+| [容器与部署](/docs/engineering/cloud) | 🟡 抓要点 | “你的服务怎么部署的” |
+| [分布式基础](/docs/engineering/distributed) | 🟡 抓要点 | 系统设计题里正确使用概念即可 |
+
+建议顺序：Python 核心 → Async 与并发 → API 设计与网络 → SQL → 测试 → 部署 → 分布式。每页都有“项目锚点提示”，把你的项目经验写进页面底部的“项目锚点”。读完用 `/drill engineering/<页面 slug>` 练习。
+
+不单独开操作系统 / 计算机网络栏目：面试常问的网络常识（HTTP/2、TLS、CORS）放在 API 设计页，进程 / 线程放在并发页。
 
 </Locale>
 
 <Locale lang="en">
 
-The target is Production LLM / AI Engineer, but plenty of companies still ask engineering fundamentals. The bar: **when an interviewer keeps digging into your FastAPI / BigQuery / Voice pipelines, you can still answer.**
-
-Latency / cost / observability / reliability live in [Production AI](/docs/production). This column only covers languages, APIs, data, and cloud deployment.
-
-There's no separate OS or networking column — only add a line when distributed systems or REST come up.
+Interviewers dig from your FastAPI / WebSocket / BigQuery / Gemini projects into engineering fundamentals; the bar is answering the second follow-up. LLM-specific latency, cost, and reliability live in [Production AI](/docs/production).
 
 <CardGrid>
-  <Card title="Python" description="dict / generators / OOP. Write it and explain it." href="/docs/engineering/python" />
-  <Card title="Concurrency" description="AsyncIO, the GIL, when to reach for multiprocessing." href="/docs/engineering/concurrency" />
-  <Card title="REST API" description="Auth, idempotency, streaming endpoints." href="/docs/engineering/rest" />
-  <Card title="SQL" description="JOIN / window functions / CTE. Anchored on BigQuery and PMI." href="/docs/engineering/sql" />
-  <Card title="Docker / Cloud" description="Images, GCP, how the agent actually gets deployed." href="/docs/engineering/cloud" />
-  <Card title="Distributed" description="Timeouts, retries, queues, consistency — to interview depth." href="/docs/engineering/distributed" />
-  <Card title="Testing / Git" description="Unit tests, CI, and collaboration beyond DeepEval." href="/docs/engineering/testing" />
+  <Card title="Python Core" description="References, dicts, generators and streaming, decorators, Pydantic." href="/docs/engineering/python" />
+  <Card title="Async & Concurrency" description="GIL, threads/processes/asyncio, the event loop, blocking pitfalls." href="/docs/engineering/concurrency" />
+  <Card title="API Design & Networking" description="Idempotency, REST, JWT/OAuth, SSE vs WebSocket, FastAPI." href="/docs/engineering/rest" />
+  <Card title="SQL & Data Storage" description="Joins, windows, indexes, transactions, BigQuery cost, storage choices." href="/docs/engineering/sql" />
+  <Card title="Containers & Deployment" description="Dockerfiles, Cloud Run, Kubernetes probes, secrets, CI/CD." href="/docs/engineering/cloud" />
+  <Card title="Distributed Basics" description="CAP, replication and sharding, delivery semantics, caches and locks." href="/docs/engineering/distributed" />
+  <Card title="Testing & Practice" description="Testing LLM apps, mocks, CI gates, Git." href="/docs/engineering/testing" />
 </CardGrid>
 
-## Plan for this column
+## Order and depth
 
-1. Python + concurrency: tie into async and streaming from Voice AI / Negotiation
-2. SQL: write one JOIN query and one window-function query from my own work
-3. REST + Cloud: walk through one request end to end, from the API to Gemini / BigQuery
-4. Distributed + testing: only prep the timeouts, retries, and regression tests that come up in follow-ups
+🔴 Master: Async & Concurrency, API Design & Networking, Python Core, SQL & Data Storage. 🟡 Key points: Testing, Containers & Deployment, Distributed Basics. Suggested order: Python → Async → API → SQL → Testing → Deployment → Distributed. Each page has project-anchor prompts; practice with `/drill engineering/<page slug>`. No separate OS/networking section: HTTP/2, TLS, CORS live on the API page; processes and threads on the concurrency page.
 
 </Locale>

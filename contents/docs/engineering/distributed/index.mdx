@@ -1,43 +1,341 @@
 ---
-title: 分布式
-titleEn: Distributed
-description: 超时、重试、队列。面试够用即可。
-descriptionEn: Timeouts, retries, queues — interview depth.
-date: 2026-09-06
-keywords: ["distributed"]
+title: 分布式基础
+titleEn: Distributed Systems Basics
+description: 面试够用的分布式知识：CAP 与 PACELC、一致性模型、复制与复制延迟、分片与一致性哈希、消息队列的投递语义与幂等、缓存模式与缓存击穿、分布式锁的陷阱、共识算法一句话。
+descriptionEn: "Distributed systems to interview depth: CAP and PACELC, consistency models, replication and lag, sharding and consistent hashing, queue delivery semantics and idempotency, caching patterns and stampedes, distributed-lock pitfalls, and consensus in a sentence."
+date: 2026-10-04
+keywords: ['distributed systems', 'cap', 'pacelc', 'consistency', 'replication', 'sharding', 'consistent hashing', 'message queue', 'at-least-once', 'idempotency', 'cache-aside', 'cache stampede', 'distributed lock', 'raft']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-标准：关掉资料后能在 1–2 分钟内讲清楚，并能接到自己的项目上。
+AI 工程面试不会深挖 Paxos，但系统设计题里一定会碰到：“缓存和数据库不一致怎么办？”“消息被处理了两次怎么办？”“数据怎么分片？”这一页准备到能在系统设计中**正确使用这些概念**。很多内容已经在 [Production AI](/docs/production) 和 [Agent State](/docs/ai-native/agent-state) 中以 LLM 场景出现过，这里给出通用的原理。
 
-## 必能讲清
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · CAP 与一致性 | 网络分区时选一致还是可用？ | 25 min |
+| 1 · 复制与分片 | 数据怎么复制、怎么切分？ | 30 min |
+| 2 · 消息队列 | 至少一次、至多一次、恰好一次分别是什么？ | 25 min |
+| 3 · 缓存与锁 | 缓存怎么用？分布式锁有什么坑？ | 25 min |
+
+## 需要掌握
+
+- CAP 的真正含义（分区时二选一）；PACELC；强一致与最终一致
+- 主从复制与复制延迟；读己之写
+- 哈希分片与范围分片；一致性哈希
+- 投递语义；至少一次 + 幂等 = 效果上恰好一次
+- cache-aside、TTL、缓存击穿 / 雪崩
+- 分布式锁需要过期时间与 fencing token；Raft 一句话
 
 </Locale>
 
 <Locale lang="en">
 
-The bar: explain it in 1–2 minutes without notes, and connect it to your own projects.
+AI interviews won't probe Paxos, but system design hits "cache and DB disagree," "a message processed twice," "how to shard." Prepare to use the concepts correctly; many appeared in LLM form in [Production AI](/docs/production) and [Agent State](/docs/ai-native/agent-state).
 
-## Must be able to explain
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · CAP and consistency | Consistency or availability under partition? | 25 min |
+| 1 · Replication and sharding | How is data copied and split? | 30 min |
+| 2 · Message queues | At-most, at-least, exactly once? | 25 min |
+| 3 · Caches and locks | Using caches; distributed-lock traps? | 25 min |
+
+## Must know
+
+- what CAP really says; PACELC; strong vs eventual consistency
+- leader-follower replication, lag, read-your-writes
+- hash vs range sharding; consistent hashing
+- delivery semantics; at-least-once + idempotency
+- cache-aside, TTLs, stampedes and avalanches
+- lock leases and fencing tokens; Raft in a sentence
 
 </Locale>
 
--
+---
 
 <Locale lang="zh">
 
-## 权衡
+## Level 0 · CAP 与一致性
+
+### CAP 到底说了什么？
+
+常见误解是“三选二”。准确的说法：**网络分区（P）在分布式系统中必然会发生；分区发生时，只能在一致性（C）和可用性（A）之间选一个**。
+
+- **选 C（CP）**：分区时拒绝部分请求，保证读到的一定是最新数据。适合余额、库存、退款状态。
+- **选 A（AP）**：分区时继续服务，可能读到旧数据，之后再同步。适合点赞数、推荐、对话历史展示。
+
+**PACELC** 补充了没有分区时的取舍：**即使一切正常，也要在延迟（L）和一致性（C）之间权衡**——同步复制到多个节点更一致，但每次写更慢。
+
+### 一致性模型
+
+| 模型 | 保证 | 例子 |
+| --- | --- | --- |
+| 强一致（线性一致） | 写完之后，任何人读到的都是新值 | 单主数据库的主库 |
+| 最终一致 | 停止写入后，所有副本最终会一致；中间可能读到旧值 | DNS、跨区域复制 |
+| 读己之写 | 自己写的，自己马上能读到（别人可能晚一点） | 用户发了消息，刷新后必须看到 |
+
+<Note title="自测：到这里你应该能回答">
+
+1. CAP 为什么不是“三选二”？
+2. 退款状态和点赞数分别该选 CP 还是 AP？
+3. PACELC 补充了什么？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Trade-offs
+## Level 0 · CAP and consistency
+
+CAP isn't "pick two": partitions happen, and during one you choose consistency (reject some requests — balances, inventory, refunds) or availability (serve possibly stale data — likes, recommendations, chat history display). PACELC adds that without partitions you still trade latency for consistency (synchronous replication is slower). Models: strong/linearizable, eventual, read-your-writes (users see their own message after refresh).
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why not "pick two"?
+2. CP or AP for refunds vs likes?
+3. What does PACELC add?
+
+</Note>
 
 </Locale>
 
--
+<Locale lang="zh">
+
+## Level 1 · 复制与分片
+
+### 复制
+
+**主从复制**：写入主库，异步复制到从库，读可以分摊到从库。问题是**复制延迟**：用户刚改了地址，刷新时读请求落到还没同步的从库，看到旧地址。解决读己之写：用户写入后的一段时间内，他的读请求走主库；或者读请求带上“至少要读到某个版本”。
+
+### 分片
+
+数据太多，一台机器放不下或扛不住，就按某个键切分到多台机器：
+
+| 方式 | 做法 | 优点 | 缺点 |
+| --- | --- | --- | --- |
+| 哈希分片 | `shard = hash(key) % N` | 分布均匀 | 范围查询要查所有分片；N 变了几乎所有数据都要迁移 |
+| 范围分片 | 按键的范围（如时间、字母区间） | 范围查询高效 | 容易热点（最新时间段的分片最忙） |
+| **一致性哈希** | 节点和键都映射到一个哈希环上，键归属顺时针第一个节点 | 增减节点时只迁移约 1/N 的数据 | 实现稍复杂，常用虚拟节点平衡负载 |
+
+**分片键怎么选**：要让数据和负载分布均匀，并让最常见的查询只落在一个分片上。多租户系统常按 `tenant_id` 分片——一个租户的查询只打一个分片；但大租户可能成为热点（见 [Large-scale RAG](/docs/system-design/rag-platform) Level 2 的“大租户独占分片”）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 复制延迟会导致什么用户可见的问题？怎么解决？
+2. `hash(key) % N` 在扩容时有什么问题？一致性哈希怎么解决？
+3. 多租户系统按 `tenant_id` 分片的优点和风险？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Replication and sharding
+
+Leader-follower replication spreads reads but lags: a user updates an address and reads the old one from a follower — route their reads to the leader briefly or require a minimum version. Sharding: hash (even, but range queries hit all shards and changing N moves nearly everything), range (efficient ranges, hot spots), consistent hashing (adding nodes moves ~1/N of keys; virtual nodes balance). Pick shard keys for even load and single-shard common queries; `tenant_id` keeps tenant queries local but big tenants become hot.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What user-visible problem does lag cause, and fixes?
+2. Why does `hash % N` hurt scaling, and how does consistent hashing help?
+3. Benefits and risks of sharding by tenant?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 消息队列
+
+### 为什么用队列？
+
+解耦（生产者不用等消费者）、削峰（突发流量先排队）、重试（失败的消息可以重新投递）。例：文档入库、离线评估、发送通知（见 [Scaling](/docs/production/scaling) Level 1）。常见实现：Kafka、RabbitMQ、Google Pub/Sub、AWS SQS、Redis Streams。
+
+### 投递语义
+
+| 语义 | 含义 | 怎么发生 |
+| --- | --- | --- |
+| 至多一次 | 可能丢，不会重复 | 先确认（ack）再处理，处理时崩溃就丢了 |
+| **至少一次** | 不会丢，可能重复 | 先处理再确认，确认前崩溃会重新投递 |
+| 恰好一次 | 不丢不重 | 端到端很难保证 |
+
+实际系统几乎都用**至少一次 + 消费者幂等 = 效果上恰好一次**：消费者用消息 ID 或业务幂等键去重，重复处理不产生额外副作用。这和 [API Engineering](/docs/production/api-engineering) Level 4 的幂等键、[Agent State](/docs/ai-native/agent-state) Level 2 的 activity 重放是同一个原理。
+
+**死信队列**：多次处理失败的消息转到单独的队列，人工排查，而不是无限重试阻塞后续消息。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 至少一次和至多一次分别是“先处理还是先确认”？
+2. 为什么实际系统用“至少一次 + 幂等”？
+3. 死信队列解决什么问题？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Message queues
+
+Queues decouple, absorb spikes, and retry (Kafka, RabbitMQ, Pub/Sub, SQS, Redis Streams). Ack-then-process is at-most-once; process-then-ack is at-least-once; end-to-end exactly-once is hard, so use at-least-once with idempotent consumers keyed by message or business IDs — the same idea as idempotency keys and activity replay. Dead-letter queues hold repeated failures for investigation.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Which order gives at-least vs at-most once?
+2. Why at-least-once + idempotency?
+3. What do dead-letter queues solve?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 缓存与锁
+
+### cache-aside 模式
+
+最常用的缓存模式：
+
+```text
+读：先查缓存 → 命中直接返回；未命中查数据库 → 写入缓存（带 TTL）→ 返回
+写：先更新数据库 → 再删除缓存（而不是更新缓存）
+```
+
+为什么写时删除而不是更新缓存：两个并发写可能以不同顺序更新缓存，导致缓存里留下旧值；删除后下次读会从数据库加载最新值。TTL 作为兜底，保证不一致不会永远持续。
+
+### 缓存的三个经典问题
+
+| 问题 | 描述 | 解决 |
+| --- | --- | --- |
+| 缓存击穿（stampede） | 一个热点键过期瞬间，大量请求同时打到数据库 | 互斥锁只让一个请求回源；或提前异步刷新 |
+| 缓存雪崩 | 大量键同时过期 | TTL 加随机抖动 |
+| 缓存穿透 | 查询不存在的数据，每次都打到数据库 | 缓存空结果（短 TTL）；布隆过滤器 |
+
+AI 场景：语义缓存、embedding 缓存、检索结果缓存都会遇到这些问题；还要额外注意缓存键包含租户和权限（见 [Caching](/docs/context/caching) Level 2）。
+
+### 分布式锁的陷阱
+
+用 Redis `SET key value NX PX 30000` 实现锁：只有一个客户端能设置成功，30 秒自动过期（防止持锁者崩溃导致死锁）。陷阱：
+
+- 持锁者处理超过 30 秒（如 GC 停顿、慢请求），锁过期，另一个客户端拿到锁，两者同时操作。
+- 解决：**fencing token**——每次获得锁时得到一个递增的编号，写存储时带上编号，存储拒绝比已见过的编号更小的写入。
+- 很多时候可以用数据库的行锁 / 唯一约束 / 乐观锁代替分布式锁（见 [SQL 与数据存储](/docs/engineering/sql) Level 3）。
+
+### 共识算法一句话
+
+**Raft / Paxos** 让一组节点在部分节点故障时仍然对“日志的顺序”达成一致（多数派同意才提交）。etcd、ZooKeeper、许多数据库的复制都基于它们。面试中知道它们解决什么问题、需要多数派（3 个节点容忍 1 个故障，5 个容忍 2 个）即可。
+
+<Note title="自测：到这里你应该能回答">
+
+1. cache-aside 中写操作为什么删除缓存而不是更新缓存？
+2. 缓存击穿、雪崩、穿透分别是什么？各怎么解决？
+3. Redis 分布式锁过期后可能出什么问题？fencing token 怎么解决？
+4. 5 个节点的 Raft 集群能容忍几个节点故障？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Caches and locks
+
+Cache-aside: read cache, else DB then cache with a TTL; on write, update the DB then delete the cache entry (concurrent cache updates can leave stale values; TTLs bound inconsistency). Stampede (a hot key expires and floods the DB): single-flight locks or early refresh; avalanche (mass expiry): jittered TTLs; penetration (missing keys): cache negatives briefly or use Bloom filters. AI caches also need tenant and permission keys. Redis locks (`SET NX PX`) expire, so a slow holder can overlap a new one — use fencing tokens checked by storage, or prefer DB row locks, unique constraints, or optimistic locking. Raft/Paxos agree on log order with majorities (3 nodes tolerate 1 failure, 5 tolerate 2), underpinning etcd, ZooKeeper, and database replication.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why delete rather than update the cache on writes?
+2. Stampede, avalanche, penetration, and fixes?
+3. What goes wrong after a lock expires, and fencing tokens?
+4. Failures tolerated by a 5-node Raft cluster?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- “CAP 就是三选二。”
+- “我们用 Kafka 实现了恰好一次，所以不用考虑重复。”
+- 写数据时更新缓存而不是删除，且没有 TTL。
+- 用没有过期时间的分布式锁。
+
+</Note>
+
+## 连接
+
+- [SQL 与数据存储](/docs/engineering/sql)、[API 设计与网络](/docs/engineering/rest)
+- [Scaling](/docs/production/scaling)、[Reliability](/docs/production/reliability)、[Agent State](/docs/ai-native/agent-state)、[Large-scale RAG](/docs/system-design/rag-platform)
+
+## 面试问题
+
+1. 解释 CAP 定理。你的系统选 CP 还是 AP？（Explain CAP. Is your system CP or AP?）
+2. 主从复制延迟会带来什么问题？（What problems does replication lag cause?）
+3. 一致性哈希解决什么问题？（What problem does consistent hashing solve?）
+4. 消息被处理两次怎么办？（What if a message is processed twice?）
+5. 缓存和数据库怎么保持一致？（How do you keep cache and DB consistent?）
+6. 分布式锁有什么坑？（What are the pitfalls of distributed locks?）
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- "CAP means pick two."
+- "Kafka gives us exactly-once, so duplicates don't matter."
+- Updating caches on write without TTLs.
+- Locks without expiry.
+
+</Note>
+
+## Connections
+
+- [SQL & Data Storage](/docs/engineering/sql), [API Design & Networking](/docs/engineering/rest)
+- [Scaling](/docs/production/scaling), [Reliability](/docs/production/reliability), [Agent State](/docs/ai-native/agent-state), [Large-scale RAG](/docs/system-design/rag-platform)
+
+## Interview questions
+
+1. Explain CAP. Is your system CP or AP?
+2. What problems does replication lag cause?
+3. What problem does consistent hashing solve?
+4. What if a message is processed twice?
+5. How do you keep cache and DB consistent?
+6. What are the pitfalls of distributed locks?
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+- 30s:
 
 <Locale lang="zh">
 
@@ -52,15 +350,3 @@ The bar: explain it in 1–2 minutes without notes, and connect it to your own p
 </Locale>
 
 -
-
-<Locale lang="zh">
-
-## 我的答案
-
-</Locale>
-
-<Locale lang="en">
-
-## My answer
-
-</Locale>

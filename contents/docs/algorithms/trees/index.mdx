@@ -1,46 +1,391 @@
 ---
-title: 树与图
-titleEn: Trees & Graphs
-description: DFS、BFS、LCA、拓扑排序、最短路。
-descriptionEn: DFS, BFS, LCA, topological sort, shortest path.
-date: 2026-08-30
-keywords: ["tree", "graph"]
+title: 树
+titleEn: Trees
+description: 树题的核心是递归：定义“子树返回什么”。DFS 的三种遍历与自底向上汇总、BFS 层序遍历、二叉搜索树的性质与验证、最近公共祖先。
+descriptionEn: "Tree problems are recursion: define what each subtree returns. DFS traversals and bottom-up aggregation, BFS level order, BST properties and validation, lowest common ancestor."
+date: 2026-10-04
+keywords: ['binary tree', 'recursion', 'dfs', 'bfs', 'level order', 'bst', 'lowest common ancestor', 'diameter']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-## 模式
+树是面试中出现最多的数据结构之一，而几乎所有树题都是同一个思路：**想清楚“一个节点需要从左右子树拿到什么信息，又要返回什么给父节点”**。想清楚这一点，代码通常只有几行。
 
-- 二叉树：用递归来定义，比写循环更接近面试时的表达
-- BFS 层序遍历：队列 + 记录当前层的长度
-- 图：先问清 **有向还是无向、有权还是无权、有没有环**
+## 这一页怎么学
 
-## 代表题
-
-| 题 | 模式 | 状态 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| Invert Binary Tree | DFS | 待刷 |
-| Binary Tree Level Order | BFS | 待刷 |
-| Number of Islands | 网格 DFS | 待刷 |
-| Course Schedule | 拓扑排序 | 待刷 |
+| 0 · 递归思维 | 怎样设计递归函数的返回值？ | 35 min |
+| 1 · 层序遍历 | 按层处理的题怎么写？ | 20 min |
+| 2 · 二叉搜索树 | BST 的性质能带来什么？ | 25 min |
+| 3 · 最近公共祖先 | LCA 怎么用一次递归找到？ | 20 min |
+
+## 需要掌握
+
+- 递归三问：返回什么、怎么由子结果合并、基础情况
+- “返回值”和“全局答案”分离（如直径、最大路径和）
+- BFS 用队列按层处理
+- BST 中序遍历有序；验证 BST 要传上下界
+- LCA 的递归定义
 
 </Locale>
 
 <Locale lang="en">
 
-## Patterns
+Trees are among the most common structures, and nearly every problem reduces to: what does a node need from its subtrees, and what does it return to its parent? Answer that and the code is a few lines.
 
-- Binary trees: a recursive definition is closer to how you'd explain it in an interview than a loop
-- BFS level order: a queue plus the size of the current level
-- Graphs: first ask **directed or undirected, weighted or unweighted, cyclic or not**
+## How to work through this page
 
-## Representative problems
-
-| Problem | Pattern | Status |
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| Invert Binary Tree | DFS | To do |
-| Binary Tree Level Order | BFS | To do |
-| Number of Islands | Grid DFS | To do |
-| Course Schedule | Topo sort | To do |
+| 0 · Recursive thinking | How do you design the return value? | 35 min |
+| 1 · Level order | How do you process level by level? | 20 min |
+| 2 · Binary search trees | What do BST properties give you? | 25 min |
+| 3 · Lowest common ancestor | One recursion for LCA? | 20 min |
+
+## Must know
+
+- three questions: return value, combine, base case
+- separate return values from global answers (diameter, max path sum)
+- BFS with a queue per level
+- BST inorder is sorted; validate with bounds
+- the recursive LCA definition
 
 </Locale>
+
+---
+
+```python
+class TreeNode:
+    def __init__(self, val=0, left=None, right=None):
+        self.val, self.left, self.right = val, left, right
+```
+
+<Locale lang="zh">
+
+## Level 0 · 递归思维
+
+### 递归三问
+
+1. **这个函数对一个子树返回什么？**
+2. **怎么用左右子树的返回值算出当前节点的返回值？**
+3. **空节点返回什么？**
+
+最大深度：返回“子树深度”；当前深度 = 1 + max(左, 右)；空节点返回 0。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Recursive thinking
+
+Ask: what does the function return for a subtree, how do children's results combine, and what does an empty node return? Max depth: returns subtree depth; 1 + max(left, right); empty is 0.
+
+</Locale>
+
+```python
+def max_depth(root: TreeNode | None) -> int:
+    if not root:
+        return 0
+    return 1 + max(max_depth(root.left), max_depth(root.right))
+```
+
+<Locale lang="zh">
+
+### 返回值和全局答案不是一回事
+
+二叉树的直径（543）：最长路径可能**不经过根**。对每个节点，经过它的最长路径 = 左深度 + 右深度；但它**返回给父节点的**只能是一条链：1 + max(左深度, 右深度)。所以用一个外部变量记录全局最大值：
+
+</Locale>
+
+<Locale lang="en">
+
+### Return value vs global answer
+
+Diameter (543): the longest path through a node is left depth + right depth, but a node can only return one branch to its parent (1 + max). Track the global best separately.
+
+</Locale>
+
+```python
+def diameter_of_binary_tree(root: TreeNode | None) -> int:
+    best = 0
+    def depth(node: TreeNode | None) -> int:
+        nonlocal best
+        if not node:
+            return 0
+        l, r = depth(node.left), depth(node.right)
+        best = max(best, l + r)          # path through this node (global answer)
+        return 1 + max(l, r)             # what the parent can use (one branch)
+    depth(root)
+    return best
+```
+
+<Locale lang="zh">
+
+二叉树中的最大路径和（124）是同一个结构，只是把“深度”换成“路径和”，并对负数的子树取 `max(0, …)`。**这是树题里最重要的一个模式**，面试常考。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 说出递归三问。
+2. 直径题中，为什么“返回值”和“全局答案”不同？
+3. 最大路径和为什么要对子树结果取 `max(0, …)`？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Binary Tree Maximum Path Sum (124) has the same shape with sums and `max(0, …)` on negative branches — the most important tree pattern.
+
+<Note title="Self-check: you should be able to answer">
+
+1. The three recursion questions?
+2. Why do return value and global answer differ for diameter?
+3. Why `max(0, …)` in max path sum?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 层序遍历
+
+按层处理（层序输出、右视图、每层平均值）用 BFS：**每轮循环先记下当前层的节点数**，只处理这么多。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Level order
+
+For per-level work (level order, right side view, averages), BFS and record the current level size before processing it.
+
+</Locale>
+
+```python
+from collections import deque
+
+def level_order(root: TreeNode | None) -> list[list[int]]:
+    if not root:
+        return []
+    res, q = [], deque([root])
+    while q:
+        level = []
+        for _ in range(len(q)):          # exactly the nodes of this level
+            node = q.popleft()
+            level.append(node.val)
+            if node.left:
+                q.append(node.left)
+            if node.right:
+                q.append(node.right)
+        res.append(level)
+    return res
+```
+
+<Locale lang="zh">
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么要在内层循环前固定 `len(q)`？
+2. 右视图怎么在这个模板上改？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why fix `len(q)` before the inner loop?
+2. How do you adapt it for the right side view?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 二叉搜索树
+
+BST：左子树所有值 < 节点 < 右子树所有值。推论：**中序遍历得到有序序列**。
+
+验证 BST 的常见错误：只比较节点和它的直接子节点。`[5, 4, 6, null, null, 3, 7]` 中 3 在 5 的右子树里却小于 5——必须**向下传递上下界**：
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Binary search trees
+
+Left subtree < node < right subtree, so inorder is sorted. Validating only against direct children fails (3 in the right subtree of 5); pass bounds down.
+
+</Locale>
+
+```python
+def is_valid_bst(root: TreeNode | None, lo=float('-inf'), hi=float('inf')) -> bool:
+    if not root:
+        return True
+    if not (lo < root.val < hi):
+        return False
+    return (is_valid_bst(root.left, lo, root.val) and
+            is_valid_bst(root.right, root.val, hi))
+```
+
+<Locale lang="zh">
+
+BST 中第 k 小的元素（230）：中序遍历到第 k 个即可。BST 的查找、插入都是 O(树高)，平衡时 O(log n)，退化成链时 O(n)。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么只比较直接子节点不能验证 BST？
+2. BST 中序遍历有什么性质？怎么用它找第 k 小？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Kth Smallest in a BST (230): stop at the k-th inorder node. Lookup and insert are O(height): O(log n) balanced, O(n) degenerate.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why does checking children only fail?
+2. The inorder property and k-th smallest?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 最近公共祖先
+
+LCA（236）：递归函数返回“在这棵子树里找到的 p 或 q（或它们的 LCA）”。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Lowest common ancestor
+
+LCA (236): the function returns p, q, or their LCA found within the subtree.
+
+</Locale>
+
+```python
+def lowest_common_ancestor(root, p, q):
+    if not root or root is p or root is q:
+        return root
+    left = lowest_common_ancestor(root.left, p, q)
+    right = lowest_common_ancestor(root.right, p, q)
+    if left and right:
+        return root          # p and q are on different sides: root is the LCA
+    return left or right     # both on one side (or neither)
+```
+
+<Locale lang="zh">
+
+如果是 BST（235），更简单：p、q 都比根小就去左边，都比根大就去右边，否则根就是 LCA。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 递归函数返回的是什么？
+2. 左右都非空时为什么当前节点就是答案？
+3. BST 的 LCA 为什么更简单？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+For a BST (235): go left if both are smaller, right if both are larger, otherwise the root is the LCA.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What does the function return?
+2. Why is root the answer when both sides are non-empty?
+3. Why is the BST case simpler?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 题单
+
+| 模式 | 题目 | 优先级 |
+| --- | --- | --- |
+| 递归 | Maximum Depth (104)、Invert Binary Tree (226)、Same Tree (100)、Diameter of Binary Tree (543)、Balanced Binary Tree (110) | 🔴 |
+| 递归 | Binary Tree Maximum Path Sum (124)、Construct Tree from Preorder and Inorder (105) | 🟡 |
+| 层序 | Level Order Traversal (102)、Right Side View (199) | 🔴 |
+| BST | Validate BST (98)、Kth Smallest in BST (230)、LCA of BST (235) | 🔴 |
+| LCA | LCA of Binary Tree (236) | 🔴 |
+| 综合 | Serialize and Deserialize Binary Tree (297) | 🟡 |
+
+## 陷阱
+
+<Note type="warning" title="常见错误">
+
+- 验证 BST 只比较直接子节点。
+- 混淆递归返回值与全局答案。
+- 层序遍历不固定当前层大小。
+- 深度很大时 Python 递归超限（可提一句可改迭代或 `sys.setrecursionlimit`）。
+
+</Note>
+
+## 连接
+
+- 上一页：[链表](/docs/algorithms/linked-list)；下一页：[图](/docs/algorithms/graphs)（树是无环的图）
+- 树的递归思路在 [回溯](/docs/algorithms/backtracking) 和 [动态规划](/docs/algorithms/dp) 中继续使用
+
+</Locale>
+
+<Locale lang="en">
+
+## Problem list
+
+Recursion: 104, 226, 100, 543, 110 🔴; 124, 105 🟡. Level order: 102, 199 🔴. BST: 98, 230, 235 🔴. LCA: 236 🔴. Serialize/Deserialize (297) 🟡.
+
+## Pitfalls
+
+<Note type="warning" title="Common mistakes">
+
+- Validating BSTs against children only.
+- Mixing return values with global answers.
+- Not fixing level size in BFS.
+- Deep recursion limits in Python.
+
+</Note>
+
+## Connections
+
+- Previous: [Linked Lists](/docs/algorithms/linked-list); next: [Graphs](/docs/algorithms/graphs)
+- Recursion continues in [Backtracking](/docs/algorithms/backtracking) and [DP](/docs/algorithms/dp)
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+| 题目 | 日期 | 用时 | 一次通过？ | 卡在哪 |
+| --- | --- | --- | --- | --- |
+| | | | | |

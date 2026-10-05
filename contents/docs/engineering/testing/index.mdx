@@ -1,43 +1,355 @@
 ---
-title: 测试 / Git
-titleEn: Testing / Git
-description: 单测、CI、回归。Eval 细节在 RAG / Agent。
-descriptionEn: Unit tests, CI, regression. Eval details live under RAG / Agent.
-date: 2026-09-06
-keywords: ["testing", "git"]
+title: 测试与工程实践
+titleEn: Testing & Engineering Practice
+description: 测试 LLM 应用：测试金字塔、pytest 的 fixture / parametrize / 异步测试、怎样 mock LLM 调用、确定性测试与评估集的分工、FastAPI 依赖覆盖、CI 中的质量门槛；Git 分支、rebase 与 merge、代码审查。
+descriptionEn: "Testing LLM apps: the test pyramid, pytest fixtures, parametrize, and async tests, mocking LLM calls, deterministic tests vs eval sets, FastAPI dependency overrides, CI quality gates; Git branching, rebase vs merge, and code review."
+date: 2026-10-04
+keywords: ['testing', 'pytest', 'fixture', 'parametrize', 'mock', 'llm testing', 'eval', 'ci', 'git', 'rebase', 'merge', 'code review']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-标准：关掉资料后能在 1–2 分钟内讲清楚，并能接到自己的项目上。
+“你怎么测试 LLM 应用？”是 AI 工程面试的高频问题。难点在于模型输出不确定，传统的 `assert output == expected` 不适用。好的回答要分清：**哪些部分用传统测试保证确定性**（解析、工具、业务规则、接口），**哪些部分用评估集衡量质量**（回答好不好）。评估方法本身见 [Evaluation](/docs/evaluation)；这里讲工程实践。
 
-## 必能讲清
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 测试分层 | LLM 应用的测试金字塔长什么样？ | 20 min |
+| 1 · pytest 与 mock | 怎样在不调用真实模型的情况下测试？ | 35 min |
+| 2 · CI 中的质量门槛 | 测试和评估在 CI 里怎么安排？ | 20 min |
+| 3 · Git 与协作 | rebase 还是 merge？怎么做代码审查？ | 20 min |
+
+## 需要掌握
+
+- 确定性测试 vs 评估集；各测什么
+- pytest：fixture、parametrize、`pytest-asyncio`、monkeypatch
+- mock LLM 客户端；录制回放；FastAPI 依赖覆盖
+- CI：lint、类型检查、单元测试、评估回归的门槛
+- Git：分支策略、rebase 与 merge、小而清晰的 PR
 
 </Locale>
 
 <Locale lang="en">
 
-The bar: explain it in 1–2 minutes without notes, and connect it to your own projects.
+"How do you test an LLM app?" is a frequent question. Outputs are nondeterministic, so `assert output == expected` fails. Separate deterministic tests (parsing, tools, rules, APIs) from eval sets that measure quality ([Evaluation](/docs/evaluation)); this page covers the engineering.
 
-## Must be able to explain
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Test layers | What does the LLM test pyramid look like? | 20 min |
+| 1 · pytest and mocks | Testing without calling a real model? | 35 min |
+| 2 · CI quality gates | Arranging tests and evals in CI? | 20 min |
+| 3 · Git and collaboration | Rebase or merge? Code review? | 20 min |
+
+## Must know
+
+- deterministic tests vs eval sets
+- fixtures, parametrize, `pytest-asyncio`, monkeypatch
+- mocking LLM clients, record/replay, FastAPI dependency overrides
+- CI gates: lint, types, unit tests, eval regression
+- branching, rebase vs merge, small PRs
 
 </Locale>
 
--
+---
 
 <Locale lang="zh">
 
-## 权衡
+## Level 0 · 测试分层
+
+| 层 | 测什么 | 调用真实模型吗 | 运行频率 |
+| --- | --- | --- | --- |
+| 单元测试 | 解析器、prompt 模板渲染、工具函数、业务规则（退款金额校验）、重试逻辑 | 否（mock） | 每次提交，几秒 |
+| 集成测试 | API 接口、数据库、工具与外部服务的交互；agent 循环在 mock 模型下的控制流 | 否或用录制的响应 | 每次 PR |
+| 评估集回归 | 回答质量、工具选择、最终状态（见 [Agent Eval](/docs/evaluation/agent-eval)） | 是 | 改 prompt / 模型时、每晚 |
+| 线上监控 | 真实流量的质量与错误 | 是 | 持续（见 [Production Eval](/docs/evaluation/production-eval)） |
+
+关键认识：**LLM 应用里大部分代码是确定性的**（组装 prompt、解析输出、执行工具、校验规则），它们应该用传统测试覆盖；只有“模型回答得好不好”需要评估集。
+
+<Note title="自测：到这里你应该能回答">
+
+1. LLM 应用中哪些部分可以用确定性测试？
+2. 评估集回归应该在什么时候运行？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Trade-offs
+## Level 0 · Test layers
+
+Unit tests (parsers, prompt rendering, tools, business rules, retry logic; mocked; every commit), integration tests (APIs, DB, tools, agent control flow under a mocked model; per PR), eval regression (quality, tool choice, final state; real models; on prompt/model changes and nightly), production monitoring. Most LLM-app code is deterministic and deserves ordinary tests; only answer quality needs evals.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Which parts can be tested deterministically?
+2. When do eval regressions run?
+
+</Note>
 
 </Locale>
 
--
+<Locale lang="zh">
+
+## Level 1 · pytest 与 mock
+
+### fixture 和 parametrize
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · pytest and mocks
+
+</Locale>
+
+```python
+import pytest
+
+from app.refunds import validate_refund      # deterministic business rule
+
+@pytest.mark.parametrize("status,amount,paid,ok", [
+    ("unshipped",  89, 89,  True),
+    ("in_transit", 89, 89,  False),           # in-transit orders are not eligible
+    ("unshipped", 120, 89,  False),           # amount exceeds what was paid
+])
+def test_validate_refund(status, amount, paid, ok):
+    assert validate_refund(status=status, amount=amount, paid=paid).ok is ok
+
+
+class FakeLLM:                                # a test double for the model client
+    def __init__(self, replies):
+        self.replies, self.calls = list(replies), []
+    async def complete(self, messages, **kwargs):
+        self.calls.append(messages)
+        return self.replies.pop(0)
+
+@pytest.fixture
+def fake_llm():
+    return FakeLLM(['{"tool": "get_order_status", "args": {"order_id": "20240915"}}',
+                    '{"answer": "Not eligible for the unshipped refund."}'])
+
+@pytest.mark.asyncio                          # requires pytest-asyncio
+async def test_agent_calls_order_tool_first(fake_llm):
+    agent = SupportAgent(llm=fake_llm, tools=FakeTools(order_status="in_transit"))
+    result = await agent.run("Order 20240915 hasn't arrived, can I get a refund?")
+    assert agent.tools.called == ["get_order_status"]       # control flow, not wording
+    assert "not eligible" in result.lower()
+```
+
+<Locale lang="zh">
+
+要点：
+
+- **parametrize** 一次覆盖多种情况，边界情况（运输中、金额超出）一目了然。
+- **假的 LLM 客户端**返回预设的输出，测试的是**你的代码怎么处理模型输出**：解析、工具调用顺序、错误处理——而不是模型本身。
+- 还要测异常路径：模型返回非法 JSON、工具超时、模型请求一个不存在的工具——这些分支只有用 mock 才能稳定触发。
+- **断言结构和行为，不断言措辞**：检查调用了哪个工具、返回的 JSON 字段、是否包含关键结论，而不是整段文字相等。
+
+### 其他技巧
+
+- **录制回放**：用真实模型跑一次，把响应录下来（如 VCR.py、`pytest-recording`），之后测试回放录制的响应——真实又稳定，还不花钱。
+- **FastAPI 依赖覆盖**：`app.dependency_overrides[get_llm] = lambda: fake_llm`，接口测试中替换掉真实依赖（见 [API 设计与网络](/docs/engineering/rest) Level 4）。
+- **monkeypatch**：临时替换环境变量、函数、时间。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 用假的 LLM 客户端测试的是什么？不测什么？
+2. 为什么要断言行为而不是整段文字？
+3. 录制回放有什么好处？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Parametrize covers edge cases at a glance; a fake LLM client returns scripted outputs so tests exercise your handling — parsing, tool order, errors — not the model; also test invalid JSON, tool timeouts, and unknown tools; assert structure and behavior, not wording. Record real responses once and replay them (VCR.py, `pytest-recording`); override FastAPI dependencies with `app.dependency_overrides`; monkeypatch env vars, functions, time.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What does a fake client test, and not test?
+2. Why assert behavior rather than text?
+3. Benefits of record/replay?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · CI 中的质量门槛
+
+```text
+每次提交 / PR（几分钟内）：
+  ruff（lint + 格式）→ mypy（类型检查）→ 单元测试 + 集成测试（mock 模型）
+改动涉及 prompt / 模型 / 检索配置的 PR：
+  + 评估集回归（真实模型，小规模、关键用例）→ 与主分支对比，退化超过阈值则阻断
+每晚：
+  + 完整评估集、pass^k、成本统计
+```
+
+- 评估回归**慢且花钱**，只在相关改动和定时任务中跑；用小而关键的子集挡住明显退化，完整评估集定时跑。
+- 评估结果要有统计意识：小样本上的 1–2 个百分点差异可能是噪声（见 [Fundamentals](/docs/evaluation/fundamentals) Level 4）。
+- `pre-commit` 钩子在本地提交前自动跑格式化和 lint。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么不是每次提交都跑完整评估集？
+2. 评估回归的门槛怎么设才不会被噪声误判？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · CI quality gates
+
+Every PR: ruff, mypy, unit and integration tests with mocks. PRs touching prompts, models, or retrieval: a small critical eval subset with real models compared against main, blocking beyond thresholds. Nightly: the full eval set, pass^k, cost. Evals are slow and costly, so run them selectively; respect statistical noise; use pre-commit hooks locally.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why not run full evals on every commit?
+2. How do you set gates that noise won't trip?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · Git 与协作
+
+### rebase 还是 merge？
+
+| | merge | rebase |
+| --- | --- | --- |
+| 做法 | 产生一个合并提交，保留两条分支的历史 | 把你的提交“重新播放”到目标分支最新提交之后 |
+| 历史 | 真实但可能杂乱 | 线性、清晰 |
+| 风险 | 低 | 改写历史：**不要 rebase 已经推送给别人的公共分支** |
+
+常见做法：自己的功能分支上用 `git rebase main` 保持最新；合并到主分支时用 squash merge 或 merge commit（团队约定）。
+
+### 好的协作习惯
+
+- **小 PR**：一个 PR 只做一件事，便于审查和回滚（和 [Coding Agent](/docs/system-design/coding-agent) 的“一个任务一个 PR”同理）。
+- 提交信息说明**为什么**改，而不只是改了什么。
+- 代码审查关注：正确性、边界情况、测试是否覆盖、命名与可读性、是否引入安全问题（如日志里打印了 API key）。
+- 用 coding agent 写的代码同样需要审查，尤其检查是否修改了已有测试（见 [Agentic Coding](/docs/ai-native/agentic-coding) Level 3）。
+
+<Note type="tip" title="项目锚点提示">
+
+准备一个例子：你的项目里有没有为 LLM 部分写过测试？怎么 mock 的？有没有评估集？在 CI 里怎么跑？如果还没有，面试前可以给一个项目补上几个单元测试和一个小评估集——“我是怎么测的”往往是项目追问里最能拉开差距的问题。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. rebase 和 merge 的区别？什么时候不能 rebase？
+2. 代码审查应该关注哪几点？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Git and collaboration
+
+Merge keeps true history with a merge commit; rebase replays your commits for a linear history but rewrites it — never rebase shared branches. Rebase feature branches on main; merge via squash or merge commits by team convention. Keep PRs small, explain why in commit messages, and review for correctness, edge cases, tests, readability, and security (keys in logs) — including agent-written code that may alter tests.
+
+<Note type="tip" title="Project anchor prompt">
+
+How did you test the LLM parts of a project — mocks, eval sets, CI? If you haven't, add a few unit tests and a small eval set before interviews; "how did you test it" often separates candidates.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Rebase vs merge, and when not to rebase?
+2. What does a good review check?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- “LLM 输出不确定，所以没法测试。”
+- 单元测试直接调用真实模型 API。
+- 断言整段输出文字完全相等。
+- 在共享分支上 rebase 并强推。
+
+</Note>
+
+## 连接
+
+- [Evaluation](/docs/evaluation)、[Offline Eval](/docs/evaluation/offline)、[Agent Eval](/docs/evaluation/agent-eval)
+- [Python 核心](/docs/engineering/python)、[容器与部署](/docs/engineering/cloud)（CI/CD）、[Agentic Coding](/docs/ai-native/agentic-coding)
+
+## 面试问题
+
+1. 你怎么测试 LLM 应用？（How do you test an LLM application?）
+2. 怎样在不调用真实模型的情况下测试 agent？（How do you test an agent without calling a real model?）
+3. 确定性测试和评估集各负责什么？（What do deterministic tests and eval sets each cover?）
+4. CI 中怎么安排评估回归？（How do you run eval regressions in CI?）
+5. rebase 和 merge 有什么区别？（Rebase vs merge?）
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- "LLM outputs are nondeterministic, so we can't test."
+- Unit tests calling real model APIs.
+- Asserting exact output text.
+- Rebasing and force-pushing shared branches.
+
+</Note>
+
+## Connections
+
+- [Evaluation](/docs/evaluation), [Offline Eval](/docs/evaluation/offline), [Agent Eval](/docs/evaluation/agent-eval)
+- [Python Core](/docs/engineering/python), [Containers & Deployment](/docs/engineering/cloud), [Agentic Coding](/docs/ai-native/agentic-coding)
+
+## Interview questions
+
+1. How do you test an LLM application?
+2. How do you test an agent without calling a real model?
+3. What do deterministic tests and eval sets each cover?
+4. How do you run eval regressions in CI?
+5. Rebase vs merge?
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+- 30s:
 
 <Locale lang="zh">
 
@@ -52,15 +364,3 @@ The bar: explain it in 1–2 minutes without notes, and connect it to your own p
 </Locale>
 
 -
-
-<Locale lang="zh">
-
-## 我的答案
-
-</Locale>
-
-<Locale lang="en">
-
-## My answer
-
-</Locale>

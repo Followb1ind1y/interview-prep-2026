@@ -3,32 +3,25 @@ title: AI System Design
 titleEn: AI System Design
 description: 按题目练，不按维度收藏。每道题走同一套 14 个 dimensions。
 descriptionEn: Practice problems, not dimension folders. Every problem uses the same 14 dimensions.
-date: 2026-09-07
+date: 2026-10-04
 keywords: ["system design", "rag chatbot", "coding agent", "enterprise ai platform"]
 ---
 
 <Locale lang="zh">
 
-延迟 / 成本 / 可靠性 / 可观测性这些知识点在 [Production AI](/docs/production)。这里只练开口表达和权衡取舍。
+按题目练，不按维度收藏。机制知识在前面的栏目（[RAG](/docs/rag)、[Agent](/docs/agent)、[AI-Native](/docs/ai-native)、[Production AI](/docs/production)）；这一栏练的是**在 45 分钟里把一个系统讲清楚**。
 
-每道题都按这 14 个维度走：
+## 45 分钟怎么讲
 
-1. 需求（Requirements）
-2. 约束（Constraints）
-3. 架构（Architecture）
-4. 数据流（Data Flow）
-5. 模型（Model）
-6. 检索（Retrieval）
-7. 智能体（Agent）
-8. 评测（Evaluation）
-9. 扩展（Scaling）
-10. 延迟（Latency）
-11. 成本（Cost）
-12. 可靠性（Reliability）
-13. 安全（Security）
-14. 可观测性（Observability）
+| 时间 | 做什么 | 每道题对应 |
+| --- | --- | --- |
+| 0–5 min | **澄清需求**：用户、规模、延迟、错误代价、成功指标；把假设写在白板上 | Level 0 |
+| 5–10 min | **估算**：QPS、在途并发、token、存储、成本——并说出“所以难点在哪” | Level 0 |
+| 10–20 min | **高层架构**：画数据流，走一遍一次请求 | Level 1 |
+| 20–35 min | **挑两块深挖**：按“问题 → 方案 → 代价 → 怎么验证”讲 | Level 2–3 |
+| 35–45 min | **评测、可靠性、安全、成本**：怎么证明好、挂了怎么办、花多少钱 | Level 4 |
 
-概念不够就回到 01–07 专栏。这一阶段的目标是 **每天一道题**，不再堆新的词条。
+每页末尾有一张 **14 维度速查表**，复习时用来检查有没有漏掉维度：需求、约束、架构、数据流、模型、检索、智能体、评测、扩展、延迟、成本、可靠性、安全、可观测性。不是每个维度都要讲——**估算结果决定深挖什么**。
 
 <CardGrid>
   <Card title="L1 · RAG Chatbot" description="最基础的 RAG 白板题。" href="/docs/system-design/rag-chatbot" />
@@ -48,44 +41,39 @@ keywords: ["system design", "rag chatbot", "coding agent", "enterprise ai platfo
   <Card title="L4 · Large-scale RAG" description="大规模检索平台。" href="/docs/system-design/rag-platform" />
 </CardGrid>
 
-## 本专栏计划（每天一题）
+## 建议顺序与优先级
 
-| 天 | 题目 |
-| --- | --- |
-| 1 | 设计 RAG 聊天机器人 |
-| 2 | 设计企业知识助手 |
-| 3 | 设计 AI 客服 |
-| 4 | 设计 AI 搜索 |
-| 5 | 设计一个 AI agent |
-| 6 | 设计 coding agent |
-| 7 | 设计大规模 AI 平台 |
+| 优先级 | 题目 | 为什么 |
+| --- | --- | --- |
+| 🔴 必练 | [RAG Chatbot](/docs/system-design/rag-chatbot) | 所有题的基线 |
+| 🔴 必练 | [Customer Support](/docs/system-design/customer-support) | RAG + 工具 + 写操作 + 转人工，最常考 |
+| 🔴 必练 | [AI Agent](/docs/system-design/ai-agent) | 权限、注入、致命三要素 |
+| 🔴 必练 | [Coding Agent](/docs/system-design/coding-agent) | 和你的日常经验直接相关 |
+| 🔴 必练 | [AI Search](/docs/system-design/ai-search) | 扇出延迟与引用 |
+| 🔴 必练 | [ChatGPT-like](/docs/system-design/chatgpt) | 规模估算到 GPU |
+| 🔴 必练 | [Inference Platform](/docs/system-design/inference-platform) | 显存账与批处理（偏 infra 的岗位必考） |
+| 🟡 选练 | [Knowledge Assistant](/docs/system-design/knowledge-assistant)、[Document Q&A](/docs/system-design/document-qa)、[Document Extraction](/docs/system-design/document-extraction)、[Meeting Summarization](/docs/system-design/meeting-summarization) | 各有一个独特考点：权限同步、长上下文取舍、人工复核、多阶段流水线 |
+| 🟡 选练 | [Multi-Agent](/docs/system-design/multi-agent)、[Long-running Agent](/docs/system-design/long-running-agent)、[Agent Platform](/docs/system-design/agent-platform)、[Large-scale RAG](/docs/system-design/rag-platform) | 按目标岗位挑：agent 平台方向练后三个，搜索 / 数据方向练最后一个 |
 
-传统的短链接 / 信息流设计题，只有在 JD 明显偏通用后端时再补。
+练习方法：先不看页面，在白板或纸上按 45 分钟框架自己讲一遍（录音更好），再对照页面找漏掉的点，把你的版本写进每页的“我的答案”。用 `/drill system-design/<页面 slug>` 让我扮演面试官追问。
 
 </Locale>
 
 <Locale lang="en">
 
-The knowledge behind latency / cost / reliability / observability lives in [Production AI](/docs/production). This column is only for practicing how to talk through a design and its trade-offs.
+Practice problems, not dimension folders. Mechanics live in earlier sections ([RAG](/docs/rag), [Agent](/docs/agent), [AI-Native](/docs/ai-native), [Production AI](/docs/production)); here you practice presenting a system in 45 minutes.
 
-Every problem goes through the same 14 dimensions:
+## How to spend 45 minutes
 
-1. Requirements
-2. Constraints
-3. Architecture
-4. Data Flow
-5. Model
-6. Retrieval
-7. Agent
-8. Evaluation
-9. Scaling
-10. Latency
-11. Cost
-12. Reliability
-13. Security
-14. Observability
+| Time | What | Page level |
+| --- | --- | --- |
+| 0–5 min | **Clarify**: users, scale, latency, cost of errors, success metrics; write assumptions down | Level 0 |
+| 5–10 min | **Estimate**: QPS, concurrency, tokens, storage, cost — and say where the difficulty lies | Level 0 |
+| 10–20 min | **High-level design**: data flow, one request end to end | Level 1 |
+| 20–35 min | **Two deep dives**: problem → solution → cost → validation | Levels 2–3 |
+| 35–45 min | **Evaluation, reliability, security, cost** | Level 4 |
 
-If a concept is shaky, go back to columns 01–07. The goal at this stage is **one problem a day**, not collecting new terms.
+Each page ends with a 14-dimension cheat sheet for review. Not every dimension needs airtime — the estimates decide the deep dives.
 
 <CardGrid>
   <Card title="L1 · RAG Chatbot" description="The baseline RAG whiteboard." href="/docs/system-design/rag-chatbot" />
@@ -105,18 +93,13 @@ If a concept is shaky, go back to columns 01–07. The goal at this stage is **o
   <Card title="L4 · Large-scale RAG" description="Large-scale retrieval platform." href="/docs/system-design/rag-platform" />
 </CardGrid>
 
-## Plan for this column (one a day)
+## Order and priority
 
-| Day | Problem |
+| Priority | Problems |
 | --- | --- |
-| 1 | Design RAG chatbot |
-| 2 | Design enterprise knowledge assistant |
-| 3 | Design AI customer support |
-| 4 | Design AI search |
-| 5 | Design an AI agent |
-| 6 | Design coding agent |
-| 7 | Design large-scale AI platform |
+| 🔴 Must practice | [RAG Chatbot](/docs/system-design/rag-chatbot), [Customer Support](/docs/system-design/customer-support), [AI Agent](/docs/system-design/ai-agent), [Coding Agent](/docs/system-design/coding-agent), [AI Search](/docs/system-design/ai-search), [ChatGPT-like](/docs/system-design/chatgpt), [Inference Platform](/docs/system-design/inference-platform) |
+| 🟡 Choose by role | [Knowledge Assistant](/docs/system-design/knowledge-assistant), [Document Q&A](/docs/system-design/document-qa), [Document Extraction](/docs/system-design/document-extraction), [Meeting Summarization](/docs/system-design/meeting-summarization), [Multi-Agent](/docs/system-design/multi-agent), [Long-running Agent](/docs/system-design/long-running-agent), [Agent Platform](/docs/system-design/agent-platform), [Large-scale RAG](/docs/system-design/rag-platform) |
 
-Classic URL shortener / feed problems only get added if a JD clearly leans toward general backend work.
+Practice: talk through the problem on your own first (record it), then compare with the page, write your version under "My answer," and use `/drill system-design/<page slug>` for mock follow-ups.
 
 </Locale>

@@ -1,43 +1,450 @@
 ---
-title: REST API
-titleEn: REST API
-description: 鉴权、幂等、streaming。接到 FastAPI。
-descriptionEn: Auth, idempotency, streaming. Tie to FastAPI.
-date: 2026-09-06
-keywords: ["rest", "fastapi"]
+title: API 设计与网络
+titleEn: API Design & Networking
+description: HTTP 方法、状态码与幂等性；REST 资源设计、分页与版本；JWT 与 OAuth 2.0 鉴权；轮询 / SSE / WebSocket 的选择；HTTP/1.1 与 HTTP/2、TLS、CORS 的必要常识；FastAPI 的依赖注入与流式响应。
+descriptionEn: "HTTP methods, status codes, and idempotency; REST resource design, pagination, and versioning; JWT and OAuth 2.0; polling vs SSE vs WebSocket; essentials of HTTP/1.1 vs HTTP/2, TLS, and CORS; FastAPI dependency injection and streaming responses."
+date: 2026-10-04
+keywords: ['rest', 'http', 'status codes', 'idempotency', 'pagination', 'jwt', 'oauth', 'pkce', 'websocket', 'sse', 'http2', 'tls', 'cors', 'fastapi']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-标准：关掉资料后能在 1–2 分钟内讲清楚，并能接到自己的项目上。
+你的项目里有 FastAPI、JWT、WebSocket——面试官很可能顺着问：“为什么用 WebSocket 而不是 SSE？”“JWT 怎么防篡改？过期了怎么办？”“分页怎么做？”这一页把 API 设计和必要的网络常识串起来。LLM 调用侧的超时、重试、流式细节在 [API Engineering](/docs/production/api-engineering)，这里讲**你提供的 API** 怎么设计。
 
-## 必能讲清
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · HTTP 基础 | 方法、状态码、幂等性 | 25 min |
+| 1 · REST 设计 | 资源、分页、版本、错误格式 | 25 min |
+| 2 · 鉴权 | JWT 和 OAuth 2.0 怎么工作？ | 35 min |
+| 3 · 实时通信 | 轮询、SSE、WebSocket 怎么选？ | 25 min |
+| 4 · 网络常识与 FastAPI | HTTP/2、TLS、CORS；FastAPI 的关键机制 | 25 min |
+
+## 需要掌握
+
+- GET / POST / PUT / PATCH / DELETE 的语义与幂等性；常用状态码
+- 资源命名、游标分页、版本化、统一错误格式
+- JWT 的结构、签名、过期与刷新；OAuth 2.0 授权码 + PKCE
+- 轮询 / SSE / WebSocket 的取舍
+- HTTP/2 多路复用、TLS 握手、CORS 的作用
+- FastAPI：Pydantic 校验、依赖注入、`StreamingResponse`
 
 </Locale>
 
 <Locale lang="en">
 
-The bar: explain it in 1–2 minutes without notes, and connect it to your own projects.
+Your projects use FastAPI, JWT, and WebSockets, so expect: why WebSocket over SSE? How is a JWT protected and refreshed? How do you paginate? This page covers designing the APIs you provide; LLM-call-side timeouts and retries are in [API Engineering](/docs/production/api-engineering).
 
-## Must be able to explain
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · HTTP basics | Methods, status codes, idempotency | 25 min |
+| 1 · REST design | Resources, pagination, versioning, errors | 25 min |
+| 2 · Auth | How do JWT and OAuth 2.0 work? | 35 min |
+| 3 · Real-time | Polling, SSE, or WebSocket? | 25 min |
+| 4 · Networking and FastAPI | HTTP/2, TLS, CORS; FastAPI essentials | 25 min |
+
+## Must know
+
+- method semantics, idempotency, common status codes
+- resource naming, cursor pagination, versioning, error format
+- JWT structure, signatures, expiry, refresh; OAuth 2.0 code + PKCE
+- polling vs SSE vs WebSocket
+- HTTP/2 multiplexing, TLS handshakes, CORS
+- FastAPI validation, dependency injection, `StreamingResponse`
 
 </Locale>
 
--
+---
 
 <Locale lang="zh">
 
-## 权衡
+## Level 0 · HTTP 基础
+
+### 方法与幂等性
+
+**幂等**：执行一次和执行多次，服务器状态相同。它决定了**超时后能不能安全重试**（见 [API Engineering](/docs/production/api-engineering) Level 4）。
+
+| 方法 | 语义 | 幂等 | 安全（不改状态） |
+| --- | --- | --- | --- |
+| GET | 读取 | ✓ | ✓ |
+| PUT | 整体替换（客户端给出完整资源） | ✓ | ✗ |
+| DELETE | 删除 | ✓（删两次结果一样） | ✗ |
+| PATCH | 部分更新 | 不一定 | ✗ |
+| POST | 创建 / 执行动作 | ✗ | ✗ |
+
+POST 不幂等——创建退款、发送消息都是 POST，所以需要**幂等键**（`Idempotency-Key` 请求头）让重试安全。
+
+### 常用状态码
+
+| 码 | 含义 | 例子 |
+| --- | --- | --- |
+| 200 / 201 / 202 / 204 | 成功 / 已创建 / 已接受（异步处理）/ 无内容 | 202 用于长任务（见 API Engineering Level 5） |
+| 400 / 422 | 请求格式错误 / 校验失败 | FastAPI 的 Pydantic 校验失败返回 422 |
+| 401 / 403 | 未认证（你是谁？）/ 无权限（我知道你是谁，但你不能做） | 令牌过期 → 401；查别人的订单 → 403 或 404 |
+| 404 / 409 | 不存在 / 冲突 | 重复创建 → 409 |
+| 429 | 请求过多 | 带 `Retry-After` |
+| 500 / 502 / 503 / 504 | 服务器错误 / 网关上游错误 / 不可用 / 网关超时 | |
+
+<Note type="tip" title="401 和 403 的区别">
+
+401 = **认证**失败（没登录或令牌无效）；403 = **授权**失败（身份已确认，但没有权限）。查别人的订单时，有些系统故意返回 404 而不是 403，避免泄露“这个订单存在”。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 哪些方法是幂等的？为什么 POST 需要幂等键？
+2. 401 和 403 的区别？
+3. 长任务提交成功应该返回什么状态码？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Trade-offs
+## Level 0 · HTTP basics
+
+Idempotent means repeated execution leaves the same state — it decides whether timeouts are safely retryable. GET (safe, idempotent), PUT (replace, idempotent), DELETE (idempotent), PATCH (not necessarily), POST (create/act, not idempotent — use `Idempotency-Key`). Status codes: 200/201/202 (accepted for async)/204; 400/422 (validation, FastAPI's default); 401 authentication vs 403 authorization (some systems return 404 to hide existence); 404/409; 429 with `Retry-After`; 500/502/503/504.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Which methods are idempotent, and why POST needs keys?
+2. 401 vs 403?
+3. Status for an accepted long task?
+
+</Note>
 
 </Locale>
 
--
+<Locale lang="zh">
+
+## Level 1 · REST 设计
+
+### 资源怎么命名？
+
+用**名词复数**表示资源集合，用 HTTP 方法表示动作：
+
+```text
+GET    /conversations                     列出会话
+POST   /conversations                     创建会话
+GET    /conversations/{id}/messages       某会话的消息
+POST   /conversations/{id}/messages       发送消息（触发模型回复）
+DELETE /conversations/{id}                删除会话
+```
+
+不要写 `/getConversation`、`/deleteMessage` 这种动词式路径。真正的动作（无法自然映射为资源的）可以用子资源：`POST /orders/{id}/refunds`。
+
+### 分页怎么做？
+
+| 方式 | 做法 | 问题 |
+| --- | --- | --- |
+| offset / limit | `?offset=1000&limit=20` | 数据量大时数据库要扫描跳过前 1000 行，越往后越慢；翻页过程中有新数据插入会导致重复或遗漏 |
+| **游标（cursor）** | `?after=msg_8f3a&limit=20`，返回 `next_cursor` | 基于索引定位，稳定且快；不能随机跳页 |
+
+消息列表、对话历史这类持续增长的数据，用游标分页。
+
+### 版本与错误格式
+
+- 版本：路径版本 `/v1/...` 最直观；破坏性变更才升版本。
+- 统一错误格式：`{"error": {"code": "order_not_found", "message": "...", "request_id": "..."}}`——`request_id` 让排障能对上 trace。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么不要在路径里写动词？
+2. offset 分页有哪两个问题？游标分页怎么解决？
+3. 错误响应里为什么要带 `request_id`？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · REST design
+
+Plural nouns for collections, HTTP methods for actions (`GET/POST /conversations`, `/conversations/{id}/messages`); no verb paths; sub-resources for actions (`POST /orders/{id}/refunds`). Offset pagination slows with depth and skips or duplicates rows during inserts; cursor pagination (`?after=…`, returning `next_cursor`) is stable and index-backed but can't jump pages — use it for growing message lists. Version in the path (`/v1`) for breaking changes; return a uniform error body with a `request_id` linking to traces.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why no verbs in paths?
+2. Offset's two problems and the cursor fix?
+3. Why include `request_id`?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 鉴权
+
+### JWT 怎么工作？
+
+JWT（JSON Web Token）由三段用 `.` 连接：`header.payload.signature`，前两段是 Base64URL 编码的 JSON。
+
+```text
+header:    {"alg": "HS256", "typ": "JWT"}
+payload:   {"sub": "user_42", "role": "member", "exp": 1790000000}
+signature: HMAC-SHA256(header + "." + payload, 服务器密钥)
+```
+
+- **防篡改**：改了 payload，签名就对不上；没有密钥无法伪造签名。
+- **不加密**：payload 只是编码，任何人都能解码看到——**不要在里面放敏感信息**。
+- **无状态**：服务器不需要查数据库就能验证，适合多实例部署。
+- **代价：难以撤销**。令牌在过期前一直有效。所以用**短期访问令牌**（如 15 分钟）+ **长期刷新令牌**（存数据库，可撤销）；必要时维护一个撤销黑名单。
+- 算法：HS256 用共享密钥；RS256 / ES256 用私钥签名、公钥验证，适合多个服务验证同一个签发方的令牌。
+
+### OAuth 2.0 是什么？
+
+OAuth 2.0 解决的是**授权委托**：让一个应用在不知道你密码的情况下，代表你访问另一个服务（如“允许助理 agent 读取你的 Google 日历”）。最常用的**授权码流程 + PKCE**：
+
+```text
+1. 应用把用户重定向到授权服务器（带 client_id、scope、code_challenge）
+2. 用户登录并同意授权
+3. 授权服务器重定向回应用，带上一次性授权码
+4. 应用用授权码 + code_verifier 换取访问令牌（PKCE 防止授权码被截获后被别人使用）
+5. 应用带访问令牌调用资源服务器
+```
+
+这正是 [MCP](/docs/ai-native/mcp) Level 3 远程授权、[AI Agent](/docs/system-design/ai-agent) 访问用户邮箱日历的机制。
+
+<Note title="自测：到这里你应该能回答">
+
+1. JWT 的三段分别是什么？为什么能防篡改？它加密了吗？
+2. JWT 难以撤销怎么办？
+3. OAuth 2.0 解决什么问题？PKCE 防的是什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Auth
+
+A JWT is `header.payload.signature`, Base64URL-encoded JSON plus a signature over both. Tampering breaks the signature; payloads are encoded, not encrypted (no secrets); verification is stateless, good for many instances; revocation is hard, so pair short-lived access tokens with revocable refresh tokens and a denylist if needed; HS256 shares a secret, RS256/ES256 sign privately and verify publicly across services. OAuth 2.0 delegates authorization without sharing passwords; the authorization code flow with PKCE redirects to the authorization server, returns a one-time code, and exchanges it with a code verifier so intercepted codes are useless — the basis of MCP remote auth and agents accessing user calendars.
+
+<Note title="Self-check: you should be able to answer">
+
+1. JWT's three parts, tamper protection, encryption?
+2. Handling revocation?
+3. What OAuth 2.0 solves and what PKCE prevents?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 实时通信
+
+| | 轮询 | SSE | WebSocket |
+| --- | --- | --- | --- |
+| 方向 | 客户端反复请求 | 服务端 → 客户端 单向 | 双向 |
+| 协议 | 普通 HTTP | 普通 HTTP（`text/event-stream`） | HTTP 升级为 WebSocket 协议 |
+| 断线重连 | 天然 | 浏览器 `EventSource` 自动重连 | 需自己实现 |
+| 代理 / 负载均衡兼容 | 最好 | 好 | 需要额外配置（长连接、升级头） |
+| 适合 | 低频状态查询（长任务进度） | **LLM 流式回答**、通知 | **实时语音**、用户可随时打断、协同编辑、游戏 |
+
+LLM 文本对话用 SSE 就足够（主流 LLM API 自己也用 SSE）；需要客户端在生成过程中持续发送数据（语音流、打断、虚拟形象的实时交互）时才需要 WebSocket。
+
+<Note type="tip" title="项目锚点提示">
+
+Negotiation Practice 用了 WebSocket。准备好回答：为什么不用 SSE？——如果有语音输入、用户打断、虚拟形象的实时双向交互，WebSocket 是合理的；如果只是文本流式回答，SSE 更简单。说清楚你的场景属于哪种，以及断线重连怎么处理的。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 三种方式各适合什么场景？
+2. 为什么 LLM 文本流式输出一般用 SSE 就够？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Real-time
+
+Polling (repeated HTTP; low-frequency status), SSE (one-way over plain HTTP with auto-reconnect; LLM streaming and notifications — what LLM APIs use), WebSocket (bidirectional after an HTTP upgrade; needs proxy config and manual reconnect; real-time voice, barge-in, collaboration). Text chat needs only SSE; continuous client input during generation needs WebSocket.
+
+<Note type="tip" title="Project anchor prompt">
+
+Negotiation Practice uses WebSockets: justify it (voice, interruption, avatar interaction) versus SSE for text-only streaming, and explain reconnects.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. When does each fit?
+2. Why is SSE enough for text streaming?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 网络常识与 FastAPI
+
+### 只需要知道的网络常识
+
+- **HTTP/1.1 vs HTTP/2**：HTTP/1.1 一个连接同一时刻只能处理一个请求（keep-alive 可复用连接，但要排队）；HTTP/2 在一个连接上**多路复用**多个请求，减少连接数和排队。gRPC 基于 HTTP/2。
+- **TLS 握手**：建立 HTTPS 连接要额外的往返来协商密钥（TLS 1.3 为 1 个往返）。这就是为什么要**复用连接池**——每次新建连接都付握手的延迟（见 API Engineering Level 0）。
+- **CORS**：浏览器的安全策略，前端页面（`app.example.com`）调用不同源的 API（`api.example.com`）时，服务器必须在响应头里允许这个来源。它只约束浏览器，不是服务端的安全机制。
+
+### FastAPI 的关键机制
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Networking and FastAPI
+
+HTTP/1.1 serves one request per connection at a time (keep-alive reuses, but queues); HTTP/2 multiplexes many over one connection (gRPC builds on it). TLS handshakes add round trips (one in TLS 1.3), hence connection pools. CORS lets browsers call cross-origin APIs when the server allows the origin — a browser policy, not server security.
+
+</Locale>
+
+```python
+from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+
+app = FastAPI()
+
+class ChatRequest(BaseModel):            # request body validated automatically (422 on failure)
+    conversation_id: str
+    message: str
+
+async def current_user(authorization: str = Header(...)) -> str:
+    user = verify_jwt(authorization.removeprefix("Bearer "))   # raises on invalid/expired
+    if not user:
+        raise HTTPException(status_code=401, detail="invalid token")
+    return user
+
+@app.post("/v1/chat")
+async def chat(req: ChatRequest, user: str = Depends(current_user)):   # dependency injection
+    async def events():
+        async for token in stream_model(user, req):
+            yield f"data: {token}\n\n"
+        yield "data: [DONE]\n\n"
+    return StreamingResponse(events(), media_type="text/event-stream")
+```
+
+<Locale lang="zh">
+
+- **Pydantic 请求模型**：自动校验、自动生成 OpenAPI 文档。
+- **依赖注入（`Depends`）**：鉴权、数据库会话、限流这类横切逻辑写一次，在每个接口声明依赖即可；测试时可以替换依赖（见 [测试与工程实践](/docs/engineering/testing)）。
+- **`StreamingResponse`**：配合异步生成器实现 SSE 流式输出（见 [Python 核心](/docs/engineering/python) Level 2）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. HTTP/2 相比 HTTP/1.1 的主要改进是什么？
+2. 为什么复用连接能降低延迟？
+3. CORS 是服务端的安全机制吗？
+4. FastAPI 的 `Depends` 解决什么问题？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Pydantic models validate requests and generate OpenAPI docs; `Depends` injects cross-cutting concerns (auth, DB sessions, rate limits) and can be overridden in tests; `StreamingResponse` with an async generator serves SSE.
+
+<Note title="Self-check: you should be able to answer">
+
+1. HTTP/2's main improvement?
+2. Why does connection reuse cut latency?
+3. Is CORS server-side security?
+4. What does `Depends` solve?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- “JWT 是加密的，可以放敏感信息。”
+- “POST 失败了直接重试。”
+- 混淆 401 和 403。
+- “流式输出必须用 WebSocket。”
+- “CORS 能防止别人调用我的 API。”
+
+</Note>
+
+## 连接
+
+- [Python 核心](/docs/engineering/python)、[Async 与并发](/docs/engineering/concurrency)、[分布式基础](/docs/engineering/distributed)
+- [API Engineering](/docs/production/api-engineering)、[MCP](/docs/ai-native/mcp)（OAuth）
+
+## 面试问题
+
+1. 哪些 HTTP 方法是幂等的？为什么重要？（Which HTTP methods are idempotent, and why does it matter?）
+2. 分页用 offset 还是游标？（Offset or cursor pagination?）
+3. JWT 怎么工作？怎么处理过期和撤销？（How do JWTs work, and how do you handle expiry and revocation?）
+4. OAuth 2.0 授权码流程是什么？（Walk through the OAuth 2.0 authorization code flow.）
+5. 轮询、SSE、WebSocket 怎么选？（Polling, SSE, or WebSocket?）
+6. 设计一个支持流式回答的聊天 API。（Design a chat API with streaming responses.）
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- "JWTs are encrypted."
+- "Retry failed POSTs."
+- Mixing up 401 and 403.
+- "Streaming needs WebSockets."
+- "CORS stops others calling my API."
+
+</Note>
+
+## Connections
+
+- [Python Core](/docs/engineering/python), [Async & Concurrency](/docs/engineering/concurrency), [Distributed Basics](/docs/engineering/distributed)
+- [API Engineering](/docs/production/api-engineering), [MCP](/docs/ai-native/mcp)
+
+## Interview questions
+
+1. Which HTTP methods are idempotent, and why does it matter?
+2. Offset or cursor pagination?
+3. How do JWTs work, and how do you handle expiry and revocation?
+4. Walk through the OAuth 2.0 authorization code flow.
+5. Polling, SSE, or WebSocket?
+6. Design a chat API with streaming responses.
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+- 30s:
 
 <Locale lang="zh">
 
@@ -52,15 +459,3 @@ The bar: explain it in 1–2 minutes without notes, and connect it to your own p
 </Locale>
 
 -
-
-<Locale lang="zh">
-
-## 我的答案
-
-</Locale>
-
-<Locale lang="en">
-
-## My answer
-
-</Locale>

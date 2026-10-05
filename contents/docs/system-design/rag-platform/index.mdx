@@ -1,305 +1,360 @@
 ---
-title: L4 · Large-scale RAG Platform
-titleEn: L4 · Large-scale RAG Platform
-description: 大规模检索平台：多租户索引、增量更新、评测、成本。
-descriptionEn: "Large-scale RAG: multi-tenant indexes, incremental updates, eval, cost."
-date: 2026-09-07
-keywords: ["rag platform", "vector db"]
+title: L4 · Large-scale RAG
+titleEn: L4 · Large-scale RAG
+description: 多租户 RAG 平台（几千家客户、几十亿块）：存储与索引规模手算、按租户分片与冷热分层、入库流水线吞吐与 embedding 成本、新鲜度 SLA、换 embedding 模型的双索引迁移、租户隔离与 noisy neighbor、按租户评估与成本。
+descriptionEn: "A multi-tenant RAG platform (thousands of customers, billions of chunks): storage and index math, tenant sharding and hot/cold tiers, ingestion throughput and embedding cost, freshness SLAs, dual-index migrations when changing embeddings, tenant isolation and noisy neighbors, per-tenant evaluation and cost."
+date: 2026-10-04
+keywords: ['system design', 'rag platform', 'multi-tenant', 'sharding', 'vector index', 'diskann', 'ingestion pipeline', 'embedding cost', 'index migration', 'freshness']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-设计一个大规模 RAG 平台。（Design a large-scale RAG platform.）
+> 题目：设计一个 RAG 即服务（RAG-as-a-Service）平台：5,000 家企业客户上传或同步自己的文档，通过 API 做检索和问答。总量约 20 亿个块，每天新增数百万份文档。
 
-<Note title="开口框架">
-每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
+单个 RAG 系统的机制在 [RAG](/docs/rag) 栏目已经讲透；这道题的难点全部来自**规模和多租户**：几十亿向量放哪？大客户和小客户怎么共存？每天几百万份文档怎么入库？换 embedding 模型要重算几十亿个向量怎么办？
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 面试中的时间 |
+| --- | --- | --- |
+| 0 · 澄清与估算 | 存储多大？入库和查询各多少？ | 8 min |
+| 1 · 高层架构 | 入库面、查询面、控制面 | 8 min |
+| 2 · 深挖：索引的分片与分层 | 20 亿向量怎么存、怎么查？ | 12 min |
+| 3 · 深挖：入库与迁移 | 吞吐、新鲜度、换模型 | 10 min |
+| 4 · 隔离、评估与成本 | 租户间互不影响；按租户算账 | 5 min |
+
+## 需要掌握
+
+- 向量存储、索引内存、embedding 成本的规模手算
+- 按租户分片：大租户独占分片、小租户共享；冷热分层与磁盘索引
+- 入库流水线的队列、批量 embedding、新鲜度 SLA
+- 换 embedding 模型的双索引迁移
+- 租户隔离、配额、noisy neighbor；按租户的质量评估和成本
+
+</Locale>
+
+<Locale lang="en">
+
+> Design a RAG-as-a-Service platform: 5,000 business customers upload or sync documents and query via API — ~2B chunks total, millions of new documents a day.
+
+The mechanics are in [RAG](/docs/rag); the difficulty here is scale and multi-tenancy: where billions of vectors live, how big and small tenants coexist, how millions of daily documents get ingested, and how to re-embed billions of vectors when changing models.
+
+## How to work through this page
+
+| Level | Question it answers | Interview time |
+| --- | --- | --- |
+| 0 · Clarify and estimate | Storage, ingestion, query volume? | 8 min |
+| 1 · High-level design | Ingestion, query, control planes | 8 min |
+| 2 · Deep dive: sharding and tiers | Storing and querying 2B vectors? | 12 min |
+| 3 · Deep dive: ingestion and migration | Throughput, freshness, model changes | 10 min |
+| 4 · Isolation, eval, cost | Tenant independence; per-tenant accounting | 5 min |
+
+## Must know
+
+- storage, index memory, embedding cost math
+- tenant sharding, hot/cold tiers, disk indexes
+- ingestion queues, batched embedding, freshness SLAs
+- dual-index migration for embedding changes
+- isolation, quotas, noisy neighbors; per-tenant quality and cost
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 澄清需求与估算
+
+| 问题 | 本题假设 |
+| --- | --- |
+| 租户分布？ | 长尾：前 50 家大客户占 60% 的数据；4,000 家小客户每家不到 10 万块 |
+| 总量？ | 20 亿块，每块平均 400 token |
+| 入库？ | 每天 300 万份新增 / 更新文档，约 3,000 万块 |
+| 查询？ | 平均 1,000 QPS，峰值 3,000 QPS；检索 P95 小于 200 ms |
+| 新鲜度？ | 文档变更后 10 分钟内可检索 |
+| 隔离？ | 租户之间数据绝对隔离；部分大客户要求专属部署 |
+
+```text
+向量存储（1,024 维）：
+  float32：20 亿 × 4 KB = 8 TB
+  int8：   20 亿 × 1 KB = 2 TB
+  二值：   20 亿 × 128 B = 256 GB（只作粗筛，需原始向量重排）
+HNSW 图结构额外内存：M = 16 时每节点约 128 字节 → 约 256 GB
+→ 全部放内存非常昂贵，必须分层（Level 2）
+
+Embedding 成本：
+  每日新增 3,000 万块 × 400 token = 120 亿 token / 天
+  全量重建：20 亿 × 400 = 8,000 亿 token —— 一次换模型就是一个大项目
+```
+
+结论：**存储与 embedding 成本是主要矛盾，查询 QPS 反而不是**。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 算出 20 亿向量在 float32 和 int8 下的存储。
+2. 为什么全量换 embedding 模型是一个大项目？
+
 </Note>
 
-## 本题要练什么
-
-平台化的入库、索引生命周期、混合检索、评测集、配额。不是再画一个聊天机器人。
-
-## 白板草图
-
 </Locale>
 
 <Locale lang="en">
 
-Design a large-scale RAG platform.
+## Level 0 · Clarify and estimate
 
-<Note title="Opening framework">
-Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+Long-tail tenants (top 50 hold 60% of data; 4,000 have under 100K chunks), 2B chunks of ~400 tokens, 3M changed documents (~30M chunks) per day, 1,000 average and 3,000 peak QPS with retrieval P95 under 200 ms, 10-minute freshness, strict isolation with dedicated deployments for some. Vectors at 1,024 dims: 8 TB float32, 2 TB int8, 256 GB binary (shortlist only); HNSW links ~256 GB more — tiering is mandatory. Daily embedding ~12B tokens; a full re-embed ~800B tokens. Storage and embedding dominate, not QPS.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Storage in float32 and int8?
+2. Why is changing embedding models a major project?
+
 </Note>
 
-## What this problem trains
-
-Platform-level ingestion, index lifecycle, hybrid retrieval, eval sets, quotas. Not another chatbot drawing.
-
-## Whiteboard sketch
-
 </Locale>
-
-```
-connectors → ingest workers → indexes (per tenant)
-query API → hybrid + rerank → grounded generation
-eval service → quality gates
-```
 
 <Locale lang="zh">
 
-## 容易被追问
+## Level 1 · 高层架构
 
-1. 百万级文档的增量更新怎么做？（How do you do incremental updates across millions of documents?）
-2. 租户隔离放在索引层还是过滤层？（Is tenant isolation done at the index layer or the filter layer?）
-3. 怎么控制 embedding 的费用？（How do you control embedding costs?）
-4. 平台的 SLO 和单个应用的 RAG 有什么不同？（How do platform SLOs differ from a single app's RAG?）
+```text
+控制面：租户管理、配额、索引配置（embedding 模型版本、切分策略）、计费
 
-## 14 个维度
+入库面：
+  连接器 / 上传 API ─► 变更队列（按租户分区，带优先级）
+     ─► 解析集群（CPU / OCR）─► 切块
+     ─► embedding 集群（GPU，批量推理）
+     ─► 写入：向量索引分片 + BM25 索引分片 + 元数据库（doc_id、ACL、版本）
+     ─► 发布（对查询可见）；记录新鲜度
 
-```
-1. 需求（Requirements）
-2. 约束（Constraints）
-3. 架构（Architecture）
-4. 数据流（Data Flow）
-5. 模型（Model）
-6. 检索（Retrieval）
-7. 智能体（Agent）
-8. 评测（Evaluation）
-9. 扩展（Scaling）
-10. 延迟（Latency）
-11. 成本（Cost）
-12. 可靠性（Reliability）
-13. 安全（Security）
-14. 可观测性（Observability）
+查询面：
+  API（租户鉴权）─► 查询路由（租户 → 所在分片）
+     ─► 向量检索 ∥ BM25（带租户与 ACL 过滤）─► 融合 ─► 重排（GPU）
+     ─► 返回块（可选：生成答案）
 ```
 
+<Note title="自测：到这里你应该能回答">
+
+1. 三个面各负责什么？
+2. 为什么变更队列要按租户分区？
+
+</Note>
+
 </Locale>
 
 <Locale lang="en">
 
-## Likely follow-ups
+## Level 1 · High-level design
 
-1. How do you do incremental updates across millions of documents?
-2. Is tenant isolation done at the index layer or the filter layer?
-3. How do you control embedding costs?
-4. How do platform SLOs differ from a single app's RAG?
+Control plane: tenants, quotas, index configs (embedding version, chunking), billing. Ingestion: connectors/uploads → tenant-partitioned priority queues → CPU/OCR parsing → chunking → batched GPU embedding → writes to vector, BM25, and metadata (doc ID, ACL, version) shards → publish and record freshness. Query: tenant auth → route to the tenant's shards → filtered dense ∥ BM25 → fusion → GPU reranking → chunks or answers. Partitioning queues by tenant prevents one tenant's bulk import from starving others.
 
-## Dimensions
+<Note title="Self-check: you should be able to answer">
 
+1. Each plane's role?
+2. Why partition queues by tenant?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 深挖：索引的分片与分层
+
+### 怎么分片？
+
+| 租户类型 | 方案 | 理由 |
+| --- | --- | --- |
+| 大租户（前 50 家） | **独占分片**（一个或多个） | 隔离彻底、可单独扩容、可满足专属部署；查询无需租户过滤 |
+| 小租户（几千家） | **共享分片**，按租户 ID 分区（namespace） | 避免几千个小索引的管理和资源浪费；检索时按租户过滤（见 [Vector Search](/docs/rag/vector-search) Level 3） |
+
+查询路由表：租户 → 分片位置。大租户增长后可以从共享分片迁到独占分片。
+
+### 冷热分层
+
+大部分租户的大部分数据很少被查询。按访问频率分层：
+
+| 层 | 存储 | 适用 |
+| --- | --- | --- |
+| 热 | 内存中的 HNSW + int8 向量 | 高频查询的租户 |
+| 温 | **磁盘索引（DiskANN 类）**：图在 SSD 上，内存只放压缩向量 | 大多数租户；延迟稍高但成本低得多 |
+| 冷 | 对象存储，查询时按需加载 | 长期不活跃的租户 |
+
+另一个常见组合：**二值量化向量在内存中粗筛 Top-1,000 → int8 / float 向量重排 Top-50**（见 [Embedding](/docs/rag/embedding) Level 2）。
+
+### 查询怎么满足 P95 小于 200 ms？
+
+- 大租户的数据分在多个分片上 → 查询**扇出**到所有分片再合并，尾延迟会被放大（见 [Latency](/docs/production/latency) Level 3）；对分片设超时，允许返回部分结果。
+- 向量检索和 BM25 并行。
+- 重排是 GPU 负载，单独的重排服务池，按 QPS 扩容。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 大租户和小租户分别用什么分片方案？为什么？
+2. 冷热三层各用什么存储？
+3. 大租户扇出到多个分片时，怎样控制尾延迟？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Deep dive: sharding and tiers
+
+Big tenants get dedicated shards (strong isolation, independent scaling, dedicated deployments, no tenant filter); small tenants share shards partitioned by tenant namespace with filtered search; a routing table maps tenants to shards and grown tenants migrate out. Tier by access: hot in-memory HNSW with int8, warm DiskANN-style SSD indexes for most tenants, cold in object storage loaded on demand; or binary shortlists rescored with int8/float. For P95 under 200 ms: fan-out across a big tenant's shards amplifies tails, so time-box shards and accept partial results, run dense and BM25 in parallel, and scale a dedicated GPU reranking pool on QPS.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Sharding for big vs small tenants?
+2. Storage per tier?
+3. Controlling tail latency under fan-out?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 深挖：入库与迁移
+
+### 每天 3,000 万块怎么入库？
+
+- **队列 + 背压**：变更进入按租户分区的队列；某个租户一次导入 1,000 万份文档时，按配额限速，不挤占其他租户（noisy neighbor）。
+- **批量 embedding**：GPU embedding 服务按大批次处理，吞吐比逐条调用高一个数量级；自部署 embedding 模型通常比按 token 付费的 API 便宜得多（每天 120 亿 token）。
+- **增量**：按 `content_hash` 跳过未变化的块（见 [Ingestion](/docs/rag/ingestion) Level 3）。
+- **新鲜度 SLA**：监控“变更 → 可检索”的延迟分布；小更新走高优先级通道，批量导入走低优先级通道，保证日常更新 10 分钟内可见。
+- **删除**：租户删除文档或注销账户时，所有分片、BM25 索引、缓存中的相关块都要删除，并有可验证的完成记录。
+
+### 换 embedding 模型怎么办？
+
+全量重新 embedding 8,000 亿 token、几十亿向量，不能停服。**双索引迁移**：
+
+```text
+1. 新模型在评估集上证明更好（按租户分桶看，不能只看平均）
+2. 建新索引：后台用新模型重新 embedding（低优先级，利用空闲 GPU），可能持续数周
+3. 双写：迁移期间新增 / 更新的文档同时写入新旧两个索引
+4. 按租户切换：先切小租户试点，影子比较检索结果，再逐步切换
+5. 保留旧索引一段时间以便回滚，最后下线
 ```
-1. Requirements
-2. Constraints
-3. Architecture
-4. Data Flow
-5. Model
-6. Retrieval
-7. Agent
-8. Evaluation
-9. Scaling
-10. Latency
-11. Cost
-12. Reliability
-13. Security
-14. Observability
-```
 
-</Locale>
+关键约束：**同一个查询不能混用两个模型的向量**——查询向量和文档向量必须来自同一个模型（见 [Embedding](/docs/rag/embedding) Level 4）。所以切换以租户为单位，一个租户要么全旧、要么全新。
 
-<Locale lang="zh">
+<Note title="自测：到这里你应该能回答">
 
-## 需求
+1. 怎样防止一个租户的大批量导入影响其他租户？
+2. 写出双索引迁移的五个步骤。
+3. 为什么切换要以租户为单位？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Requirements
+## Level 3 · Deep dive: ingestion and migration
+
+Ingest through tenant-partitioned queues with quota-based backpressure (a 10M-document import can't starve others), batched GPU embedding (self-hosting usually beats per-token APIs at ~12B tokens/day), hash-based incremental updates, priority lanes so routine updates meet the 10-minute SLA while bulk imports run slow, and verifiable deletion across shards, BM25, and caches. Changing embedding models: prove gains per tenant, rebuild a new index in the background on idle GPUs (possibly weeks), dual-write during migration, switch tenant by tenant with shadow comparison, keep the old index for rollback. A tenant is entirely old or new, since query and document vectors must share a model.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Preventing bulk imports from hurting others?
+2. The five migration steps?
+3. Why switch per tenant?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 约束
+## Level 4 · 隔离、评估与成本
+
+- **隔离**：分片或 namespace 级隔离；所有查询强制带租户条件（在服务端注入，不信任客户端传入）；缓存键包含租户；定期跨租户负例测试，越权数必须为 0（见 [Knowledge Assistant](/docs/system-design/knowledge-assistant) Level 4）。
+- **配额**：每租户的存储量、入库速率、查询 QPS 上限；超限降级或排队。
+- **按租户评估**：平台提供评估工具，让租户上传标注问题集；平台用合成问题（见 [RAG Eval](/docs/evaluation/rag-eval) Level 4）为没有标注的租户做基线监控；任何平台级变更（切分策略、模型、索引参数）都要在多个代表性租户上回归。
+- **成本**：主要是向量存储（按层计价）、embedding GPU、重排 GPU；按租户的存储量、入库量、查询量归因并计费；冷热分层和量化是最大的降本手段。
+
+## 14 维度速查
+
+| 维度 | 本题关键决策 |
+| --- | --- |
+| 需求 | 多租户 RAG API；检索与问答 |
+| 约束 | 20 亿块；3,000 万块 / 天入库；P95 小于 200 ms；10 分钟新鲜度 |
+| 架构 | 控制面 + 入库面 + 查询面 |
+| 数据流 | 分区队列 → 解析 → 批量 embedding → 分片写入 → 发布 |
+| 模型 | 自部署 embedding 与重排；可选生成 |
+| 检索 | 混合检索；租户过滤；粗筛 + 重排 |
+| 智能体 | 不适用（平台层） |
+| 评测 | 按租户评估；平台变更回归；合成问题基线 |
+| 扩展 | 大租户独占分片、小租户共享；冷热分层；磁盘索引 |
+| 延迟 | 分片扇出超时与部分结果；并行检索 |
+| 成本 | 存储分层、量化、自部署 embedding |
+| 可靠性 | 分片副本；入库重试与死信；双索引可回滚 |
+| 安全 | 服务端注入租户条件；缓存隔离；可验证删除 |
+| 可观测性 | 每租户的新鲜度、检索延迟、召回监控、成本 |
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- 所有向量 float32 全放内存。
+- 每个租户一个独立索引（几千个小索引难以管理）或所有租户一个索引只靠过滤（大租户受影响）——都不区分大小租户。
+- 换 embedding 模型时停服重建。
+- 租户条件由客户端传入。
+
+</Note>
+
+## 连接
+
+- 机制：[Vector Search](/docs/rag/vector-search)、[Embedding](/docs/rag/embedding)、[Ingestion](/docs/rag/ingestion)、[Scaling](/docs/production/scaling)
+- 相关题：[Knowledge Assistant](/docs/system-design/knowledge-assistant)、[RAG Chatbot](/docs/system-design/rag-chatbot)
+
+## 面试问题
+
+1. 设计一个多租户的大规模 RAG 平台。（Design a large-scale multi-tenant RAG platform.）
+2. 20 亿向量怎么存？要多少内存？（How do you store 2B vectors, and how much memory?）
+3. 大租户和小租户怎么分片？（How do you shard big and small tenants?）
+4. 每天 3,000 万块怎么入库并保证新鲜度？（How do you ingest 30M chunks/day and stay fresh?）
+5. 换 embedding 模型怎样不停服迁移？（How do you migrate embedding models without downtime?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Constraints
+## Level 4 · Isolation, eval, cost
+
+Isolate by shard or namespace, inject tenant conditions server-side, key caches by tenant, and run cross-tenant negative tests (zero violations). Enforce per-tenant quotas on storage, ingestion, and QPS. Offer per-tenant eval tooling, synthetic-question baselines for unlabeled tenants, and regression on representative tenants for any platform change. Costs are vector storage by tier, embedding GPUs, and reranking GPUs, attributed per tenant; tiering and quantization are the biggest levers.
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- All vectors in RAM as float32.
+- Treating all tenants alike (thousands of tiny indexes or one shared index).
+- Rebuilding with downtime.
+- Trusting client-supplied tenant IDs.
+
+</Note>
+
+## Connections
+
+- Mechanics: [Vector Search](/docs/rag/vector-search), [Embedding](/docs/rag/embedding), [Ingestion](/docs/rag/ingestion), [Scaling](/docs/production/scaling)
+- Related: [Knowledge Assistant](/docs/system-design/knowledge-assistant), [RAG Chatbot](/docs/system-design/rag-chatbot)
+
+## Interview questions
+
+1. Design a large-scale multi-tenant RAG platform.
+2. How do you store 2B vectors, and how much memory?
+3. How do you shard big and small tenants?
+4. How do you ingest 30M chunks/day and stay fresh?
+5. How do you migrate embedding models without downtime?
 
 </Locale>
-
--
-
-<Locale lang="zh">
-
-## 架构
-
-</Locale>
-
-<Locale lang="en">
-
-## Architecture
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 数据流
-
-</Locale>
-
-<Locale lang="en">
-
-## Data Flow
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 模型
-
-</Locale>
-
-<Locale lang="en">
-
-## Model
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 检索
-
-</Locale>
-
-<Locale lang="en">
-
-## Retrieval
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 智能体
-
-</Locale>
-
-<Locale lang="en">
-
-## Agent
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 评测
-
-</Locale>
-
-<Locale lang="en">
-
-## Evaluation
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 扩展
-
-</Locale>
-
-<Locale lang="en">
-
-## Scaling
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 延迟
-
-</Locale>
-
-<Locale lang="en">
-
-## Latency
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 成本
-
-</Locale>
-
-<Locale lang="en">
-
-## Cost
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可靠性
-
-</Locale>
-
-<Locale lang="en">
-
-## Reliability
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 安全
-
-</Locale>
-
-<Locale lang="en">
-
-## Security
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可观测性
-
-</Locale>
-
-<Locale lang="en">
-
-## Observability
-
-</Locale>
-
--
 
 <Locale lang="zh">
 
@@ -310,6 +365,22 @@ eval service → quality gates
 <Locale lang="en">
 
 ## My answer
+
+</Locale>
+
+- 30s 电梯版:
+
+- 5 分钟白板版:
+
+<Locale lang="zh">
+
+## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
 
 </Locale>
 

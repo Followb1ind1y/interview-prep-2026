@@ -1,307 +1,353 @@
 ---
-title: L3 · Multi-Agent System
-titleEn: L3 · Multi-Agent System
-description: 何时拆、怎么协调、错误如何传播。
-descriptionEn: When to split, how to coordinate, how errors propagate.
-date: 2026-09-07
-keywords: ["multi-agent system"]
+title: L3 · Multi-Agent
+titleEn: L3 · Multi-Agent
+description: 多 agent 研究报告系统：先证明拆分值得、orchestrator-worker 架构、子任务交接合同、并行与汇总、冲突与失败处理、与单 agent 公平比较、15 倍 token 成本的控制。
+descriptionEn: "A multi-agent research-report system: proving the split is worth it, orchestrator-worker architecture, handoff contracts, parallelism and synthesis, conflicts and failures, fair comparison against a single agent, and controlling ~15× token cost."
+date: 2026-10-04
+keywords: ['system design', 'multi-agent', 'orchestrator-worker', 'handoff', 'parallel research', 'synthesis', 'mast', 'token cost']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-设计一个 multi-agent 系统。（Design a multi-agent system.）
+> 题目：设计一个多 agent 系统，为用户生成行业调研报告（例如“比较国内五家主流宠物食品电商的退货政策和物流时效”），需要搜索大量资料、整理成带引用的报告。
 
-<Note title="开口框架">
-每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
+这道题的陷阱是**一上来就画五个 agent 互相聊天**。面试官想听的是：为什么要拆？拆成什么？子 agent 之间怎么交接？怎么证明多 agent 比单 agent 好？机制见 [Multi-Agent](/docs/agent/multi-agent)（特别是 Level 4 的 2025 年实证）。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 面试中的时间 |
+| --- | --- | --- |
+| 0 · 澄清：要不要拆 | 这个任务为什么适合多 agent？ | 5 min |
+| 1 · 高层架构 | orchestrator 和 worker 怎么分工？ | 10 min |
+| 2 · 深挖：交接与汇总 | 子任务怎么描述？结果怎么合并？ | 12 min |
+| 3 · 深挖：失败与冲突 | 子 agent 失败、结果冲突怎么办？ | 8 min |
+| 4 · 评测与成本 | 怎么证明比单 agent 好？15 倍 token 怎么控制？ | 5 min |
+
+## 需要掌握
+
+- 拆分的判断：子任务独立、广度优先、需要上下文隔离
+- orchestrator-worker；子任务的“交接合同”
+- 并行执行、结构化中间结果、带引用的汇总
+- MAST 三类失败；超时与部分结果；冲突呈现
+- 与单 agent 在同一任务集上公平比较；token 与成本控制
+
+</Locale>
+
+<Locale lang="en">
+
+> Design a multi-agent system that produces industry research reports (e.g. "compare return policies and delivery times of five major pet-food retailers"), searching widely and writing a cited report.
+
+The trap is drawing five chatting agents immediately. Interviewers want: why split, into what, how handoffs work, and proof it beats a single agent. See [Multi-Agent](/docs/agent/multi-agent), especially Level 4.
+
+## How to work through this page
+
+| Level | Question it answers | Interview time |
+| --- | --- | --- |
+| 0 · Should we split? | Why does this task suit multiple agents? | 5 min |
+| 1 · High-level design | Orchestrator vs workers? | 10 min |
+| 2 · Deep dive: handoff and synthesis | Describing subtasks, merging results? | 12 min |
+| 3 · Deep dive: failures and conflicts | Failed workers, conflicting findings? | 8 min |
+| 4 · Eval and cost | Beating a single agent, controlling ~15× tokens? | 5 min |
+
+## Must know
+
+- split criteria: independent, breadth-first, context isolation
+- orchestrator-worker and handoff contracts
+- parallelism, structured intermediates, cited synthesis
+- MAST categories, timeouts and partial results, surfacing conflicts
+- fair single-agent comparison; token and cost control
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 澄清：要不要拆
+
+先问清需求（报告长度、时效、来源要求、可接受的成本和时间：本题假设 10–20 分钟、成本 $2 以内、每个结论要有来源），然后**明确论证为什么拆**：
+
+| 判断标准 | 本题 |
+| --- | --- |
+| 子任务是否独立？ | 是：5 家公司的调研互不依赖 |
+| 是否广度优先、需要读大量资料？ | 是：每家要读政策页、新闻、用户评价，总计上百个网页 |
+| 单个上下文装得下吗？ | 不适合：上百个网页塞进一个上下文会 context rot（见 [Context Window](/docs/context/window) Level 4） |
+| 子任务之间需要频繁共享决策吗？ | 很少：只需在最后汇总时对齐比较维度 |
+
+结论：适合 **orchestrator-worker**（Anthropic 的多 agent 研究系统就是这个结构，见 [Multi-Agent](/docs/agent/multi-agent) Level 4）。反例：如果题目是“修改同一个模块的五个函数”，子任务紧耦合，就不该拆（Cognition 的观点）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 用四个标准论证本题为什么适合拆分。
+2. 举一个不该拆分的反例，说明原因。
+
 </Note>
 
-## 本题要练什么
-
-对照 Tariff 项目的 Supervisor。先论证为什么单个 agent 不够，强调隔离和延迟。
-
-## 白板草图
-
 </Locale>
 
 <Locale lang="en">
 
-Design a multi-agent system.
+## Level 0 · Should we split?
 
-<Note title="Opening framework">
-Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+Clarify scope (10–20 minutes, under $2, sourced claims), then justify: the five company investigations are independent and breadth-first over 100+ pages, a single context would rot, and agents only need to align comparison dimensions at synthesis — orchestrator-worker, as in Anthropic's research system. Counterexample: editing five functions in one module is tightly coupled; don't split.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Justify the split with four criteria.
+2. A counterexample and why?
+
 </Note>
 
-## What this problem trains
-
-Compare against the Tariff Supervisor. First argue why a single agent isn't enough, and emphasize isolation and latency.
-
-## Whiteboard sketch
-
 </Locale>
-
-```
-Supervisor
- ├── research agent
- ├── analytics agent
- └── writer agent
- shared state / bus
-```
 
 <Locale lang="zh">
 
-## 容易被追问
+## Level 1 · 高层架构
 
-1. 什么时候应该用 multi-agent？（When should you use multi-agent?）
-2. 用共享记忆还是消息传递？（Shared memory or message passing?）
-3. 怎么防止两个 agent 互相覆盖对方的状态？（How do you stop two agents from overwriting each other's state?）
-4. 成本模型怎么算？（How do you model the cost?）
-
-## 14 个维度
-
-```
-1. 需求（Requirements）
-2. 约束（Constraints）
-3. 架构（Architecture）
-4. 数据流（Data Flow）
-5. 模型（Model）
-6. 检索（Retrieval）
-7. 智能体（Agent）
-8. 评测（Evaluation）
-9. 扩展（Scaling）
-10. 延迟（Latency）
-11. 成本（Cost）
-12. 可靠性（Reliability）
-13. 安全（Security）
-14. 可观测性（Observability）
+```text
+用户请求 ─► 任务服务（后台任务，推送进度）
+              │
+              ▼
+       Orchestrator（强模型）
+         1. 规划：确定比较维度（退货期限、运费、物流时效、例外条款）
+                  和子任务（每家公司一个）
+         2. 派发：为每个子任务写“交接合同”（Level 2）
+              │
+   ┌──────────┼──────────┬──────────┬──────────┐
+   ▼          ▼          ▼          ▼          ▼
+ Worker A   Worker B   Worker C   Worker D   Worker E     （并行，中档模型）
+ 各自独立上下文：web.search / web.fetch，最多 15 轮
+ 输出：结构化发现 + 每条的来源 URL 与原文引用
+   │
+   ▼
+ Orchestrator 汇总：按维度对齐 → 发现缺口时派发补充任务 → 写报告
+   │
+   ▼
+ 引用校验器：检查报告中每个结论能对应到某个 worker 的来源
+   │
+   ▼
+ 报告（带引用）
 ```
 
+<Note title="自测：到这里你应该能回答">
+
+1. 画出 orchestrator-worker 架构。orchestrator 做哪三件事？
+2. 为什么 worker 用中档模型、orchestrator 用强模型？
+
+</Note>
+
 </Locale>
 
 <Locale lang="en">
 
-## Likely follow-ups
+## Level 1 · High-level design
 
-1. When should you use multi-agent?
-2. Shared memory or message passing?
-3. How do you stop two agents from overwriting each other's state?
-4. How do you model the cost?
+A background task service with progress → a strong orchestrator plans comparison dimensions and one subtask per company, writing handoff contracts → five parallel mid-tier workers, each with its own context, `web.search`/`web.fetch`, ≤ 15 turns, returning structured findings with URLs and quotes → the orchestrator aligns by dimension, dispatches gap-filling tasks, and writes the report → a citation checker maps every claim to a worker source.
 
-## Dimensions
+<Note title="Self-check: you should be able to answer">
 
+1. Draw it; the orchestrator's three jobs?
+2. Why a strong orchestrator and mid-tier workers?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 深挖：交接与汇总
+
+### 交接合同里写什么？
+
+子 agent 看不到 orchestrator 的上下文，交接描述不清是多 agent 失败的头号原因（MAST 的“规格与系统设计问题”）。合同要写清：
+
+```text
+目标：调研“喵喵粮仓”的退货政策和物流时效
+必须回答的维度：
+  - 退货期限（签收后几天）
+  - 退货运费谁承担
+  - 平均配送时效（一线城市 / 其他）
+  - 主要例外条款
+来源要求：优先官网政策页；新闻和评价仅作补充，需标注
+输出格式：JSON，每个维度 {value, source_url, quote, confidence}；找不到写 null，不要推测
+边界：只调研这一家；不要比较其他公司
+预算：最多 15 轮工具调用
 ```
-1. Requirements
-2. Constraints
-3. Architecture
-4. Data Flow
-5. Model
-6. Retrieval
-7. Agent
-8. Evaluation
-9. Scaling
-10. Latency
-11. Cost
-12. Reliability
-13. Security
-14. Observability
-```
 
-</Locale>
+这和 [Multi-Agent](/docs/agent/multi-agent) Level 2 的“把 worker 当成不可信外部服务”一致：**输入合同明确、输出结构化、可校验**。
 
-<Locale lang="zh">
+### 结果怎么汇总？
 
-## 需求
+- worker 输出**结构化数据**（不是长篇文字），orchestrator 可以直接按维度对齐成表。
+- 发现缺口（D 公司的运费没找到）→ 派发一个针对性的补充任务，而不是重新调研整家公司。
+- 写报告时每个结论引用 worker 提供的来源；引用校验器确认来源存在且原文支持。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 交接合同要包含哪六部分？
+2. 为什么 worker 要输出结构化数据而不是长文？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Requirements
+## Level 2 · Deep dive: handoff and synthesis
+
+Workers can't see the orchestrator's context, so unclear handoffs are the top failure (MAST's specification category). Contracts state goal, required dimensions, source priorities, structured output (`value, source_url, quote, confidence`, null instead of guesses), boundaries, and budget. Structured worker output lets the orchestrator align dimensions into a table, dispatch targeted gap-filling tasks, and cite verified sources.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Six parts of a handoff contract?
+2. Why structured worker output?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 约束
+## Level 3 · 深挖：失败与冲突
+
+| 情况 | 处理 |
+| --- | --- |
+| worker 超时 / 超预算 | 返回已找到的部分结果并标注未完成的维度；不阻塞其他 worker |
+| worker 失败 | 重试一次（换查询策略）；仍失败则报告中标注“该公司数据缺失” |
+| 两个来源冲突（官网说 7 天，新闻说 15 天） | 两个都保留，报告中说明冲突和各自的日期，优先官方来源 |
+| worker 越界（开始比较其他公司） | 合同约束 + orchestrator 只取合同规定的字段 |
+| orchestrator 漏验证 | 引用校验器作为独立步骤（MAST 的“任务验证不足”） |
+
+<Note title="自测：到这里你应该能回答">
+
+1. worker 超时应该怎么处理？
+2. 来源冲突为什么要保留两者，而不是选一个？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Constraints
+## Level 3 · Deep dive: failures and conflicts
+
+Timeouts return partial results with unfinished dimensions marked; failures retry once with a new strategy, then report missing data; conflicting sources are both kept with dates, preferring official ones; scope creep is bounded by contracts and field selection; an independent citation checker covers MAST's verification gap.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Handling a worker timeout?
+2. Why keep both conflicting sources?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 架构
+## Level 4 · 评测与成本
+
+### 怎么证明多 agent 比单 agent 好？
+
+在**同一组调研任务**上比较（见 [Multi-Agent](/docs/agent/multi-agent) Level 3）：
+
+| 指标 | 单 agent | 多 agent |
+| --- | --- | --- |
+| 维度覆盖率（必答维度中找到有来源答案的比例） | | |
+| 结论正确率（人工核对抽样） | | |
+| 引用支持率 | | |
+| 完成时间 | | |
+| 每份报告成本 | | |
+| 协调失败率（越界、遗漏、重复） | | |
+
+只有当质量提升能覆盖成本增加时才值得。
+
+### 15 倍 token 怎么控制？
+
+- worker 用中档模型，orchestrator 才用强模型。
+- worker 只返回结构化发现，不返回原始网页——orchestrator 的上下文保持小。
+- 每个 worker 有轮数和 token 上限；整个任务有总预算。
+- 简单问题（“喵喵粮仓退货期限是几天”）路由到单 agent 或普通 AI 搜索，不启动多 agent。
+
+## 14 维度速查
+
+| 维度 | 本题关键决策 |
+| --- | --- |
+| 需求 | 带引用的多公司对比报告 |
+| 约束 | 10–20 分钟、$2 以内 |
+| 架构 | orchestrator-worker；后台任务 |
+| 数据流 | 规划 → 并行调研 → 结构化汇总 → 补缺 → 写作 → 引用校验 |
+| 模型 | 强 orchestrator + 中档 worker |
+| 检索 | worker 用网页搜索与抓取 |
+| 智能体 | 多 agent，仅在任务可独立拆分时 |
+| 评测 | 与单 agent 同任务对比；覆盖率、正确率、成本 |
+| 扩展 | worker 并行；全局并发与 TPM 配额 |
+| 延迟 | 后台任务，推送进度 |
+| 成本 | 分层模型、结构化返回、预算上限、路由 |
+| 可靠性 | 部分结果、重试一次、缺失标注 |
+| 安全 | 网页内容当数据；worker 无写工具 |
+| 可观测性 | 每个 worker 的轨迹、轮数、成本、失败原因 |
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- 不论证就上多 agent。
+- 让 agent 之间自由对话协商。
+- worker 把原始网页全文传回 orchestrator。
+- 不和单 agent 比较。
+
+</Note>
+
+## 连接
+
+- 机制：[Multi-Agent](/docs/agent/multi-agent)、[Isolation](/docs/context/isolation) Level 4、[Workflow vs Agent](/docs/agent/workflow-vs-agent) Level 3
+- 相关题：[AI Search](/docs/system-design/ai-search)（深度研究模式）、[AI Agent](/docs/system-design/ai-agent)
+
+## 面试问题
+
+1. 设计一个多 agent 调研报告系统。（Design a multi-agent research-report system.）
+2. 为什么这个任务适合多 agent？什么任务不适合？（Why does this task suit multiple agents, and what doesn't?）
+3. 子任务交接要写清什么？（What goes into a subtask handoff?）
+4. 子 agent 失败或结果冲突怎么办？（What if workers fail or disagree?）
+5. 怎样证明多 agent 比单 agent 好？（How do you prove multi-agent beats single-agent?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Architecture
+## Level 4 · Eval and cost
+
+Compare against a single agent on the same tasks: dimension coverage, sampled correctness, citation support, time, cost per report, coordination failures — split only if quality gains cover cost. Control ~15× tokens with mid-tier workers, structured returns instead of raw pages, per-worker and total budgets, and routing simple questions to a single agent or plain AI search.
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- Multi-agent without justification.
+- Free-form agent negotiation.
+- Workers returning raw pages.
+- No single-agent baseline.
+
+</Note>
+
+## Connections
+
+- Mechanics: [Multi-Agent](/docs/agent/multi-agent), [Isolation](/docs/context/isolation) Level 4, [Workflow vs Agent](/docs/agent/workflow-vs-agent) Level 3
+- Related: [AI Search](/docs/system-design/ai-search), [AI Agent](/docs/system-design/ai-agent)
+
+## Interview questions
+
+1. Design a multi-agent research-report system.
+2. Why does this task suit multiple agents, and what doesn't?
+3. What goes into a subtask handoff?
+4. What if workers fail or disagree?
+5. How do you prove multi-agent beats single-agent?
 
 </Locale>
-
--
-
-<Locale lang="zh">
-
-## 数据流
-
-</Locale>
-
-<Locale lang="en">
-
-## Data Flow
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 模型
-
-</Locale>
-
-<Locale lang="en">
-
-## Model
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 检索
-
-</Locale>
-
-<Locale lang="en">
-
-## Retrieval
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 智能体
-
-</Locale>
-
-<Locale lang="en">
-
-## Agent
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 评测
-
-</Locale>
-
-<Locale lang="en">
-
-## Evaluation
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 扩展
-
-</Locale>
-
-<Locale lang="en">
-
-## Scaling
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 延迟
-
-</Locale>
-
-<Locale lang="en">
-
-## Latency
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 成本
-
-</Locale>
-
-<Locale lang="en">
-
-## Cost
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可靠性
-
-</Locale>
-
-<Locale lang="en">
-
-## Reliability
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 安全
-
-</Locale>
-
-<Locale lang="en">
-
-## Security
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可观测性
-
-</Locale>
-
-<Locale lang="en">
-
-## Observability
-
-</Locale>
-
--
 
 <Locale lang="zh">
 
@@ -312,6 +358,22 @@ Supervisor
 <Locale lang="en">
 
 ## My answer
+
+</Locale>
+
+- 30s 电梯版:
+
+- 5 分钟白板版:
+
+<Locale lang="zh">
+
+## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
 
 </Locale>
 

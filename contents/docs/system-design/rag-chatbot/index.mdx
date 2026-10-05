@@ -1,306 +1,451 @@
 ---
 title: L1 · RAG Chatbot
 titleEn: L1 · RAG Chatbot
-description: 最基本的 RAG 白板。5 分钟画出 production pipeline。
-descriptionEn: Baseline RAG whiteboard. Draw a production pipeline in five minutes.
-date: 2026-09-07
-keywords: ["rag chatbot", "system design"]
+description: 最基础的 RAG 白板题：澄清需求与容量估算、离线 / 在线两条流水线、检索与 context 组装深挖、无答案与引用、评测与成本。45 分钟讲完一个可上线的设计。
+descriptionEn: "The baseline RAG whiteboard: clarify and estimate, offline and online pipelines, retrieval and context deep dives, no-answer handling and citations, evaluation and cost — a shippable design in 45 minutes."
+date: 2026-10-04
+keywords: ['system design', 'rag chatbot', 'hybrid search', 'reranking', 'citations', 'no-answer', 'evaluation']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-设计一个 RAG 聊天机器人。（Design a RAG chatbot.）
+> 题目：为一家电商公司设计一个面向客户的帮助中心聊天机器人，回答退货、配送、支付等政策问题。
 
-<Note title="开口框架">
-每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
+这是 AI 系统设计的“第一题”，后面的知识助手、客服、AI 搜索都是在它上面加东西。它考的不是你知道 RAG，而是你能不能**在 45 分钟内把一个可上线的系统讲清楚**：问对问题、估出量级、画出两条流水线、挑两个点深挖、讲清怎么评测和兜底。
+
+前置知识：[RAG Architecture](/docs/rag/architecture) 和 RAG 栏目其余页面。本页不重复机制，只练**怎样组织成一个设计答案**。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 面试中的时间 |
+| --- | --- | --- |
+| 0 · 澄清与估算 | 先问什么？量级多大？ | 5 min |
+| 1 · 高层架构 | 两条流水线怎么画？一次请求怎么走？ | 10 min |
+| 2 · 深挖：检索质量 | 怎样保证找得到、找得准？ | 10 min |
+| 3 · 深挖：回答质量 | 引用、无答案、多轮对话怎么处理？ | 8 min |
+| 4 · 评测、可靠性与成本 | 怎么证明它好？挂了怎么办？花多少钱？ | 7 min |
+| 14 维度速查 | 每个维度这道题的关键决策 | 复习用 |
+
+## 需要掌握
+
+- 开场 5 分钟的澄清问题与假设
+- 容量估算：文档量、QPS、索引大小、每月成本
+- 离线 / 在线流水线与每块元数据
+- 混合检索 + 重排的理由；引用与“不知道”
+- 多轮对话的查询改写
+- 分层评测；降级方案；成本结构
+
+</Locale>
+
+<Locale lang="en">
+
+> Design a customer-facing help-center chatbot for an e-commerce company that answers return, shipping, and payment policy questions.
+
+This is the first AI system design problem; knowledge assistants, support bots, and AI search build on it. It tests whether you can present a shippable system in 45 minutes: ask the right questions, size it, draw both pipelines, go deep on two areas, and explain evaluation and fallbacks.
+
+Prereqs: [RAG Architecture](/docs/rag/architecture) and the RAG section. This page practices organizing an answer.
+
+## How to work through this page
+
+| Level | Question it answers | Interview time |
+| --- | --- | --- |
+| 0 · Clarify and estimate | What to ask first? How big? | 5 min |
+| 1 · High-level design | How do the pipelines and a request flow? | 10 min |
+| 2 · Deep dive: retrieval | How do you find the right evidence? | 10 min |
+| 3 · Deep dive: answers | Citations, no-answer, multi-turn? | 8 min |
+| 4 · Eval, reliability, cost | How do you prove it, survive failures, and pay for it? | 7 min |
+
+## Must know
+
+- opening questions and assumptions; capacity estimates
+- both pipelines and chunk metadata
+- hybrid + rerank; citations and abstention; multi-turn rewriting
+- layered evaluation, degradation, cost structure
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 澄清需求与估算
+
+### 开场先问什么？
+
+不要一上来就画图。用 3–5 分钟问清楚，并**把假设说出来写在白板上**：
+
+| 问题 | 为什么重要 | 本题假设 |
+| --- | --- | --- |
+| 用户是谁？公开还是登录后？ | 决定权限与个性化 | 登录与未登录都可用；本版只答公开政策，不查个人订单 |
+| 资料有多少、什么格式、多久更新？ | 决定解析、索引、新鲜度 | 约 2,000 篇帮助文章与政策（HTML + PDF），每周更新几十篇 |
+| 语言？ | 决定 embedding 与分词 | 中英双语 |
+| 流量与延迟要求？ | 决定容量与模型选择 | 日活 5 万，首个有用内容 1.5 s 内 |
+| 答错的代价？ | 决定引用、拒答、转人工 | 政策答错会引发投诉和赔付，必须有引用，不确定就转人工 |
+| 成功怎么衡量？ | 决定评测 | 自动解决率、转人工率、答案正确率 |
+
+一句话收尾：“所以这是一个**只读、公开知识、需要引用、中等规模**的 RAG 系统，不涉及订单操作——那是 [Customer Support](/docs/system-design/customer-support) 的范围。”
+
+### 量级估算
+
+```text
+文档：2,000 篇 × 平均 3,000 token ≈ 600 万 token
+切块：约 500 token / 块 → 约 1.2 万块（加重叠约 1.5 万）
+向量：1.5 万 × 1,024 维 × 4 字节 ≈ 60 MB      → 单机内存轻松放下，pgvector 足够
+流量：5 万日活 × 2 次 = 10 万请求 / 天 ≈ 平均 1.2 QPS，峰值约 10 QPS
+在途并发：10 QPS × 4 s ≈ 40（见 Scaling 的 Little's Law）
+```
+
+结论要说出来：“**数据规模很小，难点不在扩展，而在检索质量和回答可靠性**”——这决定了后面深挖什么。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 列出开场要问的五个问题，并说明各自影响什么设计决策。
+2. 不看笔记，估算向量存储和峰值并发。
+3. 为什么这道题的深挖重点不是扩展？
+
 </Note>
 
-## 本题要练什么
-
-数据入库、切块、embedding、混合检索、重排、context 拼装、LLM 生成、引用来源、无答案处理。对照 [RAG Architecture](/docs/rag/architecture)。
-
-## 白板草图
-
 </Locale>
 
 <Locale lang="en">
 
-Design a RAG chatbot.
+## Level 0 · Clarify and estimate
 
-<Note title="Opening framework">
-Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+### What do you ask first?
+
+Spend 3–5 minutes and write assumptions down: users (public and logged-in; public policy only, no personal orders), corpus (~2,000 HTML/PDF articles, dozens updated weekly), languages (Chinese and English), traffic and latency (50K DAU, first useful content within 1.5 s), cost of errors (complaints and payouts — citations required, escalate when unsure), success metrics (auto-resolution, escalation, accuracy). Conclude: read-only, public knowledge, citations, moderate scale — order actions belong to [Customer Support](/docs/system-design/customer-support).
+
+### Sizing
+
+~6M tokens → ~15K chunks → ~60 MB of vectors (pgvector is plenty); 100K requests/day ≈ 1.2 average and ~10 peak QPS; ~40 in flight. Say it: the hard part is quality, not scale.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Five opening questions and the decisions they drive?
+2. Estimate vector storage and peak concurrency.
+3. Why isn't scaling the deep dive here?
+
 </Note>
 
-## What this problem trains
-
-Ingestion, chunking, embedding, hybrid search, reranking, context assembly, the LLM call, citations, and no-answer handling. Compare against [RAG Architecture](/docs/rag/architecture).
-
-## Whiteboard sketch
-
 </Locale>
-
-```
-User → API → Retriever → Rerank → LLM → Answer + citations
-Docs → parse → chunk → embed → Vector DB + BM25
-```
 
 <Locale lang="zh">
 
-## 容易被追问
+## Level 1 · 高层架构与数据流
 
-1. 怎么选 chunk size？（How do you choose chunk size?）
-2. 为什么要用混合检索？（Why hybrid search?）
-3. RAG 答错了，你查什么？（RAG answer is wrong. What do you investigate?）
-4. 没有答案的查询怎么处理？（How do you handle no-answer queries?）
-5. 怎么降低 RAG 的延迟？（How would you reduce RAG latency?）
+### 两条流水线怎么画？
 
-## 14 个维度
+```text
+离线（文档更新时）
+  CMS / 文件库 ──变更事件──► 解析（HTML 正文 / PDF 版面分析）
+     → 清洗、去重、版本判定 → 按章节切块（带标题）
+     → Embedding ─► 向量索引（pgvector）
+     → 分词 ──────► BM25 索引
+     每块：chunk_id, doc_id, version, effective_from, section, url, lang, content_hash
 
-```
-1. 需求（Requirements）
-2. 约束（Constraints）
-3. 架构（Architecture）
-4. 数据流（Data Flow）
-5. 模型（Model）
-6. 检索（Retrieval）
-7. 智能体（Agent）
-8. 评测（Evaluation）
-9. 扩展（Scaling）
-10. 延迟（Latency）
-11. 成本（Cost）
-12. 可靠性（Reliability）
-13. 安全（Security）
-14. 可观测性（Observability）
+在线（每个问题）
+  用户 ─► API 网关（鉴权、限流）─► 对话服务
+     → 查询改写（结合历史补全指代）
+     → 向量检索 ∥ BM25 检索（同样的语言 / 版本过滤）
+     → RRF 融合 Top-50 → 交叉编码器重排 Top-5（低于阈值 → 无答案分支）
+     → 组装 context（带 chunk_id）→ LLM 流式生成（要求引用）
+     → 校验引用 → 返回答案 + 来源链接
+     → trace（查询、候选、名次、选入块、引用、延迟、token）
 ```
 
-</Locale>
+### 一次请求怎么走、各花多少时间？
 
-<Locale lang="en">
-
-## Likely follow-ups
-
-1. How do you choose chunk size?
-2. Why hybrid search?
-3. RAG answer is wrong. What do you investigate?
-4. How do you handle no-answer queries?
-5. How would you reduce RAG latency?
-
-## Dimensions
-
-```
-1. Requirements
-2. Constraints
-3. Architecture
-4. Data Flow
-5. Model
-6. Retrieval
-7. Agent
-8. Evaluation
-9. Scaling
-10. Latency
-11. Cost
-12. Reliability
-13. Security
-14. Observability
+```text
+鉴权 + 改写（小模型）   300 ms
+检索两路并行            50 ms
+重排 50 个候选          120 ms
+LLM 首 token           600 ms
+────────────────────────────
+首 token ≈ 1.07 s；完整回答再加约 200 token × 25 ms ≈ 5 s 内完成
 ```
 
-</Locale>
+满足“1.5 s 内出现首个有用内容”。如果紧张，第一个可以省的是查询改写：只在多轮对话中触发（见 [Latency](/docs/production/latency)）。
 
-<Locale lang="zh">
+<Note title="自测：到这里你应该能回答">
 
-## 需求
+1. 不看笔记画出两条流水线，标出每块必带的元数据。
+2. 估算首 token 时间。哪一步最先可以优化？
 
-</Locale>
-
-<Locale lang="en">
-
-## Requirements
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 约束
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Constraints
+## Level 1 · High-level design
+
+### Two pipelines
+
+Offline: CMS change events → parse (HTML main content, PDF layout analysis) → clean, dedupe, version → chunk by section with headings → embeddings into pgvector and a BM25 index, each chunk carrying `chunk_id`, `doc_id`, version, effective date, section, URL, language, hash. Online: gateway (auth, rate limits) → query rewriting with history → dense ∥ BM25 with identical filters → RRF top-50 → cross-encoder top-5 (below threshold → no-answer branch) → cited context → streamed generation → citation check → answer with links → trace.
+
+### Latency walk
+
+Rewrite 300 ms + retrieval 50 ms + rerank 120 ms + first token 600 ms ≈ 1.07 s; full answer in ~5 s. Trim rewriting to multi-turn only if needed.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Draw both pipelines with metadata.
+2. Estimate time to first token and the first thing to cut.
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 架构
+## Level 2 · 深挖：检索质量
+
+面试官通常会挑一个方向追问。检索是最常见的一个，准备好四个点：
+
+### 1. 怎么切块？
+
+帮助文章结构清晰，**按标题 / 章节切**，过长再递归切分，每块带上文章标题和章节标题；FAQ 一问一答一块；表格按行带表头。不要说“固定 512”——说“从结构切分开始，用评估集比较两三种方案”（见 [Chunking](/docs/rag/chunking)）。
+
+### 2. 为什么混合检索？
+
+用户既会问“东西还没到能退吗”（语义），也会问“运费险条款 T-08”（编号）。向量和 BM25 各漏一类，用 RRF 融合（见 [Hybrid Search](/docs/rag/hybrid-search)）。中文 BM25 要配分词器和业务词典。
+
+### 3. 为什么要重排？
+
+召回阶段分不清“未发货可以退款”和“运输中不适用未发货退款”这种条件相反的段落；交叉编码器重排能区分，代价约 100–200 ms（见 [Reranking](/docs/rag/reranking)）。
+
+### 4. 政策更新了怎么办？
+
+文档系统发出变更事件 → 增量重新解析、按 `content_hash` 只更新变化的块 → 原子发布；旧版本按生效日期过滤掉；监控“文档更新到可检索”的延迟（见 [Ingestion](/docs/rag/ingestion)）。
+
+<Note type="tip" title="讲深挖的节奏">
+
+每个点按“**问题 → 方案 → 代价 → 怎么验证**”四句话讲完。例如：“编号查询向量检索会漏（问题），所以加 BM25 用 RRF 融合（方案），多一路检索约 20 ms（代价），我会按查询类型分桶看召回率（验证）。”
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 用“问题 → 方案 → 代价 → 验证”讲一遍为什么要重排。
+2. 政策更新后多久能被检索到？怎么监控？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Architecture
+## Level 2 · Deep dive: retrieval
+
+Prepare four points: chunk by section with headings (FAQs one pair per chunk, table rows with headers), compared on an eval set; hybrid search because users ask both paraphrases and clause IDs (RRF; Chinese BM25 needs segmentation and a business dictionary); reranking to separate near-opposite clauses at ~100–200 ms; policy updates via change events, hash-based incremental reindexing, atomic publish, version filters, and freshness monitoring.
+
+<Note type="tip" title="Deep-dive rhythm">
+
+Problem → solution → cost → validation, one sentence each.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Explain reranking in that four-sentence rhythm.
+2. How fast do updates become searchable, and how do you monitor it?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 数据流
+## Level 3 · 深挖：回答质量
+
+### 引用怎么做？
+
+prompt 要求模型对每个结论标注 `chunk_id`；返回前**校验**：引用的 ID 必须在本次 context 里存在；前端把 ID 渲染成可点击的来源链接。抽样用 judge 检查“引用的块是否真的支持这句话”（faithfulness，见 [RAG Eval](/docs/evaluation/rag-eval)）。
+
+### 资料里没有答案怎么办？
+
+这是面试官最爱问的点之一。三层防线：
+
+1. **检索层**：重排最高分低于校准过的阈值 → 不调用生成模型，直接走“无答案”回复。
+2. **生成层**：prompt 明确“资料不足时说明无法确定，不要推测”；结构化输出里有 `answerable: false` 字段。
+3. **产品层**：无答案时给出“联系人工客服”按钮，并把问题记录下来——高频无答案问题就是**缺失内容的清单**，交给运营补文档。
+
+### 多轮对话怎么处理？
+
+用户第二轮问“那国际订单呢？”。检索前用小模型结合最近几轮对话把它改写成“国际订单退货政策”（见 [Advanced RAG](/docs/rag/advanced) Level 1）。对话历史只保留最近几轮和摘要，避免 context 无限增长。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 无答案处理的三层防线是什么？为什么无答案问题要记录下来？
+2. 引用怎么校验？
+3. 第二轮问题为什么不能直接拿去检索？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Data Flow
+## Level 3 · Deep dive: answers
+
+Citations: the model tags claims with `chunk_id`s, the server verifies IDs exist in this context, the UI links them, and sampled judges check support. No answer: a calibrated reranker threshold skips generation, the prompt and an `answerable` field forbid guessing, and the product offers a human handoff while logging the question — frequent no-answer questions are your missing-content backlog. Multi-turn: rewrite follow-ups like "what about international orders?" with recent history before retrieval; keep recent turns plus a summary.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Three layers of no-answer handling, and why log them?
+2. How are citations verified?
+3. Why not retrieve with the raw follow-up?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 模型
+## Level 4 · 评测、可靠性、安全与成本
+
+### 怎么证明它好？
+
+| 阶段 | 做法 |
+| --- | --- |
+| 离线 | 300 道标注问题（覆盖常见问题、编号查询、多轮、无答案、中英文），分层看 Recall@5、faithfulness、答案正确率、无答案识别率 |
+| 上线前 | 影子流量 + 小比例灰度 |
+| 线上 | 自动解决率、转人工率、点赞 / 点踩、抽样 judge 评分、无答案比例、引用覆盖率 |
+
+（见 [Offline](/docs/evaluation/offline)、[Production Eval](/docs/evaluation/production-eval)。）
+
+### 挂了怎么办？
+
+- 主模型不可用 → 备用模型（评估过的）→ 只返回检索到的原文段落和链接（无生成）→ 转人工。
+- 检索服务不可用 → 直接提示“暂时无法查询，请联系人工”，**不让模型凭记忆回答政策**（见 [Reliability](/docs/production/reliability) Level 3）。
+
+### 安全
+
+公开知识，风险较低，但仍要：prompt injection 防护（文档内容当数据）、不泄露 system prompt、限流防刷、输出过滤（不承诺资料以外的赔付）。
+
+### 花多少钱？
+
+```text
+10 万请求 / 天 × (输入 4,000 token × $3/M + 输出 300 token × $15/M)
+= 10 万 × ($0.012 + $0.0045) ≈ $1,650 / 天 ≈ $5 万 / 月
+system prompt + 固定说明约 1,500 token 可前缀缓存 → 输入成本降约三成
+简单 FAQ 路由到小模型 → 再降一大截
+```
+
+（价格为示意，见 [Cost](/docs/production/cost)。）
+
+<Note title="自测：到这里你应该能回答">
+
+1. 离线评估集要覆盖哪五类问题？
+2. 检索服务挂了，为什么不能让模型凭记忆回答？
+3. 估算月成本，并说出两个降本手段。
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Model
+## Level 4 · Evaluation, reliability, security, cost
+
+Evaluation: ~300 labeled questions across common, ID, multi-turn, no-answer, and bilingual cases, measured by Recall@5, faithfulness, accuracy, and abstention; shadow and canary; online resolution, escalation, feedback, judged samples, no-answer rate, citation coverage. Reliability: backup model → retrieved passages with links only → human; if retrieval is down, say so rather than answering from memory. Security: treat documents as data, protect the system prompt, rate-limit, don't promise beyond policy. Cost: 100K requests × ($0.012 + $0.0045) ≈ $1,650/day ≈ $50K/month at illustrative prices; prefix caching and small-model routing cut it substantially.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Five question types for the offline set?
+2. Why not answer from memory when retrieval fails?
+3. Monthly cost and two levers?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 检索
+## 14 维度速查
+
+| 维度 | 本题关键决策 |
+| --- | --- |
+| 需求 | 只读、公开政策问答；引用；不确定转人工 |
+| 约束 | 2,000 篇、每周更新、中英文、首内容 1.5 s |
+| 架构 | 离线入库 + 在线 RAG；单体服务即可 |
+| 数据流 | 变更事件 → 增量索引；请求 → 改写 → 混合检索 → 重排 → 生成 |
+| 模型 | 中档模型生成；小模型改写；交叉编码器重排 |
+| 检索 | 结构切分；向量 + BM25 + RRF；重排 + 阈值 |
+| 智能体 | 不需要——流程固定，用 workflow |
+| 评测 | 300 题分层离线集；线上解决率与抽样 judge |
+| 扩展 | 规模小，pgvector 单机；无需分布式 |
+| 延迟 | 首 token 约 1.1 s；流式输出 |
+| 成本 | 约 $5 万 / 月量级；缓存与路由降本 |
+| 可靠性 | 备用模型 → 只返回原文 → 转人工 |
+| 安全 | 文档当数据；限流；输出不越权承诺 |
+| 可观测性 | 每次请求的候选、名次、引用、token、延迟 |
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- 不问需求直接画图。
+- “用 agent 来做”。（流程固定，不需要）
+- 没有无答案处理。
+- 说“用 Kafka + 分布式向量库”——规模根本不需要。
+
+</Note>
+
+## 连接
+
+- 机制：[RAG Architecture](/docs/rag/architecture)、[Hybrid Search](/docs/rag/hybrid-search)、[Reranking](/docs/rag/reranking)、[Failure Diagnosis](/docs/rag/debugging)
+- 下一题：[Knowledge Assistant](/docs/system-design/knowledge-assistant)（加权限）、[Customer Support](/docs/system-design/customer-support)（加工具与动作）
+
+## 面试问题
+
+1. 设计一个面向客户的 RAG 聊天机器人。（Design a customer-facing RAG chatbot.）
+2. chunk size 怎么选？（How do you choose chunk size?）
+3. 为什么用混合检索？（Why hybrid search?）
+4. 没有答案的问题怎么处理？（How do you handle unanswerable questions?）
+5. 怎么降低延迟？（How would you reduce latency?）
+6. RAG 答错了，你查什么？（The answer is wrong — what do you investigate?）
+7. 政策更新后如何保证不再引用旧版？（How do you stop citing outdated policy?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Retrieval
+## 14-dimension cheat sheet
+
+Requirements: read-only cited policy Q&A with escalation. Constraints: 2K docs, weekly updates, bilingual, 1.5 s. Architecture: offline ingestion + online RAG in one service. Data flow: change events → incremental index; request → rewrite → hybrid → rerank → generate. Model: mid-tier generator, small rewriter, cross-encoder. Retrieval: structural chunks, dense + BM25 + RRF, rerank + threshold. Agent: none — a workflow. Evaluation: 300-question layered set; online resolution and judged samples. Scaling: single-node pgvector. Latency: ~1.1 s first token, streamed. Cost: ~$50K/month order; caching and routing. Reliability: backup model → passages only → human. Security: documents as data, rate limits, no over-promising. Observability: candidates, ranks, citations, tokens, latency per request.
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- Drawing before clarifying.
+- "Use an agent." (The flow is fixed.)
+- No unanswerable handling.
+- Kafka and distributed vector DBs for 15K chunks.
+
+</Note>
+
+## Connections
+
+- Mechanics: [RAG Architecture](/docs/rag/architecture), [Hybrid Search](/docs/rag/hybrid-search), [Reranking](/docs/rag/reranking), [Failure Diagnosis](/docs/rag/debugging)
+- Next: [Knowledge Assistant](/docs/system-design/knowledge-assistant), [Customer Support](/docs/system-design/customer-support)
+
+## Interview questions
+
+1. Design a customer-facing RAG chatbot.
+2. How do you choose chunk size?
+3. Why hybrid search?
+4. How do you handle unanswerable questions?
+5. How would you reduce latency?
+6. The answer is wrong — what do you investigate?
+7. How do you stop citing outdated policy?
 
 </Locale>
-
--
-
-<Locale lang="zh">
-
-## 智能体
-
-</Locale>
-
-<Locale lang="en">
-
-## Agent
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 评测
-
-</Locale>
-
-<Locale lang="en">
-
-## Evaluation
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 扩展
-
-</Locale>
-
-<Locale lang="en">
-
-## Scaling
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 延迟
-
-</Locale>
-
-<Locale lang="en">
-
-## Latency
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 成本
-
-</Locale>
-
-<Locale lang="en">
-
-## Cost
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可靠性
-
-</Locale>
-
-<Locale lang="en">
-
-## Reliability
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 安全
-
-</Locale>
-
-<Locale lang="en">
-
-## Security
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可观测性
-
-</Locale>
-
-<Locale lang="en">
-
-## Observability
-
-</Locale>
-
--
 
 <Locale lang="zh">
 
@@ -311,6 +456,22 @@ Docs → parse → chunk → embed → Vector DB + BM25
 <Locale lang="en">
 
 ## My answer
+
+</Locale>
+
+- 30s 电梯版:
+
+- 5 分钟白板版:
+
+<Locale lang="zh">
+
+## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
 
 </Locale>
 

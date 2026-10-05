@@ -1,307 +1,396 @@
 ---
-title: L4 · ChatGPT-like System
-titleEn: L4 · ChatGPT-like System
-description: 会话、记忆、工具、多模型、流式、安全。
-descriptionEn: Sessions, memory, tools, routing, streaming, safety.
-date: 2026-09-07
-keywords: ["chatgpt", "assistant platform"]
+title: L4 · ChatGPT-like
+titleEn: L4 · ChatGPT-like
+description: 设计一个亿级用户的对话产品：容量估算到 GPU 规模、流式连接的网关、按套餐与难度的模型路由、会话存储与上下文管理、记忆与工具（搜索、代码执行、文件）、限流与安全审核、按套餐的成本控制。
+descriptionEn: "Design a chat product for hundreds of millions of users: capacity down to GPUs, streaming gateways, routing by plan and difficulty, conversation storage and context, memory and tools (search, code execution, files), rate limits and moderation, and cost by plan."
+date: 2026-10-04
+keywords: ['system design', 'chatgpt', 'llm serving', 'streaming', 'model routing', 'conversation storage', 'memory', 'tools', 'rate limiting', 'moderation', 'capacity planning']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-设计一个类 ChatGPT 的系统。（Design a ChatGPT-like system.）
+> 题目：设计一个类似 ChatGPT 的对话产品，支持数千万日活用户，提供免费和付费套餐、多种模型、联网搜索、代码执行、文件上传和长期记忆。
 
-<Note title="开口框架">
-每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
+这是最“大”的一道题：它把前面所有题都包含进去了（RAG、工具、agent、记忆），同时加上了**真正的规模问题**。面试官会看你能否：从用户数估算到 GPU 数量、处理几十万条同时在流式输出的连接、在质量和成本之间按套餐做路由、在亿级规模下做安全审核。不需要每块都深挖——**挑两块讲透**，其他点到为止。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 面试中的时间 |
+| --- | --- | --- |
+| 0 · 澄清与估算 | 多少 QPS？多少 token？要多少 GPU？ | 7 min |
+| 1 · 高层架构 | 从客户端到模型的完整链路 | 10 min |
+| 2 · 深挖：服务与路由 | 怎样扛住流量、按套餐分配模型？ | 10 min |
+| 3 · 深挖：会话、记忆与工具 | 长对话、跨会话记忆、工具执行怎么设计？ | 10 min |
+| 4 · 安全、可靠性与成本 | 审核、限流、降级、免费用户的成本 | 5 min |
+
+## 需要掌握
+
+- 从日活推到 QPS、在途流式连接、每日 token、GPU 量级
+- 流式网关（SSE / WebSocket）、连接管理与断线重连
+- 按套餐、难度、负载的模型路由；高峰期降级
+- 会话存储、上下文裁剪 / 压缩、前缀缓存
+- 记忆的写入治理；工具执行（搜索、代码沙箱、文件）
+- 多层限流、输入输出审核、按套餐的单位经济
+
+</Locale>
+
+<Locale lang="en">
+
+> Design a ChatGPT-like product for tens of millions of daily users with free and paid plans, multiple models, web search, code execution, file uploads, and long-term memory.
+
+The biggest problem: it contains all the others (RAG, tools, agents, memory) plus real scale. Show you can estimate from users to GPUs, handle hundreds of thousands of concurrent streams, route by plan between quality and cost, and moderate at scale. Go deep on two areas, touch the rest.
+
+## How to work through this page
+
+| Level | Question it answers | Interview time |
+| --- | --- | --- |
+| 0 · Clarify and estimate | QPS, tokens, GPUs? | 7 min |
+| 1 · High-level design | Client-to-model path | 10 min |
+| 2 · Deep dive: serving and routing | Handling load, models per plan? | 10 min |
+| 3 · Deep dive: conversations, memory, tools | Long chats, memory, tool execution? | 10 min |
+| 4 · Safety, reliability, cost | Moderation, limits, degradation, free-tier cost | 5 min |
+
+## Must know
+
+- DAU → QPS → concurrent streams → tokens → GPUs
+- streaming gateways and reconnects
+- routing by plan, difficulty, and load; peak degradation
+- conversation storage, trimming/compaction, prefix caching
+- memory governance; tool execution
+- layered limits, moderation, unit economics by plan
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 澄清需求与估算
+
+| 问题 | 本题假设 |
+| --- | --- |
+| 用户规模？ | 5,000 万日活，其中 5% 付费 |
+| 使用量？ | 人均每天 10 条消息 |
+| 模型？ | 小模型（免费默认）、旗舰模型（付费）、推理模型（付费，有额度） |
+| 功能？ | 多轮对话、联网搜索、代码执行、文件上传、跨会话记忆、图片理解 |
+| 部署？ | 自有模型、自建推理集群 |
+
+估算（每一步都说出来）：
+
+```text
+消息量：5,000 万 × 10 = 5 亿条 / 天
+平均 QPS：5 亿 / 86,400 ≈ 5,800；峰值按 3 倍 ≈ 1.7 万 QPS
+在途流式连接：每条回答平均流式 10 s → 1.7 万 × 10 ≈ 17 万条同时在输出的连接
+每条消息 token：输入平均 3,000（含历史与 system），输出 500
+每日 token：输入 1.5 万亿、输出 2,500 亿
+
+GPU 量级（粗估，只为说明数量级）：
+  假设一张 GPU 在批处理下对中等模型能提供约 2,000 输出 token/s
+  峰值输出速率 ≈ 1.7 万 QPS × 500 token / 10 s ≈ 85 万 token/s
+  → 约 425 张 GPU 只用于 decode；prefill 1.5 万亿输入 token / 天同样要大量算力
+  → 实际规模是数千张 GPU 量级，取决于模型大小和路由比例
+```
+
+结论：**推理算力是最大的成本和瓶颈**，所以路由（大部分流量走小模型）、前缀缓存、批处理效率是整个设计的核心（见 [Inference Platform](/docs/system-design/inference-platform)）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 从 5,000 万日活推出峰值 QPS 和在途流式连接数。
+2. 为什么说路由和缓存是这道题的核心？
+
 </Note>
 
-## 本题要练什么
-
-会话存储、流式输出、模型路由、插件 / 工具、记忆、分层的安全防护、多租户配额。
-
-## 白板草图
-
 </Locale>
 
 <Locale lang="en">
 
-Design a ChatGPT-like system.
+## Level 0 · Clarify and estimate
 
-<Note title="Opening framework">
-Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+Assume 50M DAU (5% paid), 10 messages each, small (free), flagship (paid), and reasoning (paid quota) models, chat plus search, code execution, files, memory, images, on our own inference fleet. 500M messages/day → ~5,800 average and ~17K peak QPS → ~170K concurrent streams at 10 s each; 3,000 input and 500 output tokens per message → 1.5T input and 250B output tokens/day. At an assumed ~2,000 output tokens/s per GPU, peak decode alone (~850K tokens/s) needs ~425 GPUs, and prefill adds much more — thousands of GPUs overall. Inference dominates cost, so routing, prefix caching, and batching efficiency are central.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Derive peak QPS and concurrent streams.
+2. Why are routing and caching central?
+
 </Note>
 
-## What this problem trains
-
-Session storage, streaming, routing, plugins / tools, memory, layered safety, multi-tenant quotas.
-
-## Whiteboard sketch
-
 </Locale>
-
-```
-client (stream)
- → gateway / auth / quota
- → router (cheap/strong/tools)
- → session + memory
- → models
-```
 
 <Locale lang="zh">
 
-## 容易被追问
+## Level 1 · 高层架构
 
-1. 跨会话的记忆怎么做，而且还能让用户关掉？（How do you build cross-session memory that users can turn off?）
-2. 工具生态怎么隔离？（How do you isolate the tool ecosystem?）
-3. 怎么防止单个用户把账单打爆？（How do you stop a single user from blowing up the bill?）
-4. 流式输出时怎么做安全分类？（How do you run safety classification on streaming output?）
-
-## 14 个维度
-
-```
-1. 需求（Requirements）
-2. 约束（Constraints）
-3. 架构（Architecture）
-4. 数据流（Data Flow）
-5. 模型（Model）
-6. 检索（Retrieval）
-7. 智能体（Agent）
-8. 评测（Evaluation）
-9. 扩展（Scaling）
-10. 延迟（Latency）
-11. 成本（Cost）
-12. 可靠性（Reliability）
-13. 安全（Security）
-14. 可观测性（Observability）
+```text
+客户端（Web / App）
+   │ HTTPS + SSE（或 WebSocket）
+   ▼
+边缘 / API 网关：鉴权、套餐识别、多层限流、输入审核（快速分类器）
+   │
+   ▼
+对话编排服务（无状态，水平扩展）
+   ├─ 会话服务：读写对话历史（数据库 + 缓存）
+   ├─ 记忆服务：检索相关的用户记忆
+   ├─ 上下文装配：system + 记忆 + 历史（裁剪 / 压缩）+ 文件 + 本轮消息
+   ├─ 模型路由：按套餐、问题难度、当前负载选择模型与推理强度
+   ├─ 工具执行（agent 循环）：联网搜索、代码沙箱、文件检索、图片生成
+   ▼
+推理网关 ─► 多个模型的推理集群（连续批处理、前缀缓存、按模型独立扩缩容）
+   │ 流式 token
+   ▼
+输出审核（流式抽检）─► 回到客户端
+   │
+异步：消息持久化、记忆抽取、计费、反馈收集、离线评估抽样
 ```
 
+<Note title="自测：到这里你应该能回答">
+
+1. 画出从客户端到推理集群的链路。
+2. 哪些步骤在请求路径上，哪些是异步的？为什么记忆抽取要异步？
+
+</Note>
+
 </Locale>
 
 <Locale lang="en">
 
-## Likely follow-ups
+## Level 1 · High-level design
 
-1. How do you build cross-session memory that users can turn off?
-2. How do you isolate the tool ecosystem?
-3. How do you stop a single user from blowing up the bill?
-4. How do you run safety classification on streaming output?
+Clients connect over HTTPS + SSE (or WebSocket) to an edge gateway (auth, plan, layered limits, fast input moderation) → stateless orchestration with conversation, memory, context assembly (system + memory + trimmed/compacted history + files + message), routing (plan, difficulty, load), and tool execution (search, code sandbox, file retrieval, images) → an inference gateway over per-model clusters with continuous batching and prefix caching → streamed output with sampled moderation → client. Asynchronously: persistence, memory extraction, billing, feedback, eval sampling.
 
-## Dimensions
+<Note title="Self-check: you should be able to answer">
 
+1. Draw the path.
+2. What's synchronous vs async, and why extract memory async?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 深挖：服务与路由
+
+### 17 万条流式连接怎么扛？
+
+- 流式连接是**长连接**，网关和编排服务要用异步 I/O，一个实例能挂几千到上万条连接（见 [API Engineering](/docs/production/api-engineering) Level 0）。
+- 扩缩容信号用**在途连接数**而不是 CPU（见 [Scaling](/docs/production/scaling) Level 3）。
+- 缩容时优雅关闭：停止接新连接，等现有流结束。
+- **断线重连**：手机切网络很常见。服务端继续生成并把结果写入会话；客户端重连后按消息 ID 拉取已生成部分，而不是重新生成（重新生成既浪费又可能给出不同答案）。
+
+### 模型怎么路由？
+
+```text
+输入：套餐、剩余额度、问题类型 / 难度（小分类器）、当前各集群负载
+规则示例：
+  免费用户 → 小模型；简单问候 / 闲聊 → 永远小模型
+  付费用户 → 旗舰模型；被判为难题（数学、代码、多步推理）→ 推理模型（扣额度）
+  高峰期旗舰集群过载 → 付费用户短时降级到次一级模型，并在界面提示
 ```
-1. Requirements
-2. Constraints
-3. Architecture
-4. Data Flow
-5. Model
-6. Retrieval
-7. Agent
-8. Evaluation
-9. Scaling
-10. Latency
-11. Cost
-12. Reliability
-13. Security
-14. Observability
+
+这和 [Model Routing](/docs/application/model-routing) 一致；2025 年起一些产品在同一个入口里自动在快速模式和推理模式之间切换，本质就是这种路由。路由器本身要评估：把难题分给小模型的比例是多少。
+
+### 前缀缓存怎么用到最大？
+
+所有请求的 system prompt 相同 → 天然的共享前缀；同一会话的历史只追加 → 每轮可以命中上一轮的缓存。推理网关要做**会话亲和路由**：同一会话的请求尽量发到同一组副本，提高缓存命中（见 [Caching](/docs/context/caching) Level 4）。
+
+<Note type="tip" title="面试加分">
+
+“最大的成本是推理，所以我会把力气花在三件事上：大部分流量路由到小模型、会话亲和路由提高前缀缓存命中、推理集群的连续批处理。高峰期按套餐降级，而不是让所有人一起变慢。”
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 流式连接的服务实例怎么扩缩容？断线重连怎么处理？
+2. 写出一组路由规则。高峰期旗舰模型过载怎么办？
+3. 为什么推理网关要做会话亲和路由？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Deep dive: serving and routing
+
+Streams are long-lived: async I/O with thousands per instance, scaling on in-flight connections, graceful drains, and reconnects that fetch already-generated content by message ID rather than regenerating. Routing uses plan, quota, a difficulty classifier, and cluster load: free → small; chit-chat → small; paid → flagship; hard math/code/multi-step → reasoning model with quota; overloaded flagship at peak → temporary visible downgrade for paid users. Evaluate the router itself. Maximize prefix caching with a shared system prompt, append-only histories, and session-affinity routing in the inference gateway.
+
+<Note type="tip" title="Interview move">
+
+"Inference dominates cost: route most traffic to small models, use session affinity for cache hits, batch continuously, and degrade by plan at peak."
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Scaling stream servers and handling reconnects?
+2. A routing rule set and peak behavior?
+3. Why session affinity?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 深挖：会话、记忆与工具
+
+### 会话存哪？长对话怎么办？
+
+- 存储：消息按 `conversation_id` 分区存储（文档数据库或分库分表），最近活跃的会话放缓存。规模：5 亿条 / 天，每条约 2 KB → 每天约 1 TB 新增。
+- 长对话：上下文超过阈值时，保留 system、记忆、最近 N 轮原文，更早的轮次压缩成摘要（见 [Compression](/docs/context/compression)）；用户上传的大文件不放进历史，而是作为可检索的附件（见 [Document Q&A](/docs/system-design/document-qa)）。
+
+### 跨会话记忆怎么设计？
+
+| 环节 | 设计 |
+| --- | --- |
+| 写入 | 对话结束后异步抽取候选记忆（“用户是素食者”“正在准备 AI 工程面试”）；只从用户自己的表达中抽取；与已有记忆合并去重（ADD / UPDATE / DELETE，见 [Memory](/docs/agent/memory) Level 6） |
+| 读取 | 新会话开始时，按与当前问题的相关性检索几条记忆放入上下文 |
+| 控制 | 用户可查看、编辑、删除；可关闭记忆；“临时对话”不写入 |
+| 安全 | 不从网页 / 文件内容中写入记忆（防记忆投毒）；敏感信息（健康、财务）默认不记 |
+
+### 工具怎么执行？
+
+- **联网搜索**：同 [AI Search](/docs/system-design/ai-search) 的快速模式。
+- **代码执行**：每个会话一个隔离沙箱（gVisor 或 microVM），无网络或严格出口限制，CPU / 内存 / 时长有上限；用户上传的文件挂载进沙箱（见 [Sandbox](/docs/ai-native/sandbox)）。
+- **工具调用循环**：由编排服务运行 agent 循环，限制最大轮数；工具结果当作不可信数据。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 估算每天新增的会话存储量。长对话的上下文怎么处理？
+2. 记忆的写入、读取、控制、安全各怎么设计？
+3. 代码执行沙箱需要哪些限制？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Deep dive: conversations, memory, tools
+
+Store messages partitioned by `conversation_id` with hot conversations cached (~500M × 2 KB ≈ 1 TB/day). For long chats keep system, memory, and recent turns verbatim and summarize older ones; large files become retrievable attachments. Memory: extract candidates asynchronously from the user's own statements, merge with ADD/UPDATE/DELETE, retrieve a few relevant items per new conversation, let users view, edit, delete, or disable, skip temporary chats, never write from web or file content, and avoid sensitive categories by default. Tools: search like AI Search's quick mode; per-session isolated code sandboxes (gVisor or microVM) with no or restricted network and resource caps; a bounded agent loop treating results as untrusted.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Daily storage growth and long-chat handling?
+2. Memory write, read, control, safety?
+3. Code-sandbox limits?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 安全、可靠性与成本
+
+### 安全审核
+
+- **输入**：快速分类器（小模型）检测违规请求，在请求路径上，延迟要求几十毫秒。
+- **输出**：流式输出时并行抽检，发现违规可中止流并替换内容。
+- 越狱与注入：模型本身的安全训练 + 分类器 + 工具层权限（见 [Agent Security](/docs/agent/security)）。
+- 规模问题：每天 5 亿条，审核模型本身也是一个大推理负载，必须用小而快的模型。
+
+### 限流与可靠性
+
+- 多层限流：每用户（按套餐，如免费用户每 3 小时 N 条旗舰消息）、每 IP（防滥用）、全局（保护集群）（见 [Scaling](/docs/production/scaling) Level 2）。
+- 降级阶梯：旗舰过载 → 付费用户降级到次级模型；推理集群整体告急 → 免费用户排队或提示稍后再试；工具服务故障 → 关闭对应工具，对话仍可用（见 [Reliability](/docs/production/reliability) Level 3）。
+- 多区域部署，区域故障时流量切换。
+
+### 成本
+
+```text
+免费用户成本 = 每人每天消息数 × 每条成本（小模型）——必须足够低，靠付费用户覆盖
+付费用户：订阅费 vs 旗舰 + 推理模型的用量成本；推理模型用额度控制
+杠杆：路由比例、前缀缓存命中率、批处理效率（GPU 利用率）、输出长度
 ```
 
-</Locale>
+## 14 维度速查
 
-<Locale lang="zh">
+| 维度 | 本题关键决策 |
+| --- | --- |
+| 需求 | 亿级对话产品：多模型、工具、文件、记忆、套餐 |
+| 约束 | 5,000 万日活；峰值 1.7 万 QPS；17 万并发流 |
+| 架构 | 网关 → 无状态编排 → 推理网关 → 多模型集群；异步旁路 |
+| 数据流 | 鉴权限流审核 → 装配上下文 → 路由 → 生成 / 工具循环 → 输出审核 |
+| 模型 | 小 / 旗舰 / 推理三档；路由器；审核小模型 |
+| 检索 | 记忆检索、文件检索、联网搜索 |
+| 智能体 | 工具调用循环，轮数受限 |
+| 评测 | 离线基准 + 线上 A/B + 用户反馈 + 路由器评估 |
+| 扩展 | 按在途连接扩缩容；按模型独立扩缩容 |
+| 延迟 | 流式；首 token 主要取决于排队与 prefill |
+| 成本 | 推理为主；路由、缓存、批处理 |
+| 可靠性 | 按套餐降级、多区域、断线续传 |
+| 安全 | 输入输出审核、沙箱、记忆写入治理 |
+| 可观测性 | 每模型 TTFT / TPOT、缓存命中、路由分布、审核拦截率 |
 
-## 需求
+## 陷阱
 
-</Locale>
+<Note type="danger" title="面试里说出来就扣分">
 
-<Locale lang="en">
+- 不做估算直接画图。
+- 所有用户都用旗舰模型。
+- 按 CPU 扩缩容流式服务。
+- 断线后重新生成整条回答。
+- 每块都想深挖，时间不够。
 
-## Requirements
+</Note>
 
-</Locale>
+## 连接
 
--
+- 机制：[Scaling](/docs/production/scaling)、[Latency](/docs/production/latency)、[Model Routing](/docs/application/model-routing)、[Memory](/docs/agent/memory)、[Sandbox](/docs/ai-native/sandbox)
+- 相关题：[Inference Platform](/docs/system-design/inference-platform)、[AI Search](/docs/system-design/ai-search)、[AI Agent](/docs/system-design/ai-agent)
 
-<Locale lang="zh">
+## 面试问题
 
-## 约束
-
-</Locale>
-
-<Locale lang="en">
-
-## Constraints
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 架构
-
-</Locale>
-
-<Locale lang="en">
-
-## Architecture
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 数据流
+1. 设计一个类似 ChatGPT 的产品。（Design a ChatGPT-like product.）
+2. 从日活估算 QPS、并发连接和 GPU 量级。（Estimate QPS, concurrent streams, and GPUs from DAU.）
+3. 模型怎么按套餐和难度路由？（How do you route models by plan and difficulty?）
+4. 跨会话记忆怎么设计？（How do you design cross-session memory?）
+5. 代码执行工具怎么保证安全？（How do you secure code execution?）
+6. 高峰期过载怎么降级？（How do you degrade under peak overload?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Data Flow
+## Level 4 · Safety, reliability, cost
+
+Moderate inputs with a fast classifier on the request path and outputs by parallel sampling that can abort streams; combine model safety training, classifiers, and tool permissions; moderation itself is a large inference load, so it must be small and fast. Layer limits per user (by plan), per IP, and globally; degrade by plan (flagship → lower tier for paid, queue free users, disable failing tools) and fail over across regions. Unit economics: free usage on small models must be cheap enough for paid plans to cover; reasoning models are quota-limited; levers are routing share, cache hit rate, GPU utilization, and output length.
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- Drawing before estimating.
+- Flagship models for everyone.
+- CPU-based autoscaling for streams.
+- Regenerating whole answers on reconnect.
+- Trying to go deep everywhere.
+
+</Note>
+
+## Connections
+
+- Mechanics: [Scaling](/docs/production/scaling), [Latency](/docs/production/latency), [Model Routing](/docs/application/model-routing), [Memory](/docs/agent/memory), [Sandbox](/docs/ai-native/sandbox)
+- Related: [Inference Platform](/docs/system-design/inference-platform), [AI Search](/docs/system-design/ai-search), [AI Agent](/docs/system-design/ai-agent)
+
+## Interview questions
+
+1. Design a ChatGPT-like product.
+2. Estimate QPS, concurrent streams, and GPUs from DAU.
+3. How do you route models by plan and difficulty?
+4. How do you design cross-session memory?
+5. How do you secure code execution?
+6. How do you degrade under peak overload?
 
 </Locale>
-
--
-
-<Locale lang="zh">
-
-## 模型
-
-</Locale>
-
-<Locale lang="en">
-
-## Model
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 检索
-
-</Locale>
-
-<Locale lang="en">
-
-## Retrieval
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 智能体
-
-</Locale>
-
-<Locale lang="en">
-
-## Agent
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 评测
-
-</Locale>
-
-<Locale lang="en">
-
-## Evaluation
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 扩展
-
-</Locale>
-
-<Locale lang="en">
-
-## Scaling
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 延迟
-
-</Locale>
-
-<Locale lang="en">
-
-## Latency
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 成本
-
-</Locale>
-
-<Locale lang="en">
-
-## Cost
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可靠性
-
-</Locale>
-
-<Locale lang="en">
-
-## Reliability
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 安全
-
-</Locale>
-
-<Locale lang="en">
-
-## Security
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可观测性
-
-</Locale>
-
-<Locale lang="en">
-
-## Observability
-
-</Locale>
-
--
 
 <Locale lang="zh">
 
@@ -312,6 +401,22 @@ client (stream)
 <Locale lang="en">
 
 ## My answer
+
+</Locale>
+
+- 30s 电梯版:
+
+- 5 分钟白板版:
+
+<Locale lang="zh">
+
+## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
 
 </Locale>
 

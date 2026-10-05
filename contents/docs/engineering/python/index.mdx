@@ -1,43 +1,534 @@
 ---
-title: Python
-titleEn: Python
-description: dict / set / 生成器 / OOP。能写也能讲。
-descriptionEn: dict / set / generators / OOP.
-date: 2026-09-06
-keywords: ["python", "oop"]
+title: Python 核心
+titleEn: Python Core
+description: 面试常追问的 Python 机制：对象与引用、可变默认参数、浅拷贝与深拷贝、dict / set 的哈希表原理、迭代器与生成器（流式输出的基础）、装饰器与闭包、上下文管理器、类型标注与 Pydantic。
+descriptionEn: "Python mechanics interviewers probe: objects and references, mutable defaults, shallow vs deep copies, dict/set hash tables, iterators and generators (the basis of streaming), decorators and closures, context managers, type hints and Pydantic."
+date: 2026-10-04
+keywords: ['python', 'references', 'mutable default', 'copy', 'dict', 'hash table', 'generator', 'yield', 'decorator', 'closure', 'context manager', 'typing', 'pydantic', 'dataclass']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-标准：关掉资料后能在 1–2 分钟内讲清楚，并能接到自己的项目上。
+AI 工程岗的面试官常顺着你的 FastAPI / LangGraph 代码问 Python：“这个生成器是怎么实现流式输出的？”“这个装饰器做了什么？”“为什么这里用 Pydantic？”。这一页覆盖最常被追问的机制，每个都配一个“输出是什么”式的小例子——这类题在面试中很常见。
 
-## 必能讲清
+并发（GIL、asyncio）单独在 [Async 与并发](/docs/engineering/concurrency)。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 对象与引用 | 赋值是复制吗？可变默认参数为什么是坑？ | 25 min |
+| 1 · dict 与 set | 为什么查找是 O(1)？什么能当键？ | 20 min |
+| 2 · 迭代器与生成器 | `yield` 怎么工作？为什么流式输出离不开它？ | 30 min |
+| 3 · 装饰器与上下文管理器 | 装饰器的本质是什么？`with` 做了什么？ | 30 min |
+| 4 · 类型与数据建模 | type hints、dataclass、Pydantic 怎么选？ | 20 min |
+
+## 需要掌握
+
+- 变量是名字绑定到对象；可变 / 不可变；`is` 与 `==`
+- 可变默认参数、浅拷贝 / 深拷贝
+- dict 是哈希表；键必须可哈希；3.7 起保持插入顺序
+- 迭代器协议、生成器的惰性求值、生成器表达式
+- 闭包、装饰器、`functools.wraps`、带参数的装饰器
+- 上下文管理器协议与 `contextlib.contextmanager`
+- dataclass 与 Pydantic 的区别（运行时校验）
 
 </Locale>
 
 <Locale lang="en">
 
-The bar: explain it in 1–2 minutes without notes, and connect it to your own projects.
+Interviewers dig into Python through your FastAPI and LangGraph code: how a generator streams, what a decorator does, why Pydantic. This page covers the most probed mechanics with "what does this print" examples. Concurrency is in [Async & Concurrency](/docs/engineering/concurrency).
 
-## Must be able to explain
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Objects and references | Does assignment copy? Why are mutable defaults a trap? | 25 min |
+| 1 · dict and set | Why O(1) lookup? What can be a key? | 20 min |
+| 2 · Iterators and generators | How does `yield` work, and why does streaming need it? | 30 min |
+| 3 · Decorators and context managers | What is a decorator? What does `with` do? | 30 min |
+| 4 · Types and data modeling | Type hints, dataclasses, or Pydantic? | 20 min |
+
+## Must know
+
+- names bound to objects; mutability; `is` vs `==`
+- mutable defaults; shallow vs deep copy
+- dicts are hash tables; hashable keys; insertion order since 3.7
+- iterator protocol, lazy generators, generator expressions
+- closures, decorators, `functools.wraps`, parameterized decorators
+- the context manager protocol and `contextmanager`
+- dataclass vs Pydantic (runtime validation)
 
 </Locale>
 
--
+---
 
 <Locale lang="zh">
 
-## 权衡
+## Level 0 · 对象与引用
+
+### 赋值是复制吗？
+
+不是。Python 的变量是**名字**，赋值是把名字绑定到对象上。
 
 </Locale>
 
 <Locale lang="en">
 
-## Trade-offs
+## Level 0 · Objects and references
+
+Assignment binds a name to an object; it never copies.
 
 </Locale>
 
--
+```python
+a = [1, 2]
+b = a              # b and a name the same list
+b.append(3)
+print(a)           # [1, 2, 3]
+
+x = 1
+y = x
+y += 1             # ints are immutable: y is rebound to a new object
+print(x)           # 1
+```
+
+<Locale lang="zh">
+
+- **不可变对象**（int、str、tuple、frozenset）：“修改”实际是创建新对象并重新绑定。
+- **可变对象**（list、dict、set、自定义对象）：原地修改，所有引用它的名字都看得到。
+- `==` 比较值，`is` 比较是否是同一个对象。判断 `None` 用 `is None`。
+
+### 可变默认参数为什么是坑？
+
+</Locale>
+
+<Locale lang="en">
+
+Immutable objects (int, str, tuple) are replaced on "modification"; mutable ones (list, dict, set) change in place for every name. `==` compares values, `is` identity; use `is None`.
+
+### Why are mutable defaults a trap?
+
+</Locale>
+
+```python
+def add_message(msg, history=[]):     # the default list is created ONCE, at definition time
+    history.append(msg)
+    return history
+
+add_message("hi")      # ['hi']
+add_message("bye")     # ['hi', 'bye']  <- shared across calls!
+
+def add_message_fixed(msg, history=None):
+    if history is None:
+        history = []
+    history.append(msg)
+    return history
+```
+
+<Locale lang="zh">
+
+默认值在**函数定义时**只计算一次。在 agent 代码里，如果把对话历史写成可变默认参数，**不同用户的对话会串在一起**——这是真实的线上事故类型。
+
+### 浅拷贝与深拷贝
+
+`copy.copy` / `list(x)` / `x[:]` 只复制外层容器，内层对象仍共享；`copy.deepcopy` 递归复制。例：复制一份 messages 列表给另一个 agent 修改，如果用浅拷贝，修改其中某条消息的 dict 会影响原列表。
+
+<Note title="自测：到这里你应该能回答">
+
+1. `b = a` 后修改 `b`，什么情况下 `a` 会变？
+2. 可变默认参数为什么会在多次调用间共享？怎么修？
+3. 浅拷贝在什么情况下不够？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Defaults are evaluated once at definition; a mutable default history in agent code can mix different users' conversations — a real incident class. Shallow copies (`copy.copy`, `list(x)`, `x[:]`) share inner objects; `deepcopy` recurses — editing a message dict in a shallow-copied list changes the original.
+
+<Note title="Self-check: you should be able to answer">
+
+1. When does modifying `b` change `a`?
+2. Why are mutable defaults shared, and the fix?
+3. When is a shallow copy insufficient?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · dict 与 set
+
+### 为什么查找是 O(1)？
+
+dict 和 set 是**哈希表**：对键调用 `hash()` 得到一个整数，映射到数组的某个槽位，直接定位。平均 O(1)；大量哈希冲突时退化（Python 的实现会在负载过高时扩容，保持冲突少）。
+
+### 什么能当键？
+
+**可哈希**的对象：哈希值在生命周期内不变。不可变的内置类型都可以；list、dict、set 不行（内容可变，哈希会变）。tuple 只有在所有元素都可哈希时才可哈希。这就是 [数组与哈希](/docs/algorithms/arrays) 里“字母异位词分组”要用 `tuple(sorted(w))` 而不是 `sorted(w)` 作键的原因。
+
+### 顺序
+
+Python 3.7 起 dict 保证**保持插入顺序**（语言规范）；set 不保证顺序。
+
+<Note title="自测：到这里你应该能回答">
+
+1. dict 查找为什么平均 O(1)？
+2. 为什么 list 不能当 dict 的键？tuple 什么时候可以？
+3. dict 的遍历顺序有保证吗？set 呢？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · dict and set
+
+Hash tables: `hash(key)` locates a slot directly — O(1) on average, with resizing to limit collisions. Keys must be hashable (stable hash for their lifetime): immutable built-ins yes; list, dict, set no; tuples only if all elements are hashable — hence `tuple(sorted(w))` in anagram grouping. Dicts preserve insertion order since 3.7; sets don't.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why O(1) on average?
+2. Why can't lists be keys? When can tuples?
+3. Is iteration order guaranteed for dicts and sets?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 迭代器与生成器
+
+### 迭代器协议
+
+`for x in obj` 实际上调用 `iter(obj)` 得到迭代器，然后反复 `next()`，直到抛出 `StopIteration`。
+
+### 生成器：`yield` 怎么工作？
+
+含有 `yield` 的函数调用后**不立即执行**，而是返回一个生成器对象。每次 `next()`，函数执行到下一个 `yield`，交出一个值并**暂停**（保留局部变量），下次从暂停处继续。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Iterators and generators
+
+`for` calls `iter()` then `next()` until `StopIteration`. A function containing `yield` returns a generator without running; each `next()` runs to the next `yield`, hands out a value, and pauses with its locals intact.
+
+</Locale>
+
+```python
+def read_chunks(path: str, size: int = 1024):
+    with open(path, "rb") as f:
+        while chunk := f.read(size):
+            yield chunk                 # pause here; memory stays O(size), not O(file)
+
+squares = (x * x for x in range(10**9))   # generator expression: nothing computed yet
+next(squares)                              # 0
+
+# Streaming an LLM response from FastAPI is the same idea:
+# async def stream():
+#     async for token in model_stream(prompt):
+#         yield f"data: {token}\n\n"
+# return StreamingResponse(stream(), media_type="text/event-stream")
+```
+
+<Locale lang="zh">
+
+为什么重要：
+
+- **惰性**：不一次性生成全部数据，内存只占当前一项——处理大文件、长数据流必备。
+- **流式输出**：LLM 的流式响应就是一个（异步）生成器，一边从模型拿 token 一边 `yield` 给客户端（见 [API Engineering](/docs/production/api-engineering) Level 1）。
+- 生成器**只能遍历一次**：遍历完再遍历是空的——常见 bug。
+
+列表推导式 `[...]` 立即生成整个列表；生成器表达式 `(...)` 惰性。数据很大时用后者。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 调用一个含 `yield` 的函数时发生了什么？
+2. 为什么生成器能节省内存？
+3. FastAPI 的流式响应和生成器有什么关系？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Generators are lazy (memory holds one item — essential for big files and streams), they power streaming LLM responses (an async generator yielding tokens to `StreamingResponse`), and they can be consumed only once — a common bug. List comprehensions build everything now; generator expressions are lazy.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What happens when you call a function containing `yield`?
+2. Why do generators save memory?
+3. How do FastAPI streaming responses use generators?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 装饰器与上下文管理器
+
+### 装饰器的本质
+
+装饰器就是“**接收一个函数、返回一个新函数**”的函数；`@timer` 等价于 `f = timer(f)`。它依赖**闭包**：内层函数记住了外层函数的变量。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Decorators and context managers
+
+A decorator takes a function and returns a new one (`@timer` means `f = timer(f)`), relying on closures that remember outer variables.
+
+</Locale>
+
+```python
+import functools
+import time
+
+def timer(fn):
+    @functools.wraps(fn)                         # keep fn.__name__, __doc__ for logs/tracing
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            print(f"{fn.__name__} took {time.perf_counter() - start:.3f}s")
+    return wrapper
+
+def retry(times: int):                           # parameterized: a factory returning a decorator
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            for attempt in range(times):
+                try:
+                    return fn(*args, **kwargs)
+                except TimeoutError:
+                    if attempt == times - 1:
+                        raise
+        return wrapper
+    return decorator
+```
+
+<Locale lang="zh">
+
+- **带参数的装饰器**多一层：`@retry(3)` 先调用 `retry(3)` 得到真正的装饰器。完整的异步重试实现见 [AI 实用编码题](/docs/algorithms/ml-coding) Level 1。
+- 你用过的装饰器：FastAPI 的 `@app.get`、`functools.cache`、LangChain / LangGraph 的 `@tool`——它们都是在不改函数体的前提下给函数加行为（注册路由、缓存、生成工具 schema）。
+
+### 上下文管理器：`with` 做了什么？
+
+`with obj as x:` 调用 `obj.__enter__()`，代码块结束（**包括抛异常**）时调用 `__exit__()`。用于保证资源释放：文件、锁、数据库连接、HTTP 客户端。
+
+</Locale>
+
+<Locale lang="en">
+
+Parameterized decorators add a layer (`@retry(3)` builds the decorator first); the async version is in [AI Practical Coding](/docs/algorithms/ml-coding). Familiar decorators — FastAPI's `@app.get`, `functools.cache`, LangChain's `@tool` — add behavior (routing, caching, tool schemas) without changing the body. `with` calls `__enter__` and guarantees `__exit__` even on exceptions — files, locks, connections, clients.
+
+</Locale>
+
+```python
+from contextlib import contextmanager
+
+@contextmanager
+def span(name: str):
+    start = time.perf_counter()
+    try:
+        yield                                   # the with-block runs here
+    finally:
+        print(f"{name}: {time.perf_counter() - start:.3f}s")   # runs even on errors
+
+with span("retrieve"):
+    ...
+```
+
+<Locale lang="zh">
+
+<Note title="自测：到这里你应该能回答">
+
+1. `@timer` 等价于什么？闭包在装饰器中起什么作用？
+2. 不加 `functools.wraps` 会有什么问题？
+3. 带参数的装饰器为什么多一层？
+4. `with` 块里抛异常，`__exit__` 还会执行吗？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+<Note title="Self-check: you should be able to answer">
+
+1. What is `@timer` equivalent to, and the closure's role?
+2. What breaks without `functools.wraps`?
+3. Why the extra layer for parameters?
+4. Does `__exit__` run when the block raises?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 类型与数据建模
+
+### type hints 在运行时检查吗？
+
+**不检查**。`def f(x: int)` 传入字符串照样运行；类型标注给 IDE 和静态检查器（mypy、pyright）用。要在运行时校验，需要 Pydantic 这类库。
+
+### dataclass 还是 Pydantic？
+
+| | `dataclass` | Pydantic `BaseModel` |
+| --- | --- | --- |
+| 作用 | 自动生成 `__init__`、`__repr__`、`__eq__` | 同上 + **运行时校验与类型转换** |
+| 校验 | 无 | 有：类型不对报错，`"5"` 可转成 5 |
+| 序列化 | 需要自己写 | `model_dump()` / `model_dump_json()`，可生成 JSON Schema |
+| 适用 | 内部数据结构 | **系统边界**：API 请求 / 响应、LLM 结构化输出、配置 |
+
+LLM 应用里 Pydantic 无处不在：FastAPI 用它校验请求；用它定义 schema 生成 LLM 的结构化输出格式，并校验模型返回的 JSON（见 [Structured Output](/docs/application/structured-output)）；工具调用的参数 schema 也常从 Pydantic 模型生成。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Types and data modeling
+
+Type hints aren't checked at runtime; mypy and pyright use them statically. Dataclasses generate boilerplate for internal structures; Pydantic adds runtime validation, coercion, serialization, and JSON Schema — use it at boundaries: API requests and responses, LLM structured outputs ([Structured Output](/docs/application/structured-output)), tool argument schemas, config.
+
+</Locale>
+
+```python
+from pydantic import BaseModel, Field
+
+class RefundDecision(BaseModel):
+    order_id: str
+    eligible: bool
+    amount: float = Field(ge=0)            # validated at runtime
+    reason: str
+
+RefundDecision.model_json_schema()          # feed to the LLM as the output schema
+RefundDecision.model_validate_json('{"order_id": "20240915", "eligible": false, "amount": 0, "reason": "in transit"}')
+```
+
+<Locale lang="zh">
+
+<Note type="tip" title="项目锚点提示">
+
+准备一个例子：你在 Negotiation Practice（FastAPI + Gemini）里怎样用 Pydantic 定义接口、怎样用生成器 / 异步生成器做流式输出、有没有自己写过装饰器（计时、重试、鉴权）。把它写进本页“项目锚点”。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. type hints 会在运行时检查吗？
+2. dataclass 和 Pydantic 各适合用在哪？
+3. Pydantic 在 LLM 应用里有哪三种用途？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+<Note type="tip" title="Project anchor prompt">
+
+Prepare one example from Negotiation Practice (FastAPI + Gemini): Pydantic models for endpoints, generator-based streaming, and any decorators you wrote.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Are type hints checked at runtime?
+2. Where do dataclasses and Pydantic each fit?
+3. Three uses of Pydantic in LLM apps?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- “Python 赋值会复制对象。”
+- “type hints 能防止传错类型。”
+- 写可变默认参数。
+- 说不出生成器和流式输出的关系。
+
+</Note>
+
+## 连接
+
+- [Async 与并发](/docs/engineering/concurrency)、[API 设计与网络](/docs/engineering/rest)、[测试与工程实践](/docs/engineering/testing)
+- [Structured Output](/docs/application/structured-output)、[AI 实用编码题](/docs/algorithms/ml-coding)
+
+## 面试问题
+
+1. Python 的赋值是复制吗？`is` 和 `==` 有什么区别？（Does assignment copy? `is` vs `==`?）
+2. 可变默认参数有什么问题？（What's wrong with mutable default arguments?）
+3. dict 为什么查找快？什么能当键？（Why are dict lookups fast, and what can be a key?）
+4. 生成器是什么？和流式输出有什么关系？（What are generators, and how do they relate to streaming?）
+5. 装饰器怎么实现？为什么要用 `functools.wraps`？（How do decorators work, and why `functools.wraps`?）
+6. dataclass 和 Pydantic 有什么区别？（dataclass vs Pydantic?）
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- "Assignment copies objects."
+- "Type hints prevent wrong types."
+- Mutable defaults.
+- Not linking generators to streaming.
+
+</Note>
+
+## Connections
+
+- [Async & Concurrency](/docs/engineering/concurrency), [API Design & Networking](/docs/engineering/rest), [Testing](/docs/engineering/testing)
+- [Structured Output](/docs/application/structured-output), [AI Practical Coding](/docs/algorithms/ml-coding)
+
+## Interview questions
+
+1. Does assignment copy? `is` vs `==`?
+2. What's wrong with mutable default arguments?
+3. Why are dict lookups fast, and what can be a key?
+4. What are generators, and how do they relate to streaming?
+5. How do decorators work, and why `functools.wraps`?
+6. dataclass vs Pydantic?
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+- 30s:
 
 <Locale lang="zh">
 
@@ -52,15 +543,3 @@ The bar: explain it in 1–2 minutes without notes, and connect it to your own p
 </Locale>
 
 -
-
-<Locale lang="zh">
-
-## 我的答案
-
-</Locale>
-
-<Locale lang="en">
-
-## My answer
-
-</Locale>

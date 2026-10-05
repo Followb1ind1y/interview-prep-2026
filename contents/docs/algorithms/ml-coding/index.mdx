@@ -1,0 +1,659 @@
+---
+title: AI 实用编码题
+titleEn: AI Practical Coding
+description: AI 工程岗位越来越常考的“实战编码”：LRU 缓存、令牌桶限流器、带抖动的重试装饰器、带并发上限的异步请求、增量 SSE 解析、数值稳定的 softmax 与 numpy attention、余弦相似度 Top-K、手写 BPE 训练。每题都给可运行的参考实现与追问点。
+descriptionEn: "Practical coding increasingly asked in AI engineering interviews: LRU cache, token-bucket limiter, jittered retry decorator, concurrency-limited async requests, incremental SSE parsing, stable softmax and numpy attention, cosine Top-K, and BPE training — each with a runnable reference and follow-ups."
+date: 2026-10-04
+keywords: ['coding interview', 'lru cache', 'rate limiter', 'token bucket', 'retry', 'asyncio', 'semaphore', 'sse', 'softmax', 'attention', 'numpy', 'cosine similarity', 'top-k', 'bpe']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
+---
+
+<Locale lang="zh">
+
+2025–2026 年，很多 AI 工程岗位的编码轮不再只考 LeetCode，而是加入“**写一个你工作中真的会写的东西**”：实现一个限流器、给 LLM 调用加重试、并发调用 API、解析流式响应、用 numpy 写 attention、手写 BPE。这类题考的是**工程正确性**（边界、并发、数值稳定）和**能否把概念讲透**。
+
+这一页的每道题都连到前面讲过的机制——写代码是检验你是否真懂的最好方式。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 经典数据结构 | LRU 缓存、令牌桶限流器 | 45 min |
+| 1 · LLM API 管道 | 重试装饰器、并发上限、SSE 解析 | 60 min |
+| 2 · numpy 数值 | softmax、attention、余弦 Top-K | 50 min |
+| 3 · 分词 | 手写 BPE 训练 | 30 min |
+
+建议：先自己写一遍（限时 20–30 分钟），再对照参考实现和追问点。
+
+## 需要掌握
+
+- 每题的参考实现能默写，并能说出复杂度
+- 每题至少两个追问点（线程安全、分布式、数值溢出、边界）
+- 和机制页的联系：[API Engineering](/docs/production/api-engineering)、[Inference](/docs/llm/inference)、[Tokenization](/docs/llm/tokenization)、[Vector Search](/docs/rag/vector-search)
+
+</Locale>
+
+<Locale lang="en">
+
+Many AI engineering coding rounds now add "write something you'd actually write at work": a rate limiter, retries for LLM calls, concurrent API calls, stream parsing, numpy attention, BPE. They test engineering correctness (edges, concurrency, numerical stability) and depth of explanation.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Classic structures | LRU cache, token bucket | 45 min |
+| 1 · LLM API plumbing | Retry decorator, concurrency limits, SSE parsing | 60 min |
+| 2 · numpy numerics | softmax, attention, cosine Top-K | 50 min |
+| 3 · Tokenization | BPE training | 30 min |
+
+Write each yourself in 20–30 minutes first, then compare.
+
+## Must know
+
+- each reference from memory with complexity
+- at least two follow-ups per problem
+- links to [API Engineering](/docs/production/api-engineering), [Inference](/docs/llm/inference), [Tokenization](/docs/llm/tokenization), [Vector Search](/docs/rag/vector-search)
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 经典数据结构
+
+### 1. LRU 缓存（LeetCode 146）
+
+容量满时淘汰**最久未使用**的项，`get` 和 `put` 都要 O(1)。思路：哈希表负责 O(1) 查找，**有序结构**负责记录使用顺序。Python 的 `OrderedDict` 两者兼有：
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Classic structures
+
+### 1. LRU cache (146)
+
+Evict the least recently used item with O(1) `get` and `put`: a hash map for lookup plus an ordered structure for recency — `OrderedDict` has both.
+
+</Locale>
+
+```python
+from collections import OrderedDict
+
+class LRUCache:
+    def __init__(self, capacity: int):
+        self.cap = capacity
+        self.data: OrderedDict[int, int] = OrderedDict()
+
+    def get(self, key: int) -> int:
+        if key not in self.data:
+            return -1
+        self.data.move_to_end(key)          # mark as most recently used
+        return self.data[key]
+
+    def put(self, key: int, value: int) -> None:
+        if key in self.data:
+            self.data.move_to_end(key)
+        self.data[key] = value
+        if len(self.data) > self.cap:
+            self.data.popitem(last=False)   # evict least recently used (the front)
+```
+
+<Locale lang="zh">
+
+**追问 1：不许用 OrderedDict。** 用“哈希表 + 双向链表”：哈希表存 `key → 节点`，链表头部是最近使用、尾部是最久未使用；用两个哨兵节点（head、tail）避免空链表特判。移动节点 = 从原位置摘下 + 插到头部，都是 O(1)。
+
+**追问 2：多线程安全吗？** 不安全。最简单是每个方法外加一把锁；高并发时可以分段加锁（按 key 哈希分成多个 LRU）。
+
+**追问 3：和 AI 系统的联系？** 应用层答案缓存、embedding 缓存、[Caching](/docs/context/caching) 里的检索结果缓存都需要淘汰策略；推理引擎的前缀缓存（如 vLLM 的块缓存）也用类似 LRU 的策略淘汰 KV 块。
+
+### 2. 令牌桶限流器
+
+实现 `allow()`：桶容量 `capacity`，每秒补充 `rate` 个令牌，有令牌就消耗并放行（原理见 [API Engineering](/docs/production/api-engineering) Level 3）。
+
+</Locale>
+
+<Locale lang="en">
+
+Follow-ups: without `OrderedDict`, use a hash map to doubly linked list nodes with head/tail sentinels — unlink and push to front in O(1); thread safety needs a lock or sharded LRUs; AI links include answer and embedding caches and KV-block eviction in prefix caches.
+
+### 2. Token-bucket rate limiter
+
+Implement `allow()` with capacity and refill rate (see [API Engineering](/docs/production/api-engineering) Level 3).
+
+</Locale>
+
+```python
+import threading
+import time
+
+class TokenBucket:
+    def __init__(self, rate: float, capacity: float):
+        self.rate, self.capacity = rate, capacity
+        self.tokens = capacity
+        self.last = time.monotonic()          # monotonic: immune to wall-clock jumps
+        self.lock = threading.Lock()
+
+    def allow(self, cost: float = 1.0) -> bool:
+        with self.lock:
+            now = time.monotonic()
+            # lazy refill: no background thread, just compute elapsed time
+            self.tokens = min(self.capacity, self.tokens + (now - self.last) * self.rate)
+            self.last = now
+            if self.tokens >= cost:
+                self.tokens -= cost
+                return True
+            return False
+```
+
+<Locale lang="zh">
+
+关键点：
+
+- **懒补充**：不需要后台线程定时加令牌，每次调用时按经过的时间计算。
+- 用 `time.monotonic()` 而不是 `time.time()`——系统时间被调整时不会出错。
+- `cost` 参数：LLM 场景按 **token 数**扣，而不只是按请求数。
+
+**追问：多台机器怎么共享限流？** 状态放 Redis，用 Lua 脚本把“读取 → 计算 → 写回”做成原子操作；或给每个实例分配一部分配额（见 [Scaling](/docs/production/scaling) Level 2）。
+
+**追问：和滑动窗口计数有什么区别？** 令牌桶允许突发（最多到容量），滑动窗口按时间窗口严格计数。
+
+<Note title="自测：到这里你应该能回答">
+
+1. LRU 为什么需要“哈希表 + 有序结构”两者？
+2. 令牌桶为什么不需要后台线程？为什么用 `monotonic`？
+3. 分布式限流怎么实现原子性？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Lazy refill avoids background threads; `monotonic` survives clock changes; `cost` lets LLM limiters debit tokens. Distributed: Redis with an atomic Lua read-compute-write, or per-instance quotas. Token buckets allow bursts; sliding windows count strictly.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why hash map plus ordered structure for LRU?
+2. Why no background thread, and why `monotonic`?
+3. Atomicity for distributed limiting?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · LLM API 管道
+
+### 3. 带指数退避和抖动的重试装饰器
+
+给一个异步函数加重试：只对可重试的异常重试，退避时间用 full jitter（原理见 [API Engineering](/docs/production/api-engineering) Level 2）。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · LLM API plumbing
+
+### 3. Retry decorator with exponential backoff and jitter
+
+Retry only retryable errors with full jitter (see [API Engineering](/docs/production/api-engineering) Level 2).
+
+</Locale>
+
+```python
+import asyncio
+import functools
+import random
+
+def retry(max_attempts: int = 4, base: float = 0.5, cap: float = 8.0,
+          retry_on: tuple[type[Exception], ...] = (TimeoutError, ConnectionError)):
+    def decorator(fn):
+        @functools.wraps(fn)                  # keep the wrapped function's name and docstring
+        async def wrapper(*args, **kwargs):
+            for attempt in range(max_attempts):
+                try:
+                    return await fn(*args, **kwargs)
+                except retry_on:
+                    if attempt == max_attempts - 1:
+                        raise                 # out of attempts: surface the error
+                    await asyncio.sleep(random.uniform(0, min(cap, base * 2 ** attempt)))
+        return wrapper
+    return decorator
+
+@retry(max_attempts=3)
+async def call_model(prompt: str) -> str:
+    ...
+```
+
+<Locale lang="zh">
+
+追问点：
+
+- 为什么要 `functools.wraps`？——保留原函数名和文档，日志和调试才看得懂。
+- 为什么只捕获 `retry_on`？——400、401 之类重试也不会成功（见 API Engineering 的错误分类）。
+- 怎么支持服务端的 `Retry-After`？——自定义异常携带等待时间，有就用它。
+- 怎么加总 deadline？——记录开始时间，剩余时间不够就不再等待。
+- **有副作用的调用能这样重试吗？** 不能，要配合幂等键（见 API Engineering Level 4）。
+
+### 4. 带并发上限的异步批量请求
+
+对 1,000 个 prompt 调用模型，最多同时 10 个请求，每个请求 30 秒超时，一个失败不影响其他。
+
+</Locale>
+
+<Locale lang="en">
+
+Follow-ups: `functools.wraps` preserves names for logs; only retryable errors (4xx never succeed); honor `Retry-After` via custom exceptions; add an overall deadline; never retry side effects without idempotency keys.
+
+### 4. Concurrency-limited async batch
+
+Call a model for 1,000 prompts with at most 10 in flight, 30 s timeouts, and isolated failures.
+
+</Locale>
+
+```python
+import asyncio
+
+async def run_batch(prompts: list[str], call, max_concurrency: int = 10,
+                    timeout: float = 30.0) -> list[str | Exception]:
+    sem = asyncio.Semaphore(max_concurrency)
+
+    async def one(prompt: str) -> str | Exception:
+        async with sem:                                   # at most N concurrent calls
+            try:
+                return await asyncio.wait_for(call(prompt), timeout)
+            except Exception as e:                        # isolate failures per item
+                return e
+
+    return await asyncio.gather(*(one(p) for p in prompts))   # results keep input order
+```
+
+<Locale lang="zh">
+
+追问点：
+
+- 为什么不直接 `gather` 1,000 个？——会同时发出 1,000 个请求，触发供应商 429、耗尽连接池。
+- `gather` 的返回顺序？——和输入顺序一致。
+- 为什么在 `one` 里捕获异常？——否则一个失败会让 `gather` 抛出，其他结果丢失（也可以用 `return_exceptions=True`）。
+- 怎么按 TPM 而不只是并发数限流？——在 `async with sem` 里再加一个异步版的令牌桶。
+- 这些请求不着急的话？——用供应商的 Batch API，价格约五折（见 [Cost](/docs/production/cost) Level 3）。
+
+### 5. 增量解析 SSE 流
+
+网络数据是一块一块到达的，一个事件可能被切在两个块之间。实现一个解析器：每次喂入一块文本，返回已完整的事件。
+
+</Locale>
+
+<Locale lang="en">
+
+Follow-ups: unbounded `gather` triggers 429s and exhausts pools; results preserve order; catch per item (or `return_exceptions=True`); add an async token bucket for TPM; non-urgent work belongs in Batch APIs.
+
+### 5. Incremental SSE parsing
+
+Chunks can split events; feed text and return only complete events.
+
+</Locale>
+
+```python
+class SSEParser:
+    def __init__(self):
+        self.buffer = ""
+
+    def feed(self, chunk: str) -> list[dict]:
+        self.buffer += chunk
+        events = []
+        while "\n\n" in self.buffer:                       # a blank line ends an event
+            raw, self.buffer = self.buffer.split("\n\n", 1)
+            event, data = "message", []
+            for line in raw.split("\n"):
+                if not line or line.startswith(":"):       # comment / heartbeat
+                    continue
+                field, _, value = line.partition(":")
+                value = value[1:] if value.startswith(" ") else value
+                if field == "event":
+                    event = value
+                elif field == "data":
+                    data.append(value)
+            if data:
+                events.append({"event": event, "data": "\n".join(data)})
+        return events
+
+p = SSEParser()
+p.feed('event: delta\ndata: {"text": "你的')     # -> []  (incomplete)
+p.feed('订单"}\n\n')                              # -> [{"event": "delta", "data": '{"text": "你的订单"}'}]
+```
+
+<Locale lang="zh">
+
+追问点：
+
+- 为什么要缓冲？——一个事件、甚至一个 UTF-8 多字节字符都可能被切开（字节流还需要增量解码器 `codecs.getincrementaldecoder`）。
+- 以冒号开头的行是什么？——注释，常用作心跳保持连接（见 API Engineering Level 1）。
+- 一个事件多行 `data` 怎么处理？——按规范用换行拼接。
+- 收到 `data` 是 JSON 片段（如工具调用参数）时？——要累积到完整再解析，不能边收边执行。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 重试装饰器为什么只重试特定异常？有副作用的调用怎么办？
+2. 为什么用 Semaphore 而不是直接 gather？
+3. SSE 解析器为什么需要缓冲区？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Follow-ups: buffer because events and even UTF-8 characters split (use an incremental decoder for bytes); colon lines are heartbeats; multiple `data` lines join with newlines; accumulate streamed JSON (tool arguments) before parsing.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why retry only certain errors, and what about side effects?
+2. Why a semaphore instead of plain `gather`?
+3. Why does the SSE parser buffer?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · numpy 数值
+
+### 6. 数值稳定的 softmax
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · numpy numerics
+
+### 6. Numerically stable softmax
+
+</Locale>
+
+```python
+import numpy as np
+
+def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
+    x = x - x.max(axis=axis, keepdims=True)   # subtract max: exp never overflows
+    e = np.exp(x)
+    return e / e.sum(axis=axis, keepdims=True)
+
+softmax(np.array([1000.0, 1001.0]))           # works; naive exp(1000) would be inf
+```
+
+<Locale lang="zh">
+
+为什么减最大值：`exp(1000)` 溢出成无穷大，结果变成 `nan`。减去最大值后所有指数 ≤ 0，最大项是 `exp(0) = 1`；而 softmax 的结果不变（分子分母同乘 `exp(-max)`）。追问：`keepdims=True` 是为了广播；log-softmax 用 log-sum-exp 技巧。
+
+### 7. 缩放点积注意力（含因果掩码）
+
+`Attention(Q, K, V) = softmax(Q Kᵀ / √d) V`（机制见 [Transformer](/docs/llm/transformer)）。
+
+</Locale>
+
+<Locale lang="en">
+
+`exp(1000)` overflows to inf and yields nan; subtracting the max keeps exponents ≤ 0 without changing the result. `keepdims` enables broadcasting; log-softmax uses log-sum-exp.
+
+### 7. Scaled dot-product attention with a causal mask
+
+`softmax(QKᵀ/√d)V` — see [Transformer](/docs/llm/transformer).
+
+</Locale>
+
+```python
+def attention(Q: np.ndarray, K: np.ndarray, V: np.ndarray, causal: bool = False) -> np.ndarray:
+    """Q: (..., n_q, d), K: (..., n_k, d), V: (..., n_k, d_v)"""
+    d = Q.shape[-1]
+    scores = Q @ K.swapaxes(-1, -2) / np.sqrt(d)            # (..., n_q, n_k)
+    if causal:
+        n_q, n_k = scores.shape[-2:]
+        future = np.triu(np.ones((n_q, n_k), dtype=bool), k=1)
+        scores = np.where(future, -np.inf, scores)          # position i can't see j > i
+    return softmax(scores, axis=-1) @ V                     # (..., n_q, d_v)
+
+rng = np.random.default_rng(0)
+x = rng.standard_normal((4, 8))                              # 4 tokens, dim 8
+out = attention(x, x, x, causal=True)                        # (4, 8)
+```
+
+<Locale lang="zh">
+
+追问点：
+
+- 为什么除以 √d？——点积的方差随维度增大，不缩放 softmax 会过于尖锐、梯度变小。
+- 掩码为什么用 `-inf`？——`exp(-inf) = 0`，被遮住的位置权重恰好为 0。
+- 复杂度？——O(n² · d) 时间、O(n²) 空间存分数矩阵；FlashAttention 通过分块计算避免存整个矩阵（见 [Inference](/docs/llm/inference) Level 6）。
+- 多头怎么做？——把 d 拆成 h 个头，reshape 成 `(h, n, d/h)` 后上面的函数可直接批量计算（因为支持前导维度 `...`）。
+
+### 8. 余弦相似度 Top-K 检索
+
+给一个查询向量和 N 个文档向量，返回最相似的 k 个（原理见 [Embedding](/docs/rag/embedding) Level 0）。
+
+</Locale>
+
+<Locale lang="en">
+
+Follow-ups: √d keeps logits from growing with dimension (sharp softmax, small gradients); `-inf` gives exactly zero weight; O(n²·d) time and O(n²) memory for scores — FlashAttention tiles to avoid materializing them; multi-head reshapes to `(h, n, d/h)` and reuses the batched function.
+
+### 8. Cosine Top-K retrieval
+
+Return the k documents most similar to a query (see [Embedding](/docs/rag/embedding) Level 0).
+
+</Locale>
+
+```python
+def top_k_cosine(query: np.ndarray, docs: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
+    q = query / np.linalg.norm(query)
+    D = docs / np.linalg.norm(docs, axis=1, keepdims=True)
+    sims = D @ q                                    # (N,) cosine = dot of unit vectors
+    k = min(k, len(sims))
+    idx = np.argpartition(-sims, k - 1)[:k]         # unordered top-k in O(N)
+    idx = idx[np.argsort(-sims[idx])]               # sort only those k
+    return idx, sims[idx]
+```
+
+<Locale lang="zh">
+
+追问点：
+
+- 为什么用 `argpartition`？——全排序 O(N log N)，`argpartition` 找前 k 个是 O(N)，再对 k 个排序 O(k log k)。
+- 文档向量可以预先归一化吗？——可以，存储时就归一化，查询时只需一次矩阵乘法。
+- 零向量怎么办？——除以 0 会得到 `nan`，要加一个很小的 epsilon 或过滤。
+- 1,000 万个文档还这么做吗？——不，暴力是 O(N·d)，要用 ANN 索引（见 [Vector Search](/docs/rag/vector-search)）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. softmax 为什么要减最大值？结果为什么不变？
+2. attention 为什么除以 √d？掩码为什么用 `-inf`？
+3. `argpartition` 比 `argsort` 好在哪？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Follow-ups: `argpartition` is O(N) plus O(k log k) versus O(N log N); pre-normalize stored vectors; guard zero vectors with epsilon; at 10M documents use ANN ([Vector Search](/docs/rag/vector-search)).
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why subtract the max, and why is the result unchanged?
+2. Why √d, and why `-inf` masks?
+3. Why `argpartition` over `argsort`?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 分词
+
+### 9. 手写 BPE 训练
+
+给定词频，重复“统计相邻符号对的频率 → 合并最频繁的一对”，得到合并规则（原理见 [Tokenization](/docs/llm/tokenization) 的 BPE 手推）。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Tokenization
+
+### 9. BPE training
+
+Repeatedly count adjacent symbol pairs and merge the most frequent (see the BPE walkthrough in [Tokenization](/docs/llm/tokenization)).
+
+</Locale>
+
+```python
+from collections import Counter
+
+def train_bpe(word_freqs: dict[str, int], num_merges: int) -> list[tuple[str, str]]:
+    vocab = {tuple(word): freq for word, freq in word_freqs.items()}   # start from characters
+    merges = []
+    for _ in range(num_merges):
+        pairs = Counter()
+        for symbols, freq in vocab.items():
+            for a, b in zip(symbols, symbols[1:]):
+                pairs[(a, b)] += freq
+        if not pairs:
+            break
+        best = max(pairs, key=pairs.get)              # most frequent adjacent pair
+        merges.append(best)
+        new_vocab = {}
+        for symbols, freq in vocab.items():
+            out, i = [], 0
+            while i < len(symbols):
+                if i + 1 < len(symbols) and (symbols[i], symbols[i + 1]) == best:
+                    out.append(symbols[i] + symbols[i + 1])
+                    i += 2
+                else:
+                    out.append(symbols[i])
+                    i += 1
+            new_vocab[tuple(out)] = new_vocab.get(tuple(out), 0) + freq
+        vocab = new_vocab
+    return merges
+
+train_bpe({"low": 5, "lower": 2, "newest": 6, "widest": 3}, 3)
+# first merges: ('e', 's'), ('es', 't'), ...
+```
+
+<Locale lang="zh">
+
+追问点：
+
+- 复杂度？——每轮重新统计所有对 O(总符号数)；生产实现只增量更新受影响的对，并用优先队列。
+- 频率相同时怎么选？——需要确定的平局规则，否则不同运行结果不同。
+- 编码新词时怎么用合并规则？——按学到的顺序依次应用合并。
+- byte-level BPE 的区别？——从 256 个字节开始，而不是字符，所以永远不会有未登录词。
+- 词边界？——真实实现会在词尾加标记或按空格预切分，避免跨词合并。
+
+<Note title="自测：到这里你应该能回答">
+
+1. BPE 每一轮做哪两件事？
+2. 为什么平局需要确定的规则？
+3. 编码时为什么要按学到的顺序应用合并？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Follow-ups: naive recounting is O(total symbols) per merge — production updates affected pairs incrementally with a priority queue; deterministic tie-breaking; encode by applying merges in learned order; byte-level BPE starts from 256 bytes so nothing is out of vocabulary; pre-tokenize on whitespace or mark word ends to avoid cross-word merges.
+
+<Note title="Self-check: you should be able to answer">
+
+1. The two steps per BPE round?
+2. Why deterministic ties?
+3. Why apply merges in learned order?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 补充练习
+
+| 题目 | 考点 | 优先级 |
+| --- | --- | --- |
+| LRU Cache (LeetCode 146) | 哈希 + 双向链表 | 🔴 |
+| 令牌桶 / 滑动窗口限流器 | 懒补充、线程安全、分布式 | 🔴 |
+| 带重试和并发上限的异步批处理 | asyncio、Semaphore、异常隔离 | 🔴 |
+| numpy attention（含多头） | 广播、掩码、数值稳定 | 🔴 |
+| 余弦 Top-K | 归一化、argpartition | 🔴 |
+| BPE 训练与编码 | 贪心合并 | 🟡 |
+| 实现简单的倒排索引 + BM25 打分 | 见 [Sparse Retrieval](/docs/rag/sparse-retrieval) | 🟡 |
+| 计算 WER（词级编辑距离） | 见 [动态规划](/docs/algorithms/dp) Level 2 | 🟡 |
+| 实现 RRF 融合 | 见 [Hybrid Search](/docs/rag/hybrid-search) | 🟡 |
+| 带 TTL 的内存缓存 | 过期时间、惰性删除 | 🟡 |
+
+## 陷阱
+
+<Note type="warning" title="常见错误">
+
+- softmax 不减最大值。
+- 并发请求不设上限、不设超时。
+- 重试所有异常，包括 400 和有副作用的调用。
+- 限流器用 `time.time()`、不加锁。
+- 讲不出代码和机制的联系（这是这类题真正想考的）。
+
+</Note>
+
+## 连接
+
+- 机制：[API Engineering](/docs/production/api-engineering)、[Transformer](/docs/llm/transformer)、[Tokenization](/docs/llm/tokenization)、[Embedding](/docs/rag/embedding)、[Vector Search](/docs/rag/vector-search)
+- 工程：[Async 与并发](/docs/engineering/concurrency)、[Python 核心](/docs/engineering/python)
+
+</Locale>
+
+<Locale lang="en">
+
+## More practice
+
+LRU (146), token bucket / sliding window limiters, async batch with retries and limits, numpy attention with heads, cosine Top-K 🔴; BPE train/encode, inverted index + BM25, WER, RRF, TTL cache 🟡.
+
+## Pitfalls
+
+<Note type="warning" title="Common mistakes">
+
+- softmax without subtracting the max.
+- Unbounded concurrency or no timeouts.
+- Retrying everything, including 4xx and side effects.
+- `time.time()` and no lock in limiters.
+- Not connecting code to mechanisms — the real point of these questions.
+
+</Note>
+
+## Connections
+
+- Mechanics: [API Engineering](/docs/production/api-engineering), [Transformer](/docs/llm/transformer), [Tokenization](/docs/llm/tokenization), [Embedding](/docs/rag/embedding), [Vector Search](/docs/rag/vector-search)
+- Engineering: [Async & Concurrency](/docs/engineering/concurrency), [Python](/docs/engineering/python)
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+| 题目 | 日期 | 用时 | 一次通过？ | 卡在哪 |
+| --- | --- | --- | --- | --- |
+| | | | | |

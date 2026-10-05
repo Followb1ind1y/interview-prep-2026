@@ -1,0 +1,400 @@
+---
+title: 图
+titleEn: Graphs
+description: 图的表示与遍历：网格上的 DFS / BFS、BFS 求无权最短路、拓扑排序与环检测、并查集、Dijkstra。拓扑排序和工程里的任务依赖调度是同一件事。
+descriptionEn: "Graph representation and traversal: DFS/BFS on grids, BFS for unweighted shortest paths, topological sort and cycle detection, union-find, Dijkstra. Topological sort is the same as dependency scheduling in engineering."
+date: 2026-10-04
+keywords: ['graph', 'dfs', 'bfs', 'grid', 'shortest path', 'topological sort', 'kahn', 'union find', 'dijkstra']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
+---
+
+<Locale lang="zh">
+
+图题看起来吓人，但面试里 80% 的图题是三种：**网格上的连通区域（DFS / BFS）**、**无权最短路（BFS）**、**依赖关系（拓扑排序）**。再加上并查集和 Dijkstra 就足够了。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 表示与遍历 | 邻接表怎么建？网格怎么当图处理？ | 30 min |
+| 1 · BFS 最短路 | 为什么 BFS 能求无权最短路？ | 25 min |
+| 2 · 拓扑排序 | 课程依赖、任务调度怎么排？怎么发现环？ | 30 min |
+| 3 · 并查集与 Dijkstra | 动态连通性、带权最短路怎么做？ | 30 min |
+
+## 需要掌握
+
+- 邻接表；网格的四方向遍历；`visited` 的时机
+- BFS 按层扩展 = 无权最短路；多源 BFS
+- Kahn 算法（入度为 0 先出）与环检测
+- 并查集的路径压缩；Dijkstra 用最小堆
+
+</Locale>
+
+<Locale lang="en">
+
+Graphs look intimidating, but most interview graph problems are grid connectivity (DFS/BFS), unweighted shortest paths (BFS), or dependencies (topological sort), plus union-find and Dijkstra.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Representation and traversal | Adjacency lists? Grids as graphs? | 30 min |
+| 1 · BFS shortest paths | Why does BFS find unweighted shortest paths? | 25 min |
+| 2 · Topological sort | Ordering dependencies and detecting cycles? | 30 min |
+| 3 · Union-find and Dijkstra | Dynamic connectivity and weighted paths? | 30 min |
+
+## Must know
+
+- adjacency lists, 4-direction grid traversal, when to mark visited
+- BFS layers = unweighted shortest paths; multi-source BFS
+- Kahn's algorithm and cycle detection
+- union-find with path compression; Dijkstra with a min-heap
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 表示与遍历
+
+### 图怎么表示？
+
+题目通常给边列表 `[[0,1],[1,2]]`，先转成**邻接表**：`graph = defaultdict(list)`，每条边 `graph[u].append(v)`（无向图两个方向都加）。网格题不需要建图：每个格子就是节点，上下左右就是边。
+
+### 网格 DFS：岛屿数量
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Representation and traversal
+
+Convert edge lists to adjacency lists (`defaultdict(list)`, both directions if undirected). Grids need no explicit graph: cells are nodes, four neighbors are edges.
+
+### Grid DFS: Number of Islands
+
+</Locale>
+
+```python
+def num_islands(grid: list[list[str]]) -> int:
+    rows, cols = len(grid), len(grid[0])
+    def sink(r: int, c: int) -> None:
+        if r < 0 or r >= rows or c < 0 or c >= cols or grid[r][c] != '1':
+            return
+        grid[r][c] = '0'                              # mark visited
+        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            sink(r + dr, c + dc)
+    count = 0
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r][c] == '1':
+                count += 1                            # new island found
+                sink(r, c)                            # erase all of it
+    return count
+```
+
+<Locale lang="zh">
+
+复杂度 O(行 × 列)：每个格子最多访问一次。注意：这里直接修改输入来标记访问；面试时要问“能否修改输入”，不能就用 `visited` 集合。网格很大时递归可能栈溢出，可改用 BFS。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 网格题中“节点”和“边”分别是什么？
+2. 为什么复杂度是 O(行 × 列)？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+O(rows × cols). Marking by mutating input — ask whether that's allowed; otherwise use a `visited` set. Deep grids may overflow recursion; switch to BFS.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Nodes and edges in grid problems?
+2. Why O(rows × cols)?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · BFS 最短路
+
+BFS 按“距离起点的步数”一层层扩展，第一次到达某节点时的层数就是最短距离——前提是**每条边权重相同**。
+
+**入队时就标记 visited**，而不是出队时，否则同一节点会被多次入队。
+
+**多源 BFS**：腐烂的橘子（994）——所有初始腐烂的橘子同时作为起点入队，层数就是时间。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · BFS shortest paths
+
+BFS expands by distance, so the first arrival is the shortest path when edges are unweighted. Mark visited on enqueue, not dequeue. Multi-source BFS (Rotting Oranges, 994) starts from all sources at once.
+
+</Locale>
+
+```python
+from collections import deque
+
+def shortest_path_grid(grid: list[list[int]], start, goal) -> int:
+    rows, cols = len(grid), len(grid[0])
+    q = deque([(start, 0)])
+    seen = {start}
+    while q:
+        (r, c), d = q.popleft()
+        if (r, c) == goal:
+            return d
+        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < rows and 0 <= nc < cols and grid[nr][nc] == 0 and (nr, nc) not in seen:
+                seen.add((nr, nc))                    # mark on enqueue
+                q.append(((nr, nc), d + 1))
+    return -1
+```
+
+<Locale lang="zh">
+
+<Note title="自测：到这里你应该能回答">
+
+1. BFS 求最短路的前提是什么？
+2. 为什么入队时就要标记访问？
+3. 多源 BFS 和普通 BFS 有什么区别？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+<Note title="Self-check: you should be able to answer">
+
+1. BFS's precondition for shortest paths?
+2. Why mark on enqueue?
+3. Multi-source vs single-source BFS?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 拓扑排序
+
+课程表（207 / 210）：有些课必须先修，能否全部修完？给出一个顺序。**Kahn 算法**：入度为 0 的节点（没有前置依赖）先出队，出队时把它指向的节点入度减 1，新的入度为 0 的节点入队。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Topological sort
+
+Course Schedule (207/210) with Kahn's algorithm: emit zero in-degree nodes, decrement their neighbors, enqueue new zeros.
+
+</Locale>
+
+```python
+from collections import defaultdict, deque
+
+def find_order(n: int, prerequisites: list[list[int]]) -> list[int]:
+    graph, indeg = defaultdict(list), [0] * n
+    for course, pre in prerequisites:
+        graph[pre].append(course)                     # pre -> course
+        indeg[course] += 1
+    q = deque(i for i in range(n) if indeg[i] == 0)
+    order = []
+    while q:
+        u = q.popleft()
+        order.append(u)
+        for v in graph[u]:
+            indeg[v] -= 1
+            if indeg[v] == 0:
+                q.append(v)
+    return order if len(order) == n else []           # leftovers mean a cycle
+```
+
+<Locale lang="zh">
+
+**环检测**：如果最后输出的节点数少于 n，剩下的节点入度永远不为 0——它们在环里。
+
+<Note type="tip" title="串联：工程里的拓扑排序">
+
+拓扑排序在 AI 工程里随处可见：agent workflow 的步骤依赖（LangGraph 的图）、构建系统的依赖顺序、[Planning](/docs/agent/planning) Level 1 里“按依赖拆解任务”、数据流水线的 DAG（如 Airflow）。面试时说出这种联系很加分。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. Kahn 算法的三步是什么？
+2. 怎样判断图中有环？
+3. 举一个 AI 工程中用到拓扑排序的例子。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+If fewer than n nodes are emitted, the rest sit on a cycle.
+
+<Note type="tip" title="Connection">
+
+Topological order underlies agent workflow graphs (LangGraph), build systems, dependency-based task decomposition, and pipeline DAGs like Airflow.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Kahn's three steps?
+2. How do you detect a cycle?
+3. An AI-engineering example of topological sort?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 并查集与 Dijkstra
+
+### 并查集
+
+维护“哪些元素属于同一组”，支持“合并两组”和“查询是否同组”，几乎 O(1)（路径压缩 + 按秩合并）。适合**边不断加入**的连通性问题：冗余连接（684）、连通分量数（323）。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Union-find and Dijkstra
+
+Union-find tracks groups with near-O(1) union and find (path compression, union by rank) — ideal when edges arrive over time: Redundant Connection (684), Connected Components (323).
+
+</Locale>
+
+```python
+class UnionFind:
+    def __init__(self, n: int):
+        self.parent = list(range(n))
+    def find(self, x: int) -> int:
+        while self.parent[x] != x:
+            self.parent[x] = self.parent[self.parent[x]]   # path compression (halving)
+            x = self.parent[x]
+        return x
+    def union(self, a: int, b: int) -> bool:
+        ra, rb = self.find(a), self.find(b)
+        if ra == rb:
+            return False                                   # already connected: this edge forms a cycle
+        self.parent[ra] = rb
+        return True
+```
+
+<Locale lang="zh">
+
+### Dijkstra
+
+边有**非负权重**时的最短路：用最小堆每次取出当前距离最小的节点，更新它的邻居。O((V + E) log V)。代表题：网络延迟时间（743）。有负权边时不能用 Dijkstra（需 Bellman-Ford），面试中一般点到为止。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 并查集适合什么样的问题？`union` 返回 False 意味着什么？
+2. Dijkstra 为什么要求非负权重？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+### Dijkstra
+
+Non-negative weighted shortest paths with a min-heap, O((V + E) log V) — Network Delay Time (743). Negative edges need Bellman-Ford; mention and move on.
+
+<Note title="Self-check: you should be able to answer">
+
+1. When to use union-find, and what does `union` returning False mean?
+2. Why does Dijkstra need non-negative weights?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 题单
+
+| 模式 | 题目 | 优先级 |
+| --- | --- | --- |
+| 网格遍历 | Number of Islands (200)、Max Area of Island (695)、Flood Fill (733) | 🔴 |
+| 图遍历 | Clone Graph (133)、Pacific Atlantic Water Flow (417) | 🟡 |
+| BFS | Rotting Oranges (994)、Shortest Path in Binary Matrix (1091) | 🔴 |
+| BFS | Word Ladder (127) | 🟡 |
+| 拓扑排序 | Course Schedule (207)、Course Schedule II (210) | 🔴 |
+| 并查集 | Number of Connected Components (323)、Redundant Connection (684) | 🟡 |
+| Dijkstra | Network Delay Time (743) | 🟡 |
+
+## 陷阱
+
+<Note type="warning" title="常见错误">
+
+- BFS 出队时才标记访问，导致重复入队。
+- 有向 / 无向图建图时方向搞错。
+- 网格 DFS 忘记边界检查。
+- 有权图用 BFS 求最短路。
+
+</Note>
+
+## 连接
+
+- 上一页：[树](/docs/algorithms/trees)；下一页：[回溯](/docs/algorithms/backtracking)
+- 工程联系：[Planning](/docs/agent/planning)（依赖拆解）、[Long-running Agent](/docs/system-design/long-running-agent)（任务编排）
+
+</Locale>
+
+<Locale lang="en">
+
+## Problem list
+
+Grids: 200, 695, 733 🔴. Traversal: 133, 417 🟡. BFS: 994, 1091 🔴; 127 🟡. Topological: 207, 210 🔴. Union-find: 323, 684 🟡. Dijkstra: 743 🟡.
+
+## Pitfalls
+
+<Note type="warning" title="Common mistakes">
+
+- Marking visited on dequeue.
+- Wrong edge directions.
+- Missing grid bounds checks.
+- BFS on weighted graphs.
+
+</Note>
+
+## Connections
+
+- Previous: [Trees](/docs/algorithms/trees); next: [Backtracking](/docs/algorithms/backtracking)
+- Engineering: [Planning](/docs/agent/planning), [Long-running Agent](/docs/system-design/long-running-agent)
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+| 题目 | 日期 | 用时 | 一次通过？ | 卡在哪 |
+| --- | --- | --- | --- | --- |
+| | | | | |

@@ -1,48 +1,402 @@
 ---
 title: 动态规划
 titleEn: Dynamic Programming
-description: 一维、二维、背包、子序列、区间 DP。
-descriptionEn: 1D / 2D DP, knapsack, subsequences, interval DP.
-date: 2026-08-30
-keywords: ["dp"]
+description: 四步法（状态、转移、初值、顺序）；记忆化与递推；一维 DP（爬楼梯、打家劫舍、零钱兑换）、二维 DP（路径、最长公共子序列、编辑距离）、0/1 背包与最长递增子序列。编辑距离和 LCS 也是 NLP 评测指标的基础。
+descriptionEn: "A four-step method (state, transition, base, order); memoization vs tabulation; 1D DP (stairs, house robber, coin change), 2D DP (grid paths, LCS, edit distance), 0/1 knapsack and LIS. Edit distance and LCS also underpin NLP evaluation metrics."
+date: 2026-10-04
+keywords: ['dynamic programming', 'memoization', 'tabulation', 'coin change', 'lcs', 'edit distance', 'knapsack', 'lis']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-## 提问顺序
+动态规划是“难度最大、但在 AI 工程面试中权重不算最高”的一类。目标是：**常见的一维、二维 DP 能用四步法推出来**，不追求刷难题。编辑距离和最长公共子序列值得认真掌握——它们和 NLP 的评测指标（如 ROUGE-L、字错误率）直接相关。
 
-1. 状态是什么？（通常是「做到第 i 个 / 用了 j 个」）
-2. 决策是什么？（选还是不选、从哪个状态转移过来）
-3. 初始值和边界
-4. 能不能压缩空间
+## 这一页怎么学
 
-## 代表题
-
-| 题 | 模式 | 状态 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| Climbing Stairs | 一维 DP | 待刷 |
-| House Robber | 一维 DP | 待刷 |
-| Coin Change | 完全背包 | 待刷 |
-| Longest Increasing Subsequence | 子序列 | 待刷 |
+| 0 · 四步法 | DP 题怎么一步步推出来？ | 30 min |
+| 1 · 一维 DP | 爬楼梯、打家劫舍、零钱兑换 | 40 min |
+| 2 · 二维 DP | 网格路径、LCS、编辑距离 | 45 min |
+| 3 · 背包与 LIS | 0/1 背包、最长递增子序列 | 30 min |
+
+## 需要掌握
+
+- 识别信号：求最值 / 方案数 / 可行性，且有重叠子问题
+- 四步法：状态定义 → 转移方程 → 初始值 → 计算顺序
+- 记忆化搜索（自顶向下）与递推（自底向上）
+- 空间优化：只保留上一行 / 前两个值
 
 </Locale>
 
 <Locale lang="en">
 
-## Questions to ask, in order
+DP is the hardest family but not the most weighted in AI engineering interviews. Aim to derive common 1D and 2D DPs with a four-step method. Learn edit distance and LCS well — they underpin metrics like ROUGE-L and word error rate.
 
-1. What's the state? (Usually "up to index i / having used j")
-2. What's the decision? (Take it or skip it, and which state it transitions from)
-3. Initial values and boundaries
-4. Can the space be compressed?
+## How to work through this page
 
-## Representative problems
-
-| Problem | Pattern | Status |
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| Climbing Stairs | 1D | To do |
-| House Robber | 1D | To do |
-| Coin Change | Unbounded knapsack | To do |
-| Longest Increasing Subsequence | Subsequence | To do |
+| 0 · Four steps | How do you derive a DP? | 30 min |
+| 1 · 1D DP | Stairs, house robber, coin change | 40 min |
+| 2 · 2D DP | Grid paths, LCS, edit distance | 45 min |
+| 3 · Knapsack and LIS | 0/1 knapsack, longest increasing subsequence | 30 min |
+
+## Must know
+
+- signals: optimum/count/feasibility with overlapping subproblems
+- state → transition → base → order
+- memoization vs tabulation
+- space optimization
 
 </Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 四步法
+
+### 什么时候用 DP？
+
+问题求**最大 / 最小值、方案数、能否做到**，并且大问题可以拆成**相互重叠的小问题**（同一个小问题会被反复计算）。暴力递归 / 回溯的复杂度是指数级，加上“记住已经算过的结果”就变成多项式级。
+
+### 四步
+
+1. **状态**：`dp[i]` 表示什么？要能用一句话说清楚（“前 i 个…的最…”）。
+2. **转移**：`dp[i]` 怎么由更小的状态得到？
+3. **初值**：最小的状态是什么？
+4. **顺序**：保证计算 `dp[i]` 时，它依赖的状态都已算好。
+
+### 记忆化 vs 递推
+
+以爬楼梯（每次 1 或 2 步，n 阶有几种走法）为例：
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 0 · Four steps
+
+Use DP for optimum, count, or feasibility with overlapping subproblems — memoizing turns exponential recursion polynomial. Steps: state (one sentence), transition, base, order. Climbing stairs both ways:
+
+</Locale>
+
+```python
+from functools import cache
+
+def climb_stairs_memo(n: int) -> int:
+    @cache                                  # top-down: recursion + memo
+    def f(i: int) -> int:
+        if i <= 1:
+            return 1
+        return f(i - 1) + f(i - 2)
+    return f(n)
+
+def climb_stairs(n: int) -> int:
+    a, b = 1, 1                             # bottom-up with O(1) space: f(i-2), f(i-1)
+    for _ in range(n - 1):
+        a, b = b, a + b
+    return b
+```
+
+<Locale lang="zh">
+
+状态 `f(i)` = 走到第 i 阶的方法数；转移 `f(i) = f(i-1) + f(i-2)`（最后一步走 1 阶或 2 阶）；初值 `f(0) = f(1) = 1`；顺序从小到大。没有记忆化的递归是 O(2ⁿ)，有记忆化是 O(n)。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 说出 DP 四步。
+2. 为什么不加记忆化的递归是指数级？
+3. 记忆化和递推各有什么优缺点？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+`f(i) = f(i-1) + f(i-2)`, `f(0) = f(1) = 1`; plain recursion O(2ⁿ), memoized O(n). Memoization is natural to write; tabulation avoids recursion limits and enables space optimization.
+
+<Note title="Self-check: you should be able to answer">
+
+1. The four steps?
+2. Why is unmemoized recursion exponential?
+3. Pros and cons of each style?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 一维 DP
+
+### 打家劫舍（198）
+
+不能偷相邻的房子，求最大金额。状态 `dp[i]` = 前 i 间房的最大金额；转移：偷第 i 间（`dp[i-2] + nums[i]`）或不偷（`dp[i-1]`），取较大。
+
+### 零钱兑换（322）
+
+用最少的硬币凑出金额。状态 `dp[a]` = 凑出金额 a 的最少硬币数；转移：`dp[a] = min(dp[a - c] + 1)` 对每种硬币 c。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · 1D DP
+
+House Robber (198): `dp[i] = max(dp[i-1], dp[i-2] + nums[i])`. Coin Change (322): `dp[a] = min(dp[a - c] + 1)` over coins.
+
+</Locale>
+
+```python
+def rob(nums: list[int]) -> int:
+    prev2 = prev1 = 0                      # dp[i-2], dp[i-1]
+    for x in nums:
+        prev2, prev1 = prev1, max(prev1, prev2 + x)
+    return prev1
+
+def coin_change(coins: list[int], amount: int) -> int:
+    INF = amount + 1
+    dp = [0] + [INF] * amount              # dp[0] = 0: zero coins for amount 0
+    for a in range(1, amount + 1):
+        for c in coins:
+            if c <= a:
+                dp[a] = min(dp[a], dp[a - c] + 1)
+    return dp[amount] if dp[amount] != INF else -1
+```
+
+<Locale lang="zh">
+
+手推零钱兑换 `coins = [1, 2, 5]`，`amount = 11`：`dp[5] = 1`（一枚 5），`dp[10] = 2`，`dp[11] = dp[10] + 1 = 3`（5 + 5 + 1）。复杂度 O(金额 × 硬币种数)。
+
+**为什么贪心不行**：`coins = [1, 3, 4]`，凑 6：贪心先拿 4 再拿 1 + 1，共 3 枚；最优是 3 + 3，2 枚。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 写出打家劫舍的状态和转移。
+2. 零钱兑换为什么用 `amount + 1` 表示“凑不出”？
+3. 举一个零钱兑换中贪心失败的例子。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Trace coins [1, 2, 5], amount 11 → 3 (5 + 5 + 1); O(amount × coins). Greedy fails for [1, 3, 4] and 6 (4+1+1 vs 3+3).
+
+<Note title="Self-check: you should be able to answer">
+
+1. House robber state and transition?
+2. Why `amount + 1` as infinity?
+3. A greedy counterexample?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 二维 DP
+
+### 最长公共子序列（1143）
+
+状态 `dp[i][j]` = `a` 的前 i 个字符和 `b` 的前 j 个字符的 LCS 长度。转移：最后一个字符相同则 `dp[i-1][j-1] + 1`，否则 `max(dp[i-1][j], dp[i][j-1])`。
+
+### 编辑距离（72）
+
+把 `a` 变成 `b` 的最少操作数（插入、删除、替换）。状态 `dp[i][j]` = `a` 前 i 个字符变成 `b` 前 j 个字符的最少操作数。
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · 2D DP
+
+LCS (1143): `dp[i][j]` over prefixes; equal last characters → diagonal + 1, otherwise max of up and left. Edit distance (72): minimum inserts, deletes, replaces between prefixes.
+
+</Locale>
+
+```python
+def min_distance(a: str, b: str) -> int:
+    m, n = len(a), len(b)
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(m + 1):
+        dp[i][0] = i                       # delete all i chars
+    for j in range(n + 1):
+        dp[0][j] = j                       # insert all j chars
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if a[i - 1] == b[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1]            # no operation needed
+            else:
+                dp[i][j] = 1 + min(dp[i - 1][j],       # delete a[i-1]
+                                   dp[i][j - 1],       # insert b[j-1]
+                                   dp[i - 1][j - 1])   # replace
+    return dp[m][n]
+```
+
+<Locale lang="zh">
+
+手推 `"horse"` → `"ros"`，答案 3（horse → rorse 替换 h，rorse → rose 删除 r，rose → ros 删除 e）。复杂度 O(m × n)，可优化到 O(n) 空间（只保留上一行）。
+
+<Note type="tip" title="串联：NLP 评测">
+
+- **编辑距离**是语音识别字错误率（WER / CER）的核心：WER = 词级编辑距离 / 参考文本词数（见 [Meeting Summarization](/docs/system-design/meeting-summarization) 的评测）。
+- **LCS** 是 ROUGE-L 的核心：用候选摘要和参考摘要的最长公共子序列计算召回和精确率。
+
+面试中能说出这层联系，会让一道普通 DP 题变成加分项。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 编辑距离中 `dp[i-1][j]`、`dp[i][j-1]`、`dp[i-1][j-1]` 分别对应什么操作？
+2. 第 0 行、第 0 列为什么初始化成 j 和 i？
+3. WER 和编辑距离是什么关系？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+"horse" → "ros" is 3; O(m × n), reducible to O(n) space.
+
+<Note type="tip" title="Connection: NLP metrics">
+
+Edit distance underlies WER/CER (word-level edits divided by reference length); LCS underlies ROUGE-L.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Which operation does each predecessor represent?
+2. Why initialize row 0 and column 0 to j and i?
+3. How do WER and edit distance relate?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 背包与 LIS
+
+### 0/1 背包
+
+每个物品只能选一次，容量限制下价值最大。一维写法的关键是**容量倒序遍历**，保证每个物品只被用一次（正序会变成可重复使用的“完全背包”，就是零钱兑换）。
+
+```text
+for 每个物品 (w, v):
+    for cap in range(C, w - 1, -1):     # 倒序
+        dp[cap] = max(dp[cap], dp[cap - w] + v)
+```
+
+代表题：分割等和子集（416）——能否选出一些数使和为总和的一半，就是容量为“总和 / 2”的 0/1 背包可行性问题。
+
+### 最长递增子序列（300）
+
+O(n²) DP：`dp[i]` = 以 `nums[i]` 结尾的 LIS 长度，`dp[i] = max(dp[j] + 1)` 对所有 `j < i` 且 `nums[j] < nums[i]`。进阶 O(n log n)：维护“每个长度的递增子序列的最小结尾”，用二分查找替换（见 [二分与堆](/docs/algorithms/search-sort) 的模板）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 0/1 背包一维写法为什么要倒序遍历容量？
+2. 分割等和子集怎么转化成背包？
+3. LIS 的 O(n²) 状态是什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Knapsack and LIS
+
+0/1 knapsack in 1D iterates capacity **downward** so each item is used once (upward gives unbounded knapsack, like coin change). Partition Equal Subset Sum (416) is feasibility with capacity sum/2. LIS (300): O(n²) with `dp[i]` ending at i; O(n log n) by binary-searching the smallest tail per length.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why iterate capacity downward?
+2. How is 416 a knapsack?
+3. The O(n²) LIS state?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 题单
+
+| 类型 | 题目 | 优先级 |
+| --- | --- | --- |
+| 一维 | Climbing Stairs (70)、House Robber (198)、Coin Change (322)、Word Break (139) | 🔴 |
+| 一维 | House Robber II (213)、Decode Ways (91) | 🟡 |
+| 二维 | Unique Paths (62)、Longest Common Subsequence (1143)、Edit Distance (72) | 🔴 |
+| 背包 | Partition Equal Subset Sum (416) | 🟡 |
+| 子序列 | Longest Increasing Subsequence (300)、Longest Palindromic Substring (5) | 🟡 |
+
+## 陷阱
+
+<Note type="warning" title="常见错误">
+
+- 状态定义说不清楚就开始写转移。
+- 二维 DP 下标偏移（`dp[i]` 对应 `a[i-1]`）。
+- 0/1 背包正序遍历。
+- 没说复杂度和空间优化的可能。
+
+</Note>
+
+## 连接
+
+- 上一页：[回溯](/docs/algorithms/backtracking)；下一页：[AI 实用编码题](/docs/algorithms/ml-coding)
+- NLP 评测：[LLM Eval](/docs/evaluation/llm-eval)
+
+</Locale>
+
+<Locale lang="en">
+
+## Problem list
+
+1D: 70, 198, 322, 139 🔴; 213, 91 🟡. 2D: 62, 1143, 72 🔴. Knapsack: 416 🟡. Subsequences: 300, 5 🟡.
+
+## Pitfalls
+
+<Note type="warning" title="Common mistakes">
+
+- Transitions before a clear state.
+- Off-by-one between `dp[i]` and `a[i-1]`.
+- Upward iteration in 0/1 knapsack.
+- No complexity or space discussion.
+
+</Note>
+
+## Connections
+
+- Previous: [Backtracking](/docs/algorithms/backtracking); next: [AI Practical Coding](/docs/algorithms/ml-coding)
+- NLP metrics: [LLM Eval](/docs/evaluation/llm-eval)
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+| 题目 | 日期 | 用时 | 一次通过？ | 卡在哪 |
+| --- | --- | --- | --- | --- |
+| | | | | |

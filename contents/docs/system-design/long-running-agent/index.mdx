@@ -1,306 +1,346 @@
 ---
 title: L3 · Long-running Agent
 titleEn: L3 · Long-running Agent
-description: 状态、compaction、恢复、后台执行。
-descriptionEn: State, compaction, resume, background execution.
-date: 2026-09-07
-keywords: ["long-running agent", "agent state"]
+description: 跑几小时到几天的 agent：durable execution 与检查点、崩溃后不重复副作用、上下文压缩与进度文件、等待人工审批的挂起与恢复、漂移与卡住检测、预算与可观测。
+descriptionEn: "Agents that run for hours or days: durable execution and checkpoints, no duplicate side effects after crashes, compaction and progress files, suspending for human approval, drift and stall detection, budgets and observability."
+date: 2026-10-04
+keywords: ['system design', 'long-running agent', 'durable execution', 'temporal', 'checkpoint', 'compaction', 'human approval', 'idempotency', 'progress file']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-设计一个长时间运行的 agent。（Design a long-running agent.）
+> 题目：设计一个能运行数小时到数天的 agent，例如：把公司 300 个服务从旧日志库迁移到新日志库——逐个修改代码、跑测试、开 PR、等待审批合并、观察上线后的指标，直到全部完成。
 
-<Note title="开口框架">
-每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
+短任务 agent 的问题是“做对”；长任务 agent 还要面对：**进程会重启、上下文会爆、外部世界会变、人要审批、任务会悄悄偏离目标**。这道题考的是把 [Agent State](/docs/ai-native/agent-state)、[Context Compaction](/docs/ai-native/compaction)、[Planning](/docs/agent/planning) 组合成一个能“跑几天不出事”的系统。
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 面试中的时间 |
+| --- | --- | --- |
+| 0 · 澄清与估算 | 任务有多长？哪些步骤有副作用？ | 5 min |
+| 1 · 高层架构 | 编排层、执行层、状态层怎么分？ | 10 min |
+| 2 · 深挖：持久化与恢复 | 崩溃后怎么接着跑、不重复操作？ | 12 min |
+| 3 · 深挖：上下文与目标 | 跑了 3 天，怎么不忘目标、不跑偏？ | 8 min |
+| 4 · 人工、评测与成本 | 等审批怎么办？怎么评？ | 5 min |
+
+## 需要掌握
+
+- 把长任务拆成可检查点的工作单元；编排与执行分离
+- durable execution：确定性编排 + 活动持久化 + 重放
+- 副作用的意图日志与幂等键；恢复时重新核实外部状态
+- 每个工作单元用新上下文 + 进度文件，而不是一个无限增长的会话
+- 挂起等待审批；漂移与卡住检测；预算
+
+</Locale>
+
+<Locale lang="en">
+
+> Design an agent that runs for hours to days — e.g. migrating 300 services from an old logging library to a new one: edit code, run tests, open PRs, wait for approvals, watch post-deploy metrics, until done.
+
+Beyond doing things right, long-running agents face restarts, context overflow, a changing world, human approvals, and silent drift. This combines [Agent State](/docs/ai-native/agent-state), [Context Compaction](/docs/ai-native/compaction), and [Planning](/docs/agent/planning).
+
+## How to work through this page
+
+| Level | Question it answers | Interview time |
+| --- | --- | --- |
+| 0 · Clarify and estimate | How long? Which steps have side effects? | 5 min |
+| 1 · High-level design | Orchestration, execution, state? | 10 min |
+| 2 · Deep dive: durability and recovery | Resume after crashes without repeats? | 12 min |
+| 3 · Deep dive: context and goals | Day three without forgetting or drifting? | 8 min |
+| 4 · Humans, eval, cost | Waiting for approval? Evaluation? | 5 min |
+
+## Must know
+
+- checkpointable work units; orchestration vs execution
+- durable execution: deterministic orchestration, persisted activities, replay
+- intent logs and idempotency keys; re-verify external state on resume
+- fresh context per unit plus a progress file
+- suspension for approval, drift and stall detection, budgets
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 澄清需求与估算
+
+| 问题 | 本题假设 |
+| --- | --- |
+| 规模？ | 300 个服务，每个约 1–3 小时 agent 工作 + 等待审批 |
+| 副作用？ | 推分支、开 PR、（审批后）触发部署——都是有副作用的 |
+| 人的角色？ | 每个 PR 需代码负责人审批；部署后由 agent 观察指标 |
+| 总时长？ | 并行 10 个服务，约 1–2 周完成 |
+| 失败容忍？ | 单个服务失败不影响其他；上线后指标异常要自动回滚并通知 |
+
+关键认识：**这不是“一个跑两周的 agent 会话”，而是“一个编排系统管理 300 个短的 agent 工作单元”**。把长任务拆成可检查点的小单元，是整道题的设计起点。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么不该把它设计成一个跑两周的会话？
+2. 列出本题中有副作用的步骤。
+
 </Note>
 
-## 本题要练什么
-
-对话 ≠ 状态。要持久化计划、进度、文件和错误。见 [Agent State](/docs/ai-native/agent-state)。
-
-## 白板草图
-
 </Locale>
 
 <Locale lang="en">
 
-Design a long-running agent.
+## Level 0 · Clarify and estimate
 
-<Note title="Opening framework">
-Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+300 services, 1–3 agent hours each plus approval waits; side effects include pushing branches, opening PRs, and post-approval deploys; owners approve PRs; 10 in parallel, 1–2 weeks total; isolated failures and automatic rollback on bad metrics. Key insight: not one two-week session, but an orchestrator managing 300 short, checkpointable agent work units.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why not one two-week session?
+2. Which steps have side effects?
+
 </Note>
 
-## What this problem trains
-
-Conversation ≠ state. Persist the plan, progress, files, and errors. See [Agent State](/docs/ai-native/agent-state).
-
-## Whiteboard sketch
-
 </Locale>
-
-```
-job queue → worker agent
-          → checkpoint state
-          → compact context
-          → resume / retry / notify
-```
 
 <Locale lang="zh">
 
-## 容易被追问
+## Level 1 · 高层架构
 
-1. 怎么让长时间运行的 agent 可靠？（How do you make a long-running agent reliable?）
-2. 进程被杀掉后怎么接着跑？（How does it resume after the process is killed?）
-3. 上下文溢出时保留什么？（What do you keep when the context overflows?）
-4. 用户中途改了目标怎么办？（What if the user changes the goal midway?）
-
-## 14 个维度
-
-```
-1. 需求（Requirements）
-2. 约束（Constraints）
-3. 架构（Architecture）
-4. 数据流（Data Flow）
-5. 模型（Model）
-6. 检索（Retrieval）
-7. 智能体（Agent）
-8. 评测（Evaluation）
-9. 扩展（Scaling）
-10. 延迟（Latency）
-11. 成本（Cost）
-12. 可靠性（Reliability）
-13. 安全（Security）
-14. 可观测性（Observability）
+```text
+                 ┌──────── 编排层（durable workflow）────────┐
+迁移任务 ─►      │ 总计划：300 个服务的清单与状态            │
+                 │ 每个服务的子流程：                        │
+                 │   修改代码 → 验证 → 开 PR → 等审批 →      │
+                 │   合并部署 → 观察指标 → 完成 / 回滚       │
+                 │ 并发控制：同时最多 10 个服务               │
+                 └──────────────────────────────────────────┘
+                         │ 每一步是一个“活动”（activity）
+                         ▼
+   执行层：coding agent 工作单元（见 Coding Agent 一题）
+           每个单元：新沙箱 + 新上下文 + 本服务的任务描述 + 进度文件
+                         │
+   状态层：任务状态、检查点、事件历史（持久化数据库）
+           副作用意图日志（PR 已开？部署已触发？）
+                         │
+   外部：代码托管、CI、部署系统、监控
+   人：PR 审批、异常时的介入；看板显示 300 个服务的进度
 ```
 
+<Note title="自测：到这里你应该能回答">
+
+1. 编排层、执行层、状态层各负责什么？
+2. 为什么每个工作单元用新的上下文？
+
+</Note>
+
 </Locale>
 
 <Locale lang="en">
 
-## Likely follow-ups
+## Level 1 · High-level design
 
-1. How do you make a long-running agent reliable?
-2. How does it resume after the process is killed?
-3. What do you keep when the context overflows?
-4. What if the user changes the goal midway?
+A durable workflow holds the 300-service plan and per-service subflow (edit → verify → PR → await approval → merge/deploy → watch metrics → done or roll back) with concurrency limit 10. Each step is an activity; execution units are coding-agent runs with a fresh sandbox, fresh context, the service brief, and a progress file. State lives in a database: task status, checkpoints, event history, side-effect intents. External systems: code hosting, CI, deploys, monitoring; humans approve and watch a progress dashboard.
 
-## Dimensions
+<Note title="Self-check: you should be able to answer">
 
-```
-1. Requirements
-2. Constraints
-3. Architecture
-4. Data Flow
-5. Model
-6. Retrieval
-7. Agent
-8. Evaluation
-9. Scaling
-10. Latency
-11. Cost
-12. Reliability
-13. Security
-14. Observability
-```
+1. Responsibilities of the three layers?
+2. Why a fresh context per unit?
+
+</Note>
 
 </Locale>
 
 <Locale lang="zh">
 
-## 需求
+## Level 2 · 深挖：持久化与恢复
+
+### 进程重启了怎么接着跑？
+
+用 durable execution（如 Temporal，见 [Agent State](/docs/ai-native/agent-state) Level 2）：
+
+- **编排代码是确定性的**：只描述“先做什么、后做什么、什么条件下分支”。
+- **每个有副作用或不确定的操作都是 activity**：调用 agent 修改代码、开 PR、触发部署、读取指标。activity 的结果写入事件历史。
+- **崩溃后重放**：新 worker 重新执行编排代码，已完成的 activity 直接从历史取结果，不重新执行——第 147 个服务做到一半时重启，前 146 个不会重来，第 147 个从最后一个完成的 activity 继续。
+
+### 怎么保证不重复开 PR、不重复部署？
+
+- activity 是**至少执行一次**的（崩溃发生在执行后、记录前时会重试），所以有副作用的 activity 必须幂等：
+  - 开 PR：先查“这个分支是否已有 PR”，有就返回已有的；
+  - 部署：用 `服务名 + 版本` 作为幂等键，部署系统拒绝重复部署。
+- **意图日志**：执行前记录“准备开 PR”，执行后记录结果；恢复时看到“准备中但无结果”，先查询外部状态再决定（见 [API Engineering](/docs/production/api-engineering) Level 4）。
+
+### 外部世界变了怎么办？
+
+两天前开的 PR，现在主分支已经变了，出现冲突。恢复或继续时**重新读取外部状态**：PR 是否还开着、是否有冲突、CI 是否通过；有冲突就派一个新的工作单元 rebase 并重新验证，而不是假设一切和两天前一样。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么编排代码必须是确定性的？
+2. “开 PR”这个 activity 怎样做到幂等？
+3. 恢复时为什么要重新读外部状态？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Requirements
+## Level 2 · Deep dive: durability and recovery
+
+Durable execution (e.g. Temporal): deterministic orchestration code; every side-effecting or nondeterministic step (agent edits, PRs, deploys, metric reads) is an activity recorded in history; after a crash the workflow replays and completed activities return recorded results, so service 147 resumes from its last completed step. Activities are at-least-once, so make them idempotent — check for an existing PR before opening; key deploys by service + version — and keep intent logs with query-before-retry. Re-read external state on resume: open PRs may now conflict; dispatch a rebase unit rather than assuming nothing changed.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why deterministic orchestration?
+2. Make "open PR" idempotent.
+3. Why re-read external state?
+
+</Note>
 
 </Locale>
-
--
 
 <Locale lang="zh">
 
-## 约束
+## Level 3 · 深挖：上下文与目标
+
+### 跑了 3 天，上下文怎么办？
+
+如果用一个会话，几天下来上下文早已爆掉，压缩多次后细节和约束会丢失。正确做法（见 [Context Compaction](/docs/ai-native/compaction) Level 2 的“重置 + 交接”）：
+
+- **每个服务一个新的工作单元**，上下文只包含：全局约束（迁移规范、禁止事项）、本服务的任务描述、进度文件。
+- **进度文件 / 迁移手册**：随着迁移推进，把学到的经验写进共享文档——“遇到 X 框架时要额外修改 Y 配置”。后面的工作单元读取它，相当于跨会话的记忆。
+- 全局约束放在每次都注入的位置（类似 AGENTS.md），不会被压缩掉。
+
+### 怎么防止跑偏？
+
+| 风险 | 检测与处理 |
+| --- | --- |
+| 目标漂移：开始做迁移范围外的重构 | 每个 PR 的 diff 检查：只允许修改日志相关代码；超范围标记人工审查 |
+| 卡住：同一个服务反复失败 | 每个服务最多 3 次尝试，之后标记“需要人工”并跳过，不阻塞整体 |
+| 质量逐渐下降 | 抽检已完成的 PR；监控每个服务的 CI 通过率和回滚率趋势 |
+| 预算失控 | 每个服务和整体都有 token / 成本上限 |
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么每个服务用新的工作单元，而不是一个持续的会话？
+2. 进度文件起什么作用？
+3. 列出三种跑偏的风险和处理方式。
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Constraints
+## Level 3 · Deep dive: context and goals
+
+One multi-day session would overflow and lose constraints through repeated compaction. Use a fresh unit per service with global constraints, the service brief, and a shared progress/playbook file that accumulates lessons ("framework X also needs config Y") as cross-session memory; inject constraints every time. Guard against scope drift (diff checks limited to logging code), stalls (three attempts, then flag for humans and move on), quality decay (sample completed PRs, track CI pass and rollback trends), and runaway spend (per-service and global budgets).
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why fresh units?
+2. What does the progress file do?
+3. Three drift risks and responses?
+
+</Note>
 
 </Locale>
-
--
 
 <Locale lang="zh">
 
-## 架构
+## Level 4 · 人工、评测与成本
+
+### 等审批怎么办？
+
+编排层在“等审批”这一步**挂起**：状态持久化，不占用 worker。审批事件（PR 被批准的 webhook）到达后唤醒继续。等待期间有超时提醒（3 天未审批 → 提醒负责人）。审批通过后、合并前**重新检查**：CI 是否仍通过、是否有新冲突。
+
+### 上线后指标异常怎么办？
+
+部署后观察一段时间（如 30 分钟）的错误率、日志量；超过阈值 → 自动回滚（回滚本身也是幂等 activity）→ 通知负责人 → 该服务标记失败，不影响其他服务继续。
+
+### 怎么评估？
+
+- 过程指标：完成数 / 300、每个服务的平均耗时、需要人工介入的比例、回滚率。
+- 质量：PR 审查通过率、审查中要求修改的比例、上线后事故数。
+- 上线前演练：在 10 个服务上小规模试跑，故意注入失败（杀掉 worker、让 CI 失败、模拟审批超时），验证恢复逻辑（见 [Reliability](/docs/production/reliability) Level 5）。
+
+## 14 维度速查
+
+| 维度 | 本题关键决策 |
+| --- | --- |
+| 需求 | 300 个服务的端到端迁移，含审批与上线观察 |
+| 约束 | 1–2 周；单个失败不影响整体；有副作用 |
+| 架构 | durable workflow 编排 + 短工作单元执行 + 持久化状态 |
+| 数据流 | 计划 → 每服务子流程 → 挂起 / 唤醒 → 完成或回滚 |
+| 模型 | coding agent 工作单元（见 Coding Agent） |
+| 检索 | 进度文件 / 迁移手册作为共享记忆 |
+| 智能体 | 编排固定（workflow），单元内是 agent |
+| 评测 | 完成率、人工介入率、回滚率、故障注入演练 |
+| 扩展 | 并发上限 10；挂起不占资源 |
+| 延迟 | 以天计；关注吞吐而非单步延迟 |
+| 成本 | 每服务预算；失败 3 次即停 |
+| 可靠性 | 重放恢复、幂等 activity、自动回滚 |
+| 安全 | 沙箱执行；部署权限只给编排层；人工审批 |
+| 可观测性 | 300 个服务的进度看板、每单元轨迹、成本 |
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- 用一个跑两周的会话完成全部任务。
+- 崩溃后从头开始。
+- 恢复时假设外部世界没变。
+- 一个服务卡住就阻塞整个迁移。
+
+</Note>
+
+## 连接
+
+- 机制：[Agent State](/docs/ai-native/agent-state)、[Context Compaction](/docs/ai-native/compaction)、[Planning](/docs/agent/planning) Level 5–6、[Agent Reliability](/docs/agent/reliability)
+- 相关题：[Coding Agent](/docs/system-design/coding-agent)、[Agent Platform](/docs/system-design/agent-platform)
+
+## 面试问题
+
+1. 设计一个运行数天的迁移 agent。（Design a migration agent that runs for days.）
+2. 进程崩溃后怎么恢复、不重复操作？（How do you recover from crashes without repeating side effects?）
+3. 长任务的上下文怎么管理？（How do you manage context over a long task?）
+4. 等待人工审批时系统怎么处理？（How does the system handle waiting for approval?）
+5. 怎样检测 agent 跑偏或卡住？（How do you detect drift or stalls?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Architecture
+## Level 4 · Humans, eval, cost
+
+Suspend at approval steps with durable state, wake on the approval webhook, remind after timeouts, and recheck CI and conflicts before merging. After deploy, watch metrics (e.g. 30 minutes); breach → idempotent rollback, notify, mark failed, continue others. Evaluate completion, time per service, human-intervention share, rollbacks, review outcomes, and incidents; rehearse on 10 services with injected failures (killed workers, failing CI, approval timeouts).
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- One two-week session.
+- Restarting from scratch after crashes.
+- Assuming the world is unchanged on resume.
+- One stuck service blocking everything.
+
+</Note>
+
+## Connections
+
+- Mechanics: [Agent State](/docs/ai-native/agent-state), [Context Compaction](/docs/ai-native/compaction), [Planning](/docs/agent/planning) Levels 5–6, [Agent Reliability](/docs/agent/reliability)
+- Related: [Coding Agent](/docs/system-design/coding-agent), [Agent Platform](/docs/system-design/agent-platform)
+
+## Interview questions
+
+1. Design a migration agent that runs for days.
+2. How do you recover from crashes without repeating side effects?
+3. How do you manage context over a long task?
+4. How does the system handle waiting for approval?
+5. How do you detect drift or stalls?
 
 </Locale>
-
--
-
-<Locale lang="zh">
-
-## 数据流
-
-</Locale>
-
-<Locale lang="en">
-
-## Data Flow
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 模型
-
-</Locale>
-
-<Locale lang="en">
-
-## Model
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 检索
-
-</Locale>
-
-<Locale lang="en">
-
-## Retrieval
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 智能体
-
-</Locale>
-
-<Locale lang="en">
-
-## Agent
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 评测
-
-</Locale>
-
-<Locale lang="en">
-
-## Evaluation
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 扩展
-
-</Locale>
-
-<Locale lang="en">
-
-## Scaling
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 延迟
-
-</Locale>
-
-<Locale lang="en">
-
-## Latency
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 成本
-
-</Locale>
-
-<Locale lang="en">
-
-## Cost
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可靠性
-
-</Locale>
-
-<Locale lang="en">
-
-## Reliability
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 安全
-
-</Locale>
-
-<Locale lang="en">
-
-## Security
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可观测性
-
-</Locale>
-
-<Locale lang="en">
-
-## Observability
-
-</Locale>
-
--
 
 <Locale lang="zh">
 
@@ -311,6 +351,22 @@ job queue → worker agent
 <Locale lang="en">
 
 ## My answer
+
+</Locale>
+
+- 30s 电梯版:
+
+- 5 分钟白板版:
+
+<Locale lang="zh">
+
+## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
 
 </Locale>
 

@@ -1,43 +1,366 @@
 ---
-title: Docker / Cloud
-titleEn: Docker / Cloud
-description: 镜像、GCP、怎么把 Agent 跑起来。
-descriptionEn: Images, GCP, how the agent is deployed.
-date: 2026-09-06
-keywords: ["docker", "gcp"]
+title: 容器与部署
+titleEn: Containers & Deployment
+description: 把 AI 服务部署上线：Dockerfile 的分层缓存与多阶段构建、镜像瘦身与非 root；Kubernetes 的 Pod / Deployment / Service / HPA 与健康检查；Cloud Run 的并发、冷启动与流式超时；密钥管理；CI/CD 与灰度发布。
+descriptionEn: "Shipping AI services: Dockerfile layer caching and multi-stage builds, slim non-root images; Kubernetes pods, deployments, services, HPA, and probes; Cloud Run concurrency, cold starts, and streaming timeouts; secret management; CI/CD and canary releases."
+date: 2026-10-04
+keywords: ['docker', 'dockerfile', 'multi-stage build', 'kubernetes', 'hpa', 'readiness probe', 'cloud run', 'gcp', 'secrets', 'ci/cd', 'canary']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-标准：关掉资料后能在 1–2 分钟内讲清楚，并能接到自己的项目上。
+面试官会问“你的 agent 是怎么部署的？”——答“跑在 GCP 上”不够。这一页准备到能讲清：镜像怎么构建得又小又快、服务怎么扩缩容和健康检查、密钥放哪、改动怎么安全上线。重点放在 **Docker、Cloud Run（GCP）和 Kubernetes 的基本概念**。
 
-## 必能讲清
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · Docker | 镜像、容器、分层是什么？Dockerfile 怎么写好？ | 30 min |
+| 1 · 运行平台 | Cloud Run 和 Kubernetes 各适合什么？ | 30 min |
+| 2 · 配置与密钥 | API key 放哪？ | 15 min |
+| 3 · CI/CD 与发布 | 一次改动怎么从提交到上线？ | 20 min |
+
+## 需要掌握
+
+- 镜像分层与构建缓存；多阶段构建；非 root、精简基础镜像
+- Kubernetes 核心对象：Pod、Deployment、Service、HPA；readiness / liveness 探针
+- Cloud Run：按请求扩缩容、并发设置、冷启动、请求超时与流式响应
+- 密钥管理（Secret Manager），不放进镜像和代码
+- CI/CD 流水线；滚动发布与灰度
 
 </Locale>
 
 <Locale lang="en">
 
-The bar: explain it in 1–2 minutes without notes, and connect it to your own projects.
+"How is your agent deployed?" needs more than "on GCP." Explain fast small images, scaling and health checks, where secrets live, and safe rollouts — focusing on Docker, Cloud Run, and Kubernetes basics.
 
-## Must be able to explain
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Docker | Images, containers, layers? A good Dockerfile? | 30 min |
+| 1 · Platforms | Cloud Run vs Kubernetes? | 30 min |
+| 2 · Config and secrets | Where do API keys live? | 15 min |
+| 3 · CI/CD and releases | From commit to production? | 20 min |
+
+## Must know
+
+- layers and build cache; multi-stage builds; non-root slim images
+- pods, deployments, services, HPA; readiness and liveness probes
+- Cloud Run scaling, concurrency, cold starts, timeouts and streaming
+- Secret Manager, never in images or code
+- CI/CD; rolling and canary releases
 
 </Locale>
 
--
+---
 
 <Locale lang="zh">
 
-## 权衡
+## Level 0 · Docker
+
+### 镜像、容器、分层
+
+- **镜像**：只读的打包结果（代码 + 依赖 + 运行环境）；**容器**：镜像的运行实例。
+- 镜像由**层**组成，Dockerfile 每条指令产生一层。构建时，某一层及其之前都没变就**复用缓存**；某层变了，它之后的层全部重建。
+- 容器和虚拟机：容器共享宿主机内核，启动快、开销小；隔离性不如虚拟机（见 [Sandbox](/docs/ai-native/sandbox) Level 1）。
+
+### 一个好的 Dockerfile
 
 </Locale>
 
 <Locale lang="en">
 
-## Trade-offs
+## Level 0 · Docker
+
+Images are read-only packages; containers are running instances. Each Dockerfile instruction creates a layer; unchanged layers are cached, and a changed layer rebuilds everything after it. Containers share the host kernel — fast and light, weaker isolation than VMs.
 
 </Locale>
 
--
+```dockerfile
+# ---- build stage: has compilers and build tools ----
+FROM python:3.12-slim AS build
+WORKDIR /app
+# Copy dependency list first: this layer stays cached until requirements.txt changes
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ---- runtime stage: only what's needed to run ----
+FROM python:3.12-slim
+WORKDIR /app
+COPY --from=build /install /usr/local
+# Code changes only invalidate layers from here on
+COPY . .
+# Don't run as root
+RUN useradd -m appuser
+USER appuser
+EXPOSE 8080
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+```
+
+<Locale lang="zh">
+
+三个要点：
+
+1. **先复制依赖文件、安装依赖，再复制代码**：改代码时依赖层直接用缓存，构建从几分钟变成几秒。反过来写，每次改一行代码都要重装依赖。
+2. **多阶段构建**：构建工具只留在第一阶段，最终镜像更小、攻击面更小。
+3. **非 root 运行**、用 `slim` 基础镜像；用 `.dockerignore` 排除 `.git`、`.env`、本地数据。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么要先复制 `requirements.txt` 再复制代码？
+2. 多阶段构建的好处是什么？
+3. 容器和虚拟机的主要区别？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Copy and install dependencies before copying code so code edits reuse the dependency layer; multi-stage builds keep build tools out of the final image; run as non-root on slim bases with a `.dockerignore` excluding `.git`, `.env`, and data.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why copy requirements before code?
+2. Benefits of multi-stage builds?
+3. Containers vs VMs?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 1 · 运行平台
+
+### Cloud Run（GCP 的无服务器容器）
+
+你给一个镜像，Cloud Run 负责运行、按请求量自动扩缩容（可以缩到 0）、提供 HTTPS 地址。对 LLM 应用要注意：
+
+| 设置 | 含义 | LLM 场景的考虑 |
+| --- | --- | --- |
+| 并发（concurrency） | 每个实例同时处理多少请求 | 异步 FastAPI 的 LLM 网关大部分时间在等待，可以设得较高（如几十到上百）；同步代码要设低 |
+| 最小实例数 | 保持常驻的实例 | 设为 ≥ 1 避免冷启动（冷启动要启动容器 + 加载依赖，可能几秒） |
+| 请求超时 | 单个请求最长时间 | 流式回答、agent 任务可能很长，要调大；超长任务改为异步任务（见 [API Engineering](/docs/production/api-engineering) Level 5） |
+| CPU 分配 | 只在处理请求时分配，或始终分配 | 有后台任务（如流结束后写日志）时需要始终分配 |
+
+适合：中小规模、流量波动大、不想运维集群的服务。
+
+### Kubernetes 的核心概念
+
+| 对象 | 作用 |
+| --- | --- |
+| **Pod** | 最小调度单位，一个或几个容器 |
+| **Deployment** | 声明“运行 N 个某镜像的 Pod”，负责滚动更新和自愈 |
+| **Service** | 给一组 Pod 一个稳定的访问地址和负载均衡 |
+| **HPA**（水平自动扩缩容） | 按指标自动调整 Pod 数量 |
+| **ConfigMap / Secret** | 配置与密钥 |
+
+**健康检查**：
+
+- **readiness 探针**：Pod 是否准备好接流量。模型加载完成前返回失败，避免请求打到还没就绪的实例。
+- **liveness 探针**：Pod 是否还活着。失败就重启。不要让它依赖外部服务（模型 API 挂了不该让你的所有 Pod 都重启）。
+
+**扩缩容指标**：LLM 网关用 CPU 扩容效果差（大部分时间在等待），应该用在途请求数或队列长度（见 [Scaling](/docs/production/scaling) Level 3）。
+
+### 怎么选？
+
+Cloud Run：简单、运维少，适合大多数 AI 应用服务。Kubernetes：需要 GPU 调度、复杂的服务拓扑、精细的资源控制、多云时更合适，但运维成本高。
+
+<Note title="自测：到这里你应该能回答">
+
+1. Cloud Run 的并发设置对异步和同步服务分别该怎么设？
+2. readiness 和 liveness 探针有什么区别？为什么 liveness 不该依赖外部服务？
+3. 什么时候选 Kubernetes 而不是 Cloud Run？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Platforms
+
+Cloud Run runs a container with request-based autoscaling (to zero) and HTTPS. For LLM apps: set high concurrency for async gateways (low for sync code), min instances ≥ 1 to avoid cold starts, longer request timeouts for streaming (move very long work to async jobs), and always-allocated CPU for post-response background work. Kubernetes: pods, deployments (rolling updates, self-healing), services (stable addresses), HPA, ConfigMaps/Secrets; readiness probes gate traffic until models load, liveness probes restart dead pods and shouldn't depend on external services; scale gateways on in-flight requests, not CPU. Choose Cloud Run for simplicity, Kubernetes for GPU scheduling, complex topologies, fine control, or multi-cloud.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Concurrency for async vs sync services?
+2. Readiness vs liveness, and why liveness shouldn't depend on external services?
+3. When Kubernetes over Cloud Run?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 配置与密钥
+
+LLM API key、数据库密码**不能**写进代码、提交到 Git、打包进镜像（任何拿到镜像的人都能提取）。做法：
+
+- 存在 **Secret Manager**（GCP）/ Kubernetes Secret / 云厂商的密钥服务；运行时以环境变量或挂载文件的形式注入。
+- 给服务一个**专用的服务账号**，只授予读取需要的密钥的权限。
+- 本地开发用 `.env` 文件，并加入 `.gitignore`。
+- 密钥泄露（误提交到 Git）：立即**轮换**密钥，而不只是删除提交——历史记录里还在。
+- 配置与代码分离（12-factor 原则）：同一个镜像，通过不同配置部署到测试和生产环境。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么不能把 API key 打包进镜像？
+2. API key 被误提交到 Git 后应该怎么办？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Config and secrets
+
+Never put keys in code, Git, or images. Store them in Secret Manager or Kubernetes Secrets, inject at runtime, grant a dedicated service account only the secrets it needs, keep local `.env` files gitignored, rotate immediately if leaked (history keeps them), and separate config from code so one image serves every environment.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why not bake keys into images?
+2. What do you do after committing a key?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · CI/CD 与发布
+
+一次改动从提交到上线：
+
+```text
+Pull Request
+  → CI：lint、类型检查、单元测试、评估集回归（LLM 应用特有，见 测试与工程实践）
+  → 合并到主分支
+  → 构建镜像（打上 git commit 作为标签）→ 推送到镜像仓库
+  → 部署到测试环境 → 冒烟测试
+  → 生产灰度：先 5% 流量 → 观察错误率、延迟、质量指标 → 逐步到 100%
+  → 指标异常 → 自动回滚到上一个镜像版本
+```
+
+- **镜像标签用 commit hash**，不要只用 `latest`——否则无法确定线上跑的是哪个版本，也无法回滚。
+- **滚动更新**：逐个替换 Pod，配合 readiness 探针保证不中断服务。
+- **灰度发布**：对 AI 应用尤其重要，因为 prompt 和模型的改动可能“不报错但质量下降”（见 [Reliability](/docs/production/reliability) Level 4）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么镜像标签要用 commit hash？
+2. LLM 应用的 CI 比普通应用多了什么？
+3. 为什么 AI 应用更需要灰度发布？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · CI/CD and releases
+
+PR → CI (lint, types, unit tests, eval regression) → merge → build an image tagged by commit hash → push → staging smoke tests → production canary (5% → 100%) watching errors, latency, and quality → automatic rollback. Never rely on `latest`; rolling updates with readiness probes avoid downtime; canaries matter more for AI because prompt and model changes degrade quality without errors.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why tag images by commit?
+2. What does LLM CI add?
+3. Why canary AI releases?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- 把 API key 写在 Dockerfile 或代码里。
+- 先 `COPY . .` 再装依赖。
+- liveness 探针检查外部依赖。
+- 只用 `latest` 标签。
+
+</Note>
+
+<Note type="tip" title="项目锚点提示">
+
+准备一个完整描述：你的某个项目从代码到线上经过哪些步骤？镜像怎么构建？跑在 Cloud Run 还是其他平台？Gemini / OpenAI 的 key 怎么管理？有没有灰度？
+
+</Note>
+
+## 连接
+
+- [Scaling](/docs/production/scaling)、[Reliability](/docs/production/reliability)、[Sandbox](/docs/ai-native/sandbox)、[测试与工程实践](/docs/engineering/testing)
+
+## 面试问题
+
+1. 你的 AI 服务是怎么部署的？（How is your AI service deployed?）
+2. 怎样写一个构建快、体积小的 Dockerfile？（How do you write a fast, small Dockerfile?）
+3. readiness 和 liveness 探针有什么区别？（Readiness vs liveness probes?）
+4. LLM 网关在 Cloud Run / Kubernetes 上怎么设置扩缩容？（How do you configure autoscaling for an LLM gateway?）
+5. API key 怎么管理？（How do you manage API keys?）
+6. 描述你的 CI/CD 流程。（Describe your CI/CD pipeline.）
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- Keys in Dockerfiles or code.
+- `COPY . .` before installing dependencies.
+- Liveness probes checking external dependencies.
+- Only `latest` tags.
+
+</Note>
+
+<Note type="tip" title="Project anchor prompt">
+
+Describe one project end to end: build, platform, key management, canary.
+
+</Note>
+
+## Connections
+
+- [Scaling](/docs/production/scaling), [Reliability](/docs/production/reliability), [Sandbox](/docs/ai-native/sandbox), [Testing](/docs/engineering/testing)
+
+## Interview questions
+
+1. How is your AI service deployed?
+2. How do you write a fast, small Dockerfile?
+3. Readiness vs liveness probes?
+4. How do you configure autoscaling for an LLM gateway?
+5. How do you manage API keys?
+6. Describe your CI/CD pipeline.
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+- 30s:
 
 <Locale lang="zh">
 
@@ -52,15 +375,3 @@ The bar: explain it in 1–2 minutes without notes, and connect it to your own p
 </Locale>
 
 -
-
-<Locale lang="zh">
-
-## 我的答案
-
-</Locale>
-
-<Locale lang="en">
-
-## My answer
-
-</Locale>

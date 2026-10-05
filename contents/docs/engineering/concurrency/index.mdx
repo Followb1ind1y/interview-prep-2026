@@ -1,43 +1,390 @@
 ---
-title: 并发
-titleEn: Concurrency
-description: AsyncIO、GIL、何时 multiprocessing。接到 Voice AI。
-descriptionEn: AsyncIO, GIL, multiprocessing. Tie to Voice AI.
-date: 2026-09-06
-keywords: ["asyncio", "concurrency"]
+title: Async 与并发
+titleEn: Async & Concurrency
+description: LLM 应用几乎全是 I/O 等待：并发与并行的区别、GIL（及 3.13 起的 free-threaded 构建）、线程 / 进程 / asyncio 怎么选、事件循环与 await、gather 与 TaskGroup、超时与取消、在异步代码里调用阻塞函数、FastAPI 的 async def 与 def。
+descriptionEn: "LLM apps are mostly I/O waits: concurrency vs parallelism, the GIL (and free-threaded builds since 3.13), choosing threads, processes, or asyncio, the event loop and await, gather and TaskGroup, timeouts and cancellation, blocking calls in async code, and FastAPI's async def vs def."
+date: 2026-10-04
+keywords: ['asyncio', 'concurrency', 'parallelism', 'gil', 'free-threaded', 'threading', 'multiprocessing', 'event loop', 'gather', 'taskgroup', 'timeout', 'cancellation', 'fastapi']
+tier: A
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-标准：关掉资料后能在 1–2 分钟内讲清楚，并能接到自己的项目上。
+AI 工程岗几乎一定会问并发，因为 LLM 应用的典型负载是：**一个请求要等模型几秒、等检索几十毫秒、等工具几百毫秒**——CPU 大部分时间在等。用对并发模型，同一台机器能多扛几十倍的请求；用错（比如在 async 函数里调用同步 SDK），整个服务会卡死。
 
-## 必能讲清
+## 这一页怎么学
+
+| Level | 回答的问题 | 时长 |
+| --- | --- | --- |
+| 0 · 基本概念 | 并发和并行有什么区别？GIL 限制了什么？ | 25 min |
+| 1 · 怎么选 | 线程、进程、asyncio 分别适合什么？ | 20 min |
+| 2 · asyncio 机制 | 事件循环、await、gather、TaskGroup 怎么工作？ | 40 min |
+| 3 · 常见坑 | 阻塞调用、超时、取消、FastAPI 的 async def | 30 min |
+
+## 需要掌握
+
+- I/O 密集与 CPU 密集；GIL 只限制 CPU 并行
+- 选择：I/O 密集用 asyncio（或线程），CPU 密集用多进程
+- 协程、事件循环、`await` 的让出语义
+- `gather`、`TaskGroup`、`Semaphore`、`asyncio.timeout`
+- 阻塞调用卡死事件循环；`asyncio.to_thread`
+- 取消的传播；FastAPI 中 `async def` 与 `def` 的区别
 
 </Locale>
 
 <Locale lang="en">
 
-The bar: explain it in 1–2 minutes without notes, and connect it to your own projects.
+Concurrency comes up in nearly every AI engineering interview because LLM workloads are waits: seconds for models, tens of milliseconds for retrieval, hundreds for tools. The right model lets one machine handle many times the load; the wrong one (a sync SDK inside `async def`) freezes the service.
 
-## Must be able to explain
+## How to work through this page
+
+| Level | Question it answers | Time |
+| --- | --- | --- |
+| 0 · Concepts | Concurrency vs parallelism? What does the GIL limit? | 25 min |
+| 1 · Choosing | Threads, processes, or asyncio? | 20 min |
+| 2 · asyncio mechanics | Event loop, await, gather, TaskGroup? | 40 min |
+| 3 · Pitfalls | Blocking calls, timeouts, cancellation, FastAPI `async def` | 30 min |
+
+## Must know
+
+- I/O- vs CPU-bound; the GIL limits CPU parallelism only
+- asyncio or threads for I/O, processes for CPU
+- coroutines, the event loop, `await` as a yield point
+- `gather`, `TaskGroup`, `Semaphore`, `asyncio.timeout`
+- blocking calls freeze the loop; `asyncio.to_thread`
+- cancellation; FastAPI `async def` vs `def`
 
 </Locale>
 
--
+---
 
 <Locale lang="zh">
 
-## 权衡
+## Level 0 · 基本概念
+
+### 并发和并行有什么区别？
+
+- **并发（concurrency）**：多个任务在一段时间内**交替推进**。一个厨师同时照看三口锅：这口锅在炖，就去切下一盘菜。
+- **并行（parallelism）**：多个任务在**同一时刻**同时执行。三个厨师各管一口锅。
+
+LLM 应用的瓶颈是**等待**（I/O 密集），并发就能大幅提高吞吐；只有大量计算（CPU 密集，如本地做 embedding、解析大文件）才需要并行。
+
+### GIL 是什么？限制了什么？
+
+**GIL（全局解释器锁）**：CPython 中同一时刻只有一个线程在执行 Python 字节码。
+
+- 对 **CPU 密集**的纯 Python 代码，多线程无法利用多核——这是 GIL 的限制。
+- 对 **I/O 密集**任务，线程在等待网络 / 磁盘时会**释放 GIL**，其他线程可以运行——所以多线程对 I/O 仍然有效。
+- numpy、PyTorch 等 C 扩展在执行底层计算时通常会释放 GIL。
+
+**新进展**：Python 3.13 引入了实验性的 **free-threaded 构建**（没有 GIL，PEP 703），3.14 起成为官方支持的可选构建，但**默认的 CPython 仍然带 GIL**，部分 C 扩展的兼容也在推进中。面试时能提到这一点，说明你在关注语言演进。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 用厨师的例子说明并发和并行。
+2. GIL 限制的是什么？为什么多线程对 I/O 密集任务仍然有效？
+3. free-threaded Python 是什么状态？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Trade-offs
+## Level 0 · Concepts
+
+Concurrency interleaves progress (one cook watching three pots); parallelism executes simultaneously (three cooks). LLM apps wait on I/O, so concurrency raises throughput; only heavy computation needs parallelism. The GIL lets one thread run Python bytecode at a time: no multicore speedup for CPU-bound pure Python, but threads release it while waiting on I/O, and C extensions like numpy often release it during computation. Python 3.13 added an experimental free-threaded build (PEP 703), officially supported as an optional build from 3.14; default CPython still has the GIL.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Concurrency vs parallelism with the cook analogy?
+2. What does the GIL limit, and why do threads still help I/O?
+3. Status of free-threaded Python?
+
+</Note>
 
 </Locale>
 
--
+<Locale lang="zh">
+
+## Level 1 · 怎么选
+
+| 负载 | 选择 | 理由 |
+| --- | --- | --- |
+| 大量网络 I/O（调 LLM API、数据库、HTTP） | **asyncio** | 一个线程可以挂起成千上万个等待中的任务，开销极小 |
+| I/O 密集，但用的库只有同步版本 | **线程池**（`ThreadPoolExecutor`、`asyncio.to_thread`） | 线程等待 I/O 时释放 GIL |
+| CPU 密集（本地 embedding、解析、数据处理） | **多进程**（`ProcessPoolExecutor`） | 每个进程有自己的 GIL，能用多核 |
+| 大规模 GPU 推理 | 交给推理服务（vLLM 等） | 应用层只负责异步调用 |
+
+数量级对比：一个线程约占几 MB 栈内存，几千个线程就很吃力；一个协程只占几 KB，一个进程挂几万个协程很常见。这就是 LLM 网关用 asyncio 的原因（见 [API Engineering](/docs/production/api-engineering) Level 0：QPS 50 × 8 秒 = 400 个同时在等待的请求）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 调用 LLM API 和本地计算 embedding 分别该用什么并发模型？
+2. 为什么协程比线程能挂更多并发？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 1 · Choosing
+
+Network I/O (LLM APIs, databases, HTTP) → asyncio, with thousands of cheap waiting tasks per thread; sync-only I/O libraries → thread pools (`ThreadPoolExecutor`, `asyncio.to_thread`); CPU-bound work → processes (`ProcessPoolExecutor`); large GPU inference → a serving system called asynchronously. Threads cost megabytes of stack each; coroutines kilobytes — why LLM gateways use asyncio for hundreds of concurrent waits.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Models for API calls vs local embedding?
+2. Why can coroutines scale further than threads?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · asyncio 机制
+
+### 事件循环和 await 怎么配合？
+
+- `async def` 定义**协程函数**，调用它返回协程对象，**不会立即执行**。
+- **事件循环**是一个调度器：运行一个协程，直到它遇到 `await` 一个还没完成的操作（如网络响应），这个协程**让出控制权**，事件循环去运行其他就绪的协程；网络数据到了，再恢复原来的协程。
+- 所以 asyncio 是**协作式**的：只有在 `await` 处才会切换。一段不 `await` 的长时间计算会让整个循环卡住。
+
+### 同时发多个请求
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · asyncio mechanics
+
+`async def` returns a coroutine that doesn't run until awaited or scheduled. The event loop runs a coroutine until it awaits something unfinished, then switches to other ready coroutines and resumes it when data arrives — cooperative switching only at `await`, so long computations without `await` stall everything.
+
+</Locale>
+
+```python
+import asyncio
+
+async def handle(question: str):
+    # sequential: total = order + policy  (~180 ms + ~250 ms)
+    # order = await get_order(); policy = await search_policy(question)
+
+    # concurrent: total = max(order, policy)  (~250 ms)
+    order, policy = await asyncio.gather(get_order("20240915"), search_policy(question))
+
+    # Python 3.11+: TaskGroup cancels siblings if one fails
+    async with asyncio.TaskGroup() as tg:
+        t1 = tg.create_task(get_order("20240915"))
+        t2 = tg.create_task(search_policy(question))
+    return t1.result(), t2.result()
+
+async def bounded(prompts, call, limit=10):
+    sem = asyncio.Semaphore(limit)             # cap in-flight requests (provider limits!)
+    async def one(p):
+        async with sem:
+            return await call(p)
+    return await asyncio.gather(*(one(p) for p in prompts))
+```
+
+<Locale lang="zh">
+
+| 工具 | 用途 |
+| --- | --- |
+| `asyncio.gather` | 并发运行多个协程，按输入顺序返回结果；`return_exceptions=True` 时异常作为结果返回 |
+| `asyncio.TaskGroup`（3.11+） | 结构化并发：一个任务失败，其余自动取消，异常一起抛出（ExceptionGroup） |
+| `asyncio.Semaphore` | 限制同时运行的数量——调用 LLM API 时必须有（见 [AI 实用编码题](/docs/algorithms/ml-coding) Level 1） |
+| `asyncio.timeout`（3.11+）/ `wait_for` | 给一段操作设超时 |
+| `asyncio.Queue` | 生产者 / 消费者，如 worker 池消费任务 |
+
+这正是 [Latency](/docs/production/latency) Level 2 关键路径计算的代码实现：**并行的步骤取 max**。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 调用协程函数时发生了什么？什么时候真正执行？
+2. asyncio 在什么时候切换任务？为什么叫“协作式”？
+3. `gather` 和 `TaskGroup` 在一个任务失败时的行为有什么不同？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+`gather` runs concurrently and preserves order (`return_exceptions=True` returns errors as results); `TaskGroup` (3.11+) cancels siblings on failure and raises an ExceptionGroup; `Semaphore` caps concurrency (mandatory for LLM APIs); `asyncio.timeout` / `wait_for` bound operations; `Queue` feeds worker pools. This implements the critical-path rule from [Latency](/docs/production/latency): parallel steps cost the max.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What happens when you call a coroutine function?
+2. When does asyncio switch, and why "cooperative"?
+3. `gather` vs `TaskGroup` on failure?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 常见坑
+
+### 在 async 函数里调用同步函数会怎样？
+
+**整个事件循环被卡住**——所有请求都停下来等这一个调用。这是 FastAPI 项目最常见的性能事故：
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Pitfalls
+
+A blocking call inside `async def` freezes the whole loop — every request waits. The most common FastAPI performance incident:
+
+</Locale>
+
+```python
+import time
+import requests
+
+async def bad():
+    time.sleep(2)                        # blocks the event loop for everyone
+    requests.get("https://example.com")  # sync HTTP: also blocks
+
+async def good():
+    await asyncio.sleep(2)               # yields to other tasks
+    data = await asyncio.to_thread(sync_sdk_call, "prompt")   # run sync code in a thread
+    return data
+```
+
+<Locale lang="zh">
+
+规则：async 函数里只用异步库（`httpx.AsyncClient`、异步数据库驱动、各家 SDK 的 async 客户端）；只有同步库时用 `asyncio.to_thread`；CPU 密集的计算放到进程池。
+
+### FastAPI 的 `async def` 和 `def` 有什么区别？
+
+| 写法 | FastAPI 怎么运行 | 适合 |
+| --- | --- | --- |
+| `async def` | 直接在事件循环中运行 | 里面全是 `await` 的异步调用 |
+| `def` | 自动放到线程池中运行 | 里面有同步阻塞调用 |
+
+最糟糕的组合是 `async def` + 同步阻塞调用。
+
+### 超时和取消
+
+- 每个外部调用都要有超时：`async with asyncio.timeout(30): ...`（见 [API Engineering](/docs/production/api-engineering) Level 0 的超时分层）。
+- 超时或用户断开时，任务会收到 `CancelledError`。**不要吞掉它**（`except Exception` 在 3.8+ 不会捕获它，但 `except BaseException` 会）；需要清理就用 `try/finally`。
+- 用户关掉页面后，要取消上游的模型调用，否则继续生成、继续计费（见 API Engineering Level 1）。
+
+<Note type="tip" title="项目锚点提示">
+
+想想 Negotiation Practice 的 WebSocket + 流式输出：每个连接是一个协程吗？模型调用用的是异步客户端吗？用户断开时上游请求有没有取消？有没有限制同时调用 Gemini 的数量？这些都是面试官会追问的点。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 在 async 函数里调用 `requests.get` 会发生什么？怎么修？
+2. FastAPI 中什么时候用 `def` 而不是 `async def`？
+3. 为什么不能吞掉 `CancelledError`？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+Use async libraries (`httpx.AsyncClient`, async DB drivers, async SDK clients), `asyncio.to_thread` for sync-only code, and process pools for CPU work. FastAPI runs `async def` endpoints on the loop and `def` endpoints in a threadpool — the worst combo is `async def` with blocking calls. Give every external call a timeout (`asyncio.timeout`), let `CancelledError` propagate (clean up with `finally`), and cancel upstream model calls when users disconnect.
+
+<Note type="tip" title="Project anchor prompt">
+
+Negotiation Practice's WebSocket streaming: one coroutine per connection? async Gemini client? cancellation on disconnect? a cap on concurrent model calls?
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. What happens with `requests.get` in `async def`, and the fix?
+2. When `def` instead of `async def` in FastAPI?
+3. Why not swallow `CancelledError`?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- “Python 有 GIL，所以多线程没用。”（对 I/O 有用）
+- “用 asyncio 能让计算变快。”（只对等待有用）
+- 在 `async def` 里调用同步 SDK。
+- 无上限地 `gather` 上千个 LLM 请求。
+
+</Note>
+
+## 连接
+
+- [Python 核心](/docs/engineering/python)、[API 设计与网络](/docs/engineering/rest)
+- [API Engineering](/docs/production/api-engineering)、[Latency](/docs/production/latency)、[AI 实用编码题](/docs/algorithms/ml-coding)
+
+## 面试问题
+
+1. 并发和并行有什么区别？（Concurrency vs parallelism?）
+2. GIL 是什么？对多线程有什么影响？（What is the GIL and how does it affect threads?）
+3. 线程、进程、asyncio 怎么选？（How do you choose threads, processes, or asyncio?）
+4. asyncio 的事件循环怎么工作？（How does the asyncio event loop work?）
+5. 在 async 函数里调用阻塞函数会怎样？（What happens when you block inside async code?）
+6. 怎样并发调用 1,000 次 LLM API 又不被限流？（How do you make 1,000 LLM calls concurrently without being throttled?）
+
+</Locale>
+
+<Locale lang="en">
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- "The GIL makes threads useless." (Not for I/O.)
+- "asyncio makes computation faster."
+- Sync SDKs inside `async def`.
+- Unbounded `gather` over thousands of LLM calls.
+
+</Note>
+
+## Connections
+
+- [Python Core](/docs/engineering/python), [API Design & Networking](/docs/engineering/rest)
+- [API Engineering](/docs/production/api-engineering), [Latency](/docs/production/latency), [AI Practical Coding](/docs/algorithms/ml-coding)
+
+## Interview questions
+
+1. Concurrency vs parallelism?
+2. What is the GIL and how does it affect threads?
+3. How do you choose threads, processes, or asyncio?
+4. How does the asyncio event loop work?
+5. What happens when you block inside async code?
+6. How do you make 1,000 LLM calls concurrently without being throttled?
+
+</Locale>
+
+<Locale lang="zh">
+
+## 我的答案
+
+</Locale>
+
+<Locale lang="en">
+
+## My answer
+
+</Locale>
+
+- 30s:
 
 <Locale lang="zh">
 
@@ -52,15 +399,3 @@ The bar: explain it in 1–2 minutes without notes, and connect it to your own p
 </Locale>
 
 -
-
-<Locale lang="zh">
-
-## 我的答案
-
-</Locale>
-
-<Locale lang="en">
-
-## My answer
-
-</Locale>

@@ -1,68 +1,74 @@
 ---
 title: 算法
 titleEn: Algorithms
-description: Coding Interview：Python 手感、高频模式。不是 300 道 Hard。
-descriptionEn: Coding interview — Python fluency and high-frequency patterns. Not 300 Hards.
-date: 2026-09-06
-keywords: ["algorithms", "leetcode", "python"]
+description: AI 工程岗的编码面试：按模式练 LeetCode 高频题（约 60 道），加上 AI 岗位越来越常考的实用编码题（限流器、重试、并发、attention、BPE）。全部用 Python。
+descriptionEn: "Coding interviews for AI engineering roles: ~60 high-frequency LeetCode problems by pattern, plus the practical coding increasingly asked for AI roles (rate limiters, retries, concurrency, attention, BPE). All in Python."
+date: 2026-10-04
+keywords: ['algorithms', 'leetcode', 'python', 'coding interview', 'patterns', 'ml coding']
 ---
 
 <Locale lang="zh">
 
-目标是 **20–30 道高频 Medium**，能边写边讲。主线仍然是 LLM 面试，这里只是保持手感。
-
-SQL 在 [工程基础](/docs/engineering/sql)，不放在本专栏。
-
-按模式复习，比按题号刷更适合回看。每做完一类题，就在对应页面补上 **思路、模板、易错点、代表题**。
+AI 工程岗的编码面试有两种：**经典算法题**（多为 Medium，考模式识别和代码正确性）和**实用编码题**（“写一个限流器”“用 numpy 写 attention”，考工程正确性和机制理解）。主线仍是 LLM 面试，所以目标不是刷 300 题，而是**按模式掌握约 60 道高频题 + 9 道实用题**，能边写边讲。
 
 <CardGrid>
-  <Card title="数组与哈希" description="双指针、滑动窗口、前缀和、哈希计数。" href="/docs/algorithms/arrays" />
-  <Card title="链表" description="反转、双指针、环、合并。" href="/docs/algorithms/linked-list" />
-  <Card title="树与图" description="DFS / BFS、最近公共祖先、拓扑排序、最短路。" href="/docs/algorithms/trees" />
-  <Card title="动态规划" description="背包、区间、状态压缩、子序列。" href="/docs/algorithms/dp" />
+  <Card title="数组与哈希" description="哈希、相向双指针、滑动窗口、前缀和。最高频。" href="/docs/algorithms/arrays" />
+  <Card title="二分、排序与堆" description="统一二分模板、在答案上二分、区间、Top-K。" href="/docs/algorithms/search-sort" />
+  <Card title="栈与队列" description="括号与表达式、单调栈、单调队列。" href="/docs/algorithms/stack-queue" />
+  <Card title="链表" description="哑节点、原地反转、快慢指针。" href="/docs/algorithms/linked-list" />
+  <Card title="树" description="递归返回值设计、层序遍历、BST、LCA。" href="/docs/algorithms/trees" />
+  <Card title="图" description="网格 DFS / BFS、最短路、拓扑排序、并查集。" href="/docs/algorithms/graphs" />
+  <Card title="回溯" description="子集、组合、排列；去重与剪枝。" href="/docs/algorithms/backtracking" />
+  <Card title="动态规划" description="四步法；一维、二维、背包；编辑距离与 NLP 指标。" href="/docs/algorithms/dp" />
+  <Card title="AI 实用编码题" description="LRU、限流器、重试、并发、SSE、softmax / attention、Top-K、BPE。" href="/docs/algorithms/ml-coding" />
 </CardGrid>
 
-## 记录模板
+## 学习路线（约 6 周，每天 1–2 题）
 
-每一类题建议固定这四个小标题：
+| 周 | 内容 | 深度 |
+| --- | --- | --- |
+| 1 | [数组与哈希](/docs/algorithms/arrays) | 🔴 必须熟练 |
+| 2 | [二分、排序与堆](/docs/algorithms/search-sort) + [栈与队列](/docs/algorithms/stack-queue) | 🔴 / 🟡 |
+| 3 | [链表](/docs/algorithms/linked-list) + [树](/docs/algorithms/trees) | 🟡 / 🔴 |
+| 4 | [图](/docs/algorithms/graphs) + [回溯](/docs/algorithms/backtracking) | 🔴 / 🟡 |
+| 5 | [动态规划](/docs/algorithms/dp) | 🟡 常见题能推出来即可 |
+| 6 | [AI 实用编码题](/docs/algorithms/ml-coding) | 🔴 AI 岗位差异化的部分 |
 
-1. **一句话说清模式**
-2. **代码骨架**
-3. **这周做过的题**
-4. **下次还要复习的点**
+如果时间很紧：优先 **数组与哈希 → 树 → 图 → AI 实用编码题**，这四页覆盖了 AI 岗位编码轮的大部分。
 
-## 本专栏计划
+## 怎么练
 
-哈希表、双指针、滑动窗口、二分查找、栈、堆、BFS / DFS、树。图论掌握基础即可。不刷 Hard。
+1. **先读模式**：每页每个 Level 先看“信号 → 模板 → 手推”。
+2. **限时自己写**：Medium 题 25 分钟内，写不出就看模板，第二天重写一遍。
+3. **出声讲**：按每页的讲题顺序——复述题目与约束 → 暴力解与复杂度 → 关键观察 → 写代码 → 手推例子与边界 → 总结复杂度。
+4. **记录**：在每页底部的表格记下日期、用时、是否一次通过、卡在哪；一周后重做卡住的题。
+
+每页的参考实现都已实际运行验证。用 `/drill algorithms/<页面 slug>` 让我出题并追问。
 
 </Locale>
 
 <Locale lang="en">
 
-The target is **20–30 high-frequency Mediums** that you can talk through while writing. The main track is still LLM interviews; this column just keeps coding sharp.
-
-SQL lives in [Engineering](/docs/engineering/sql), not here.
-
-Reviewing by pattern is easier to revisit than grinding by problem number. After finishing each category, add the **approach, template, pitfalls, and representative problems** to its page.
+AI engineering coding interviews mix classic algorithm problems (mostly Medium: pattern recognition and correctness) with practical coding ("write a rate limiter," "numpy attention": engineering correctness and mechanism depth). Target ~60 high-frequency problems by pattern plus 9 practical problems, talked through while coding.
 
 <CardGrid>
-  <Card title="Arrays & Hashing" description="Two pointers, sliding window, prefix sums, hash counting." href="/docs/algorithms/arrays" />
-  <Card title="Linked Lists" description="Reversal, two pointers, cycles, merging." href="/docs/algorithms/linked-list" />
-  <Card title="Trees & Graphs" description="DFS / BFS, LCA, topological sort, shortest path." href="/docs/algorithms/trees" />
-  <Card title="Dynamic Programming" description="Knapsack, intervals, bitmask states, subsequences." href="/docs/algorithms/dp" />
+  <Card title="Arrays & Hashing" description="Hashing, two pointers, sliding windows, prefix sums." href="/docs/algorithms/arrays" />
+  <Card title="Binary Search, Sorting & Heaps" description="One binary-search template, answer search, intervals, Top-K." href="/docs/algorithms/search-sort" />
+  <Card title="Stacks & Queues" description="Brackets, monotonic stacks and deques." href="/docs/algorithms/stack-queue" />
+  <Card title="Linked Lists" description="Dummy nodes, reversal, fast/slow pointers." href="/docs/algorithms/linked-list" />
+  <Card title="Trees" description="Return-value design, level order, BST, LCA." href="/docs/algorithms/trees" />
+  <Card title="Graphs" description="Grid DFS/BFS, shortest paths, topological sort, union-find." href="/docs/algorithms/graphs" />
+  <Card title="Backtracking" description="Subsets, combinations, permutations; dedup and pruning." href="/docs/algorithms/backtracking" />
+  <Card title="Dynamic Programming" description="Four steps; 1D, 2D, knapsack; edit distance and NLP metrics." href="/docs/algorithms/dp" />
+  <Card title="AI Practical Coding" description="LRU, limiters, retries, concurrency, SSE, attention, Top-K, BPE." href="/docs/algorithms/ml-coding" />
 </CardGrid>
 
-## Note template
+## Roadmap (~6 weeks, 1–2 problems a day)
 
-Use the same four subheadings for every category:
+Week 1 arrays & hashing 🔴; week 2 binary search/heaps 🔴 + stacks 🟡; week 3 linked lists 🟡 + trees 🔴; week 4 graphs 🔴 + backtracking 🟡; week 5 DP 🟡; week 6 AI practical coding 🔴. Short on time: arrays → trees → graphs → AI practical coding.
 
-1. **The pattern in one sentence**
-2. **Code skeleton**
-3. **Problems done this week**
-4. **What to review next time**
+## How to practice
 
-## Plan for this column
-
-Hash maps, two pointers, sliding window, binary search, stacks, heaps, BFS / DFS, trees. Graph basics are enough. No Hards.
+Read signal → template → trace; write it yourself in 25 minutes; talk it through (restate, brute force, key insight, code, trace, complexity); log each attempt and redo misses a week later. All reference code has been run. Use `/drill algorithms/<page slug>` for mock rounds.
 
 </Locale>

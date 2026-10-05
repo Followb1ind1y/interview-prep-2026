@@ -1,305 +1,377 @@
 ---
 title: L2 · Document Extraction
 titleEn: L2 · Document Extraction
-description: 结构化抽取 pipeline。Schema、校验、人工抽检。
-descriptionEn: "Extraction pipeline: schema, validation, human review."
-date: 2026-09-07
-keywords: ["document extraction", "structured output"]
+description: 大批量文档结构化抽取（发票、合同、报关单）：OCR + LLM 还是多模态模型、schema 设计、业务规则校验、置信度与人工复核队列、批处理吞吐与 Batch API、字段级评估与每份文档成本。
+descriptionEn: "High-volume structured extraction (invoices, contracts, customs forms): OCR + LLM or multimodal models, schema design, business-rule validation, confidence and human review queues, batch throughput and Batch APIs, field-level evaluation and cost per document."
+date: 2026-10-04
+keywords: ['system design', 'document extraction', 'idp', 'ocr', 'vlm', 'structured output', 'validation', 'human in the loop', 'batch api', 'field accuracy']
+tier: B
+status: todo
+cursor: ''
+mastery: { talk: 0, probe: 0 }
 ---
 
 <Locale lang="zh">
 
-设计一个文档结构化抽取流水线。（Design a document extraction pipeline.）
+> 题目：为一家财务外包公司设计发票与合同抽取系统：每天处理 50 万份文档，抽取供应商、金额、税额、日期、条款等字段写入 ERP，准确率要求高。
 
-<Note title="开口框架">
-每道题都走同一套 14 个维度，不要一上来就画微服务。知识点不够，就回到 01–07 / 09 专栏。
+这是“非聊天类”LLM 应用的代表：没有用户在等，追求的是**准确率、吞吐和每份文档成本**。面试官会追问：OCR 还是直接用多模态模型？怎么知道哪些抽错了？错了谁来改？50 万份怎么跑得完、跑得起？
+
+## 这一页怎么学
+
+| Level | 回答的问题 | 面试中的时间 |
+| --- | --- | --- |
+| 0 · 澄清与估算 | 准确率要求多高？每份成本预算多少？ | 5 min |
+| 1 · 高层架构 | 从文档到 ERP 的流水线 | 10 min |
+| 2 · 深挖：抽取与校验 | 用什么模型？怎么发现抽错？ | 12 min |
+| 3 · 深挖：人工复核与闭环 | 哪些交给人？人的修改怎么用起来？ | 8 min |
+| 4 · 评估、吞吐与成本 | 怎么评？怎么跑得起？ | 5 min |
+
+## 需要掌握
+
+- OCR + 文本 LLM 与多模态模型的取舍
+- schema 设计与结构化输出；字段级证据
+- 确定性业务规则校验（金额加总、税率、日期）
+- 置信度路由：自动入库 / 人工复核
+- Batch API 与吞吐；字段级精确率与召回率；每份文档成本
+
+</Locale>
+
+<Locale lang="en">
+
+> Design an invoice and contract extraction system for a finance outsourcing firm: 500K documents/day, extracting vendor, amounts, tax, dates, and terms into an ERP with high accuracy.
+
+The archetypal non-chat LLM application: nobody is waiting; accuracy, throughput, and cost per document matter. Expect: OCR or multimodal? How do you know what's wrong? Who fixes it? How do you afford 500K a day?
+
+## How to work through this page
+
+| Level | Question it answers | Interview time |
+| --- | --- | --- |
+| 0 · Clarify and estimate | Accuracy target? Cost budget per document? | 5 min |
+| 1 · High-level design | Document-to-ERP pipeline | 10 min |
+| 2 · Deep dive: extraction and validation | Which model? How do you catch errors? | 12 min |
+| 3 · Deep dive: human review | What goes to people, and how are edits reused? | 8 min |
+| 4 · Eval, throughput, cost | How do you evaluate and afford it? | 5 min |
+
+## Must know
+
+- OCR + LLM vs multimodal models
+- schema design, structured output, field evidence
+- deterministic business validation
+- confidence routing to auto-post or review
+- Batch APIs, field-level precision/recall, cost per document
+
+</Locale>
+
+---
+
+<Locale lang="zh">
+
+## Level 0 · 澄清需求与估算
+
+| 问题 | 本题假设 |
+| --- | --- |
+| 文档类型？ | 发票 80%（格式多样、部分扫描、部分手写），合同 20%（长、条款类字段） |
+| 准确率？ | 写入 ERP 的金额字段错误率 ≤ 0.1%；宁可送人工，不可错入 |
+| 时效？ | 当天处理完即可，不需要实时 |
+| 现有人力？ | 100 名录入员，目标是让他们只处理难件 |
+| 成本？ | 每份文档 AI 成本 ≤ $0.02 |
+
+```text
+50 万份 / 天；平均发票 1 页、约 1,500 token（图片按分辨率折算）
+多模态模型输入 1,500 + 输出 300 token
+  按中档模型：1,500 × $3/M + 300 × $15/M ≈ $0.009 / 份
+  走 Batch API（约五折）≈ $0.0045 / 份 → 50 万份约 $2,250 / 天
+吞吐：50 万 / 86,400 s ≈ 6 份 / 秒（用 Batch API 时由供应商排队完成）
+```
+
+结论：**不需要实时 → 用 Batch API 省一半；成本可控；核心难点是准确率与人工复核的分工。**
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么“宁可送人工，不可错入”决定了整个设计？
+2. 估算每份成本，说明 Batch API 为什么适用。
+
 </Note>
 
-## 本题要练什么
-
-这是结构化输出 + workflow 的题，上 agent 往往太重。置信度低的结果交给人工。
-
-## 白板草图
-
 </Locale>
 
 <Locale lang="en">
 
-Design a document extraction pipeline.
+## Level 0 · Clarify and estimate
 
-<Note title="Opening framework">
-Run every problem through the same 14 dimensions. Don't open by drawing microservices. If a concept is shaky, go back to columns 01–07 / 09.
+Assume 80% invoices (varied, some scanned or handwritten), 20% long contracts; amount fields wrong in ERP ≤ 0.1% — send to humans rather than post errors; same-day processing; 100 data-entry staff to reserve for hard cases; ≤ $0.02 AI cost per document. A one-page invoice ≈ 1,500 input + 300 output tokens ≈ $0.009 at mid-tier prices, ≈ $0.0045 via Batch, ~$2,250/day; ~6 documents/s. Non-real-time → Batch; the hard part is accuracy and the human split.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How does "review rather than post errors" shape the design?
+2. Per-document cost and why Batch fits?
+
 </Note>
 
-## What this problem trains
-
-This is a structured output + workflow problem; an agent is usually overkill. Low-confidence results go to a human.
-
-## Whiteboard sketch
-
 </Locale>
-
-```
-docs → parse → LLM/JSON schema → validate
-     → low confidence → human
-     → warehouse
-```
 
 <Locale lang="zh">
 
-## 容易被追问
+## Level 1 · 高层架构
 
-1. Schema 变更怎么做版本管理？（How do you version schema changes?）
-2. 表格抽取失败怎么修？（How do you fix failed table extraction?）
-3. 抽取准确率怎么算？（How do you measure extraction accuracy?）
-4. 为什么不该用自由发挥的 agent 来抽字段？（Why shouldn't you use a free-form agent to extract fields?）
-
-## 14 个维度
-
-```
-1. 需求（Requirements）
-2. 约束（Constraints）
-3. 架构（Architecture）
-4. 数据流（Data Flow）
-5. 模型（Model）
-6. 检索（Retrieval）
-7. 智能体（Agent）
-8. 评测（Evaluation）
-9. 扩展（Scaling）
-10. 延迟（Latency）
-11. 成本（Cost）
-12. 可靠性（Reliability）
-13. 安全（Security）
-14. 可观测性（Observability）
+```text
+文档入口（邮件 / 上传 / 扫描仪）─► 对象存储 ─► 任务队列（document_id 去重）
+   │
+   ▼
+① 预处理：格式转换、图像矫正、页面拆分、文档分类（发票 / 合同 / 其他）
+   │
+   ▼
+② 抽取：按文档类型选 schema 与模型 → 结构化输出（每个字段带值、置信度、证据位置）
+   │
+   ▼
+③ 校验：确定性规则
+   - 金额 = 各行合计；税额 = 金额 × 税率（容许舍入误差）
+   - 日期合法、不在未来；供应商在主数据中存在；发票号未重复入账
+   │
+   ▼
+④ 路由
+   - 全部通过且置信度高 → 自动写入 ERP
+   - 任一失败 / 低置信度 / 高金额 → 人工复核队列（只高亮可疑字段）
+   │
+   ▼
+⑤ 人工复核工作台 → 修正后写入 ERP → 修正记录进入评估集与训练数据
 ```
 
+<Note title="自测：到这里你应该能回答">
+
+1. 画出五个阶段。
+2. 为什么需要“发票号未重复入账”这类检查？
+
+</Note>
+
 </Locale>
 
 <Locale lang="en">
 
-## Likely follow-ups
+## Level 1 · High-level design
 
-1. How do you version schema changes?
-2. How do you fix failed table extraction?
-3. How do you measure extraction accuracy?
-4. Why shouldn't you use a free-form agent to extract fields?
+Intake (email, upload, scanner) → object storage → a queue deduplicated by `document_id` → ① preprocessing (conversion, deskew, page split, classification) → ② type-specific schema extraction with value, confidence, and evidence location per field → ③ deterministic validation (line totals, tax math with rounding tolerance, valid non-future dates, vendor in master data, invoice number not already posted) → ④ routing: all checks pass with high confidence → ERP; otherwise review queue with suspicious fields highlighted → ⑤ human corrections post to ERP and feed eval and training data.
 
-## Dimensions
+<Note title="Self-check: you should be able to answer">
 
+1. Draw the five stages.
+2. Why check for duplicate invoice numbers?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 深挖：抽取与校验
+
+### OCR + LLM 还是多模态模型？
+
+| 方案 | 做法 | 优点 | 缺点 |
+| --- | --- | --- | --- |
+| OCR + 文本 LLM | 先 OCR 出文字和坐标，再让 LLM 从文字抽字段 | 便宜；文字可复用、可搜索；坐标可做证据 | 表格结构、版面关系在 OCR 后丢失；手写差 |
+| 多模态模型（VLM） | 直接把页面图像给模型抽取 | 能理解版面、表格、印章、手写 | 单次更贵；数字偶尔“看错”且难以发现 |
+| 专用文档模型 / 云服务 | 云厂商的发票识别等 | 常见格式准确率高、便宜 | 长尾格式差；定制字段难 |
+
+常见组合是**级联**：常见格式的发票先用专用服务或 OCR + 小模型；校验失败或置信度低的再交给多模态大模型；仍不行再送人工（见 [Model Routing](/docs/application/model-routing) Level 3）。
+
+### schema 怎么设计？
+
+```json
+{
+  "invoice_number": {"value": "INV-2026-0915", "evidence": {"page": 1, "bbox": [412, 88, 560, 104]}},
+  "total_amount":   {"value": 1130.00, "currency": "CNY", "evidence": {"page": 1, "bbox": […]}},
+  "tax_amount":     {"value": 130.00, "evidence": {…}},
+  "line_items": [
+    {"description": "猫粮 10kg", "quantity": 2, "unit_price": 500.00, "amount": 1000.00}
+  ]
+}
 ```
-1. Requirements
-2. Constraints
-3. Architecture
-4. Data Flow
-5. Model
-6. Retrieval
-7. Agent
-8. Evaluation
-9. Scaling
-10. Latency
-11. Cost
-12. Reliability
-13. Security
-14. Observability
-```
 
-</Locale>
+- **每个字段带证据坐标**：复核时直接高亮原图位置，核对只需几秒。
+- 金额用数字类型，日期用标准格式；缺失字段返回 `null` 而不是猜（见 [Structured Output](/docs/application/structured-output)）。
+- 用 strict 结构化输出保证格式合法；**内容是否正确靠下面的规则校验**。
 
-<Locale lang="zh">
+### 怎么发现抽错？
 
-## 需求
+模型自己报的“置信度”不可靠。更可靠的信号，按可信度排序：
 
-</Locale>
+1. **确定性规则校验**：金额加总不平、税率不在合法集合、发票号重复——这类检查能抓住大部分数字错误，而且零成本。
+2. **外部主数据比对**：供应商名称和税号是否和主数据一致。
+3. **双重抽取一致性**：两个不同模型（或同一模型两次）抽取结果是否一致——不一致的字段送人工。
+4. 模型自报置信度、OCR 置信度：作为辅助信号。
 
-<Locale lang="en">
+<Note type="tip" title="面试加分">
 
-## Requirements
+“我不依赖模型自报的置信度。金额类字段用确定性规则做交叉校验——加总、税率、重复检测——再加双模型一致性，不一致就送人工。这样能把错误入账控制在千分之一以下。”
 
-</Locale>
+</Note>
 
--
+<Note title="自测：到这里你应该能回答">
 
-<Locale lang="zh">
+1. 比较 OCR + LLM 和多模态模型的取舍。什么是级联方案？
+2. 为什么每个字段要带证据坐标？
+3. 按可信度排列四种发现抽错的信号。
 
-## 约束
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Constraints
+## Level 2 · Deep dive: extraction and validation
+
+OCR + LLM is cheap and yields reusable text and coordinates but loses layout and struggles with handwriting; VLMs understand layout, tables, stamps, handwriting but cost more and occasionally misread digits silently; specialized services excel on common formats and fail on the long tail. Cascade: specialized/OCR + small model → VLM on failures → humans. Schema: each field with value and evidence bbox, typed numbers and dates, `null` instead of guesses, strict structured output for format — correctness comes from validation. Error signals, most to least reliable: deterministic rules (totals, tax rates, duplicates), master-data matching, two-model agreement, then self-reported and OCR confidence.
+
+<Note type="tip" title="Interview move">
+
+"I don't trust self-reported confidence: deterministic cross-checks plus two-model agreement, disagreements to humans."
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. OCR + LLM vs VLM, and the cascade?
+2. Why evidence coordinates?
+3. Rank four error signals.
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 架构
+## Level 3 · 深挖：人工复核与闭环
+
+### 哪些交给人？
+
+| 路由到人工的条件 | 原因 |
+| --- | --- |
+| 任何规则校验失败 | 数字很可能错了 |
+| 双模型不一致的字段 | 至少一个错了 |
+| 金额超过阈值（如 10 万元） | 错误代价高，即使看起来对也要人看 |
+| 新供应商 / 未见过的格式 | 历史准确率未知 |
+| 文档分类为“其他” | 不在支持范围 |
+
+复核界面**只高亮可疑字段**，人只需确认或修正那几个，而不是从头录入——这是人力效率提升的关键。
+
+### 人的修改怎么用起来？
+
+- **评估集**：每次修正都是一条带标准答案的样本，自动进入评估集，按供应商、格式分桶。
+- **少样本示例**：同一供应商的发票格式固定，把该供应商最近被修正过的例子作为 few-shot 放进 prompt。
+- **微调**：积累足够的修正数据后，微调一个小模型处理高频格式，降低成本。
+- **监控自动通过率**：理想趋势是随时间上升；某供应商突然大量进人工，可能是他们换了发票模板。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 列出五种路由到人工的条件。
+2. 人工修正数据有哪三种用法？
+
+</Note>
 
 </Locale>
 
 <Locale lang="en">
 
-## Architecture
+## Level 3 · Deep dive: human review
+
+Route to humans on any failed rule, model disagreement, high amounts, new vendors or formats, and unsupported document types; highlight only suspicious fields so reviewers confirm rather than retype. Reuse corrections as eval data bucketed by vendor and format, as vendor-specific few-shot examples, and eventually to fine-tune a small model for frequent formats; watch the auto-pass rate — a vendor suddenly flooding review probably changed templates.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Five routing conditions?
+2. Three uses of corrections?
+
+</Note>
 
 </Locale>
 
--
-
 <Locale lang="zh">
 
-## 数据流
+## Level 4 · 评估、吞吐与成本
+
+- **字段级评估**（见 [Fundamentals](/docs/evaluation/fundamentals)）：每个字段的精确率（抽出来的值对不对）和召回率（该抽的有没有抽到）；金额字段单独严格统计；按供应商、扫描 / 电子版、语言分桶。
+- **系统级指标**：错误入账率（必须 ≤ 0.1%）、自动通过率、人工每份处理时间、端到端处理时长。
+- **吞吐**：用 Batch API 时不需要自己扛并发；自部署时按页并行，队列 + 幂等（同一 `document_id` 重复投递不重复入账）。
+- **成本**：每份文档成本 = AI 成本 + 人工复核成本 × 复核比例。复核比例从 30% 降到 15%，节省的人力远大于模型费用——和 [Customer Support](/docs/system-design/customer-support) 一样，**提高自动通过率（同时守住错误率）是最大杠杆**。
+
+## 14 维度速查
+
+| 维度 | 本题关键决策 |
+| --- | --- |
+| 需求 | 高准确率字段抽取 → ERP；人工兜底 |
+| 约束 | 50 万份 / 天；错误入账 ≤ 0.1%；非实时 |
+| 架构 | 队列流水线：预处理 → 抽取 → 校验 → 路由 → 复核 |
+| 数据流 | 幂等处理；修正回流评估集 |
+| 模型 | 级联：专用服务 / 小模型 → 多模态大模型 → 人 |
+| 检索 | 不需要；可按供应商取 few-shot 示例 |
+| 智能体 | 不需要 |
+| 评测 | 字段级精确率 / 召回率；错误入账率 |
+| 扩展 | Batch API；按页并行 |
+| 延迟 | 当天完成即可 |
+| 成本 | 每份 AI 成本 + 复核人力；自动通过率是杠杆 |
+| 可靠性 | 幂等、重试、死信队列 |
+| 安全 | 财务数据加密、访问审计、数据驻留 |
+| 可观测性 | 每阶段通过率、按供应商的自动通过率、复核耗时 |
+
+## 陷阱
+
+<Note type="danger" title="面试里说出来就扣分">
+
+- 相信模型自报的置信度。
+- 没有确定性规则校验。
+- 用实时 API 跑批量任务（贵一倍）。
+- 人工复核要从头录入。
+
+</Note>
+
+## 连接
+
+- 机制：[Structured Output](/docs/application/structured-output)、[Ingestion](/docs/rag/ingestion)、[Model Routing](/docs/application/model-routing)、[Cost](/docs/production/cost)
+- 相关题：[Document Q&A](/docs/system-design/document-qa)、[Meeting Summarization](/docs/system-design/meeting-summarization)
+
+## 面试问题
+
+1. 设计一个每天处理 50 万份发票的抽取系统。（Design an extraction system for 500K invoices a day.）
+2. OCR + LLM 还是多模态模型？（OCR + LLM or multimodal models?）
+3. 怎样发现抽取错误？（How do you detect extraction errors?）
+4. 哪些文档交给人工？人工修正怎么利用？（What goes to humans, and how are corrections reused?）
+5. 怎样降低每份文档的成本？（How do you lower cost per document?）
 
 </Locale>
 
 <Locale lang="en">
 
-## Data Flow
+## Level 4 · Eval, throughput, cost
+
+Field-level precision and recall, strict tracking for amounts, bucketed by vendor, scan vs digital, and language; system metrics: mis-posting rate (≤ 0.1%), auto-pass rate, review time, end-to-end duration. Batch APIs absorb throughput; self-hosted runs parallelize by page with idempotent `document_id` handling. Cost per document = AI cost + review cost × review share — cutting review from 30% to 15% dwarfs model savings.
+
+## Pitfalls
+
+<Note type="danger" title="Claims that cost points">
+
+- Trusting self-reported confidence.
+- No deterministic validation.
+- Real-time APIs for batch work.
+- Reviewers retyping from scratch.
+
+</Note>
+
+## Connections
+
+- Mechanics: [Structured Output](/docs/application/structured-output), [Ingestion](/docs/rag/ingestion), [Model Routing](/docs/application/model-routing), [Cost](/docs/production/cost)
+- Related: [Document Q&A](/docs/system-design/document-qa), [Meeting Summarization](/docs/system-design/meeting-summarization)
+
+## Interview questions
+
+1. Design an extraction system for 500K invoices a day.
+2. OCR + LLM or multimodal models?
+3. How do you detect extraction errors?
+4. What goes to humans, and how are corrections reused?
+5. How do you lower cost per document?
 
 </Locale>
-
--
-
-<Locale lang="zh">
-
-## 模型
-
-</Locale>
-
-<Locale lang="en">
-
-## Model
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 检索
-
-</Locale>
-
-<Locale lang="en">
-
-## Retrieval
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 智能体
-
-</Locale>
-
-<Locale lang="en">
-
-## Agent
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 评测
-
-</Locale>
-
-<Locale lang="en">
-
-## Evaluation
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 扩展
-
-</Locale>
-
-<Locale lang="en">
-
-## Scaling
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 延迟
-
-</Locale>
-
-<Locale lang="en">
-
-## Latency
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 成本
-
-</Locale>
-
-<Locale lang="en">
-
-## Cost
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可靠性
-
-</Locale>
-
-<Locale lang="en">
-
-## Reliability
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 安全
-
-</Locale>
-
-<Locale lang="en">
-
-## Security
-
-</Locale>
-
--
-
-<Locale lang="zh">
-
-## 可观测性
-
-</Locale>
-
-<Locale lang="en">
-
-## Observability
-
-</Locale>
-
--
 
 <Locale lang="zh">
 
@@ -310,6 +382,22 @@ docs → parse → LLM/JSON schema → validate
 <Locale lang="en">
 
 ## My answer
+
+</Locale>
+
+- 30s 电梯版:
+
+- 5 分钟白板版:
+
+<Locale lang="zh">
+
+## 项目锚点
+
+</Locale>
+
+<Locale lang="en">
+
+## Project anchor
 
 </Locale>
 
