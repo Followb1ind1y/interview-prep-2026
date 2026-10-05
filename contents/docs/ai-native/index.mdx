@@ -3,50 +3,84 @@ title: AI-Native Engineering
 titleEn: AI-Native Engineering
 description: 从 agent harness 到编码闭环、持久状态、MCP 与沙箱，理解 AI-native 工程的控制边界。
 descriptionEn: From agent harnesses to coding loops, durable state, MCP, and sandboxes.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["mcp", "agent harness", "coding agent", "context compaction", "sandbox"]
 ---
 
 <Locale lang="zh">
 
-建议在 [Agent Loop](/docs/agent/loop)、[Context Engineering](/docs/context)、[Evaluation](/docs/evaluation) 和 [Production AI](/docs/production) 后读本栏。目标是能解释：coding agent 怎样读仓库、改代码、得到外部反馈、在长任务中恢复，并把不可信执行限制在安全边界里。
+这一栏讲 coding agent 怎样读仓库、改代码、拿到外部反馈、在长任务中恢复，并把不可信执行限制在安全边界里。建议在 [Agent Loop](/docs/agent/loop)、[Context Engineering](/docs/context)、[Evaluation](/docs/evaluation) 和 [Production AI](/docs/production) 之后读。
 
-贯穿七页的**教学任务**是修复猫粮客服把“订单还没到”误判成“未发货”的 bug。订单的真实状态由 API 决定；代码修复要靠实际 diff、测试与运行结果验收。示意文件和测试数字不代表你的项目实测。
+<CardGrid>
+  <Card title="Agent Harness" description="循环伪代码、ACI 工具设计、权限与 hooks、白板设计。" href="/docs/ai-native/harness" />
+  <Card title="Agentic Coding" description="复现优先、reward hacking、SWE-bench 系列、pass@k vs pass^k。" href="/docs/ai-native/agentic-coding" />
+  <Card title="Claude Code / Codex" description="agentic search vs 向量索引、工作流与功能、可审查的改动。" href="/docs/ai-native/coding-workflow" />
+  <Card title="MCP" description="2026-07-28 无状态版本、OAuth 2.1、token 透传、工具投毒与致命三要素。" href="/docs/ai-native/mcp" />
+  <Card title="Sandbox" description="隔离强度阶梯、出口代理、凭证代理、负例测试。" href="/docs/ai-native/sandbox" />
+  <Card title="Context Compaction" description="context rot、保留什么、五种上下文管理手段。" href="/docs/ai-native/compaction" />
+  <Card title="Agent State" description="意图日志、durable execution、恢复与人工审批。" href="/docs/ai-native/agent-state" />
+</CardGrid>
 
-## 建议学习顺序
+## 建议学习顺序与深度
 
-1. **先懂控制层：** [Agent Harness](/docs/ai-native/harness) 讲模型、工具、状态和执行环境各负责什么。
-2. **再看编码循环：** [Claude Code / Codex](/docs/ai-native/coding-workflow) 讲仓库工作流；[Agentic Coding](/docs/ai-native/agentic-coding) 讲复现、测试和验证。
-3. **长任务不丢状态：** [Agent State](/docs/ai-native/agent-state) 讲 checkpoint 与恢复；[Context Compaction](/docs/ai-native/compaction) 讲保留哪些证据。
-4. **最后接外部系统与执行：** [MCP](/docs/ai-native/mcp) 讲 Host / Client / Server、能力与授权；[Sandbox](/docs/ai-native/sandbox) 讲文件、网络、凭证和资源隔离。
+| 页面 | 深度 | 重点 |
+| --- | --- | --- |
+| [Agent Harness](/docs/ai-native/harness) | 🔴 学透 | agent 循环、工具设计、权限、白板设计 |
+| [Agentic Coding](/docs/ai-native/agentic-coding) | 🔴 学透 | 验证方法、reward hacking、基准与 pass^k |
+| [Claude Code / Codex](/docs/ai-native/coding-workflow) | 🟢 快速了解 | agentic search；准备你自己的使用故事 |
+| [MCP](/docs/ai-native/mcp) | 🔴 学透 | 协议变化、授权、攻击面 |
+| [Sandbox](/docs/ai-native/sandbox) | 🟡 抓要点 | 隔离技术、文件 / 网络 / 凭证 / 资源 |
+| [Context Compaction](/docs/ai-native/compaction) | 🟡 抓要点 | 保留什么、五种手段的取舍 |
+| [Agent State](/docs/ai-native/agent-state) | 🟡 抓要点 | 不重复副作用、恢复与等待 |
 
-七个主题页都有 4–5 个双语 Level、贯穿案例、逐级自测和面试题。读完后用 `/drill ai-native/<页面 slug>` 练习；课件生成不等于已经掌握。
+1. **先懂控制层：** Harness。
+2. **编码闭环：** Agentic Coding → Claude Code / Codex。
+3. **外部能力与执行边界：** MCP → Sandbox。
+4. **长任务：** Compaction → Agent State。
+
+## 本栏约定
+
+- **分工**：Compaction 管“模型这一轮看到什么”；Agent State 管“任务做到哪、怎样不重复副作用”，两页不重复。
+- **贯穿案例**：修复猫粮客服把“订单还没到”误判成“未发货”的 bug。订单真实状态由 API 决定；修复靠实际 diff、测试与运行结果验收。示意文件和测试数字不代表项目实测。
+- **练习**：读完一页就用 `/drill ai-native/<页面 slug>` 练，课件生成不计作掌握。
 
 </Locale>
 
 <Locale lang="en">
 
-Read this after [Agent Loop](/docs/agent/loop), [Context Engineering](/docs/context), [Evaluation](/docs/evaluation), and [Production AI](/docs/production). The goal is to explain how a coding agent inspects a repository, edits code, gets external feedback, resumes long work, and contains untrusted execution.
-
-Our running teaching task fixes a support bug that treats “not arrived” as “not shipped.” The order API provides true state; actual diffs, tests, and runtime behavior establish whether the patch works. Sample files and test counts are illustrative.
-
-## Suggested order
-
-1. **Control layer:** [Agent Harness](/docs/ai-native/harness) separates model, tools, state, and execution.
-2. **Coding loop:** [Claude Code / Codex](/docs/ai-native/coding-workflow) explains repository work; [Agentic Coding](/docs/ai-native/agentic-coding) covers reproduction and verification.
-3. **Long-running work:** [Agent State](/docs/ai-native/agent-state) covers checkpoints and resume; [Context Compaction](/docs/ai-native/compaction) preserves the evidence needed to continue.
-4. **External capability and execution:** [MCP](/docs/ai-native/mcp) covers host/client/server, capabilities, and authorization; [Sandbox](/docs/ai-native/sandbox) covers filesystem, network, credentials, and resources.
-
-All seven topic pages have 4–5 bilingual Levels, one running case, self-checks, and interview questions. Practice with `/drill ai-native/<page slug>`; generating notes does not count as mastery.
-
-</Locale>
+This section covers how a coding agent inspects a repository, edits code, gets external feedback, resumes long work, and contains untrusted execution. Read it after [Agent Loop](/docs/agent/loop), [Context Engineering](/docs/context), [Evaluation](/docs/evaluation), and [Production AI](/docs/production).
 
 <CardGrid>
-  <Card title="Agent Harness" description="控制层、工具路由、状态与验证。" href="/docs/ai-native/harness" />
-  <Card title="Claude Code / Codex" description="从仓库工作流理解 coding agent。" href="/docs/ai-native/coding-workflow" />
-  <Card title="Agentic Coding" description="复现、修改、测试、观察、修复。" href="/docs/ai-native/agentic-coding" />
-  <Card title="Agent State" description="对话、工作状态与外部真实状态。" href="/docs/ai-native/agent-state" />
-  <Card title="Context Compaction" description="长任务压缩时保留目标、证据和未完成状态。" href="/docs/ai-native/compaction" />
-  <Card title="MCP" description="Host / Client / Server、三类能力与授权。" href="/docs/ai-native/mcp" />
-  <Card title="Sandbox" description="限制文件、进程、网络与凭证影响范围。" href="/docs/ai-native/sandbox" />
+  <Card title="Agent Harness" description="Loop pseudocode, ACI tool design, permissions and hooks, whiteboard design." href="/docs/ai-native/harness" />
+  <Card title="Agentic Coding" description="Reproduce-first, reward hacking, SWE-bench family, pass@k vs pass^k." href="/docs/ai-native/agentic-coding" />
+  <Card title="Claude Code / Codex" description="Agentic search vs vector index, workflow and features, reviewable changes." href="/docs/ai-native/coding-workflow" />
+  <Card title="MCP" description="Stateless 2026-07-28 revision, OAuth 2.1, token passthrough, tool poisoning, lethal trifecta." href="/docs/ai-native/mcp" />
+  <Card title="Sandbox" description="Isolation ladder, egress and credential proxies, negative tests." href="/docs/ai-native/sandbox" />
+  <Card title="Context Compaction" description="Context rot, what to keep, five context-management techniques." href="/docs/ai-native/compaction" />
+  <Card title="Agent State" description="Intent logs, durable execution, resume and human approval." href="/docs/ai-native/agent-state" />
 </CardGrid>
+
+## Suggested order and depth
+
+| Page | Depth | Focus |
+| --- | --- | --- |
+| [Agent Harness](/docs/ai-native/harness) | 🔴 Master | agent loop, tool design, permissions, whiteboard |
+| [Agentic Coding](/docs/ai-native/agentic-coding) | 🔴 Master | verification, reward hacking, benchmarks and pass^k |
+| [Claude Code / Codex](/docs/ai-native/coding-workflow) | 🟢 Quick pass | agentic search; prepare your own story |
+| [MCP](/docs/ai-native/mcp) | 🔴 Master | protocol changes, authorization, attack surface |
+| [Sandbox](/docs/ai-native/sandbox) | 🟡 Key points | isolation tech; files, network, credentials, resources |
+| [Context Compaction](/docs/ai-native/compaction) | 🟡 Key points | what to keep, technique tradeoffs |
+| [Agent State](/docs/ai-native/agent-state) | 🟡 Key points | no duplicate side effects, resume and wait |
+
+1. **Control layer:** Harness.
+2. **Coding loop:** Agentic Coding → Claude Code / Codex.
+3. **External capability and execution:** MCP → Sandbox.
+4. **Long-running work:** Compaction → Agent State.
+
+## Conventions
+
+- **Split**: Compaction owns what the model sees this turn; Agent State owns progress and avoiding duplicate side effects.
+- **Running case**: fixing the support bug that treats "not arrived" as "not shipped." The order API is the source of truth; diffs, tests, and runtime behavior decide whether the fix works. Sample numbers are illustrative.
+- **Practice**: `/drill ai-native/<page slug>` after each page; generated notes don't count as mastery.
+
+</Locale>

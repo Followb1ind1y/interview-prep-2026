@@ -1,10 +1,10 @@
 ---
 title: Latency
 titleEn: Latency
-description: 手算关键路径和首 token 延迟，用 trace 优化 P95 而非凭感觉调模型。
-descriptionEn: Calculate the critical path and first-token latency; optimize P95 from traces.
-date: 2026-09-24
-keywords: ['latency', 'ttft', 'tpot', 'p95', 'critical path']
+description: 从 prefill / decode 机制出发拆 TTFT、TPOT 与 P95：手算关键路径、排队、思考 token 与尾延迟，再谈优化杠杆和延迟预算。
+descriptionEn: Break TTFT, TPOT, and P95 down from prefill/decode mechanics; compute critical paths, queueing, thinking tokens, and tail latency.
+date: 2026-10-04
+keywords: ['latency', 'ttft', 'tpot', 'p95', 'critical path', 'prefill', 'decode', 'prompt caching', 'reasoning tokens', 'tail latency', 'hedged request']
 tier: A
 status: todo
 cursor: ''
@@ -13,49 +13,71 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策 `P-17 v3` 来自检索，实时订单状态来自受权订单 API。示意数字只用于手算，不代表你的项目实测或当前供应商报价。
+面试里“你怎么优化延迟”几乎必问。只会说“用流式、换小模型、加缓存”的回答，会被一句“为什么 TTFT 和 prompt 长度有关，而 TPOT 基本无关？”问住。这一页从**一个 token 在 GPU 上怎么产生**讲起，一路推到关键路径手算、排队、思考模型、尾延迟和延迟预算。
+
+本页假设你知道 Transformer 是逐 token 生成的。prefill、decode、KV cache 的底层细节在 [Inference](/docs/llm/inference) 的 Level 0–3 里讲透了；这里只取 API 使用方需要的结论，然后把它们变成能手算、能排障的工具。
+
+贯穿全页的例子是“喵喵粮仓”客服：用户问订单 `20240915` 没到能否退款。系统要查订单 API、检索退款政策 `P-17 v3`、重排，再让模型生成回答。文中的毫秒数是为手算设计的示意值，量级参考公开硬件参数，不是某家供应商的实测。
 
 ## 这一页怎么学
 
-| Level | 先回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 量什么 | TTFT、TPOT、总延迟和 P95 分别是什么？ | 15–25 min |
-| 1 · 关键路径手算 | 并行与串行步骤怎样算用户等待？ | 15–25 min |
-| 2 · 等待的来源 | TTFT 慢，是模型算得慢还是请求排队？ | 15–25 min |
-| 3 · 优化杠杆 | 哪些优化改善首 token，哪些改善完成时间？ | 15–25 min |
-| 4 · P95 与预算 | 如何设置端到端延迟预算与回归门槛？ | 15–25 min |
+| 0 · 指标定义 | TTFT、TPOT、E2E、P95 各是什么？用户感知到的又是什么？ | 20 min |
+| 1 · 一个 token 怎么来的 | 为什么 TTFT 跟 prompt 长度走、TPOT 跟显存带宽走？ | 30 min |
+| 2 · 关键路径手算 | 串行、并行、agent 多轮循环的用户等待怎么算？ | 30 min |
+| 3 · 排队与尾延迟 | 为什么利用率 90% 时 P95 会爆？扇出为什么放大尾延迟？ | 30 min |
+| 4 · 思考模型的新问题 | reasoning token 怎样改写“首 token”的含义？ | 20 min |
+| 5 · 优化杠杆 | 每个杠杆改善哪一段？代价是什么？ | 30 min |
+| 6 · 预算、SLO 与回归 | 怎么定延迟预算、怎么测、怎么防回归？ | 20 min |
+
+**Level 1 和 Level 3 是全页重点**：前者让你能解释“为什么”，后者让你能解释“为什么只有高峰期慢”。全页约 3 小时，建议分两次学。
 
 ## 需要掌握
 
-- TTFT、TPOT、总延迟和 P95 分别是什么？
-- 并行与串行步骤怎样算用户等待？
-- TTFT 慢，是模型算得慢还是请求排队？
-- 哪些优化改善首 token，哪些改善完成时间？
-- 如何设置端到端延迟预算与回归门槛？
+- TTFT / TPOT / E2E / P95 的精确定义，以及“首个有意义内容时间”
+- prefill 是 compute-bound、decode 是 memory-bandwidth-bound，并能用显存带宽估 TPOT 下界
+- 关键路径：并行取 max、串行相加、agent 循环按轮数累加
+- 排队论直觉：利用率 ρ 越接近 1，等待时间越非线性地爆炸
+- 扇出的尾延迟放大：`1 - 0.99^N`
+- reasoning 模型的“首个可见 token 时间”= TTFT + 思考 token × TPOT
+- 优化杠杆的分类：减少工作量、并行化、少排队、提前展示
+- 百分位数不能相加；分母要写清；用端到端 trace 算体验分布
 
 </Locale>
 
 <Locale lang="en">
 
-We continue the pet-food support case: order `20240915` has not arrived. Current policy `P-17 v3` comes from retrieval; live order state comes from an authorized order API. All numerical examples are for learning, not project measurements or current provider prices.
+"How would you reduce latency?" comes up in almost every AI engineering interview. An answer of "stream, use a smaller model, add caching" collapses under one follow-up: "Why does TTFT depend on prompt length while TPOT mostly doesn't?" This page starts from how one token is produced on a GPU and builds up to critical-path math, queueing, reasoning models, tail latency, and latency budgets.
 
-## How to study this page
+It assumes you know that transformers generate token by token. The low-level prefill/decode/KV-cache mechanics live in Levels 0–3 of [Inference](/docs/llm/inference); here we take the conclusions an API consumer needs and turn them into tools for estimating and debugging.
 
-| Level | Question | Time |
+Running example: the pet-food support bot. A user asks whether order `20240915`, which hasn't arrived, can be refunded. The system calls the order API, retrieves refund policy `P-17 v3`, reranks, and asks the model to answer. Millisecond values are designed for hand calculation and sized from public hardware specs; they are not vendor measurements.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · What to measure | What do TTFT, TPOT, end-to-end latency, and P95 mean? | 15–25 min |
-| 1 · Critical-path arithmetic | How do serial and parallel stages contribute to waiting? | 15–25 min |
-| 2 · Sources of waiting | Is slow TTFT compute or queueing? | 15–25 min |
-| 3 · Optimization levers | Which levers improve first-token versus completion time? | 15–25 min |
-| 4 · P95 and budgets | How do you set an end-to-end latency budget? | 15–25 min |
+| 0 · Metrics | What are TTFT, TPOT, E2E, and P95? What does the user actually perceive? | 20 min |
+| 1 · Where a token comes from | Why does TTFT track prompt length and TPOT track memory bandwidth? | 30 min |
+| 2 · Critical-path math | How do serial stages, parallel stages, and agent loops add up? | 30 min |
+| 3 · Queueing and tails | Why does P95 explode at 90% utilization? Why does fan-out amplify tails? | 30 min |
+| 4 · Reasoning models | How do thinking tokens change what "first token" means? | 20 min |
+| 5 · Optimization levers | Which segment does each lever improve, and at what cost? | 30 min |
+| 6 · Budgets, SLOs, regressions | How do you set, measure, and protect a latency budget? | 20 min |
+
+**Levels 1 and 3 are the core**: the first lets you explain *why*, the second lets you explain *why only at peak*. About 3 hours; split into two sessions.
 
 ## Must know
 
-- What do TTFT, TPOT, end-to-end latency, and P95 mean?
-- How do serial and parallel stages contribute to waiting?
-- Is slow TTFT compute or queueing?
-- Which levers improve first-token versus completion time?
-- How do you set an end-to-end latency budget?
+- precise definitions of TTFT / TPOT / E2E / P95, plus time-to-first-meaningful-content
+- prefill is compute-bound, decode is memory-bandwidth-bound; estimate a TPOT floor from bandwidth
+- critical path: max for parallel, sum for serial, multiply by loop iterations for agents
+- queueing intuition: waiting time grows nonlinearly as utilization approaches 1
+- fan-out tail amplification: `1 - 0.99^N`
+- for reasoning models, time to first *visible* token = TTFT + thinking tokens × TPOT
+- lever taxonomy: do less work, parallelize, queue less, show something earlier
+- percentiles don't add; state the denominator; compute experience from end-to-end traces
 
 </Locale>
 
@@ -63,18 +85,55 @@ We continue the pet-food support case: order `20240915` has not arrived. Current
 
 <Locale lang="zh">
 
-## Level 0 · 量什么
+## Level 0 · 指标定义
 
-### TTFT、TPOT、总延迟和 P95 分别是什么？
+### TTFT、TPOT、E2E 和 P95 分别是什么？
 
-TTFT 是请求发出到**第一个模型输出 token**的时间；产品还应测“第一个用户可见且有意义的内容”的时间。TPOT 是生成阶段每个输出 token 的平均间隔，常按相邻 token 或总解码时长统计。总延迟是请求到完整响应；P95 表示 95% 的观测不超过该值，不是“最慢 5% 的平均值”。
+一次流式 LLM 请求的时间线：
 
-客服案例中用户更关心首句建议何时出现和最终可执行结论何时完成。语音系统还要拆 ASR、模型、TTS 与播放缓冲。原提纲提到 Voice 项目 1.2 秒；在未核实原始测量定义和 trace 前，把它当待对照的项目数字，不宣称端到端实测结论。
+```
+t0 请求发出 ──► t1 第一个输出 token 到达 ──► … 每隔 TPOT 来一个 token … ──► t2 最后一个 token
+            └──── TTFT ────┘                                              │
+            └──────────────────────── E2E latency ────────────────────────┘
+```
+
+- **TTFT（Time To First Token）**：`t1 - t0`。包含网络、排队、prefill（处理整段输入）和第一个 token 的生成。
+- **TPOT（Time Per Output Token）**，也叫 ITL（Inter-Token Latency）：生成阶段相邻 token 的平均间隔。`TPOT ≈ (t2 - t1) / (输出 token 数 - 1)`。它的倒数就是常说的“每秒输出 token 数（tokens/s）”。
+- **E2E latency**：`t2 - t0` ≈ `TTFT + 输出 token 数 × TPOT`。
+- **P95**：把所有请求的延迟排序，第 95 百分位的那个值——95% 的请求不超过它。**不是**“最慢 5% 的平均值”，也不是“平均值 × 某个系数”。
+
+例子：100 个请求的 E2E 排序后，第 95 个是 4.8 s，那么 P95 = 4.8 s。平均值可能只有 2.1 s——平均值会被大量快请求“稀释”，所以 SLO 几乎都按百分位写。
+
+<Note type="warning" title="TPOT 的两种算法会给出不同数字">
+
+“按相邻 token 间隔统计再取分布”和“总解码时长 / token 数”在有卡顿时差别很大：一次 2 秒停顿会被平均摊薄，但在逐间隔分布的 P99 里很显眼。流式体验“卡一下”的抱怨，要看逐间隔分布。
+
+</Note>
+
+### 用户感知到的到底是哪个时间？
+
+TTFT 是模型侧的指标，用户感知的是**第一个有意义的内容什么时候出现**。两者常常不一样：
+
+| 情况 | TTFT | 用户感知 |
+| --- | --- | --- |
+| 模型先输出 `{"answer": "` 这类 JSON 外壳 | 很快 | 要等到可渲染的字段才算 |
+| 模型先输出“好的，我来帮您查询一下……” | 很快 | 没有信息量，用户仍在等结论 |
+| reasoning 模型先思考 2000 token（Level 4） | 很快（思考 token 也是 token） | 首个**可见**字符要晚几十秒 |
+| 语音助手 | 文本首 token | 首个**可播放音频**：ASR 结束 + LLM 首句 + TTS 首包 |
+
+所以生产里至少测三个点：TTFT、**首个可见/可用内容时间（TTFC）**、完成时间。客服案例里用户最关心的是“能不能退”这句结论什么时候出现。
+
+<Note title="语音的预算更紧">
+
+人类对话中轮换间隙通常只有几百毫秒，语音 agent 的“语音到语音”延迟一般目标在 1 秒左右甚至更低。原提纲里 Voice 项目的 1.2 秒，面试前要先确认它的测量起止点（从用户停止说话算？从 ASR final 算？到首包音频还是播放开始？），否则一被追问边界就说不清。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 第一个网络字节和首个有意义答案一样吗？
-2. P95 是什么意思？
+1. 写出 E2E 与 TTFT、TPOT、输出 token 数的近似关系。
+2. P95 = 4.8 s 是什么意思？为什么 SLO 不用平均值？
+3. 为什么 TTFT 很快，用户仍可能觉得慢？举两个例子。
 
 </Note>
 
@@ -82,16 +141,42 @@ TTFT 是请求发出到**第一个模型输出 token**的时间；产品还应�
 
 <Locale lang="en">
 
-## Level 0 · What to measure
+## Level 0 · Metrics
 
-### What do TTFT, TPOT, end-to-end latency, and P95 mean?
+### What exactly are TTFT, TPOT, E2E, and P95?
 
-TTFT is time to the model’s first output token; product teams should also measure time to the first meaningful visible content. TPOT tracks token-generation pace. End-to-end latency runs to completion. P95 is a percentile, not the average of the slowest 5%. For voice, include ASR, model, TTS, and playback. The existing outline mentions 1.2 seconds for a Voice project; verify its measurement boundary before presenting it as an end-to-end result.
+```
+t0 request sent ──► t1 first output token ──► … one token every TPOT … ──► t2 last token
+```
+
+- **TTFT**: `t1 - t0`. Network, queueing, prefill over the whole input, and the first decode step.
+- **TPOT** (a.k.a. inter-token latency): average gap between output tokens; its inverse is tokens/s.
+- **E2E**: `t2 - t0 ≈ TTFT + output_tokens × TPOT`.
+- **P95**: sort all latencies; 95% are at or below this value. Not the mean of the slowest 5%.
+
+If the 95th of 100 sorted E2E values is 4.8 s, P95 is 4.8 s even if the mean is 2.1 s — means get diluted by fast requests, which is why SLOs use percentiles.
+
+<Note type="warning" title="Two ways to compute TPOT">
+
+Averaging total decode time hides a 2-second stall; the per-gap distribution exposes it at P99. Complaints about streaming "hiccups" need the per-gap view.
+
+</Note>
+
+### What does the user actually perceive?
+
+TTFT is a model-side metric. Users perceive time to the first *meaningful* content. A JSON wrapper, a filler sentence, or hidden thinking tokens all produce a fast TTFT with nothing useful on screen. For voice, what matters is the first playable audio: end of ASR + first LLM sentence + first TTS chunk. Measure at least TTFT, time to first useful content, and completion.
+
+<Note title="Voice budgets are tight">
+
+Human turn-taking gaps are a few hundred milliseconds; voice agents typically aim for roughly one second voice-to-voice. Before quoting the 1.2 s figure from the Voice project, pin down its start and end points.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Is first network byte the same as first meaningful answer?
-2. What exactly does P95 mean?
+1. Write E2E in terms of TTFT, TPOT, and output length.
+2. What does P95 = 4.8 s mean, and why not use the mean?
+3. Give two cases where TTFT is fast but the user still waits.
 
 </Note>
 
@@ -99,18 +184,62 @@ TTFT is time to the model’s first output token; product teams should also meas
 
 <Locale lang="zh">
 
-## Level 1 · 关键路径手算
+## Level 1 · 一个 token 是怎么来的
 
-### 并行与串行步骤怎样算用户等待？
+### 为什么 TTFT 跟着 prompt 长度走？
 
-用示意 trace：鉴权 40 ms；订单工具 180 ms 与检索 250 ms 并行；重排 120 ms；模型首 token 700 ms；之后输出 100 token、平均 25 ms/token。首 token 约 `40 + max(180,250) + 120 + 700 = 1,110 ms`；总完成约 `1,110 + 100×25 = 3,610 ms`。这只是粗估，模型流中还有网络/渲染开销。
+模型服务处理一个请求分两个阶段：
 
-若订单状态是检索 query 的前置条件，这两步不能完全并行；关键路径必须画实际依赖图。增加 agent 第二次模型调用时，要把它所在的串行段加上，不能只看单次模型 TTFT。
+1. **Prefill（预填充）**：把整段输入（system prompt + 历史 + 检索文档 + 用户问题）**一次性并行**送进模型，算出每层的 Key/Value 存进 **KV cache**，并产出第一个输出 token。
+2. **Decode（解码）**：每步只生成 1 个新 token，复用 KV cache，直到结束。
+
+Prefill 同时处理成千上万个 token，GPU 的矩阵乘法单元被喂满，瓶颈是**算力（compute-bound）**。粗略地说，prefill 的计算量 ≈ `2 × 参数量 × 输入 token 数` FLOPs（再加上随长度平方增长的 attention 部分）。所以输入翻倍，prefill 时间大约翻倍；在很长的上下文上还会更差。
+
+量感：一个 70B 模型、20k token 的 prompt，prefill 约 `2 × 70e9 × 20,000 = 2.8e15` FLOPs。单张 H100 的稠密 BF16 峰值约 1e15 FLOPs/s 量级，实际利用率打个五折，就是几秒级。多卡张量并行能缩短，但量级关系不变：**长 prompt 必然拖慢 TTFT**。
+
+### 为什么 TPOT 基本不跟 prompt 长度走，而跟显存带宽走？
+
+Decode 每步只算 1 个 token，但**每一步都要把全部模型权重从显存读一遍**（外加读这个请求的 KV cache）。计算量很小，读数据的量很大——瓶颈是**显存带宽（memory-bandwidth-bound）**。
+
+手算下界：70B 模型、BF16（每参数 2 字节）权重约 140 GB。H100 SXM 的 HBM 带宽约 3.35 TB/s。
+
+```
+单请求 TPOT 下界 ≈ 140 GB / 3.35 TB/s ≈ 42 ms/token   （≈ 24 tokens/s）
+```
+
+这是 batch=1 时“把权重读一遍”的物理下限。生产系统怎么做到更快？
+
+- **张量并行**：权重切到 8 张卡，每张只读 1/8，下界降到约 5 ms 量级（再加通信开销）。
+- **量化**：FP8 / INT4 权重让每步读的字节减半或更少。
+- **批处理（continuous batching）**：读一遍权重同时给 64 个请求各算一个 token，**每个请求的 TPOT 几乎不变，但总吞吐翻几十倍**——这就是供应商能卖便宜的原因。
+- **投机解码**：小模型先猜 k 个 token，大模型一次验证，每读一遍权重产出多个 token。
+
+结论：prompt 变长主要伤 TTFT；输出变长主要伤 E2E（`输出数 × TPOT`）；TPOT 主要由模型大小、硬件、量化、批大小和服务端负载决定，**调用方几乎只能通过选模型/选供应商来影响它**。
+
+<Note type="tip" title="面试加分：一句话串起来">
+
+“Prefill 是 compute-bound，所以 TTFT 跟输入长度近似线性，这也是 prompt caching 能降 TTFT 的原因——缓存命中的前缀不用再算；decode 是 memory-bound，TPOT 由‘每步读多少字节’决定，所以量化、批处理和投机解码才是降 TPOT 的手段。”这句话把 [Inference](/docs/llm/inference) 和 [Prompt Caching](/docs/context/caching) 串起来了。
+
+</Note>
+
+### KV cache 和 prompt caching 是什么关系？
+
+KV cache 是**单个请求内**的缓存：decode 第 100 步时不必重新算前 99 个 token 的 K/V。Prompt caching（前缀缓存）是**跨请求**复用：如果两个请求的开头 N 个 token 完全相同（同一 system prompt + 同一工具定义 + 同一政策文档），服务端可以直接复用之前算好的 KV，**跳过这 N 个 token 的 prefill**。
+
+所以 prompt caching 同时降**成本**（缓存读取按大幅折扣计费）和 **TTFT**（少算 prefill），但**不改善 TPOT**。它要求**逐 token 完全一致的前缀**——在 system prompt 开头插入当前时间戳，就会让后面所有内容都无法命中。细节见 [Prompt Caching](/docs/context/caching)。
+
+<Note type="danger" title="错误说法">
+
+“输出 token 比输入贵，是因为输出 token 更难算。”——不准确。输出贵是因为 decode 每步都要读全部权重、GPU 利用率低，单个输出 token 占用的硬件时间远多于 prefill 中的一个输入 token。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 为何并行阶段用 max 而非相加？
-2. 订单状态影响检索时怎么改这笔账？
+1. prefill 和 decode 的瓶颈分别是什么？为什么？
+2. 用 140 GB 权重和 3.35 TB/s 带宽，估算 batch=1 的 TPOT 下界。
+3. continuous batching 为什么能提高吞吐，却几乎不改单请求 TPOT？
+4. prompt caching 改善 TTFT 还是 TPOT？什么写法会让它失效？
 
 </Note>
 
@@ -118,16 +247,47 @@ TTFT is time to the model’s first output token; product teams should also meas
 
 <Locale lang="en">
 
-## Level 1 · Critical-path arithmetic
+## Level 1 · Where a token comes from
 
-### How do serial and parallel stages contribute to waiting?
+### Why does TTFT track prompt length?
 
-Illustrative trace: auth 40 ms; order lookup 180 ms and retrieval 250 ms in parallel; rerank 120 ms; model first token 700 ms; then 100 tokens at 25 ms/token. Estimated TTFT is `40 + max(180,250) + 120 + 700 = 1,110 ms`; completion is roughly 3,610 ms. If retrieval depends on order state, those stages are not fully parallel. Draw the actual dependency graph, including agent loops.
+Serving has two phases. **Prefill** pushes the whole input through the model in parallel, writes the KV cache, and emits the first token. **Decode** produces one token per step, reusing the KV cache.
+
+Prefill processes thousands of tokens at once and saturates the matrix units — it's **compute-bound**, roughly `2 × params × input_tokens` FLOPs plus attention that grows quadratically. A 70B model on a 20k-token prompt is about 2.8e15 FLOPs; against an H100's ~1e15 dense BF16 FLOPs/s at realistic utilization, that's seconds. Tensor parallelism shortens it, but long prompts always cost TTFT.
+
+### Why does TPOT track memory bandwidth instead?
+
+Each decode step computes one token but must **read every weight from HBM**. Little math, lots of bytes — **memory-bandwidth-bound**.
+
+```
+70B × 2 bytes ≈ 140 GB;  H100 HBM ≈ 3.35 TB/s
+batch-1 TPOT floor ≈ 140 / 3350 ≈ 42 ms/token (~24 tok/s)
+```
+
+Real systems beat this with tensor parallelism (each GPU reads 1/8), quantization (fewer bytes), continuous batching (one weight read serves 64 requests — throughput up, per-request TPOT roughly flat), and speculative decoding (several tokens per weight read). As an API consumer you mostly influence TPOT by picking the model and provider.
+
+<Note type="tip" title="Interview one-liner">
+
+"Prefill is compute-bound so TTFT scales with input length — that's why prefix caching cuts TTFT. Decode is memory-bound, so TPOT is about bytes read per step, which is what quantization, batching, and speculative decoding attack."
+
+</Note>
+
+### How do the KV cache and prompt caching relate?
+
+The KV cache is per-request: step 100 doesn't recompute the first 99 tokens. Prompt caching is cross-request: if two requests share an identical token prefix, the provider reuses that prefix's KV and **skips its prefill**. It lowers cost and TTFT, not TPOT, and needs an exact prefix — a timestamp at the top of the system prompt breaks every hit. Details in [Prompt Caching](/docs/context/caching).
+
+<Note type="danger" title="Wrong claim">
+
+"Output tokens cost more because they're harder to compute." Closer to the truth: each decode step reads all weights at low GPU utilization, so an output token occupies far more hardware time than an input token in prefill.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why use max for parallel stages?
-2. What changes when retrieval needs order state?
+1. What bottlenecks prefill and decode, and why?
+2. Estimate the batch-1 TPOT floor from 140 GB and 3.35 TB/s.
+3. Why does continuous batching raise throughput but not change per-request TPOT much?
+4. Does prompt caching help TTFT or TPOT? What breaks it?
 
 </Note>
 
@@ -135,18 +295,62 @@ Illustrative trace: auth 40 ms; order lookup 180 ms and retrieval 250 ms in para
 
 <Locale lang="zh">
 
-## Level 2 · 等待的来源
+## Level 2 · 关键路径手算
 
-### TTFT 慢，是模型算得慢还是请求排队？
+### 串行与并行步骤怎样算用户等待？
 
-从 gateway、连接建立、检索、模型排队、prefill（处理输入上下文）、首 token 网络传输分 span。长 prompt 会增加 prefill 工作；同一模型在高并发下排队会拉高 P95；慢工具也会延后模型启动。不能凭“TTFT 高”直接断言模型本身差。
+规则只有两条：**串行相加，并行取 max**。用户等待的是依赖图上最长的那条路径——**关键路径（critical path）**。
 
-用按模型、prompt token 桶、并发桶和缓存命中分组的分布图找瓶颈。若相同输入长度在峰值时 P95 增大，先查排队/限流；若长输入始终慢，查 context 裁剪和前缀缓存。缓存收益必须从实际命中与延迟差测得。
+示意 trace（单位 ms）：
+
+```
+auth 40
+ ├─ order_api 180 ──┐
+ └─ retrieve 250 ───┴─► rerank 120 ─► LLM TTFT 700 ─► decode 100 tok × 25 ms
+```
+
+```
+首 token  ≈ 40 + max(180, 250) + 120 + 700 = 1,110 ms
+完成      ≈ 1,110 + 100 × 25            = 3,610 ms
+```
+
+观察：
+
+- 把订单 API 从 180 优化到 100 ms，**关键路径不变**——它不在关键路径上。先优化 retrieve。
+- 模型 TTFT 700 ms 和 decode 2,500 ms 占了大头。**输出长度往往是 E2E 最大的单项**。
+- 如果检索 query 需要用到订单状态（比如“已签收”和“未发货”检索不同政策），order_api 和 retrieve 就变成串行：首 token 变为 `40 + 180 + 250 + 120 + 700 = 1,290 ms`。**先画真实依赖图再算**。
+
+### agent 多轮循环怎么算？
+
+agent 不是一次模型调用，而是“模型 → 工具 → 模型 → 工具 → …”的循环。每一轮模型调用都有自己的 TTFT 和 decode（工具调用参数也是输出 token）：
+
+```
+第 1 轮：TTFT 700 + 生成 tool call 40 tok × 25 = 1,700 ms  → 执行 get_order 180 ms
+第 2 轮：TTFT 750 + 生成 tool call 40 tok × 25 = 1,750 ms  → 执行 search_policy 250 ms
+第 3 轮：TTFT 800 + 生成最终回答 150 tok × 25 = 4,550 ms
+合计 ≈ 1,700 + 180 + 1,750 + 250 + 4,550 ≈ 8.4 s
+```
+
+同一件事做成“固定流程（先并行查订单和政策，再一次调用模型）”约 3.6 s，做成 agent 循环约 8.4 s。**agent 的灵活性是用串行模型调用换来的**。而且每轮 TTFT 会上涨，因为上下文在变长（除非前缀命中缓存）。
+
+降 agent 延迟的手段：
+
+- **并行工具调用**：模型在一轮里同时发出 `get_order` 和 `search_policy`，harness 并行执行，省掉一整轮。
+- 能确定的步骤**挪出循环**，用代码固定执行（workflow 优先，agent 兜底）。
+- 小模型做路由/工具选择，大模型只做最后一轮生成。
+- 中间轮次控制输出（不要让模型在 tool call 前写长篇思考）。
+
+<Note type="tip" title="面试加分">
+
+被问“agent 很慢怎么办”时，先说“我会画出每轮的模型调用和工具调用，关键路径上通常是 N 次串行的 TTFT + 输出”，再给并行工具调用、workflow 化、小模型路由三个方向。这比直接说“换更快的模型”有说服力得多。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 长 prompt 慢和高峰期慢应分别先查哪里？
-2. 缓存命中率为什么要和延迟一起看？
+1. 为什么并行阶段取 max？优化不在关键路径上的步骤有什么用？
+2. 检索依赖订单状态时，首 token 时间怎么变？
+3. 同样的任务，agent 循环为什么比固定流程慢？给出两种缩短方法。
 
 </Note>
 
@@ -154,16 +358,36 @@ Illustrative trace: auth 40 ms; order lookup 180 ms and retrieval 250 ms in para
 
 <Locale lang="en">
 
-## Level 2 · Sources of waiting
+## Level 2 · Critical-path arithmetic
 
-### Is slow TTFT compute or queueing?
+### How do serial and parallel stages add up?
 
-Split gateway, network, retrieval, provider queue, prefill, and first-token delivery into spans. Long prompts increase prefill; concurrency can increase queueing; slow tools postpone the model call. Segment latency by model, prompt length, concurrency, and cache status before concluding the model is inherently slow.
+Serial stages add, parallel stages take the max; the user waits on the longest path through the dependency graph.
+
+```
+TTFT ≈ 40 + max(180, 250) + 120 + 700 = 1,110 ms
+E2E  ≈ 1,110 + 100 × 25          = 3,610 ms
+```
+
+Speeding up the order API changes nothing — it's off the critical path. Decode is usually the largest single term. If retrieval needs order status, the two become serial and TTFT becomes 1,290 ms. Draw the real dependency graph first.
+
+### How do agent loops change the math?
+
+Every loop iteration pays a model TTFT plus output tokens (tool-call arguments are output too). Three iterations — two tool calls and a final answer — come to about 8.4 s, versus 3.6 s for a fixed pipeline. Agent flexibility is paid for in serial model calls, and TTFT rises each turn as context grows unless the prefix is cached.
+
+Levers: parallel tool calls in a single turn, moving deterministic steps out of the loop into code, a small model for routing, and keeping intermediate turns terse.
+
+<Note type="tip" title="Interview move">
+
+For "our agent is slow," start with: "I'd lay out each model call and tool call; the critical path is usually N serial TTFTs plus outputs." Then give parallel tool calls, workflow-ifying fixed steps, and small-model routing.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Where do you inspect long-prompt versus peak-load slowness?
-2. Why pair cache-hit rate with latency?
+1. Why max for parallel stages? What does optimizing an off-path stage buy you?
+2. How does TTFT change when retrieval depends on order state?
+3. Why is the agent loop slower than a pipeline, and how do you shorten it?
 
 </Note>
 
@@ -171,18 +395,222 @@ Split gateway, network, retrieval, provider queue, prefill, and first-token deli
 
 <Locale lang="zh">
 
-## Level 3 · 优化杠杆
+## Level 3 · 排队与尾延迟
+
+### 为什么同样的请求，高峰期 P95 会突然变差？
+
+因为**排队**。一个服务的利用率 `ρ = 到达率 / 服务能力`。排队论（最简单的 M/M/1 模型）给出的直觉是：
+
+```
+平均等待时间 ≈ 服务时间 × ρ / (1 - ρ)
+```
+
+| 利用率 ρ | 等待 / 服务时间 |
+| --- | --- |
+| 50% | 1× |
+| 80% | 4× |
+| 90% | 9× |
+| 95% | 19× |
+
+关键是**非线性**：从 50% 到 80% 等待只多了 3 倍，从 90% 到 95% 就翻倍。真实系统不完全符合 M/M/1，但“接近满载时延迟爆炸”是普遍规律。这就是为什么推理服务要预留余量、为什么 LLM 供应商在高峰期 TTFT 抖动。
+
+在 LLM 场景中，排队发生在多处：你自己的 API worker 池、到供应商的连接池、供应商网关的限流、GPU 调度器的批处理队列。**trace 里“TTFT 变长，但同样长度的 prompt 在低峰时正常”就是排队的指纹**。
+
+排查方法：把 TTFT 按**输入 token 分桶 × 时间段（或并发数）分桶**画分布。
+
+| 现象 | 指向 |
+| --- | --- |
+| 长 prompt 桶始终慢，与时段无关 | prefill 计算量：裁剪上下文、用前缀缓存 |
+| 所有桶在高峰都变慢 | 排队或限流：看 429、连接池等待、供应商状态页 |
+| 缓存命中桶明显更快 | 缓存有效；查未命中的原因 |
+| 只有少数请求极慢 | 尾延迟：重试、冷启动、长输出、单个慢工具 |
+
+### 为什么扇出会放大尾延迟？
+
+假设每个下游调用有 1% 的概率很慢（超过它自己的 P99）。一个请求并行调用 N 个下游，**只要有一个慢，整个请求就慢**：
+
+```
+P(请求变慢) = 1 - 0.99^N
+N = 1  → 1%
+N = 10 → 9.6%
+N = 50 → 39.5%
+```
+
+所以“每个检索分片的 P99 都还好”不代表整体好。这就是 Google 的经典论文 *The Tail at Scale* 的核心观察。RAG 查多个索引、agent 并行调多个工具都适用。
+
+应对手段：
+
+- **Hedged request（对冲请求）**：发出请求后若超过该下游的 P95 还没回，再发一份到另一个副本，取先回来的。代价是额外约 5% 的负载，常能大幅压低 P99。**只能用于幂等的读操作**——对冲一次退款就是重复退款。
+- **部分结果**：50 个分片里 48 个返回了就先用，丢掉最慢的 2 个（需要评估质量影响）。
+- **每个下游设超时**，并从总预算里分配（Level 6）。
+
+<Note type="warning" title="重试也会制造尾延迟">
+
+一次超时后重试，用户等待 = 超时时间 + 重试时间。超时设 10 s 的服务，失败一次 P99 就至少 10 s 起。超时、重试次数和总 deadline 要一起设计，见 [API Engineering](/docs/production/api-engineering)。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 利用率从 80% 到 95%，平均等待时间大约变成多少倍？为什么推理服务要留余量？
+2. 怎样从 trace 区分“prompt 太长”和“高峰排队”？
+3. 并行调 20 个下游、每个 1% 慢，整体变慢概率约多少？
+4. hedged request 为什么不能用在退款工具上？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Queueing and tail latency
+
+### Why does the same request get slower at peak?
+
+Queueing. With utilization `ρ`, the M/M/1 intuition is `wait ≈ service_time × ρ / (1 - ρ)`: 1× at 50%, 4× at 80%, 9× at 90%, 19× at 95%. The growth is nonlinear, which is why inference fleets keep headroom and why provider TTFT jitters at peak. Queues live in your worker pool, your outbound connection pool, the provider gateway, and the GPU batch scheduler.
+
+Diagnose by bucketing TTFT by input length × time of day. Long-prompt buckets slow at all hours → prefill work. Every bucket slow at peak → queueing or throttling. Cache-hit bucket fast → caching works. A handful of extreme outliers → tail causes like retries, cold starts, long outputs.
+
+### Why does fan-out amplify tails?
+
+If each downstream call is slow 1% of the time and you fan out to N, `P(slow) = 1 - 0.99^N`: 9.6% at N=10, 39.5% at N=50 — the core point of *The Tail at Scale*. Mitigations: **hedged requests** (fire a second copy after the P95 elapses; ~5% extra load; **idempotent reads only**), partial results, and per-call deadlines carved from the overall budget.
+
+<Note type="warning" title="Retries create tails too">
+
+A retry after a 10 s timeout means the user waited at least 10 s. Design timeouts, retry counts, and the overall deadline together — see [API Engineering](/docs/production/api-engineering).
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Roughly how much does mean waiting grow from 80% to 95% utilization?
+2. How do traces distinguish "prompt too long" from "peak queueing"?
+3. With 20 downstreams each slow 1% of the time, how often is the request slow?
+4. Why must you never hedge a refund call?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 思考模型带来的新问题
+
+### reasoning token 怎样改写“首 token”的含义？
+
+reasoning 模型（Claude 的 extended / adaptive thinking、OpenAI 的 o 系列与 GPT-5 系列的 reasoning、Gemini 的 thinking）在给出可见回答前，会先生成一段**思考 token**。这些 token 走的是同样的 decode，同样按 TPOT 一个一个产生，并且**按输出 token 计费**。
+
+```
+首个可见 token 时间 ≈ TTFT + 思考 token 数 × TPOT
+                   ≈ 0.7 s + 2,000 × 15 ms = 30.7 s
+```
+
+于是出现一个新陷阱：监控上 TTFT 只有 0.7 s（第一个思考 token 很快就来了，或者供应商不把思考内容流给你），用户却等了 30 秒才看到字。**对思考模型，必须单独测“首个可见答案 token 时间”**。
+
+思考长度还是**不稳定的**：同一个问题，简单时思考 300 token，复杂时 8,000 token。这直接拉宽 P95/P99。
+
+### 怎么控制思考带来的延迟？
+
+| 手段 | 说明 |
+| --- | --- |
+| 按任务分级 effort | 各家都提供思考强度参数（如 effort / reasoning effort / thinking budget）。查订单状态这种事用低档或关闭思考，复杂退款争议才用高档。 |
+| 路由 | 简单意图走不思考的快模型，难题才进 reasoning 模型（见 [Model Routing](/docs/application/model-routing)）。 |
+| 设上限 | 设置思考预算或 `max_tokens` 上限，防止极端长思考拖垮 P99。注意截断可能导致没有答案，要处理。 |
+| 改善感知 | 流式展示“正在查询订单…”“正在核对政策…”这类进度，或展示思考摘要，让等待有反馈。 |
+| 异步化 | 真正需要深度推理的任务（如长报告）改成后台任务 + 通知，不占用实时交互预算。 |
+
+<Note type="tip" title="面试加分">
+
+主动指出“对 reasoning 模型，TTFT 失去了原来的意义，我们看 time-to-first-visible-token 和思考 token 分布”，能显示你在 2025–2026 年真的上线过思考模型，而不是只背了 2023 年的延迟清单。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 一个思考模型 TTFT 0.6 s、思考 3,000 token、TPOT 20 ms，首个可见 token 约多久？
+2. 为什么思考模型会让 P99 变宽？
+3. 举三种控制思考延迟的方法，并说明各自代价。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Reasoning models
+
+### How do thinking tokens change "first token"?
+
+Reasoning models (Claude extended/adaptive thinking, OpenAI reasoning models, Gemini thinking) generate thinking tokens before the visible answer. They decode at the same TPOT and are billed as output.
+
+```
+time to first visible token ≈ TTFT + thinking_tokens × TPOT ≈ 0.7 s + 2,000 × 15 ms ≈ 30.7 s
+```
+
+Your dashboard can show 0.7 s TTFT while the user waits 30 s. Measure time to first *visible answer* token separately. Thinking length also varies widely per query, which widens P95/P99.
+
+### How do you control it?
+
+Set effort or thinking budgets per task tier; route easy intents to a non-thinking model; cap thinking and handle truncation; stream progress or thinking summaries; move deep-reasoning jobs to async tasks with notifications.
+
+<Note type="tip" title="Interview signal">
+
+Saying "for reasoning models TTFT stops being meaningful; we track time-to-first-visible-token and the thinking-token distribution" shows you've actually shipped thinking models.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. TTFT 0.6 s, 3,000 thinking tokens, TPOT 20 ms — when does the first visible token arrive?
+2. Why do thinking models widen P99?
+3. Name three controls and their costs.
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 5 · 优化杠杆
 
 ### 哪些优化改善首 token，哪些改善完成时间？
 
-首 token：缩短不必要的输入、提高检索/工具并行度、减少排队、命中可复用前缀、选更合适模型。完成时间：控制输出长度、减少串行调用、提高解码速度或并行独立工具。流式通常改善用户等待体验，但总计算量和账单不一定下降。
+把所有杠杆按“作用在哪一段”分类，面试时就不会变成清单背诵：
 
-不要机械“砍掉重排”：若漏了退款例外，质量成本可能更高。每项优化用同一质量样本与相同流量回放，比较 TTFT、完成 P95、正确率、token 与成本。若语音体验，另测首个可播放音频时间与中断恢复。
+| 类别 | 杠杆 | 改善 | 代价 / 风险 |
+| --- | --- | --- | --- |
+| 少做事 | 裁剪上下文、少放无关文档 | TTFT（少 prefill） | 可能丢证据，需评估召回 |
+| 少做事 | Prompt caching：稳定前缀放前面 | TTFT、成本 | 前缀要稳定；首次写入有额外成本 |
+| 少做事 | 限制输出长度、要求简洁格式 | E2E | 回答可能过短，需质量评估 |
+| 少做事 | 应用层答案缓存（相同/相似问题） | 全部 | 误命中、数据过期；不适合订单状态这种实时数据 |
+| 换更快的 | 小模型 / 路由 / 关闭思考 | TTFT、TPOT | 质量下降，需在评估集上对比 |
+| 换更快的 | 换区域更近或负载更低的供应商端点 | 网络、排队 | 合规、数据驻留 |
+| 并行化 | 上游检索与工具并行；并行工具调用 | TTFT / 轮数 | 依赖关系必须真实独立 |
+| 并行化 | 投机解码、量化（自部署时） | TPOT | 量化可能损质量 |
+| 少排队 | 预留容量、优先级队列、预置吞吐（provisioned throughput） | P95 | 钱 |
+| 少排队 | 连接复用（HTTP keep-alive、连接池）、预热 | TTFT 尾部 | 运维复杂度 |
+| 先给东西 | 流式输出、进度提示、先给结论后给理由 | 感知延迟 | 计算量和账单**不变** |
+| 先给东西 | 语音：按句切分送 TTS，不等整段生成完 | 首包音频 | 句子切分错误会影响韵律 |
+
+### 每个优化怎么证明有效？
+
+不要只看延迟。**删掉重排可以省 120 ms，但如果因此漏掉退款例外条款，质量损失远大于延迟收益**。验证方法：
+
+1. 用同一份质量评估集 + 同样的流量形态（回放生产流量，或按输入长度分布构造）对比。
+2. 同时报：TTFT P50/P95、E2E P50/P95、任务正确率、每请求 token、每请求成本。
+3. 结论写成“X 方案 P95 降 800 ms，正确率从 92% 到 91%，在误差范围内”这种格式。
+
+<Note type="danger" title="错误说法">
+
+“开了流式输出所以延迟降低了。”——流式改善的是**感知延迟**和首内容时间，E2E、计算量、成本都没变。面试官会追问“那总时间呢？”
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 减少输出 token 主要改善哪项？
-2. 为什么不能只看延迟来删重排？
+1. 减少输出 token 主要改善哪个指标？上下文裁剪呢？
+2. 为什么订单状态不适合做应用层答案缓存，退款政策解释却可以考虑？
+3. 你会用哪几个指标证明“删掉重排”是否值得？
 
 </Note>
 
@@ -190,16 +618,33 @@ Split gateway, network, retrieval, provider queue, prefill, and first-token deli
 
 <Locale lang="en">
 
-## Level 3 · Optimization levers
+## Level 5 · Optimization levers
 
-### Which levers improve first-token versus completion time?
+### Which levers improve which segment?
 
-First-token levers include prompt length, upstream parallelism, queueing, cache hits, and model choice. Completion levers include output length and serial step count. Streaming can improve perceived waiting without reducing compute or bill. Benchmark changes against the same quality set and traffic shape; removing reranking may save milliseconds but harm policy accuracy.
+Group them so your answer isn't a laundry list:
+
+- **Do less work**: trim context (TTFT), prompt caching with stable prefixes first (TTFT + cost), cap output length (E2E), app-level answer caching (everything, but stale for live data like order status).
+- **Use something faster**: smaller model / routing / no thinking (TTFT + TPOT, quality risk), closer region or less loaded endpoint.
+- **Parallelize**: independent retrieval and tools, parallel tool calls, speculative decoding or quantization when self-hosting.
+- **Queue less**: headroom, priority queues, provisioned throughput, connection reuse and warm-up (tails).
+- **Show something earlier**: streaming, progress updates, conclusion-first answers, sentence-chunked TTS. Perceived latency only — compute and bill unchanged.
+
+### How do you prove an optimization worked?
+
+Use the same quality set and traffic shape; report TTFT and E2E at P50/P95 along with accuracy, tokens, and cost. Dropping the reranker saves 120 ms but may miss a refund exception — that's a quality regression, not a win.
+
+<Note type="danger" title="Wrong claim">
+
+"Streaming reduced our latency." Streaming improves perceived latency; E2E, compute, and cost are unchanged.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Which latency metric benefits most from shorter output?
-2. Why not remove reranking based on latency alone?
+1. Which metric does shorter output mainly help? Context trimming?
+2. Why is order status a bad fit for answer caching while policy explanations might be fine?
+3. Which metrics decide whether removing the reranker is worth it?
 
 </Note>
 
@@ -207,18 +652,54 @@ First-token levers include prompt length, upstream parallelism, queueing, cache 
 
 <Locale lang="zh">
 
-## Level 4 · P95 与预算
+## Level 6 · 预算、SLO 与回归
 
-### 如何设置端到端延迟预算与回归门槛？
+### 如何设置端到端延迟预算？
 
-先按产品场景定义 SLO，例如示意“95% 的文本问答在 5 秒内给出最终答复”，再倒推每段预算与超时。明确样本分母：成功请求、失败请求、取消请求分别报；仅看成功请求可能隐藏慢超时。压测覆盖冷启动、高峰、长 prompt、工具慢和供应商 429。
+自顶向下：
 
-上线时比较同一版本、相同流量桶的 P50/P95/P99，不把不同分布的百分位数简单相加当端到端 P95。最终用端到端 trace 直接算用户体验分布。
+1. **按场景定 SLO**。示例：“95% 的文本客服请求在 1.5 s 内出现首个有用内容，在 6 s 内完成”。语音、后台批处理各有不同的 SLO。
+2. **按关键路径分配预算**，每段预算就是它的超时上限：
+
+```
+总 deadline 6,000 ms
+├─ auth            100
+├─ order ∥ retrieve 400   (各自超时 400，取 max)
+├─ rerank          200
+├─ LLM TTFT       1,500
+└─ LLM decode     3,500   (≈ 140 tok @ 25 ms，配合 max_tokens)
+   预留            300
+```
+
+3. **deadline 传播**：每一层把“剩余时间”往下传，下游发现剩余时间不够就提前放弃或降级（例如跳过重排），而不是做完了上层已经超时。
+
+### 为什么各阶段 P95 不能直接相加？
+
+两个原因：
+
+- **相加偏悲观**：各阶段的慢不总是同时发生，`P95(A) + P95(B)` 通常大于 `P95(A + B)`。
+- **也可能偏乐观**：如果慢是相关的（高峰期所有阶段一起慢），或者有重试、扇出，端到端尾部可能比简单估计更差。
+
+所以阶段 P95 只用于分配预算和定位问题；**端到端 P95 必须从完整 trace 直接算**。
+
+### 怎么测、怎么防回归？
+
+- **分母写清楚**：成功、失败、超时、用户取消分别统计。只报成功请求的延迟，会把“超时失败的最慢请求”从分布里删掉，P95 看起来变好了。
+- **压测要覆盖**：冷启动、峰值并发、长 prompt、慢工具、供应商 429、缓存全冷。
+- **上线门槛**：同一流量桶下比较新旧版本的 P50/P95/P99；P95 回归超过阈值（例如 10%）阻断发布，或进入灰度观察。
+- **客户端也要测**：服务端 trace 看不到移动网络、前端渲染、TTS 播放缓冲。
+
+<Note type="tip" title="面试 2 分钟答法骨架">
+
+“先定义指标：TTFT、首个有用内容、E2E，按 P95 定 SLO。然后画关键路径，按段分配超时预算并传播 deadline。定位时把 TTFT 按输入长度和时段分桶区分 prefill 与排队；agent 场景看串行轮数。优化分四类：少做事、换更快的、并行化、少排队，加上流式改善感知。每项优化都配同一评估集验证质量。”
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 为什么各阶段 P95 不能直接相加？
-2. 只报成功请求延迟会隐藏什么？
+1. 把 6 s 的总 deadline 分给你的 RAG 流程各段，并说明为什么这样分。
+2. 为什么阶段 P95 相加既可能偏大又可能偏小？
+3. 只报成功请求的延迟会隐藏什么问题？
 
 </Note>
 
@@ -226,16 +707,31 @@ First-token levers include prompt length, upstream parallelism, queueing, cache 
 
 <Locale lang="en">
 
-## Level 4 · P95 and budgets
+## Level 6 · Budgets, SLOs, regressions
 
-### How do you set an end-to-end latency budget?
+### How do you set an end-to-end budget?
 
-Set a product SLO, for example an illustrative target of 95% of text answers completed within five seconds, then allocate stage deadlines. Report success, error, timeout, and cancellation populations explicitly; success-only latency hides failures. Load-test cold starts, long prompts, slow tools, and throttling. Do not add stage P95s to claim an end-to-end P95; measure the full trace distribution.
+Define an SLO per scenario (e.g. 95% of text support requests show useful content within 1.5 s and complete within 6 s). Split it along the critical path — each stage's budget becomes its timeout — and propagate the remaining deadline downstream so a stage that can't finish in time degrades early (e.g. skip reranking) rather than finishing after the caller has given up.
+
+### Why can't stage P95s be added?
+
+Adding is usually pessimistic because stages aren't slow together; but correlated slowness, retries, and fan-out can make the true tail worse. Use stage percentiles for allocation and diagnosis; compute end-to-end P95 from full traces.
+
+### How do you measure and guard against regressions?
+
+Report success, error, timeout, and cancellation populations separately — success-only latency silently drops the slowest failures. Load-test cold starts, peak concurrency, long prompts, slow tools, 429s, and cold caches. Gate releases on P95 regressions within the same traffic bucket. Measure on the client too.
+
+<Note type="tip" title="Two-minute skeleton">
+
+Metrics and percentile SLO → critical path and deadline budgets → bucketed diagnosis (prefill vs queueing, agent turns) → four lever families plus streaming → validate every change against the same eval set.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why can stage P95s not simply be added?
-2. What does success-only latency hide?
+1. Allocate a 6 s deadline across your RAG stages and justify it.
+2. Why can summed stage P95s be too high or too low?
+3. What does success-only latency hide?
 
 </Note>
 
@@ -245,57 +741,129 @@ Set a product SLO, for example an illustrative target of 95% of text answers com
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-不要把配置存在、HTTP 成功、示意数字或单次测试通过，当作生产质量与容量的证据。回答时先说明测量边界和分母，再说明取舍与验证方法。
+- “P95 就是最慢 5% 的平均值。”
+- “流式输出降低了延迟。”（只降低感知延迟）
+- “prompt caching 让生成更快。”（只降 prefill/TTFT，不降 TPOT）
+- “把各段 P95 加起来就是端到端 P95。”
+
+</Note>
+
+<Note type="warning" title="容易被追问">
+
+- 思考模型的 TTFT 指标会骗人：问清楚你测的是首个思考 token 还是首个可见 token。
+- hedged request 和重试只能用于幂等操作。
+- 优化不在关键路径上的步骤不会改变用户等待。
+- 讲项目里的延迟数字前，先说清测量起止点与样本分母。
 
 </Note>
 
 ## 连接
 
-从 [Production AI 总览](/docs/production) 进入；将本页指标带到 [AI System Design](/docs/system-design) 的具体白板题，并用 [Evaluation](/docs/evaluation) 验证质量。
+```
+Inference（prefill/decode/batching） ──► Latency ──► Cost（同样的 token 驱动账单）
+                                          │
+             Prompt Caching ──────────────┤
+                                          ├──► API Engineering（超时、重试、deadline）
+                                          └──► Scaling（排队、容量、限流）
+```
+
+- 机制：[Inference](/docs/llm/inference)、[Prompt Caching](/docs/context/caching)、[Context Window](/docs/context/window)
+- 同栏：[API Engineering](/docs/production/api-engineering)、[Cost](/docs/production/cost)、[Scaling](/docs/production/scaling)、[Observability](/docs/production/observability)
+- 应用：[Model Routing](/docs/application/model-routing)、[AI System Design](/docs/system-design)
 
 ## 面试问题
 
-1. TTFT、TPOT、总延迟和 P95 分别是什么？（What do TTFT, TPOT, end-to-end latency, and P95 mean?）
-2. 并行与串行步骤怎样算用户等待？（How do serial and parallel stages contribute to waiting?）
-3. TTFT 慢，是模型算得慢还是请求排队？（Is slow TTFT compute or queueing?）
-4. 哪些优化改善首 token，哪些改善完成时间？（Which levers improve first-token versus completion time?）
-5. 如何设置端到端延迟预算与回归门槛？（How do you set an end-to-end latency budget?）
+**Level 0–1**
+
+1. TTFT、TPOT、E2E 和 P95 分别是什么？（What do TTFT, TPOT, E2E latency, and P95 mean?）
+2. 为什么 TTFT 随 prompt 长度增长，而 TPOT 基本不随它变化？（Why does TTFT grow with prompt length while TPOT barely changes?）
+3. 估算一个 70B 模型在单卡上的 TPOT 下界。（Estimate the TPOT floor for a 70B model on one GPU.）
+4. 为什么输出 token 比输入 token 贵？（Why are output tokens priced higher than input tokens?）
+
+**Level 2–3**
+
+5. 给你一个 RAG 请求的 trace，怎么算首 token 和完成时间？（Given a RAG trace, how do you compute TTFT and completion time?）
+6. agent 比固定流程慢在哪里？怎么优化？（Why is an agent slower than a pipeline, and how do you fix it?）
+7. 为什么高峰期 P95 会非线性恶化？（Why does P95 degrade nonlinearly at peak?）
+8. 什么是 tail at scale？hedged request 怎么用、什么时候不能用？（What is tail at scale? When can and can't you hedge requests?）
+
+**Level 4–6**
+
+9. reasoning 模型对延迟监控有什么影响？（How do reasoning models change latency monitoring?）
+10. 列举降低 TTFT 和降低 E2E 的手段，并说明代价。（List levers for TTFT versus E2E and their tradeoffs.）
+11. 如何设置端到端延迟预算并传播 deadline？（How do you set a latency budget and propagate deadlines?）
+12. 为什么阶段 P95 不能相加？只报成功请求延迟有什么问题？（Why can't stage P95s be added? What does success-only latency hide?）
 
 ## 资料来源
 
-- [官方文档](https://opentelemetry.io/docs/specs/semconv/general/trace/)
-- [官方文档](https://developers.openai.com/api/docs/guides/prompt-caching)
+- [Inference 页](/docs/llm/inference)：prefill / decode / batching / 投机解码的站内详解
+- [The Tail at Scale (Dean & Barroso, CACM 2013)](https://research.google/pubs/the-tail-at-scale/)
+- [Anthropic：Prompt caching](https://docs.claude.com/en/docs/build-with-claude/prompt-caching)
+- [OpenAI：Latency optimization](https://platform.openai.com/docs/guides/latency-optimization)
+- [OpenTelemetry GenAI semantic conventions（含 time_to_first_token 指标）](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Configuration, an HTTP success, teaching numbers, or one passing test do not prove production quality or capacity. State the measurement boundary and denominator before the tradeoff and validation.
+- "P95 is the mean of the slowest 5%."
+- "Streaming reduced latency." (Perceived only.)
+- "Prompt caching makes generation faster." (Prefill/TTFT only.)
+- "Sum the stage P95s to get end-to-end P95."
+
+</Note>
+
+<Note type="warning" title="Likely follow-ups">
+
+- For reasoning models, ask whether "TTFT" means first thinking token or first visible token.
+- Hedging and retries only for idempotent operations.
+- Off-critical-path optimizations don't change user wait.
+- State measurement boundaries and denominators before quoting project numbers.
 
 </Note>
 
 ## Connections
 
-Use [Production AI overview](/docs/production), apply the metrics to [AI System Design](/docs/system-design), and validate quality through [Evaluation](/docs/evaluation).
+- Mechanics: [Inference](/docs/llm/inference), [Prompt Caching](/docs/context/caching), [Context Window](/docs/context/window)
+- Same section: [API Engineering](/docs/production/api-engineering), [Cost](/docs/production/cost), [Scaling](/docs/production/scaling), [Observability](/docs/production/observability)
+- Applied: [Model Routing](/docs/application/model-routing), [AI System Design](/docs/system-design)
 
 ## Interview questions
 
-1. What do TTFT, TPOT, end-to-end latency, and P95 mean?
-2. How do serial and parallel stages contribute to waiting?
-3. Is slow TTFT compute or queueing?
-4. Which levers improve first-token versus completion time?
-5. How do you set an end-to-end latency budget?
+**Levels 0–1**
+
+1. What do TTFT, TPOT, E2E latency, and P95 mean?
+2. Why does TTFT grow with prompt length while TPOT barely changes?
+3. Estimate the TPOT floor for a 70B model on one GPU.
+4. Why are output tokens priced higher than input tokens?
+
+**Levels 2–3**
+
+5. Given a RAG trace, how do you compute TTFT and completion time?
+6. Why is an agent slower than a pipeline, and how do you fix it?
+7. Why does P95 degrade nonlinearly at peak?
+8. What is tail at scale? When can and can't you hedge requests?
+
+**Levels 4–6**
+
+9. How do reasoning models change latency monitoring?
+10. List levers for TTFT versus E2E and their tradeoffs.
+11. How do you set a latency budget and propagate deadlines?
+12. Why can't stage P95s be added? What does success-only latency hide?
 
 ## Sources
 
-- [Official documentation](https://opentelemetry.io/docs/specs/semconv/general/trace/)
-- [Official documentation](https://developers.openai.com/api/docs/guides/prompt-caching)
+- [Inference page](/docs/llm/inference)
+- [The Tail at Scale (Dean & Barroso, CACM 2013)](https://research.google/pubs/the-tail-at-scale/)
+- [Anthropic: Prompt caching](https://docs.claude.com/en/docs/build-with-claude/prompt-caching)
+- [OpenAI: Latency optimization](https://platform.openai.com/docs/guides/latency-optimization)
+- [OpenTelemetry GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
 
 </Locale>
 

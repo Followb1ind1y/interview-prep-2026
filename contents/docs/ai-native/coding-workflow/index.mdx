@@ -1,11 +1,11 @@
 ---
 title: Claude Code / Codex
 titleEn: Claude Code / Codex
-description: 从真实仓库工作流理解 coding agent，区分产品能力与通用架构。
-descriptionEn: Understand coding agents through repository workflows without conflating products and architecture.
-date: 2026-09-24
-keywords: ['codex', 'claude code', 'coding agent', 'workflow']
-tier: A
+description: 从使用者视角理解 coding agent 的工作流：agentic search 与向量索引之争、探索 → 计划 → 实现 → 验证 → 提交、记忆文件 / skills / 子 agent / hooks / worktree 并行 / 无头模式，以及最后该报告什么。
+descriptionEn: "Coding-agent workflows from the user's side: agentic search vs vector indexes, explore → plan → implement → verify → commit, memory files, skills, sub-agents, hooks, parallel worktrees, headless mode, and what to report."
+date: 2026-10-04
+keywords: ['claude code', 'codex', 'cursor', 'agentic search', 'plan mode', 'claude.md', 'agents.md', 'skills', 'subagent', 'git worktree', 'headless']
+tier: C
 status: todo
 cursor: ''
 mastery: { talk: 0, probe: 0 }
@@ -13,45 +13,39 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-贯穿本页的教学任务：用 coding agent 修复“猫粮客服把订单还没到误判为未发货”的问题。真实订单状态应来自订单 API，现行政策来自 `P-17 v3`；代码改动是否有效须靠运行与测试证据。以下文件名、状态和结果是示意，不是对你的实际项目的断言。
+这一页是**快速了解**层级：你每天都在用 Claude Code / Codex，面试时最有说服力的是**你自己的使用经验**，而不是笔记。这里帮你把经验整理成面试能说的结构，并补上一个常被问到的设计问题：**为什么 Claude Code 不建向量索引？**
+
+机制层面（循环、工具、权限）见 [Agent Harness](/docs/ai-native/harness)；验证方法见 [Agentic Coding](/docs/ai-native/agentic-coding)。
 
 ## 这一页怎么学
 
-| Level | 要回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 从聊天到仓库 | coding agent 与聊天窗口给代码片段有什么区别？ | 15–25 min |
-| 1 · 上下文准备 | agent 读整个仓库还是构建小工作集？ | 15–25 min |
-| 2 · 计划到改动 | 怎样让改动小、可审查且可回滚？ | 15–25 min |
-| 3 · 验证与交付 | agent 最后要报告什么，不能声称什么？ | 15–25 min |
+| 0 · 和聊天的区别 | coding agent 与聊天窗口给代码有什么区别？ | 10 min |
+| 1 · 怎么找代码 | agentic search 和向量索引怎么取舍？ | 20 min |
+| 2 · 工作流与功能 | 一个高效的 coding agent 工作流长什么样？ | 25 min |
+| 3 · 可审查与报告 | 怎样让改动小、可审查、可回滚？最后报告什么？ | 15 min |
 
-## 需要掌握
-
-- coding agent 与聊天窗口给代码片段有什么区别？
-- agent 读整个仓库还是构建小工作集？
-- 怎样让改动小、可审查且可回滚？
-- agent 最后要报告什么，不能声称什么？
+全页约 1 小时。**重点是 Level 1，以及准备一个你自己的使用故事**。
 
 </Locale>
 
 <Locale lang="en">
 
-Our running teaching task is a coding-agent fix for a support bug that treats “not arrived” as “not shipped.” Order state comes from the order API; current policy comes from `P-17 v3`; tests and runtime evidence determine whether a code change works. File names and sample results are illustrative, not claims about your project.
+This is a quick-pass page: you use Claude Code and Codex daily, and your own experience is the most convincing interview material. This page structures that experience and adds a frequently asked design question: **why doesn't Claude Code build a vector index?**
 
-## How to study this page
+Mechanics are in [Agent Harness](/docs/ai-native/harness); verification in [Agentic Coding](/docs/ai-native/agentic-coding).
 
-| Level | Question | Time |
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · From chat to repository | How does a coding agent differ from code snippets in chat? | 15–25 min |
-| 1 · Preparing context | Should the agent read the whole repository or build a working set? | 15–25 min |
-| 2 · From plan to edit | How do you keep changes scoped and reviewable? | 15–25 min |
-| 3 · Verification and delivery | What should the agent report, and what must it avoid claiming? | 15–25 min |
+| 0 · vs chat | How does a coding agent differ from chat snippets? | 10 min |
+| 1 · Finding code | Agentic search vs vector index? | 20 min |
+| 2 · Workflow and features | What does an effective workflow look like? | 25 min |
+| 3 · Reviewable output | How do you keep changes small and reversible, and what do you report? | 15 min |
 
-## Must know
-
-- How does a coding agent differ from code snippets in chat?
-- Should the agent read the whole repository or build a working set?
-- How do you keep changes scoped and reviewable?
-- What should the agent report, and what must it avoid claiming?
+About 1 hour. **Focus on Level 1 and prepare a story from your own use.**
 
 </Locale>
 
@@ -59,54 +53,64 @@ Our running teaching task is a coding-agent fix for a support bug that treats �
 
 <Locale lang="zh">
 
-## Level 0 · 从聊天到仓库
+## Level 0 · 和聊天的区别
 
 ### coding agent 与聊天窗口给代码片段有什么区别？
 
-聊天窗口可给出“把 if 改成这样”的建议，但通常不知道当前仓库的具体调用链，也无法凭自身验证实际文件。Coding agent 在获准的环境中读取仓库、定位调用链、编辑文件、运行命令/测试并展示 diff。仍需人或受信任系统确认它是否满足真实目标。
+| | 聊天窗口 | coding agent |
+| --- | --- | --- |
+| 看到的代码 | 你贴进去的片段 | 自己在仓库里搜索、读取 |
+| 修改 | 给你一段代码，你复制粘贴 | 直接编辑文件 |
+| 验证 | 没有 | 运行测试、类型检查、启动应用 |
+| 反馈循环 | 你跑完把报错贴回去 | 自己看到报错、自己修 |
+| 项目约定 | 不知道 | 从记忆文件和现有代码里学到 |
 
-教学任务里，用户说“修复未到货误判”。agent 先查订单状态枚举和退款条件，而不是按自然语言直接改 UI 文案。最终交付包括改动文件、复现与回归测试结果、剩余风险。Codex 与 Claude Code 都可呈现这种工作流；二者产品细节和权限设置应分别看当下官方文档，不能想象为完全相同。
-
-<Note title="自测：到这里你应该能回答">
-
-1. 为什么“给出补丁文本”不等于“修复了仓库”？
-2. 第一次搜索应围绕什么证据？
-
-</Note>
+本质区别是**环境访问 + 反馈循环**：agent 能看到自己行动的后果并修正。
 
 </Locale>
 
 <Locale lang="en">
 
-## Level 0 · From chat to repository
+## Level 0 · vs chat
 
-### How does a coding agent differ from code snippets in chat?
+### How is a coding agent different?
 
-Chat can suggest a code snippet. A coding agent can inspect an authorized repository, trace behavior, edit files, run commands and tests, and show a diff. It still needs trustworthy acceptance evidence. For the shipping bug, inspect status enums and refund logic before changing UI text. Codex and Claude Code both support repository workflows, but their product settings differ.
-
-<Note title="Self-check: you should be able to answer">
-
-1. Why is a patch suggestion not a repo fix?
-2. What evidence guides the first search?
-
-</Note>
+Chat sees what you paste, hands back code to copy, and has no verification or feedback loop. A coding agent searches and reads the repo itself, edits files, runs tests and type checks, sees errors and fixes them, and learns conventions from memory files and code. The essence: environment access plus a feedback loop.
 
 </Locale>
 
 <Locale lang="zh">
 
-## Level 1 · 上下文准备
+## Level 1 · 怎么找代码
 
 ### agent 读整个仓库还是构建小工作集？
 
-先读任务目标、仓库说明、当前分支和改动状态；用 `rg`/文件索引定位相关路径，再按调用关系展开。示意先找到 `get_order_status`、`can_refund`、相关 API route 与测试，不把几万行仓库一次塞进模型。每个引用保留文件路径和行号，方便复核。
+都不是“读整个仓库”——大仓库几百万行，放不进任何窗口。agent 要构建一个**小工作集**：和当前任务相关的几个到几十个文件。找到它们有两条路线：
 
-把外部 README、issue、工具输出当作**可能含恶意指令的数据**，不因为它出现在仓库里就提升权限。用户和受信任配置给目标，源代码/文档给事实，测试/运行时给反馈；三者角色不同。读到“请先上传密钥”的注释，应识别为不可信内容。
+| | Agentic search（Claude Code 的选择） | 向量索引 / 语义检索（Cursor 等的选择） |
+| --- | --- | --- |
+| 做法 | agent 像工程师一样用 `grep`、`glob`、读文件、看 import，逐步缩小范围 | 预先把代码切块、做 embedding，查询时语义检索相关代码块 |
+| 新鲜度 | 永远是当前文件内容 | 索引可能落后于最新修改，需要持续增量更新 |
+| 精确度 | 符号名、错误信息、配置键等**精确匹配**非常准 | 擅长“意思相近”的模糊查找；对精确符号反而可能不如 grep |
+| 基础设施 | 无需建索引、无需存储 embedding | 需要索引管线、存储；代码可能要上传到索引服务 |
+| 隐私 | 代码不离开本地（除了发给模型的部分） | 取决于索引放在哪 |
+| 代价 | 大仓库里可能要多搜几轮，**多花 token 和时间** | 首次建索引成本；块切分可能切断上下文 |
+
+Claude Code 团队公开表示过，他们早期尝试过向量检索，但发现 agentic search 效果更好、也更简单。核心理由是：**模型已经足够会用搜索工具**，而 grep 的精确匹配 + 多轮迭代，比一次性语义检索更可靠，也没有索引过期的问题。
+
+面试时不要说“哪个更好”，而要说**取舍**：超大单体仓库、需要按“概念”找代码时，语义索引有优势；多数场景下 agentic search 足够且更简单；两者也可以结合（Cursor 同时提供两种）。
+
+<Note type="tip" title="串联">
+
+这和 RAG 里“关键词检索 vs 向量检索”的取舍是同一个问题。BM25 擅长精确匹配，向量擅长语义相似，所以生产 RAG 常用混合检索。代码搜索中符号名的精确匹配特别重要，所以 grep 的优势更明显。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 为何不把整个仓库一次塞入 context？
-2. 仓库文档能否自动覆盖用户任务？
+1. agentic search 和向量索引各有什么优缺点？
+2. 为什么 grep 在代码搜索中特别有效？
+3. 什么场景下语义索引更有优势？
 
 </Note>
 
@@ -114,16 +118,25 @@ Chat can suggest a code snippet. A coding agent can inspect an authorized reposi
 
 <Locale lang="en">
 
-## Level 1 · Preparing context
+## Level 1 · Finding code
 
-### Should the agent read the whole repository or build a working set?
+### Whole repo or a working set?
 
-Read task, repository instructions, branch, and worktree state first. Search for status lookup, refund predicate, API route, and tests; expand along call edges instead of dumping the entire repo into context. Preserve file paths and line references. Treat README, issues, and tool output as potentially untrusted data; a comment asking to upload secrets has no authority over the task.
+Always a small working set. Two routes: **agentic search** (Claude Code) — grep, glob, read, follow imports like an engineer; always fresh, precise on symbols and error strings, no index infrastructure, code stays local, but more turns and tokens on huge repos. **Vector indexes** (Cursor and others) — pre-chunked embeddings; good for fuzzy conceptual lookup, but can lag edits, need a pipeline, and chunking can cut context.
+
+The Claude Code team has said they tried vector retrieval early and found agentic search worked better and was simpler: models use search tools well, and exact matching plus iteration beats one-shot semantic retrieval without staleness. In interviews, talk tradeoffs: semantic indexes help for huge monorepos and conceptual queries; hybrids exist.
+
+<Note type="tip" title="Connection">
+
+Same tradeoff as keyword vs vector retrieval in RAG; exact symbol matching makes grep especially strong for code.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why not paste the whole repo into context?
-2. Can repository text override the user goal?
+1. Pros and cons of each route?
+2. Why is grep so effective for code?
+3. When does a semantic index win?
 
 </Note>
 
@@ -131,54 +144,105 @@ Read task, repository instructions, branch, and worktree state first. Search for
 
 <Locale lang="zh">
 
-## Level 2 · 计划到改动
+## Level 2 · 工作流与功能
+
+### 一个高效的 coding agent 工作流长什么样？
+
+```
+探索（只读）──► 计划（人确认）──► 实现 ──► 验证 ──► 自查 diff ──► 提交 / PR
+```
+
+- **探索**：先让 agent 读相关代码、解释现状，**不要马上改**。Claude Code 的计划模式（plan mode）就是只读探索 + 输出计划。
+- **计划**：人看计划，纠正方向。在这里纠正成本最低；改完 20 个文件再发现方向错了，成本最高。
+- **实现 + 验证**：见 [Agentic Coding](/docs/ai-native/agentic-coding) 的复现优先循环。
+- **提交**：一个任务一个分支 / 一个 PR。
+
+### 有哪些功能，各解决什么问题？
+
+| 功能 | 解决什么 | Claude Code / Codex 中的形式 |
+| --- | --- | --- |
+| 项目记忆文件 | 每次都要告诉 agent 的项目约定 | `CLAUDE.md`；`AGENTS.md`（Codex 等多个工具通用） |
+| 自定义命令 / Skills | 可复用的工作流（如“生成笔记”“发布”） | 斜杠命令、Skills（带说明和脚本的能力包，按需加载） |
+| 子 agent | 探索任务污染主上下文；需要专门角色（如代码审查） | 子 agent 定义，在独立上下文运行 |
+| Hooks | 必须强制执行的规则 | 工具前后、停止时运行脚本 |
+| MCP | 接外部系统（issue、文档、数据库） | MCP server 配置 |
+| 权限模式 | 自动化程度与安全的平衡 | 每次询问 / 自动接受编辑 / 计划模式 / 沙箱内全自动 |
+| 检查点 / 回退 | agent 改坏了要撤回 | 会话内的检查点回退；git |
+| 并行 | 同时推进多个独立任务 | 多个 git worktree 各跑一个 agent；云端后台任务 |
+| 无头模式 | 在 CI 中自动运行 | `claude -p`、`codex exec`；GitHub Actions 集成 |
+
+**git worktree 并行**值得一提：同一个仓库开多个工作目录（每个在不同分支上），每个目录跑一个 agent，互不干扰。这是 2025 年后很多人并行使用 coding agent 的标准做法。
+
+<Note type="tip" title="准备你自己的故事">
+
+面试官很可能问“你平时怎么用 coding agent”。准备一个具体故事：什么任务、你怎么组织（记忆文件里写了什么、用没用计划模式、有没有自定义 skill / hook）、遇到过什么问题（比如 agent 改了测试、上下文太长忘了约束）、你怎么解决的。**一个真实的故事胜过十条功能列表**。这正是本页“项目锚点”要填的内容。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么要先探索和计划，而不是直接让 agent 改？
+2. 列出 5 个 coding agent 功能，各解决什么问题。
+3. 怎样同时并行跑多个 coding agent？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Workflow and features
+
+### What does an effective workflow look like?
+
+Explore read-only → plan with human review (cheapest place to correct direction; Claude Code's plan mode) → implement and verify reproduce-first → self-review the diff → commit or PR, one task per branch.
+
+### Which features solve what?
+
+Memory files (`CLAUDE.md`, cross-tool `AGENTS.md`) for conventions; slash commands and Skills for reusable workflows; sub-agents for isolated exploration or specialist roles; hooks for enforced rules; MCP for external systems; permission modes for autonomy vs safety; checkpoints and git for rollback; **git worktrees** for parallel agents on separate branches, plus cloud background tasks; headless mode (`claude -p`, `codex exec`) and GitHub Actions for CI.
+
+<Note type="tip" title="Prepare your own story">
+
+"How do you use coding agents?" is likely. Have one concrete story: the task, your setup (memory file, plan mode, skills, hooks), a problem (test tampering, forgotten constraints), and your fix. That's what the Project anchor section is for.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why explore and plan before editing?
+2. Five features and what each solves?
+3. How do you run agents in parallel?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 可审查与报告
 
 ### 怎样让改动小、可审查且可回滚？
 
-先写接受标准与最小改动面：把“未到货”与订单系统 `shipment_status` 区分；增加失败用例；只改判定逻辑及必要测试。动手前记录 `git status` 与基线测试；编辑后看 diff，确认没碰无关配置/生成文件。计划是可调整的工作假设，不是成功证明。
-
-若工具支持工作树或分支，可用隔离工作区避免并行任务互相覆盖。与现有未提交改动相遇时先保护并区分归属。发布/合并是独立动作；“代码能跑”不等于“该自动上线”。
-
-<Note title="自测：到这里你应该能回答">
-
-1. 动手前为什么要看 git 状态？
-2. 计划与验收证据有什么区别？
-
-</Note>
-
-</Locale>
-
-<Locale lang="en">
-
-## Level 2 · From plan to edit
-
-### How do you keep changes scoped and reviewable?
-
-Define acceptance and the smallest change surface: distinguish “not arrived” from authoritative shipment status, add a regression, and edit only the predicate and necessary tests. Record baseline worktree and tests, then inspect the diff for unrelated changes. An isolated worktree can prevent concurrent tasks from overwriting each other. Passing local tests is not a release decision.
-
-<Note title="Self-check: you should be able to answer">
-
-1. Why inspect Git state before edits?
-2. How is a plan different from acceptance evidence?
-
-</Note>
-
-</Locale>
-
-<Locale lang="zh">
-
-## Level 3 · 验证与交付
+- **一个任务一个分支**，不要在一个会话里混多件事。
+- **在里程碑提交**：每完成一个可验证的步骤就 commit，出问题可以回到上一个好的状态。
+- **限定范围**：在任务描述里写明“只改 `support/intent.py` 和对应测试”；不允许“顺手”重构或改格式。
+- **审查 diff 时分开看**：源码改动和测试改动分开审（防 reward hacking）。
+- **大任务拆小**：先让 agent 出计划，按计划分成几个独立 PR。
 
 ### agent 最后要报告什么，不能声称什么？
 
-按风险选验证层级：定向单测验证条件分支，集成测试验证订单工具到答复流程，必要时本地运行或浏览器检查用户可见行为。记录实际执行的命令、退出状态、测试分母、环境与未测范围。若测试因依赖服务不可用未跑，明确“未验证”，不可写“已通过”。
-
-报告包含改动与原因、验证结果、剩余风险、需要人的决策。面试可把工作流说成“查现状 → 确定接受标准 → 小步修改 → 外部验证 → 审阅 diff → 交付”，然后举这个订单例子。
+| 应该报告 | 不能声称 |
+| --- | --- |
+| 改了哪些文件、为什么 | 没跑过的测试“已通过” |
+| 实际运行的命令及结果 | 没验证的场景“已修复” |
+| 证据级别（见 [Agentic Coding](/docs/ai-native/agentic-coding) Level 0） | 推测当作事实（“这应该不会影响其他模块”） |
+| 未验证的部分、已知风险 | 隐藏失败或跳过的步骤 |
+| 需要人决定的问题 | |
 
 <Note title="自测：到这里你应该能回答">
 
-1. 测试没跑时报告如何写？
-2. 用户可见行为只靠单测能证明吗？
+1. 列出四种让 agent 改动可审查、可回滚的做法。
+2. 一个好的 agent 完成报告应包含什么？不能声称什么？
 
 </Note>
 
@@ -186,16 +250,20 @@ Define acceptance and the smallest change surface: distinguish “not arrived”
 
 <Locale lang="en">
 
-## Level 3 · Verification and delivery
+## Level 3 · Reviewable output
 
-### What should the agent report, and what must it avoid claiming?
+### How do you keep changes small and reversible?
 
-Verify at the right layers: focused predicate tests, integration from order tool to answer, and UI/runtime checks when visible behavior matters. Report commands actually run, exits, denominators, environment, and untested scope. If dependencies prevented a test, say it was not verified. Deliver the change, evidence, remaining risk, and decisions needing a human.
+One task per branch; commit at verified milestones; scope the task explicitly; review source and test diffs separately; split big work into a plan and several independent PRs.
+
+### What should the agent report?
+
+Files changed and why, commands actually run with results, evidence level, unverified parts and risks, and decisions for a human. Never claim unrun tests passed, unverified scenarios are fixed, guesses as facts, or hide skipped steps.
 
 <Note title="Self-check: you should be able to answer">
 
-1. How do you report a test you could not run?
-2. Can unit tests alone prove visible behavior?
+1. Four practices for reviewable, reversible changes?
+2. What goes in a completion report, and what must never be claimed?
 
 </Note>
 
@@ -205,55 +273,67 @@ Verify at the right layers: focused predicate tests, integration from order tool
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-模型的计划、摘要和自述不是外部世界状态；工具接通、测试命令存在或沙箱配置写在文件里，也都不是运行时验证。回答时指出谁是权威、怎么观察、失败时停在哪里。
+- “coding agent 会把整个仓库读进上下文。”
+- “向量索引一定比 grep 好。”
+- 只能列功能，讲不出自己的使用经验。
 
 </Note>
 
 ## 连接
 
-从 [AI-Native Engineering 总览](/docs/ai-native) 串起七页；前置概念见 [Agent Loop](/docs/agent/loop)、[Context Engineering](/docs/context) 与 [Agent Security](/docs/agent/security)。
+- 同栏：[Agent Harness](/docs/ai-native/harness)、[Agentic Coding](/docs/ai-native/agentic-coding)、[Compaction](/docs/ai-native/compaction)
+- 检索：[RAG](/docs/rag)（关键词与向量检索的取舍）
 
 ## 面试问题
 
-1. coding agent 与聊天窗口给代码片段有什么区别？（How does a coding agent differ from code snippets in chat?）
-2. agent 读整个仓库还是构建小工作集？（Should the agent read the whole repository or build a working set?）
-3. 怎样让改动小、可审查且可回滚？（How do you keep changes scoped and reviewable?）
-4. agent 最后要报告什么，不能声称什么？（What should the agent report, and what must it avoid claiming?）
+1. coding agent 与聊天窗口给代码有什么区别？（How does a coding agent differ from chat-generated snippets?）
+2. Claude Code 为什么用 agentic search 而不是向量索引？（Why does Claude Code use agentic search instead of a vector index?）
+3. 描述你使用 coding agent 的工作流。（Describe your coding-agent workflow.）
+4. 怎样让 agent 的改动小、可审查且可回滚？（How do you keep agent changes small, reviewable, and reversible?）
+5. agent 最后应该报告什么？（What should an agent report when it finishes?）
 
 ## 资料来源
 
-- [官方规范或文档](https://developers.openai.com/blog/codex-as-a-platform)
-- [官方规范或文档](https://code.claude.com/docs/en/overview)
+- [Anthropic：Claude Code best practices](https://www.anthropic.com/engineering/claude-code-best-practices)
+- [Claude Code 文档](https://docs.claude.com/en/docs/claude-code/overview)
+- [OpenAI Codex 文档](https://developers.openai.com/codex)
+- [AGENTS.md](https://agents.md/)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Model plans, summaries, and self-reports are not world state. A connected tool, available test command, or configured sandbox is not runtime verification. Identify the authority, observed result, and safe stop point.
+- "Coding agents load the whole repo into context."
+- "Vector indexes always beat grep."
+- Listing features with no personal experience.
 
 </Note>
 
 ## Connections
 
-Use [AI-Native Engineering overview](/docs/ai-native) for the seven-page sequence. Prerequisites: [Agent Loop](/docs/agent/loop), [Context Engineering](/docs/context), and [Agent Security](/docs/agent/security).
+- Same section: [Agent Harness](/docs/ai-native/harness), [Agentic Coding](/docs/ai-native/agentic-coding), [Compaction](/docs/ai-native/compaction)
+- Retrieval: [RAG](/docs/rag)
 
 ## Interview questions
 
-1. How does a coding agent differ from code snippets in chat?
-2. Should the agent read the whole repository or build a working set?
-3. How do you keep changes scoped and reviewable?
-4. What should the agent report, and what must it avoid claiming?
+1. How does a coding agent differ from chat-generated snippets?
+2. Why does Claude Code use agentic search instead of a vector index?
+3. Describe your coding-agent workflow.
+4. How do you keep agent changes small, reviewable, and reversible?
+5. What should an agent report when it finishes?
 
 ## Sources
 
-- [Official specification or documentation](https://developers.openai.com/blog/codex-as-a-platform)
-- [Official specification or documentation](https://code.claude.com/docs/en/overview)
+- [Anthropic: Claude Code best practices](https://www.anthropic.com/engineering/claude-code-best-practices)
+- [Claude Code docs](https://docs.claude.com/en/docs/claude-code/overview)
+- [OpenAI Codex docs](https://developers.openai.com/codex)
+- [AGENTS.md](https://agents.md/)
 
 </Locale>
 
@@ -270,8 +350,6 @@ Use [AI-Native Engineering overview](/docs/ai-native) for the seven-page sequenc
 </Locale>
 
 - 30s:
-
-- 2min:
 
 <Locale lang="zh">
 

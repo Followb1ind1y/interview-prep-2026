@@ -1,11 +1,11 @@
 ---
 title: Scaling
 titleEn: Scaling
-description: 从到达率、并发与队列算容量，设计公平限流和有界扩容。
-descriptionEn: Size capacity from arrival rate, concurrency, and queues with fair admission control.
-date: 2026-09-24
-keywords: ['scaling', 'qps', 'concurrency', 'queue', 'autoscaling']
-tier: A
+description: 用 Little's Law 把日活换算成峰值并发与供应商配额；分清同步与队列；多层限流；按在途请求扩容；自部署时理解 GPU 吞吐与延迟的取舍。
+descriptionEn: Turn DAU into peak concurrency and provider quota with Little's Law; sync vs queue; layered rate limits; scale on in-flight requests; GPU throughput vs latency when self-hosting.
+date: 2026-10-04
+keywords: ["scaling", "little's law", "qps", "concurrency", "queue", "rate limit", "autoscaling", "tpm", "continuous batching", "load test"]
+tier: B
 status: todo
 cursor: ''
 mastery: { talk: 0, probe: 0 }
@@ -13,49 +13,61 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策 `P-17 v3` 来自检索，实时订单状态来自受权订单 API。示意数字只用于手算，不代表你的项目实测或当前供应商报价。
+LLM 应用的扩容和普通 Web 服务有一个本质区别：**你的瓶颈通常不在自己的服务器，而在下游的模型配额**（用 API 时）或 **GPU 显存**（自部署时）。CPU 扩到 100 台也没用，如果供应商每分钟只给你 200 万 token。
+
+这一页的重点是**会算**：把“10 万日活”换算成峰值 QPS、在途并发、每分钟 token 需求，然后知道该在哪一层排队、限流和扩容。对 API 网关和普通扩容知识只做快速梳理。
+
+贯穿例子仍是“喵喵粮仓”客服。
 
 ## 这一页怎么学
 
-| Level | 先回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 先算负载 | QPS、并发和服务时长有什么关系？ | 15–25 min |
-| 1 · 同步与异步 | 哪些步骤让用户等，哪些适合放队列？ | 15–25 min |
-| 2 · 限流与公平 | 为什么要同时做用户、租户和下游限流？ | 15–25 min |
-| 3 · 多副本与状态 | API 扩成多副本后，会话与任务状态放哪里？ | 15–25 min |
-| 4 · 压测与扩容 | 如何证明系统在峰值和故障下能扛住？ | 15–25 min |
+| 0 · 会算容量 | QPS、并发、耗时、TPM 之间是什么关系？ | 30 min |
+| 1 · 同步还是排队 | 哪些步骤让用户等，哪些放队列？ | 15 min |
+| 2 · 多层限流 | 为什么要同时限用户、租户和下游？ | 20 min |
+| 3 · 无状态与自动扩容 | 状态放哪？为什么不能按 CPU 扩容？ | 20 min |
+| 4 · 自部署的 GPU 扩容 | 批大小怎样在吞吐和延迟间取舍？ | 20 min |
+| 5 · 证明扛得住 | 压测怎么做？ | 15 min |
+
+**Level 0 是重点**，必须能现场算。全页约 2 小时。
 
 ## 需要掌握
 
-- QPS、并发和服务时长有什么关系？
-- 哪些步骤让用户等，哪些适合放队列？
-- 为什么要同时做用户、租户和下游限流？
-- API 扩成多副本后，会话与任务状态放哪里？
-- 如何证明系统在峰值和故障下能扛住？
+- Little's Law：`并发 = 到达率 × 每请求耗时`；峰值系数
+- 从日活推出峰值 QPS、在途并发、TPM 需求，并和供应商配额比较
+- 用户 / 租户 / 下游 / 全局四层限流，各自的目的
+- LLM 网关按在途请求数或队列深度扩容，而不是 CPU
+- 自部署：KV cache 显存决定并发上限；批大小是吞吐与 TPOT 的取舍；冷启动慢
 
 </Locale>
 
 <Locale lang="en">
 
-We continue the pet-food support case: order `20240915` has not arrived. Current policy `P-17 v3` comes from retrieval; live order state comes from an authorized order API. All numerical examples are for learning, not project measurements or current provider prices.
+LLM scaling differs from typical web scaling in one essential way: **the bottleneck is usually not your servers but the model quota** (APIs) or **GPU memory** (self-hosting). A hundred CPUs won't help if the provider gives you two million tokens per minute.
 
-## How to study this page
+The emphasis is arithmetic: convert 100k DAU into peak QPS, in-flight concurrency, and tokens per minute, then know where to queue, limit, and scale. Generic gateway and autoscaling topics get a quick pass.
 
-| Level | Question | Time |
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · Estimate load | How do QPS, concurrency, and service time relate? | 15–25 min |
-| 1 · Synchronous and asynchronous work | Which steps belong on the interactive path versus a queue? | 15–25 min |
-| 2 · Admission and fairness | Why limit users, tenants, and downstream capacity separately? | 15–25 min |
-| 3 · Replicas and state | Where do session and job states live across replicas? | 15–25 min |
-| 4 · Load testing and scaling | How do you prove capacity under peaks and failures? | 15–25 min |
+| 0 · Capacity math | How do QPS, concurrency, duration, and TPM relate? | 30 min |
+| 1 · Sync or queue | What should users wait on, and what goes to a queue? | 15 min |
+| 2 · Layered limits | Why limit users, tenants, and downstreams? | 20 min |
+| 3 · Statelessness and autoscaling | Where does state live? Why not scale on CPU? | 20 min |
+| 4 · Self-hosted GPUs | How does batch size trade throughput against latency? | 20 min |
+| 5 · Proving capacity | How do you load test? | 15 min |
+
+**Level 0 is the core** — be able to do it live. About 2 hours.
 
 ## Must know
 
-- How do QPS, concurrency, and service time relate?
-- Which steps belong on the interactive path versus a queue?
-- Why limit users, tenants, and downstream capacity separately?
-- Where do session and job states live across replicas?
-- How do you prove capacity under peaks and failures?
+- Little's Law: concurrency = arrival rate × time in system; peak factors
+- DAU → peak QPS → in-flight → TPM, compared against provider quota
+- user / tenant / downstream / global limits and their purposes
+- scale LLM gateways on in-flight requests or queue depth, not CPU
+- self-hosting: KV-cache memory caps concurrency; batch size trades throughput for TPOT; slow cold starts
 
 </Locale>
 
@@ -63,18 +75,49 @@ We continue the pet-food support case: order `20240915` has not arrived. Current
 
 <Locale lang="zh">
 
-## Level 0 · 先算负载
+## Level 0 · 会算容量
 
 ### QPS、并发和服务时长有什么关系？
 
-先定请求单位：页面浏览、用户问题与一次模型调用并不相同。示意日均 100,000 个问答，平均 `100,000/86,400≈1.16 QPS`；高峰若是均值 20 倍，约 23 QPS。平均生成占用 4 秒时，在稳定流量下在途调用粗估 `L≈λW≈23×4=92`。这对应 Little's law 的平均关系，不含峰值抖动、重试和预留。
+**Little's Law**：一个稳定系统里，
 
-若供应商只允许 50 并发，该高峰会排队或失败；不能靠把 API pod 从 2 个扩到 20 个解决。先辨认真正瓶颈：网关、检索集群、模型配额还是下游工具。
+```
+平均在途请求数 L = 平均到达率 λ × 平均停留时间 W
+```
+
+它不依赖任何分布假设，几乎处处适用。例子：每秒来 30 个请求，每个平均要 8 秒，那么系统里平均同时有 `30 × 8 = 240` 个请求在处理。
+
+LLM 请求的 W 很大（几秒到几分钟），所以**同样的 QPS，LLM 服务的在途并发比普通 API 大两三个数量级**。普通 API 30 QPS × 50 ms = 1.5 个在途；LLM 30 QPS × 8 s = 240 个在途。
+
+### 从 10 万日活推到供应商配额
+
+```
+日活 100,000 × 人均 3 次          = 300,000 请求 / 天
+平均 QPS = 300,000 / 86,400       ≈ 3.5
+峰值系数取 8（白天集中 + 促销尖峰） ≈ 28 QPS 峰值
+在途并发 = 28 × 8 s               ≈ 224
+每分钟输入 token = 28 × 60 × 5,000 ≈ 840 万 ITPM
+每分钟输出 token = 28 × 60 × 1,000 ≈ 168 万 OTPM
+```
+
+现在拿去和供应商配额比：如果你的账号层级 ITPM 只有 200 万，**峰值时会大面积 429**。解决办法（按见效速度）：
+
+1. **前缀缓存**：部分供应商的缓存读取不计入（或少计入）ITPM，5,000 中 4,000 命中缓存，实际 ITPM 需求降到约 170 万。
+2. 申请更高配额 / 升级账号层级 / 购买预置吞吐（provisioned throughput）。
+3. 多区域、多供应商分流（例如同一模型在多个云平台上都有部署）。
+4. 削峰：非实时任务挪到低峰或 Batch API。
+
+<Note type="tip" title="面试加分">
+
+很多人只算到 QPS。主动算出“峰值需要 840 万 ITPM，超过当前配额，所以要缓存 + 申请配额 + 多区域”，面试官会知道你真的扛过流量。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 100k 次/天约多少平均 QPS？
-2. 23 QPS、4 秒占用粗估多少并发？
+1. 写出 Little's Law，解释为什么 LLM 服务的在途并发特别大。
+2. 从 5 万日活、人均 4 次、峰值系数 6、平均 10 s、输入 4k token 推出峰值在途并发和 ITPM。
+3. 峰值 TPM 超过供应商配额时，给出三种办法。
 
 </Note>
 
@@ -82,16 +125,27 @@ We continue the pet-food support case: order `20240915` has not arrived. Current
 
 <Locale lang="en">
 
-## Level 0 · Estimate load
+## Level 0 · Capacity math
 
-### How do QPS, concurrency, and service time relate?
+### How do QPS, concurrency, and duration relate?
 
-Define the work unit: a page view, user question, and model call are not interchangeable. An illustrative 100,000 daily questions average 1.16 QPS; a 20× peak is about 23 QPS. At four seconds of in-flight model time, Little’s law suggests roughly `23×4=92` concurrent calls in steady state, before burstiness and headroom. If provider concurrency is 50, scaling API pods cannot remove that bottleneck.
+**Little's Law**: `L = λ × W` — in-flight requests equal arrival rate times time in system, independent of distribution. LLM requests have large W, so 30 QPS × 8 s = 240 in flight versus 1.5 for a 50 ms API.
+
+### From 100k DAU to provider quota
+
+300k requests/day → 3.5 average QPS → ~28 peak QPS at an 8× peak factor → ~224 in flight → ~8.4M input tokens/min and ~1.7M output tokens/min. If your tier allows 2M ITPM, peak traffic will 429. Fixes: prefix caching (some providers don't count cache reads toward ITPM), higher tiers or provisioned throughput, multi-region/multi-provider routing, and shifting non-real-time work to off-peak or Batch.
+
+<Note type="tip" title="Interview signal">
+
+Going past QPS to "peak needs 8.4M ITPM, above quota, so caching + quota + multi-region" shows real experience.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. What is average QPS for 100k daily questions?
-2. What concurrency follows from 23 QPS at four seconds?
+1. State Little's Law and why LLM concurrency is so high.
+2. Compute peak in-flight and ITPM for 50k DAU, 4 requests each, 6× peak, 10 s, 4k input.
+3. Three remedies when peak TPM exceeds quota?
 
 </Note>
 
@@ -99,18 +153,31 @@ Define the work unit: a page view, user question, and model call are not interch
 
 <Locale lang="zh">
 
-## Level 1 · 同步与异步
+## Level 1 · 同步还是排队
 
 ### 哪些步骤让用户等，哪些适合放队列？
 
-用户等着的退款解释、订单状态与本轮引用必须走有界同步链路。文档重建索引、批量 embedding、离线评测、长报告可进异步队列，返回任务 ID 与状态查询。异步不是“晚点就会成功”：任务要有持久状态、重试上限、死信队列、幂等键和结果有效期。
+判断标准：**用户是否在屏幕前等这个结果**。
 
-同一文档多次更新时只发布最新版本；旧任务晚完成不能覆盖新索引。若用户取消，明确是否取消队列任务和已有外部副作用。区分 CPU/网络 I/O 异步与供应商侧批处理；批处理提高吞吐可能增加单个用户的等待。
+| 同步（用户在等） | 异步队列（用户不等） |
+| --- | --- |
+| 客服问答、实时查订单 | 文档入库与 embedding |
+| 语音对话 | 夜间评估、对话打标签 |
+| 短的工具调用 | 长报告生成、coding agent 任务 |
+| | 发送通知、写分析数据 |
+
+队列的作用：**削峰填谷**（突发时先存下来慢慢处理）、**解耦**（入库服务挂了不影响问答）、**重试**（失败的消息可以重新投递）。
+
+要点：
+
+- 队列必须**有界**，并配合优先级（实时 > 付费 > 离线），见 [Reliability](/docs/production/reliability) 的减载。
+- 消息至少投递一次，消费者要**幂等**（见 [API Engineering](/docs/production/api-engineering) Level 4）。
+- 失败多次的消息进**死信队列**，人工排查，不要无限重试。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 文档重建为什么适合队列？
-2. 旧索引任务晚完成如何防止覆盖新版本？
+1. 客服系统里列出三个同步步骤和三个异步步骤。
+2. 为什么队列的消费者必须幂等？
 
 </Note>
 
@@ -118,16 +185,16 @@ Define the work unit: a page view, user question, and model call are not interch
 
 <Locale lang="en">
 
-## Level 1 · Synchronous and asynchronous work
+## Level 1 · Sync or queue
 
-### Which steps belong on the interactive path versus a queue?
+### What do users wait on?
 
-Keep user-facing order lookup, policy retrieval, and answer generation on a bounded interactive path. Reindexing, batch embeddings, offline evals, and long reports can run as durable jobs with IDs, retries, dead-letter handling, idempotency, and expiry. An old indexing job must not overwrite a newer policy version. Async processing and provider batching improve different constraints and may increase per-user latency.
+If a user is watching the screen, it's synchronous: chat answers, live order lookups, voice. Ingestion, embeddings, nightly evals, long reports, coding-agent tasks, and notifications go to queues for peak smoothing, decoupling, and redelivery. Keep queues bounded with priorities, make consumers idempotent (at-least-once delivery), and send repeated failures to a dead-letter queue.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why is reindexing a queue job?
-2. How do you prevent an old job from overwriting a newer index?
+1. Name three sync and three async steps in the support system.
+2. Why must queue consumers be idempotent?
 
 </Note>
 
@@ -135,18 +202,28 @@ Keep user-facing order lookup, policy retrieval, and answer generation on a boun
 
 <Locale lang="zh">
 
-## Level 2 · 限流与公平
+## Level 2 · 多层限流
 
 ### 为什么要同时做用户、租户和下游限流？
 
-用户级防滥用，租户级保证公平与合同配额，模型级保护真实供应商并发/速率上限。令牌桶可允许小突发并限制长期速率；并发 semaphore 限制同时在途任务；有界队列把短突发平滑掉。它们约束不同维度，不能互相替代。
+每层保护的东西不同：
 
-例如大租户一次提交 1,000 个批量任务，不应挤掉其他租户的交互问答。可拆交互与后台队列、设优先级与配额，但要监测饥饿。已满时给可解释的 429/排队状态与重试建议，而非一直占着连接。
+| 层 | 保护什么 | 例子 |
+| --- | --- | --- |
+| 用户 | 防滥用、防脚本刷接口 | 每用户每分钟 20 次 |
+| 租户 | **公平性**：一个大客户不能吃掉所有人的配额；也对应计费套餐 | 免费租户 50 万 token/天，企业租户 5,000 万 |
+| 下游 | 不超过供应商 RPM/TPM，不压垮订单 API | 客户端令牌桶，见 [API Engineering](/docs/production/api-engineering) Level 3 |
+| 全局 | 成本上限、紧急止血 | 每小时花费上限、kill switch |
+
+只做全局限流的后果：一个租户的批量脚本把全局配额用光，**所有其他租户一起 429**。这叫“吵闹的邻居（noisy neighbor）”问题。
+
+实现上，多实例部署的限流计数要放在共享存储（如 Redis）里，常用令牌桶或滑动窗口计数。对 LLM 还要**按 token 而不只按请求数**限流——一个 10 万 token 的请求和一个 100 token 的请求消耗完全不同。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 令牌桶和并发 semaphore 限制的东西一样吗？
-2. 后台任务为何可能饿死互动请求？
+1. 四层限流各保护什么？
+2. 只有全局限流时会出现什么问题？
+3. LLM 限流为什么要按 token 计？
 
 </Note>
 
@@ -154,16 +231,17 @@ Keep user-facing order lookup, policy retrieval, and answer generation on a boun
 
 <Locale lang="en">
 
-## Level 2 · Admission and fairness
+## Level 2 · Layered rate limits
 
-### Why limit users, tenants, and downstream capacity separately?
+### Why limit users, tenants, and downstreams?
 
-Per-user limits curb abuse, per-tenant limits preserve fairness, and provider limits protect real downstream quotas. Token buckets control rates with small bursts; semaphores cap in-flight calls; bounded queues absorb short bursts. Separate interactive from batch work so one tenant’s 1,000 jobs do not starve support questions. When full, return a clear throttle or queued state.
+Users: abuse and scripts. Tenants: fairness and plan entitlements — otherwise one tenant's batch job drains the global quota and everyone gets 429s (noisy neighbor). Downstream: stay under provider RPM/TPM and protect internal APIs. Global: spend caps and a kill switch. Keep counters in shared storage like Redis, and limit by tokens, not just requests — a 100k-token call and a 100-token call aren't the same.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Do token buckets and semaphores limit the same thing?
-2. How can batch work starve interactive requests?
+1. What does each layer protect?
+2. What goes wrong with only a global limit?
+3. Why count tokens?
 
 </Note>
 
@@ -171,18 +249,38 @@ Per-user limits curb abuse, per-tenant limits preserve fairness, and provider li
 
 <Locale lang="zh">
 
-## Level 3 · 多副本与状态
+## Level 3 · 无状态与自动扩容
 
 ### API 扩成多副本后，会话与任务状态放哪里？
 
-API 层尽量无状态：请求 ID、认证、会话引用随请求传入；订单与退款状态在权威业务数据库，任务状态在持久队列/存储，短期缓存有明确 TTL 与租户隔离。不能把关键状态只存某个 pod 的内存，否则负载均衡切换后丢失或重复操作。
+原则：**API 实例无状态**，任何一个实例挂了，请求可以由另一个接手。所有状态放外部：
 
-RAG 索引可分片/复制，但更新一致性、ACL 同步和缓存失效要设计。缓存当前政策时必须含版本与租户权限范围；缓存的“退款建议”不能跨用户复用。多副本部署要测滚动升级期间新旧 prompt、schema 与索引版本是否兼容。
+| 状态 | 放哪 |
+| --- | --- |
+| 对话历史 | 数据库（持久）+ Redis（热缓存） |
+| 长任务状态、checkpoint | 数据库，见 [Agent State](/docs/ai-native/agent-state) |
+| 限流计数 | Redis |
+| 上传的文件 | 对象存储 |
+
+流式连接是例外：一个 SSE 连接在其生命周期内绑定在一个实例上。实例被缩容时要**优雅关闭**（停止接新请求，等现有流结束或超时），否则用户的回答会被截断。
+
+### 为什么 LLM 网关不能按 CPU 扩容？
+
+LLM 网关的大部分时间在**等待**模型返回，CPU 几乎是空闲的。按 CPU 70% 扩容的策略永远不会触发——同时连接池、并发槽已经满了，请求在排队。
+
+正确的扩容信号：
+
+- **在途请求数**（每实例并发）
+- **队列深度**或排队等待时间
+- 连接池使用率
+
+但也要清楚：**如果瓶颈是供应商配额，扩多少实例都没用**——只会让更多请求同时撞上 429。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 为什么把退款状态放进某个 pod 内存很危险？
-2. 缓存 key 至少应包含哪些作用域？
+1. 多副本时对话历史和任务状态各放哪？
+2. 缩容时流式连接怎么处理？
+3. 为什么按 CPU 扩容对 LLM 网关无效？用什么指标？
 
 </Note>
 
@@ -190,16 +288,21 @@ RAG 索引可分片/复制，但更新一致性、ACL 同步和缓存失效要�
 
 <Locale lang="en">
 
-## Level 3 · Replicas and state
+## Level 3 · Statelessness and autoscaling
 
-### Where do session and job states live across replicas?
+### Where does state live with many replicas?
 
-Keep API replicas mostly stateless. Authoritative order/refund state belongs in a durable system; jobs need persistent status; caches need scoped keys and TTLs. Pod-local memory cannot hold critical session state. Replicated or sharded retrieval indexes need version and ACL consistency. Cache policy by version and tenant scope, not a personalized refund answer across users. Test mixed versions during rolling deploys.
+Instances are stateless: conversation history in a database with a Redis hot cache, task state and checkpoints in a database ([Agent State](/docs/ai-native/agent-state)), rate-limit counters in Redis, files in object storage. SSE streams pin to one instance for their lifetime, so scale-down needs graceful draining.
+
+### Why not scale an LLM gateway on CPU?
+
+It spends its time waiting; CPU stays low while connection pools and concurrency slots are full. Scale on in-flight requests, queue depth or wait time, and pool utilization. If the bottleneck is provider quota, more instances just hit 429 faster.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why is pod-local refund state dangerous?
-2. Which scope belongs in a policy cache key?
+1. Where do history and task state live?
+2. How do you handle streams during scale-down?
+3. Why is CPU the wrong signal, and what's right?
 
 </Note>
 
@@ -207,18 +310,32 @@ Keep API replicas mostly stateless. Authoritative order/refund state belongs in 
 
 <Locale lang="zh">
 
-## Level 4 · 压测与扩容
+## Level 4 · 自部署的 GPU 扩容
 
-### 如何证明系统在峰值和故障下能扛住？
+### 自部署时，一张 GPU 能同时服务多少请求？
 
-按真实到达分布回放，而不只用恒定 QPS；覆盖短问、长 prompt、工具慢、429、供应商部分故障和冷启动。记录成功吞吐、P95/P99、排队时长、拒绝率、队列深度、每租户公平性与成本。容量阈值由质量/延迟 SLO 反推，自动扩容也有启动滞后。
+上限通常由 **KV cache 显存**决定，而不是算力。每个在途请求都要在显存里保存自己所有 token 的 K/V。粗略量级：一个 8B 模型每个 token 的 KV cache 约 0.1 MB 量级；一个请求 8k token 就占约 1 GB。80 GB 显存减去权重后，剩下能放的 KV 决定了能同时跑多少个请求。上下文越长，能并发的请求越少。PagedAttention（vLLM）通过分页管理显存提高了利用率，详见 [Inference](/docs/llm/inference) Level 3。
 
-压测时若 API CPU 低但 P95 高、供应商并发打满，扩 pod 没意义；应做背压、配额或供应商容量规划。若检索 CPU 高且可分片，扩检索层可能有效。每次扩容要说明是哪一段、凭什么、会引入什么一致性成本。
+### 批大小怎样在吞吐和延迟间取舍？
+
+Continuous batching 把多个请求的 decode 步骤合并：读一遍权重，同时为一批请求各生成一个 token。
+
+- **批越大**：总吞吐（tokens/s/GPU）越高，每 token 成本越低；但每步计算更多，**每个请求的 TPOT 变慢**，新请求的 prefill 也可能要排队，TTFT 变差。
+- **批越小**：TPOT 好，但 GPU 利用率低，成本高。
+
+所以自部署时要**按 SLO 定批大小上限**：例如“TPOT P95 ≤ 50 ms”的约束下，找吞吐最高的批大小。实时客服和离线批处理应该跑在**不同配置的实例池**上。
+
+### 自部署扩容还有什么特别的？
+
+- **冷启动很慢**：新 GPU 实例要下载并加载几十到几百 GB 的权重，可能要几分钟。自动扩容来不及应对突发，要保留余量或预热池。
+- **前缀感知路由**：把共享相同前缀（同一 system prompt）的请求路由到同一副本，提高前缀缓存命中率。
+- **Prefill / decode 分离**：一些推理系统把计算密集的 prefill 和带宽密集的 decode 放在不同 GPU 池，互不干扰。
 
 <Note title="自测：到这里你应该能回答">
 
-1. API CPU 低但 P95 高时先查哪里？
-2. 压测为什么需要突发流量？
+1. 自部署时，单卡并发上限通常由什么决定？为什么上下文越长并发越少？
+2. 批大小变大，吞吐、TPOT、TTFT 各怎么变？
+3. 为什么 GPU 自动扩容来不及应对突发？
 
 </Note>
 
@@ -226,16 +343,79 @@ Keep API replicas mostly stateless. Authoritative order/refund state belongs in 
 
 <Locale lang="en">
 
-## Level 4 · Load testing and scaling
+## Level 4 · Self-hosted GPU scaling
 
-### How do you prove capacity under peaks and failures?
+### How many requests can one GPU serve?
 
-Replay realistic burst patterns, not only flat QPS. Cover long prompts, slow tools, throttling, partial provider failure, and cold starts. Record successful throughput, tails, queue wait, rejection, fairness, and cost. Autoscaling has startup lag. If provider concurrency is saturated while API CPU is low, more API pods are not the fix; if search is CPU-bound, scaling the retrieval tier may help.
+Usually capped by **KV-cache memory**, not compute: every in-flight request stores K/V for all its tokens (order of 0.1 MB per token for an 8B model, so ~1 GB for 8k tokens). Longer contexts mean fewer concurrent requests; PagedAttention improves utilization ([Inference](/docs/llm/inference) Level 3).
+
+### How does batch size trade throughput for latency?
+
+Larger batches raise tokens/s/GPU and lower cost per token but slow per-request TPOT and can queue prefills. Pick the largest batch that meets the TPOT SLO; run real-time and offline workloads on separately tuned pools.
+
+### What else is different?
+
+Cold starts take minutes to load weights, so keep headroom or warm pools; route by shared prefix to raise cache hits; some stacks disaggregate prefill and decode onto separate GPU pools.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Where do you inspect high P95 with low API CPU?
-2. Why include burst traffic?
+1. What caps per-GPU concurrency, and why do long contexts reduce it?
+2. How do throughput, TPOT, and TTFT move with batch size?
+3. Why can't GPU autoscaling absorb bursts?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 5 · 证明扛得住
+
+### 如何证明系统在峰值和故障下能扛住？
+
+压测要模拟**真实的流量形态**，不是用同一个短 prompt 打满：
+
+- **输入长度分布**：按生产 prompt 长度分布采样（短问题、带长文档、长对话都有）
+- **输出长度分布**：同上
+- **流量曲线**：平稳 → 逐步爬升到预估峰值的 1.5–2 倍 → 突发尖峰
+- **缓存状态**：冷缓存和热缓存各测一次（发版后缓存是冷的）
+- **故障叠加**：在峰值时注入供应商 429、慢工具（见 [Reliability](/docs/production/reliability) Level 5）
+
+要看的结果：P95 在哪个 QPS 开始拐点上升（排队开始）、哪一层先饱和（连接池？限流？配额？）、减载和优先级是否按预期保护了高优先级流量。
+
+<Note type="warning" title="压测会花真钱">
+
+对真实供应商压测，按 token 计费。可以用模拟的模型服务（返回固定延迟分布和 token 数）测自己的网关，只在小范围内对真实供应商验证配额。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么不能用同一个短 prompt 做压测？
+2. 压测结果里你最关心哪三个现象？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 5 · Proving capacity
+
+### How do you prove it holds at peak and under failure?
+
+Replay realistic traffic: production input/output length distributions, a ramp to 1.5–2× forecast peak plus spikes, cold and warm caches, and faults injected at peak. Look for the QPS where P95 knees upward, which layer saturates first, and whether shedding protects priority traffic.
+
+<Note type="warning" title="Load tests cost money">
+
+Test your gateway against a mock model server with realistic latency and token distributions; verify real provider quotas at small scale.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why not load test with one short prompt?
+2. Which three results matter most?
 
 </Note>
 
@@ -245,57 +425,73 @@ Replay realistic burst patterns, not only flat QPS. Cover long prompts, slow too
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-不要把配置存在、HTTP 成功、示意数字或单次测试通过，当作生产质量与容量的证据。回答时先说明测量边界和分母，再说明取舍与验证方法。
+- “加机器就能扛住。”（瓶颈常在供应商配额）
+- “按 CPU 使用率自动扩容。”
+- “只算了 QPS。”（没算在途并发和 TPM）
 
 </Note>
 
 ## 连接
 
-从 [Production AI 总览](/docs/production) 进入；将本页指标带到 [AI System Design](/docs/system-design) 的具体白板题，并用 [Evaluation](/docs/evaluation) 验证质量。
+- 同栏：[Latency](/docs/production/latency)（排队）、[API Engineering](/docs/production/api-engineering)（客户端限流）、[Reliability](/docs/production/reliability)（减载）、[Cost](/docs/production/cost)
+- 机制：[Inference](/docs/llm/inference)（batching、KV cache、部署）
+- 应用：[AI System Design](/docs/system-design)
 
 ## 面试问题
 
-1. QPS、并发和服务时长有什么关系？（How do QPS, concurrency, and service time relate?）
-2. 哪些步骤让用户等，哪些适合放队列？（Which steps belong on the interactive path versus a queue?）
-3. 为什么要同时做用户、租户和下游限流？（Why limit users, tenants, and downstream capacity separately?）
-4. API 扩成多副本后，会话与任务状态放哪里？（Where do session and job states live across replicas?）
-5. 如何证明系统在峰值和故障下能扛住？（How do you prove capacity under peaks and failures?）
+1. QPS、并发和服务时长有什么关系？（How do QPS, concurrency, and latency relate?）
+2. 从 10 万日活推算峰值并发和 TPM 需求。（Estimate peak concurrency and TPM from 100k DAU.）
+3. 哪些步骤同步，哪些放队列？（What goes synchronous and what goes to a queue?）
+4. 为什么要同时做用户、租户和下游限流？（Why layer user, tenant, and downstream limits?）
+5. 为什么 LLM 网关不能按 CPU 扩容？（Why not autoscale an LLM gateway on CPU?）
+6. 自部署时批大小怎样影响吞吐和延迟？（How does batch size affect throughput and latency when self-hosting?）
+7. 怎样设计 LLM 服务的压测？（How do you load test an LLM service?）
 
 ## 资料来源
 
-- [官方文档](https://sre.google/sre-book/handling-overload/)
-- [官方文档](https://sre.google/sre-book/addressing-cascading-failures/)
+- [Little's law（Wikipedia）](https://en.wikipedia.org/wiki/Little%27s_law)
+- [Anthropic：Rate limits](https://docs.claude.com/en/api/rate-limits)
+- [vLLM 文档](https://docs.vllm.ai/)
+- [Google SRE Book：Handling Overload](https://sre.google/sre-book/handling-overload/)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Configuration, an HTTP success, teaching numbers, or one passing test do not prove production quality or capacity. State the measurement boundary and denominator before the tradeoff and validation.
+- "Add machines." (Quota is often the bottleneck.)
+- "Autoscale on CPU."
+- Stopping at QPS without in-flight concurrency and TPM.
 
 </Note>
 
 ## Connections
 
-Use [Production AI overview](/docs/production), apply the metrics to [AI System Design](/docs/system-design), and validate quality through [Evaluation](/docs/evaluation).
+- Same section: [Latency](/docs/production/latency), [API Engineering](/docs/production/api-engineering), [Reliability](/docs/production/reliability), [Cost](/docs/production/cost)
+- Mechanics: [Inference](/docs/llm/inference)
+- Applied: [AI System Design](/docs/system-design)
 
 ## Interview questions
 
-1. How do QPS, concurrency, and service time relate?
-2. Which steps belong on the interactive path versus a queue?
-3. Why limit users, tenants, and downstream capacity separately?
-4. Where do session and job states live across replicas?
-5. How do you prove capacity under peaks and failures?
+1. How do QPS, concurrency, and latency relate?
+2. Estimate peak concurrency and TPM from 100k DAU.
+3. What goes synchronous and what goes to a queue?
+4. Why layer user, tenant, and downstream limits?
+5. Why not autoscale an LLM gateway on CPU?
+6. How does batch size affect throughput and latency when self-hosting?
+7. How do you load test an LLM service?
 
 ## Sources
 
-- [Official documentation](https://sre.google/sre-book/handling-overload/)
-- [Official documentation](https://sre.google/sre-book/addressing-cascading-failures/)
+- [Little's law (Wikipedia)](https://en.wikipedia.org/wiki/Little%27s_law)
+- [Anthropic: Rate limits](https://docs.claude.com/en/api/rate-limits)
+- [vLLM documentation](https://docs.vllm.ai/)
+- [Google SRE Book: Handling Overload](https://sre.google/sre-book/handling-overload/)
 
 </Locale>
 
@@ -312,8 +508,6 @@ Use [Production AI overview](/docs/production), apply the metrics to [AI System 
 </Locale>
 
 - 30s:
-
-- 2min:
 
 <Locale lang="zh">
 

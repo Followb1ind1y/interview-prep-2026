@@ -1,10 +1,10 @@
 ---
 title: Reliability
 titleEn: Reliability
-description: 把可用性、业务正确性和未知副作用分开，设计有边界的恢复与降级。
-descriptionEn: Separate availability, task correctness, and uncertain side effects with bounded recovery.
-date: 2026-09-24
-keywords: ['reliability', 'slo', 'circuit breaker', 'fallback', 'degradation']
+description: AI 系统的可靠性有两半：服务活着（熔断、隔舱、降级、fallback）和答案可信（输出校验、版本锁定、灰度回滚）。用 SLO 与故障注入证明它真的有效。
+descriptionEn: AI reliability has two halves — staying up (breakers, bulkheads, degradation, fallbacks) and staying correct (output validation, version pinning, canaries) — proven with SLOs and fault injection.
+date: 2026-10-04
+keywords: ['reliability', 'slo', 'error budget', 'circuit breaker', 'bulkhead', 'load shedding', 'fallback', 'graceful degradation', 'human escalation', 'canary', 'chaos engineering']
 tier: A
 status: todo
 cursor: ''
@@ -13,49 +13,67 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策 `P-17 v3` 来自检索，实时订单状态来自受权订单 API。示意数字只用于手算，不代表你的项目实测或当前供应商报价。
+传统服务的可靠性问题是“它挂没挂”。AI 服务多了一半：**它没挂，但答错了**——HTTP 200，内容却编造了一条不存在的退款政策。面试官问“你怎么保证 AI 系统可靠”，只讲熔断和重试，只答了一半。
+
+这一页和 [API Engineering](/docs/production/api-engineering) 分工：那里讲单个请求的超时、重试、幂等；这里讲**整个系统**在依赖故障、流量冲击和模型行为变化时怎样保持可用、可信，以及怎样证明这些策略真的有效。
+
+贯穿例子：“喵喵粮仓”客服。依赖有：主模型供应商、备用模型供应商、政策检索（`P-17 v3`）、订单 API、退款 API。
 
 ## 这一页怎么学
 
-| Level | 先回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 可靠的定义 | AI 服务“可用”与“答对”为什么是两回事？ | 15–25 min |
-| 1 · 失败分类 | 遇到超时、429、5xx、无证据和越权时，能一律重试吗？ | 15–25 min |
-| 2 · 熔断与隔离 | 熔断器何时打开，如何避免雪崩？ | 15–25 min |
-| 3 · 按风险降级 | 模型不可用时，客服还能安全提供什么？ | 15–25 min |
-| 4 · 演练与发布 | 怎样验证可靠性策略真能工作？ | 15–25 min |
+| 0 · 两种可靠性 | “可用”和“答对”为什么是两回事？SLO 和错误预算怎么定？ | 25 min |
+| 1 · 故障决策表 | 超时、429、5xx、无证据、越权、副作用未知，各该怎么处理？ | 25 min |
+| 2 · 熔断、隔舱、减载 | 熔断器三种状态怎么切换？一个慢依赖怎样拖垮整个服务？ | 40 min |
+| 3 · 降级与 fallback | 模型不可用时客服还能安全提供什么？备用模型要满足什么？ | 30 min |
+| 4 · 正确性可靠性 | 怎样在 HTTP 200 里发现错答？供应商悄悄换了模型怎么办？ | 30 min |
+| 5 · 证明它有效 | 怎么用故障注入和演练验证？ | 20 min |
+
+**Level 2 和 Level 3 是重点**。全页约 3 小时。
 
 ## 需要掌握
 
-- AI 服务“可用”与“答对”为什么是两回事？
-- 遇到超时、429、5xx、无证据和越权时，能一律重试吗？
-- 熔断器何时打开，如何避免雪崩？
-- 模型不可用时，客服还能安全提供什么？
-- 怎样验证可靠性策略真能工作？
+- 硬故障与软故障；为两者分别定义 SLI / SLO；错误预算的用法
+- 按故障类型选择：重试、fallback、降级、拒答、转人工、暂停副作用
+- 熔断器 closed / open / half-open 的转换条件和参数
+- 隔舱（bulkhead）、减载（load shedding）、背压
+- 降级阶梯；备用模型的“评估对等”与 prompt 兼容
+- 输出校验、模型版本锁定、灰度发布与自动回滚
+- 故障注入矩阵、演练、复盘
 
 </Locale>
 
 <Locale lang="en">
 
-We continue the pet-food support case: order `20240915` has not arrived. Current policy `P-17 v3` comes from retrieval; live order state comes from an authorized order API. All numerical examples are for learning, not project measurements or current provider prices.
+Classic reliability asks "is it up?" AI adds a second half: **it's up, but wrong** — HTTP 200 carrying an invented refund policy. Answering "how do you make an AI system reliable?" with only breakers and retries covers half.
 
-## How to study this page
+[API Engineering](/docs/production/api-engineering) covers per-request timeouts, retries, and idempotency. This page covers the whole system under dependency failure, load spikes, and model behavior changes — and how to prove the strategies work.
 
-| Level | Question | Time |
+Dependencies in the running example: primary model provider, backup provider, policy retrieval (`P-17 v3`), order API, refund API.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · Define reliability | Why are availability and correctness different? | 15–25 min |
-| 1 · Failure taxonomy | Can you retry timeout, 429, 5xx, no-evidence, and access failures alike? | 15–25 min |
-| 2 · Circuit breakers and isolation | When should a circuit breaker open and how does it prevent cascades? | 15–25 min |
-| 3 · Risk-aware degradation | What can support safely offer when generation is unavailable? | 15–25 min |
-| 4 · Drills and rollout | How do you verify reliability controls actually work? | 15–25 min |
+| 0 · Two reliabilities | Why are "available" and "correct" different? How do SLOs and error budgets work? | 25 min |
+| 1 · Failure decision table | What do you do for timeout, 429, 5xx, no evidence, unauthorized, unknown side effect? | 25 min |
+| 2 · Breakers, bulkheads, shedding | How does a breaker move between states? How does one slow dependency sink everything? | 40 min |
+| 3 · Degradation and fallback | What can support still do safely without a model? What must a backup model satisfy? | 30 min |
+| 4 · Correctness reliability | How do you catch wrong answers inside 200s? What if the provider silently changes the model? | 30 min |
+| 5 · Proving it | How do fault injection and game days validate it? | 20 min |
+
+**Levels 2 and 3 are the core.** About 3 hours.
 
 ## Must know
 
-- Why are availability and correctness different?
-- Can you retry timeout, 429, 5xx, no-evidence, and access failures alike?
-- When should a circuit breaker open and how does it prevent cascades?
-- What can support safely offer when generation is unavailable?
-- How do you verify reliability controls actually work?
+- hard vs soft failures; SLIs/SLOs for both; error budgets
+- choosing between retry, fallback, degrade, refuse, escalate, and pausing side effects
+- breaker states, transitions, and parameters
+- bulkheads, load shedding, backpressure
+- degradation ladder; eval parity and prompt compatibility for backup models
+- output validation, version pinning, canary rollout and auto-rollback
+- fault-injection matrix, game days, postmortems
 
 </Locale>
 
@@ -63,18 +81,49 @@ We continue the pet-food support case: order `20240915` has not arrived. Current
 
 <Locale lang="zh">
 
-## Level 0 · 可靠的定义
+## Level 0 · 两种可靠性
 
 ### AI 服务“可用”与“答对”为什么是两回事？
 
-API 返回 200、模型给出流畅文字，只说明链路完成；若把“还没到”误当“未发货”，退款建议仍错。可靠性要同时看可用性、延迟、答案有据可依、业务正确、权限不越界、外部操作是否确实提交。给每类结果明确状态：成功、受控失败、未知结果。
+| 类型 | 表现 | 传统监控能否发现 |
+| --- | --- | --- |
+| 硬故障 | 5xx、超时、429、连接失败 | 能 |
+| 软故障 | HTTP 200，但答错、编造政策、引用不存在的订单状态、JSON 不合法、该转人工没转 | **不能** |
+| 静默漂移 | 供应商更新了模型、检索索引过期、prompt 改动，质量慢慢下降 | **不能** |
+| 未知副作用 | 退款调用超时，不知道退没退 | 部分 |
 
-示意 SLO 可写“99% 请求返回明确结果，95% 在 5 秒完成”；质量门槛另写“关键政策问题在标注集通过率达到约定标准”。数字是示例，真实阈值由业务风险与测量分母决定。未知退款状态不能算成功，也不能贸然算未提交。
+一个“可用率 99.95%”的客服可以同时每天给几百个用户错误的退款承诺。所以 AI 系统的 SLI（服务等级指标）要分两组：
+
+| SLI | 定义示例 |
+| --- | --- |
+| 可用性 | 返回非错误响应的请求比例 |
+| 延迟 | 首个有用内容在 1.5 s 内的比例（见 [Latency](/docs/production/latency)） |
+| 结构有效率 | 输出通过 schema 校验的比例 |
+| 有据回答率 | 回答中的政策结论能对应到检索到的 `P-17 v3` 条款的比例（抽样 + LLM-as-judge） |
+| 正确转人工率 | 应转人工的情况中实际转了的比例 |
+
+### SLO 和错误预算怎么用？
+
+**SLO** 是对 SLI 的目标，例如“30 天内 99.9% 的请求可用”。**错误预算** = 1 - SLO，也就是允许失败的额度：
+
+```
+99.9% × 30 天 → 允许约 43 分钟完全不可用（或等价的失败请求数）
+```
+
+错误预算的用途是**决策**：预算还多 → 可以快速发版、做实验；预算快耗尽 → 冻结高风险发布，优先修稳定性。质量类 SLO（如“有据回答率 ≥ 95%”）同样可以有预算：一次 prompt 改动让它掉到 93%，就触发回滚。
+
+<Note type="warning" title="依赖的可用性会相乘">
+
+串行依赖的可用性相乘：模型 99.9% × 检索 99.9% × 订单 API 99.9% ≈ 99.7%。**你承诺的 SLO 不可能高于串行依赖可用性的乘积**，除非有 fallback。这是需要备用模型和降级路径的数学原因。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. HTTP 200 的错误建议算可靠成功吗？
-2. 未知退款状态该怎样表示？
+1. 举三个“HTTP 200 但失败”的例子。
+2. 为 AI 客服设计至少 4 个 SLI。
+3. 99.9% 的 30 天错误预算约多少分钟？预算快耗尽时团队该做什么？
+4. 三个 99.9% 的串行依赖，整体可用性约多少？
 
 </Note>
 
@@ -82,16 +131,28 @@ API 返回 200、模型给出流畅文字，只说明链路完成；若把“还
 
 <Locale lang="en">
 
-## Level 0 · Define reliability
+## Level 0 · Two reliabilities
 
-### Why are availability and correctness different?
+### Why are "available" and "correct" different?
 
-A 200 response with fluent text can still give wrong refund advice. Track availability, latency, groundedness, business correctness, access boundaries, and committed side effects separately. Outcomes include success, controlled failure, and unknown. Illustrative SLOs might cover clear results and completion latency; quality gates need separate labeled evaluation. An uncertain refund outcome is neither safe success nor proof of non-execution.
+Hard failures (5xx, timeouts, 429) show up in classic monitoring. Soft failures — wrong answers, invented policy, invalid JSON, missed escalation — return 200. Silent drift (provider model updates, stale index, prompt edits) and unknown side effects are also invisible. Define SLIs for both halves: availability, latency, schema validity, grounded-answer rate (sampled, judged), correct-escalation rate.
+
+### How do SLOs and error budgets work?
+
+An SLO targets an SLI; the error budget is 1 − SLO (99.9% over 30 days ≈ 43 minutes). Plenty of budget → ship fast; nearly spent → freeze risky releases. Quality SLOs get budgets too: a prompt change that drops grounded answers from 95% to 93% triggers rollback.
+
+<Note type="warning" title="Serial availability multiplies">
+
+0.999³ ≈ 99.7%. You can't promise more than the product of serial dependencies without fallbacks — the math behind backup models and degradation paths.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Is a wrong HTTP 200 answer a reliable success?
-2. How should uncertain refund state be represented?
+1. Give three "200 but failed" examples.
+2. Design four SLIs for the support bot.
+3. What's a 99.9% monthly budget, and what happens when it's nearly spent?
+4. Availability of three serial 99.9% dependencies?
 
 </Note>
 
@@ -99,18 +160,34 @@ A 200 response with fluent text can still give wrong refund advice. Track availa
 
 <Locale lang="zh">
 
-## Level 1 · 失败分类
+## Level 1 · 故障决策表
 
 ### 遇到超时、429、5xx、无证据和越权时，能一律重试吗？
 
-短暂 5xx 或某些 429 可在剩余 deadline 内有限重试；持续配额不足时重试只会加重压力。授权失败、无可靠政策证据和 schema 校验失败应走各自的拒绝、补证据或修复路径。调用有副作用的退款工具超时后必须查权威状态和幂等键，不能猜。
+不能。每类故障对应不同动作：
 
-把故障做成矩阵：是否瞬态、是否幂等、用户可否等待、替代路径是否保留必要质量。重试只负责瞬态恢复，不负责纠正错误政策或幻觉。各层重试次数要有总预算，防止乘法放大。
+| 故障 | 动作 | 原因 |
+| --- | --- | --- |
+| 模型 429 / 5xx / 过载（偶发） | 带抖动重试（见 [API Engineering](/docs/production/api-engineering)） | 暂时性，很可能自愈 |
+| 模型持续失败 | **熔断 → 切备用模型 / 降级** | 重试只会加重故障 |
+| 检索超时 | 降级：用缓存的高频政策摘要，或告诉用户“政策暂时无法查询” | 不能让模型在无证据时凭记忆回答 |
+| 检索返回无相关证据 | **拒答 + 转人工**，不是重试 | 重试结果一样；编造政策比不答更糟 |
+| 订单 API 超时 | 重试（只读）；仍失败则如实说明 | 不能猜订单状态 |
+| 越权（查别人的订单） | **拒绝**，记录安全事件 | 不是故障，是授权边界 |
+| 退款结果未知 | **停止副作用**，查询状态或标记待核实 | 重试可能重复退款 |
+| 输出 schema 不合法 | 带错误信息让模型修复一次；仍失败则降级 | 修复一次通常就够，无限修复会烧钱 |
+
+<Note type="tip" title="面试加分：决策原则">
+
+一句话总结：“**暂时性的重试，持续性的熔断，缺证据的拒答，越权的拒绝，副作用未知的停下来核实。**”然后举表中一两行展开。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 无证据与 5xx 的恢复路径有何不同？
-2. 为什么多层各重试三次危险？
+1. 检索“超时”和检索“无相关证据”的处理为什么不同？
+2. 为什么越权不是重试或降级的对象？
+3. 输出 JSON 不合法应该怎么处理？修复几次？
 
 </Note>
 
@@ -118,16 +195,23 @@ A 200 response with fluent text can still give wrong refund advice. Track availa
 
 <Locale lang="en">
 
-## Level 1 · Failure taxonomy
+## Level 1 · Failure decision table
 
-### Can you retry timeout, 429, 5xx, no-evidence, and access failures alike?
+### Can you just retry everything?
 
-Some 5xxs and 429s may be retried within the remaining deadline; sustained quota exhaustion will not improve through retries. Authorization failure, missing evidence, and schema failure need different actions. A timed-out side-effecting refund requires authoritative state lookup and idempotency handling. Classify by transience, idempotency, user deadline, and safe alternatives. Retry does not repair hallucination or stale policy.
+No. Occasional model 429/5xx → jittered retry. Persistent model failure → break the circuit, fail over or degrade. Retrieval timeout → degrade to cached policy summaries or say policy is unavailable; never let the model answer from memory. No relevant evidence → refuse and escalate (retrying returns the same nothing). Order API timeout → retry the read; otherwise say so. Unauthorized access → refuse and log a security event. Unknown refund outcome → stop side effects and reconcile. Invalid schema → one repair attempt with the error, then degrade.
+
+<Note type="tip" title="One-line principle">
+
+Retry transient, break persistent, refuse without evidence, deny unauthorized, stop and verify unknown side effects.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. How do missing evidence and 5xx differ?
-2. Why are three retries at multiple layers dangerous?
+1. Why do retrieval timeout and "no evidence" differ?
+2. Why isn't unauthorized access a retry or degrade case?
+3. How many repair attempts for invalid JSON?
 
 </Note>
 
@@ -135,18 +219,80 @@ Some 5xxs and 429s may be retried within the remaining deadline; sustained quota
 
 <Locale lang="zh">
 
-## Level 2 · 熔断与隔离
+## Level 2 · 熔断、隔舱、减载
 
 ### 熔断器何时打开，如何避免雪崩？
 
-熔断器监测一段窗口内的错误/超时，在下游明显不可用时快速拒绝或走降级；等待冷却后以少量探测请求半开，恢复后关闭。阈值需根据流量和误报成本调，不能把“5 次失败就开”当普适规则。与并发限制、队列上限、退避 jitter 一起防止重试风暴。
+**问题**：主模型供应商开始大面积超时。没有熔断时，每个请求都要等满 30 秒超时再失败（加上重试更久）。这期间：用户全部在等；你的连接池、worker、内存被这些“注定失败”的请求占满；健康的功能（比如只查订单状态的简单请求）也排不上队。下游的故障传导成你的故障——**雪崩**。
 
-按依赖隔离：订单 API 失败时不能编造订单状态；检索失败可在允许的功能上只给官方入口；模型失败可返回已核验政策链接。不同故障路径的降级质量不同，要预先评测。避免备用模型与主模型共享同一个故障配额而形成假冗余。
+**熔断器（circuit breaker）**像电路保险丝：发现下游大概率会失败时，**直接快速失败**，不再发请求。三种状态：
+
+```
+             失败率超过阈值
+   ┌────────┐ ───────────────► ┌────────┐
+   │ CLOSED │                   │  OPEN  │  直接失败 / 走 fallback，不调下游
+   │ 正常放行│ ◄─────┐           └────────┘
+   └────────┘       │                │ 冷却时间到（如 30 s）
+                    │                ▼
+                    │           ┌───────────┐
+       探测请求成功 └────────── │ HALF-OPEN │ 只放少量探测请求
+                                └───────────┘
+                                     │ 探测失败
+                                     └──────► 回到 OPEN
+```
+
+典型参数：
+
+| 参数 | 示例 | 说明 |
+| --- | --- | --- |
+| 滑动窗口 | 最近 60 s 或最近 100 个请求 | 失败率在这个窗口里算 |
+| 最小请求数 | 20 | 请求太少时不判定，防止 2 个失败就熔断 |
+| 失败率阈值 | 50% | 超过就打开 |
+| 慢调用阈值 | 超过 20 s 的调用算“慢失败” | LLM 场景很重要：不报错但极慢也该熔断 |
+| 冷却时间 | 30 s | OPEN 持续多久后进入 HALF-OPEN |
+| 探测数 | 3 个 | HALF-OPEN 时放行几个请求试探 |
+
+熔断器打开后，请求走 **fallback**（备用模型或降级，Level 3），而不是直接报错给用户。
+
+**什么算失败**也要定义清楚：429 是否计入？通常计入（说明容量不足），但如果是你自己的客户端限流造成的就不该计入。400 不计入——那是你的请求错了，不是下游不健康。
+
+### 一个慢依赖怎样拖垮整个服务？隔舱是什么？
+
+场景：退款 API 变慢，每次调用卡 25 秒。所有 worker 共用一个连接池 / 线程池，很快被等待退款的请求占满——**只查订单状态的请求也被堵住了**，虽然它们跟退款无关。
+
+**隔舱（bulkhead）**：像船的水密舱，一个舱进水不会淹没整艘船。做法是**给每个依赖（或每个租户）单独的资源池**：
+
+```
+模型调用池：  最多 200 并发
+检索池：      最多 100 并发
+订单 API 池： 最多 50 并发
+退款 API 池： 最多 10 并发   ← 退款慢只会耗尽这 10 个
+```
+
+退款池满了，新的退款请求立即失败或排队，但查订单、问政策的请求不受影响。按租户隔离同理：一个大客户的流量突增，不能吃掉所有客户的配额。
+
+### 什么是减载和背压？
+
+**减载（load shedding）**：系统过载时**主动拒绝一部分请求**，保证剩下的能在 SLO 内完成。拒绝 20% 的请求，比让 100% 的请求都超时要好。优先拒绝什么：
+
+- 低优先级流量（离线评估、批量任务、免费用户）先让路
+- 已经等太久的请求（就算处理完用户也已经走了）
+- 超出租户配额的请求
+
+**背压（backpressure）**：下游告诉上游“慢点”，上游据此降速，而不是无限往队列里塞。队列必须**有界**：无界队列在过载时只会让延迟无限增长、内存耗尽。
+
+<Note type="danger" title="错误说法">
+
+“加个队列就能扛住流量。”——队列只能平滑**短时**突发。如果到达率长期大于处理能力，无界队列只会让每个请求都等到超时，然后全部失败。要配合有界队列、减载和扩容。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 半开状态的探测请求有什么用？
-2. 备用模型为什么可能并不提供真正冗余？
+1. 画出熔断器三个状态和转换条件。为什么需要“最小请求数”？
+2. 为什么 LLM 场景要把“慢调用”也算作失败？
+3. 退款 API 变慢，为什么查订单的请求也会受影响？隔舱怎么解决？
+4. 过载时为什么主动拒绝 20% 比全部接收更好？
 
 </Note>
 
@@ -154,16 +300,32 @@ Some 5xxs and 429s may be retried within the remaining deadline; sustained quota
 
 <Locale lang="en">
 
-## Level 2 · Circuit breakers and isolation
+## Level 2 · Breakers, bulkheads, shedding
 
-### When should a circuit breaker open and how does it prevent cascades?
+### When does a breaker open, and how does it prevent cascades?
 
-A circuit breaker opens when recent failures or timeouts show a dependency is unhealthy, fails fast or uses a safe fallback, then probes cautiously in half-open state. Tune thresholds to traffic rather than memorizing a fixed count. Combine with bounded queues, concurrency, and jitter to avoid retry storms. Isolate order lookup, retrieval, and model failures; a backup sharing the same exhausted quota is not real redundancy.
+Without a breaker, every request waits out a 30 s timeout against a dying provider, exhausting your pools and starving healthy features — the dependency's outage becomes yours. A **circuit breaker** fails fast: **closed** (normal) → **open** when the failure rate in a sliding window exceeds a threshold given a minimum request count → after a cool-down, **half-open** lets a few probes through → success closes it, failure reopens it. For LLMs, count **slow calls** as failures too. Count 429s from the provider, not from your own limiter; never count 400s. While open, route to a fallback rather than erroring.
+
+### How does one slow dependency sink everything? What's a bulkhead?
+
+If the refund API stalls at 25 s and all work shares one pool, order lookups starve too. **Bulkheads** give each dependency (or tenant) its own bounded pool — e.g. refunds max 10 concurrent — so one flooded compartment doesn't sink the ship.
+
+### What are load shedding and backpressure?
+
+Under overload, reject some requests so the rest meet the SLO: shed low-priority traffic, requests that have already waited too long, and over-quota tenants. Backpressure tells upstream to slow down; queues must be bounded.
+
+<Note type="danger" title="Wrong claim">
+
+"A queue absorbs the load." Only short bursts. If arrivals exceed capacity, an unbounded queue just makes every request time out.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. What do half-open probe requests do?
-2. Why can a backup model fail as redundancy?
+1. Draw the breaker states and transitions. Why a minimum request count?
+2. Why treat slow LLM calls as failures?
+3. Why do order lookups suffer when refunds slow down? How do bulkheads fix it?
+4. Why is rejecting 20% better than accepting all?
 
 </Note>
 
@@ -171,18 +333,50 @@ A circuit breaker opens when recent failures or timeouts show a dependency is un
 
 <Locale lang="zh">
 
-## Level 3 · 按风险降级
+## Level 3 · 降级与 fallback
 
 ### 模型不可用时，客服还能安全提供什么？
 
-降级按能证明的事实排序：若订单工具与现行政策都可用，可展示订单状态与带来源的政策链接；若政策检索不可用，只展示订单状态和人工/官方入口；若订单工具不可用，不推断“未发货”，直接说明无法核实状态并转人工。缓存答案仅在租户、版本、权限和业务状态仍有效时使用。
+设计一个**降级阶梯**，每一级都比上一级能力少，但都**安全**：
 
-“换小模型”“只做关键词搜索”不是无条件安全：若小模型漏掉退款例外、关键词搜索命中旧版，降级比失败更糟。为每种降级定义允许的主张、禁止的承诺、触发条件和用户提示。
+| 级别 | 状态 | 能做什么 |
+| --- | --- | --- |
+| L0 正常 | 全部可用 | 完整 agent：查订单、检索政策、重排、生成、可发起退款 |
+| L1 轻度降级 | 重排超时 / 延迟紧张 | 跳过重排，直接用检索 top-k |
+| L2 换模型 | 主模型熔断 | 切到备用供应商或备用模型 |
+| L3 只读模式 | 模型质量不确定 / 退款 API 异常 | 可以回答、查询，**暂停所有副作用**（退款改为“已提交人工审核”） |
+| L4 无模型 | 所有模型不可用 | 模板化回复：展示订单 API 返回的物流状态 + `P-17 v3` 政策原文链接 + “转人工”按钮 |
+| L5 维护 | 核心依赖全挂 | 静态页面 + 人工渠道 |
+
+关键原则：**降级时宁可少说，不能乱说**。L4 没有模型，但订单状态来自权威 API、政策是原文——用户得到的信息全部是真的。反面例子是“模型挂了，就让小模型凭记忆回答退款政策”——这比不回答更危险。
+
+### 备用模型要满足什么条件？
+
+“主模型挂了切到备用模型”听起来简单，实际有很多坑：
+
+1. **评估对等**：备用模型必须在**同一评估集**上测过，知道它的质量差多少。没评估过的备用模型，切换后可能在退款例外条款上大面积答错。
+2. **Prompt 兼容**：不同供应商对 system prompt、工具定义格式、结构化输出的支持不同。同一个 prompt 直接换模型，效果可能差很多。通常需要**每个模型一套适配过的 prompt**。
+3. **能力对等**：主模型支持的功能（长上下文、并行工具调用、思考、某种结构化输出）备用模型是否支持？上下文窗口更小时，要先裁剪。
+4. **合规**：数据驻留、隐私协议——不是所有供应商都能接收你的用户数据。
+5. **配额**：平时备用模型流量很少，切换后瞬间承接 100% 流量，配额够吗？
+6. **定期演练**：平时就把一小部分流量（如 1%）一直走备用路径，确保它没坏。从不使用的 fallback 往往在需要时不能用。
+
+### 什么时候必须转人工？
+
+- 证据不足（检索无相关政策）
+- 高风险操作（大额退款、账户变更）超出 agent 授权
+- 用户明确要求人工，或多轮表达不满
+- agent 连续失败、卡住（同一工具调用重复多次）
+- 降级到只读模式时，所有需要副作用的请求
+
+转人工时要**带上上下文**：对话摘要、已查到的订单状态、已检索的政策、agent 卡在哪一步——不要让人工客服从头问一遍。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 订单工具失败时还能说订单未发货吗？
-2. 缓存答案需要检查哪些有效性条件？
+1. 为客服设计一个至少 4 级的降级阶梯，说明每级能做什么。
+2. “无模型”模式下，为什么用户得到的信息仍然可信？
+3. 备用模型要满足哪五个条件？为什么要平时就分 1% 流量？
+4. 列出四种必须转人工的情况。
 
 </Note>
 
@@ -190,16 +384,26 @@ A circuit breaker opens when recent failures or timeouts show a dependency is un
 
 <Locale lang="en">
 
-## Level 3 · Risk-aware degradation
+## Level 3 · Degradation and fallback
 
-### What can support safely offer when generation is unavailable?
+### What can support still do without the primary model?
 
-If the model fails but live order state and current policy are available, show verified state and source links. If policy retrieval fails, show only what the order system knows plus an escalation path. If order lookup fails, do not infer shipment status. Cached answers require valid tenant, policy version, access, and live state. A smaller model or keyword-only fallback needs its own quality gate.
+A degradation ladder where every rung is less capable but still safe: full agent → skip reranking → backup model → **read-only mode** (answer and look up, pause all side effects; refunds become "submitted for review") → no model: templated reply with order status from the API, the original `P-17 v3` text, and a human handoff button → static page. Degrade by saying less, never by saying things that may be wrong — "let a small model answer refund policy from memory" is worse than no answer.
+
+### What must a backup model satisfy?
+
+Eval parity on the same eval set; per-model prompt adaptation (tool formats and structured output differ); capability parity (context window, parallel tools, thinking); compliance (data residency); quota to absorb 100% of traffic; and continuous exercise — route ~1% of traffic through it so it isn't broken when you need it.
+
+### When must you escalate to a human?
+
+No evidence, high-risk actions beyond the agent's authority, explicit user request or repeated frustration, a stuck agent, and any side-effecting request during read-only mode. Hand off with context: summary, order status, retrieved policy, and where the agent stopped.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Can you claim “not shipped” when the order tool fails?
-2. What validates a cached answer?
+1. Design a four-rung degradation ladder.
+2. Why is the no-model mode still trustworthy?
+3. List the backup-model conditions. Why route 1% through it continuously?
+4. Name four mandatory escalation cases.
 
 </Note>
 
@@ -207,18 +411,53 @@ If the model fails but live order state and current policy are available, show v
 
 <Locale lang="zh">
 
-## Level 4 · 演练与发布
+## Level 4 · 正确性可靠性
 
-### 怎样验证可靠性策略真能工作？
+### 怎样在 HTTP 200 里发现错答？
 
-故障注入覆盖供应商 429/5xx、模型首 token 卡死、流中断、检索索引落后、订单工具超时、退款提交后响应丢失；逐例检查端到端状态、trace、成本、重试次数和用户提示。发布用影子或小流量 canary，监测错误预算、质量负例和 P95；异常可快速回滚 prompt、模型或索引版本。
+在模型输出到达用户（或触发副作用）之前加**校验层**。从便宜到贵：
 
-一次恢复演练不证明长期可靠，持续在评测集与生产信号中监控。事故复盘区分直接故障、放大因素和保护措施是否生效。与 [Agent Reliability](/docs/agent/reliability) 的单个 agent 进度控制衔接，但这里的对象是整套服务。
+| 校验 | 例子 | 成本 |
+| --- | --- | --- |
+| 结构校验 | 输出是否符合 schema；`refund_amount` 是数字 | 几乎为零 |
+| 业务规则 | 退款金额 ≤ 订单金额；订单状态为“已签收”时不能按“未发货”政策处理 | 很低，确定性代码 |
+| 引用校验 | 回答引用的政策条款 ID 是否真的在检索结果里 | 低 |
+| 一致性校验 | 回答中的订单状态是否与订单 API 返回一致 | 低 |
+| 模型评审 | 小模型或 LLM-as-judge 判断回答是否被证据支持 | 中等，可只对高风险回答做 |
+
+**确定性的业务规则校验最值钱**：它不依赖模型，不会被 prompt injection 绕过。“模型提议，代码校验，系统执行”——退款金额最终以代码校验后的为准，而不是模型说多少就是多少。
+
+### 供应商悄悄换了模型怎么办？
+
+模型行为会在你**没有改任何代码**的情况下变化：供应商更新了模型别名背后的版本、调整了安全策略、改了默认参数。防护：
+
+1. **锁定模型版本**：使用带日期的快照 ID（如 `claude-sonnet-4-5-20250929` 这类），而不是会自动指向新版本的别名。升级是主动决策。
+2. **持续评估**：每天用固定评估集跑一遍线上配置，质量下降就告警——即使你什么都没改。
+3. **线上抽样评审**：每天抽样真实对话，用 LLM-as-judge 打分，看趋势（见 [Production Eval](/docs/evaluation/production-eval)）。
+
+### 改 prompt、换模型怎么安全上线？
+
+AI 系统的“发布”不只是代码，**prompt、模型版本、检索索引、工具定义**都是发布物，都要有版本号和回滚能力：
+
+```
+离线评估（评估集）
+   → 影子流量（新版本跑真实请求，但不返回给用户，只比较）
+   → 灰度 1% → 5% → 25% → 100%
+   → 每一步看：错误率、延迟、有据回答率、转人工率、用户反馈
+   → 任一指标超过阈值 → 自动回滚到上一个版本
+```
+
+<Note type="tip" title="面试加分">
+
+“我们把 prompt 当代码管：有版本号、有评估门槛、灰度发布、可一键回滚，trace 里记录每个请求用的 prompt 版本。”——这句话能展示你有真实的生产经验。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 退款提交后响应丢失应该怎样验收？
-2. canary 出问题时哪些版本要可回滚？
+1. 列出从便宜到贵的四种输出校验，哪种最值钱，为什么？
+2. 为什么要用带日期的模型快照 ID？
+3. AI 系统的“发布物”除了代码还有哪些？描述一次 prompt 改动的上线流程。
 
 </Note>
 
@@ -226,16 +465,101 @@ If the model fails but live order state and current policy are available, show v
 
 <Locale lang="en">
 
-## Level 4 · Drills and rollout
+## Level 4 · Correctness reliability
 
-### How do you verify reliability controls actually work?
+### How do you catch wrong answers inside a 200?
 
-Inject provider throttling/errors, stalled first token, broken streams, stale index, order timeout, and lost response after a refund commit. For each, inspect final state, trace, cost, attempts, and user message. Use canaries and rollback across prompt, model, and index versions. A single drill does not establish ongoing reliability; feed incidents into evals and production monitoring.
+Validate before output reaches the user or triggers side effects, cheapest first: schema, business rules (refund ≤ order total; delivered orders can't use the not-shipped policy), citation checks (cited clause IDs actually retrieved), consistency with the order API, then a judge model for high-risk answers. Deterministic rule checks are the most valuable — injection can't talk its way past code. The model proposes, code validates, the system executes.
+
+### What if the provider silently changes the model?
+
+Pin dated snapshot IDs rather than floating aliases, run the fixed eval set daily against production config, and sample live traffic for judged scoring (see [Production Eval](/docs/evaluation/production-eval)).
+
+### How do you ship prompt or model changes safely?
+
+Prompts, model versions, indexes, and tool definitions are all release artifacts with versions and rollback. Offline eval → shadow traffic → canary 1% → 5% → 25% → 100%, gated on errors, latency, grounded-answer rate, escalation rate, and feedback, with automatic rollback.
+
+<Note type="tip" title="Interview signal">
+
+"We manage prompts like code: versioned, eval-gated, canaried, one-click rollback, and every trace records the prompt version."
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. How do you test a lost response after refund commit?
-2. Which versions need rollback during a bad canary?
+1. List four validations by cost; which is most valuable and why?
+2. Why pin dated snapshot IDs?
+3. What counts as a release artifact? Walk through a prompt rollout.
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 5 · 证明它有效
+
+### 怎样验证可靠性策略真能工作？
+
+写在设计文档里的熔断器和 fallback，在真正故障时经常不工作：阈值设错了、fallback 的配额早就过期、降级模板引用了已删除的字段。唯一的办法是**主动制造故障**。
+
+**故障注入矩阵**（在预发环境或带开关的生产环境）：
+
+| 注入 | 预期行为 | 验证指标 |
+| --- | --- | --- |
+| 主模型 100% 返回 503 | 熔断器在 N 秒内打开，流量切到备用模型 | 切换时间、切换期间错误率 |
+| 主模型延迟 +20 s | 慢调用计入失败，触发熔断 | P95 是否回到 SLO 内 |
+| 供应商持续 429 | 客户端限流生效，低优先级流量被减载 | 高优先级请求成功率 |
+| 检索返回空 | 拒答 + 转人工，不编造政策 | 编造率（应为 0） |
+| 退款 API 超时 | 不重复退款，标记待核实 | 重复退款数（应为 0） |
+| 工具返回中含注入文本 | 不执行注入指令 | 越权动作数（应为 0） |
+| 备用模型也不可用 | 进入无模型模板模式 | 模板正确展示订单状态 |
+
+再往上是**演练（game day）**：团队约定时间，在生产环境（或高仿真环境）按剧本制造故障，检验监控是否告警、值班是否按运行手册（runbook）处理、恢复要多久。
+
+### 出事之后怎么做？
+
+**复盘（postmortem）**：不追责（blameless），写清时间线、影响范围、根因、为什么监控没早点发现、改进项。关键是把这次故障变成**新的故障注入用例和评估用例**，保证同一个问题不会再次悄悄发生。衡量指标常用 MTTD（平均发现时间）和 MTTR（平均恢复时间）。
+
+<Note type="tip" title="面试 2 分钟答法骨架">
+
+“我把可靠性分成可用和正确两半。可用：错误分类处理，暂时性重试、持续性熔断，隔舱隔离依赖，过载时减载，设计降级阶梯直到无模型的模板模式。正确：确定性业务规则校验、模型版本锁定、prompt 灰度和自动回滚。最后用故障注入矩阵和演练证明这些策略在真故障时能工作。”
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么必须主动注入故障，而不是相信设计文档？
+2. 设计 5 个故障注入用例，各写出预期行为和验证指标。
+3. 复盘之后最重要的产出是什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 5 · Proving it works
+
+### How do you validate reliability strategies?
+
+Breakers and fallbacks on paper often fail in real incidents — wrong thresholds, expired backup quota, templates referencing removed fields. Inject faults: primary 503s (breaker opens, failover time), +20 s latency (slow calls trip the breaker), sustained 429 (shedding protects high priority), empty retrieval (refuse, zero fabrication), refund timeout (zero duplicates), injected tool text (zero unauthorized actions), backup also down (template mode). Then run game days against runbooks.
+
+### After an incident?
+
+Blameless postmortems with timeline, impact, root cause, detection gaps, and actions — and turn every incident into a new fault-injection case and eval case. Track MTTD and MTTR.
+
+<Note type="tip" title="Two-minute skeleton">
+
+Two halves. Available: classify errors, retry transient, break persistent, bulkhead dependencies, shed load, degradation ladder down to a no-model template. Correct: deterministic rule checks, version pinning, canaried prompts with auto-rollback. Proven by fault injection and game days.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why inject faults instead of trusting the design?
+2. Design five fault cases with expected behavior and metrics.
+3. What's the most important output of a postmortem?
 
 </Note>
 
@@ -245,57 +569,125 @@ Inject provider throttling/errors, stalled first token, broken streams, stale in
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-不要把配置存在、HTTP 成功、示意数字或单次测试通过，当作生产质量与容量的证据。回答时先说明测量边界和分母，再说明取舍与验证方法。
+- “可用率 99.9% 说明系统可靠。”（没算软故障）
+- “主模型挂了就切到便宜的小模型凭记忆回答。”（降级时乱说比不说更危险）
+- “加个队列就能扛住。”
+- “fallback 写好了就行。”（从没用过的 fallback 通常坏了）
+
+</Note>
+
+<Note type="warning" title="容易被追问">
+
+- 熔断器的“失败”怎么定义？429、慢调用、400 是否计入？
+- 备用模型的 prompt 和评估是否单独做过？
+- 只读模式下副作用请求怎么处理？
+- 模型别名 vs 快照 ID。
 
 </Note>
 
 ## 连接
 
-从 [Production AI 总览](/docs/production) 进入；将本页指标带到 [AI System Design](/docs/system-design) 的具体白板题，并用 [Evaluation](/docs/evaluation) 验证质量。
+```
+API Engineering（重试预算耗尽）──► Reliability ──► 熔断 / 隔舱 / 减载
+                                       │
+                                       ├──► 降级阶梯 ──► Model Routing（fallback）
+                                       ├──► 正确性 ──► Production Eval（线上评估）
+                                       └──► 验证 ──► Observability（告警、trace）
+```
+
+- 同栏：[API Engineering](/docs/production/api-engineering)、[Scaling](/docs/production/scaling)、[Observability](/docs/production/observability)
+- 相关：[Model Routing](/docs/application/model-routing)、[Production Eval](/docs/evaluation/production-eval)、[Agent Security](/docs/agent/security)
 
 ## 面试问题
 
-1. AI 服务“可用”与“答对”为什么是两回事？（Why are availability and correctness different?）
-2. 遇到超时、429、5xx、无证据和越权时，能一律重试吗？（Can you retry timeout, 429, 5xx, no-evidence, and access failures alike?）
-3. 熔断器何时打开，如何避免雪崩？（When should a circuit breaker open and how does it prevent cascades?）
-4. 模型不可用时，客服还能安全提供什么？（What can support safely offer when generation is unavailable?）
-5. 怎样验证可靠性策略真能工作？（How do you verify reliability controls actually work?）
+**Level 0–1**
+
+1. AI 服务“可用”与“答对”为什么是两回事？各用什么指标？（Why are "available" and "correct" different for AI services?）
+2. 错误预算是什么？怎么用来做决策？（What is an error budget, and how does it drive decisions?）
+3. 超时、429、无证据、越权、副作用未知分别怎么处理？（How do you handle timeout, 429, no evidence, unauthorized, and unknown side effects?）
+
+**Level 2–3**
+
+4. 熔断器的三种状态和转换条件是什么？（Describe circuit breaker states and transitions.）
+5. 什么是隔舱？它防止什么问题？（What is a bulkhead and what does it prevent?）
+6. 过载时为什么要主动减载？（Why shed load under overload?）
+7. 模型不可用时客服还能安全提供什么？（What can a support bot still safely do without its model?）
+8. 切换备用模型要注意什么？（What must you verify before failing over to a backup model?）
+
+**Level 4–5**
+
+9. 怎样发现 HTTP 200 里的错答？（How do you catch wrong answers in successful responses?）
+10. 怎样安全地上线 prompt 改动？（How do you safely roll out a prompt change?）
+11. 怎样证明你的可靠性策略在真故障时有效？（How do you prove reliability strategies work in a real outage?）
 
 ## 资料来源
 
-- [官方文档](https://sre.google/sre-book/addressing-cascading-failures/)
-- [官方文档](https://docs.aws.amazon.com/wellarchitected/2024-06-27/framework/rel_mitigate_interaction_failure_client_timeouts.html)
+- [Google SRE Book：Service Level Objectives](https://sre.google/sre-book/service-level-objectives/)、[Addressing Cascading Failures](https://sre.google/sre-book/addressing-cascading-failures/)
+- [Martin Fowler：CircuitBreaker](https://martinfowler.com/bliki/CircuitBreaker.html)
+- [AWS Builders' Library：Using load shedding to avoid overload](https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/)
+- [Anthropic：Models overview（快照 ID 与别名）](https://docs.claude.com/en/docs/about-claude/models/overview)
+- [Principles of Chaos Engineering](https://principlesofchaos.org/)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Configuration, an HTTP success, teaching numbers, or one passing test do not prove production quality or capacity. State the measurement boundary and denominator before the tradeoff and validation.
+- "99.9% availability means it's reliable." (Ignores soft failures.)
+- "Fail over to a cheap model answering from memory."
+- "A queue will absorb it."
+- "The fallback is written, so we're covered." (Unexercised fallbacks rot.)
+
+</Note>
+
+<Note type="warning" title="Likely follow-ups">
+
+- What counts as a breaker failure — 429, slow calls, 400?
+- Was the backup's prompt adapted and evaluated?
+- How do side-effect requests behave in read-only mode?
+- Aliases vs snapshot IDs.
 
 </Note>
 
 ## Connections
 
-Use [Production AI overview](/docs/production), apply the metrics to [AI System Design](/docs/system-design), and validate quality through [Evaluation](/docs/evaluation).
+- Same section: [API Engineering](/docs/production/api-engineering), [Scaling](/docs/production/scaling), [Observability](/docs/production/observability)
+- Related: [Model Routing](/docs/application/model-routing), [Production Eval](/docs/evaluation/production-eval), [Agent Security](/docs/agent/security)
 
 ## Interview questions
 
-1. Why are availability and correctness different?
-2. Can you retry timeout, 429, 5xx, no-evidence, and access failures alike?
-3. When should a circuit breaker open and how does it prevent cascades?
-4. What can support safely offer when generation is unavailable?
-5. How do you verify reliability controls actually work?
+**Levels 0–1**
+
+1. Why are "available" and "correct" different for AI services?
+2. What is an error budget, and how does it drive decisions?
+3. How do you handle timeout, 429, no evidence, unauthorized, and unknown side effects?
+
+**Levels 2–3**
+
+4. Describe circuit breaker states and transitions.
+5. What is a bulkhead and what does it prevent?
+6. Why shed load under overload?
+7. What can a support bot still safely do without its model?
+8. What must you verify before failing over to a backup model?
+
+**Levels 4–5**
+
+9. How do you catch wrong answers in successful responses?
+10. How do you safely roll out a prompt change?
+11. How do you prove reliability strategies work in a real outage?
 
 ## Sources
 
-- [Official documentation](https://sre.google/sre-book/addressing-cascading-failures/)
-- [Official documentation](https://docs.aws.amazon.com/wellarchitected/2024-06-27/framework/rel_mitigate_interaction_failure_client_timeouts.html)
+- [Google SRE Book: Service Level Objectives](https://sre.google/sre-book/service-level-objectives/), [Addressing Cascading Failures](https://sre.google/sre-book/addressing-cascading-failures/)
+- [Martin Fowler: CircuitBreaker](https://martinfowler.com/bliki/CircuitBreaker.html)
+- [AWS Builders' Library: Using load shedding to avoid overload](https://aws.amazon.com/builders-library/using-load-shedding-to-avoid-overload/)
+- [Anthropic: Models overview](https://docs.claude.com/en/docs/about-claude/models/overview)
+- [Principles of Chaos Engineering](https://principlesofchaos.org/)
 
 </Locale>
 

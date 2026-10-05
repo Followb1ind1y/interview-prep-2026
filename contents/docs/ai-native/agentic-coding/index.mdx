@@ -1,10 +1,10 @@
 ---
 title: Agentic Coding
 titleEn: Agentic Coding
-description: 用复现、测试、差异审查和环境反馈闭环验证 agent 代码。
-descriptionEn: Verify agent-authored code through reproduction, tests, diff review, and environment feedback.
-date: 2026-09-24
-keywords: ['agentic coding', 'feedback loop', 'verification', 'tests']
+description: coding agent 怎样用外部反馈证明修复：复现优先的循环、没有测试时的验证手段、reward hacking 的识别与防御，以及 SWE-bench 系列基准与 pass@k / pass^k 的评估方法。
+descriptionEn: "How coding agents prove a fix with external feedback: the reproduce-first loop, verification without tests, detecting reward hacking, and evaluating with the SWE-bench family and pass@k / pass^k."
+date: 2026-10-04
+keywords: ['agentic coding', 'swe-bench', 'swe-bench verified', 'swe-bench pro', 'terminal-bench', 'pass@k', 'pass^k', 'reward hacking', 'test-driven', 'reproduction', 'verification']
 tier: A
 status: todo
 cursor: ''
@@ -13,45 +13,63 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-贯穿本页的教学任务：用 coding agent 修复“猫粮客服把订单还没到误判为未发货”的问题。真实订单状态应来自订单 API，现行政策来自 `P-17 v3`；代码改动是否有效须靠运行与测试证据。以下文件名、状态和结果是示意，不是对你的实际项目的断言。
+[Agent Harness](/docs/ai-native/harness) 讲的是 coding agent 的**机器**；这一页讲它的**方法**：一个可靠的 coding agent 怎样一步步证明自己真的修好了，以及我们怎样评估一个 coding agent 好不好。
+
+面试里这部分的问法通常是：“你用 coding agent 时，怎么确认它的改动是对的？”“agent 为了让测试通过去改测试，你怎么防？”“SWE-bench 分数高说明什么、不说明什么？”这三个问题对应本页 Level 1–2、Level 3、Level 4。
+
+贯穿例子：修复“喵喵粮仓”客服把“订单还没到”误判为“未发货”的 bug。订单真实状态是 `in_transit`，但意图分类代码把“没到”这个关键词直接映射成了 `not_shipped`，导致检索到错误的退款政策。
 
 ## 这一页怎么学
 
-| Level | 要回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 先定义完成 | 模型说“修好了”和任务完成差在哪里？ | 15–25 min |
-| 1 · 反馈闭环 | 读、写、跑、观察、修应怎样循环？ | 15–25 min |
-| 2 · 测试层级与空白 | 没有现成测试时如何验证？ | 15–25 min |
-| 3 · 评估 agent | 如何评估整个 coding agent 而不只看一次补丁？ | 15–25 min |
+| 0 · 完成的定义 | 模型说“修好了”和任务完成差在哪里？ | 15 min |
+| 1 · 复现优先的循环 | 探索、复现、修改、验证、审查怎样循环？ | 30 min |
+| 2 · 没有测试时 | 没有现成测试，怎么验证？ | 25 min |
+| 3 · Reward hacking | agent 怎样“作弊”让测试通过？怎么发现和防？ | 30 min |
+| 4 · 评估 coding agent | SWE-bench 系列测什么？pass@k 和 pass^k 有什么区别？ | 40 min |
+
+**Level 3 和 Level 4 是重点**，它们最能体现你对 coding agent 的理解深度。全页约 2.5 小时。
 
 ## 需要掌握
 
-- 模型说“修好了”和任务完成差在哪里？
-- 读、写、跑、观察、修应怎样循环？
-- 没有现成测试时如何验证？
-- 如何评估整个 coding agent 而不只看一次补丁？
+- 证据层级：自述 < diff < 复现测试由红变绿 < 全量检查 < 原始场景验证
+- 复现优先：先写出能失败的测试，再修；修完先跑定向测试，再跑全量
+- 无测试时：特征测试、复现脚本、运行应用、类型检查、日志对比
+- reward hacking 的典型形式：改测试、跳过测试、针对测试输入写特例、吞异常；防御手段
+- SWE-bench / Verified / Pro、Terminal-Bench 的设计与局限：污染、饱和、只测 Python、测试不全
+- pass@k vs pass^k；成本、轮数、返工率等生产指标
 
 </Locale>
 
 <Locale lang="en">
 
-Our running teaching task is a coding-agent fix for a support bug that treats “not arrived” as “not shipped.” Order state comes from the order API; current policy comes from `P-17 v3`; tests and runtime evidence determine whether a code change works. File names and sample results are illustrative, not claims about your project.
+[Agent Harness](/docs/ai-native/harness) covers the machine; this page covers the method: how a reliable coding agent proves it fixed something, and how we evaluate coding agents.
 
-## How to study this page
+Typical questions: "How do you confirm an agent's change is correct?" "How do you stop an agent from editing tests to make them pass?" "What does a high SWE-bench score mean — and not mean?" These map to Levels 1–2, 3, and 4.
 
-| Level | Question | Time |
+Running bug: the order is truly `in_transit`, but intent code maps "hasn't arrived" to `not_shipped`, retrieving the wrong refund policy.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · Define done | What separates “I fixed it” from task completion? | 15–25 min |
-| 1 · The feedback loop | How should read, write, run, observe, and fix repeat? | 15–25 min |
-| 2 · Test layers and gaps | How do you verify in a repository with no existing tests? | 15–25 min |
-| 3 · Evaluating the agent | How do you evaluate the coding agent, not just one patch? | 15–25 min |
+| 0 · Definition of done | How does "fixed" differ from done? | 15 min |
+| 1 · Reproduce-first loop | How do explore, reproduce, edit, verify, and review cycle? | 30 min |
+| 2 · Without tests | How do you verify when no tests exist? | 25 min |
+| 3 · Reward hacking | How do agents game tests, and how do you catch it? | 30 min |
+| 4 · Evaluating agents | What does the SWE-bench family measure? pass@k vs pass^k? | 40 min |
+
+**Levels 3 and 4 are the core.** About 2.5 hours.
 
 ## Must know
 
-- What separates “I fixed it” from task completion?
-- How should read, write, run, observe, and fix repeat?
-- How do you verify in a repository with no existing tests?
-- How do you evaluate the coding agent, not just one patch?
+- evidence ladder: self-report < diff < reproducing test red→green < full checks < original scenario
+- reproduce first; targeted tests, then the full suite
+- without tests: characterization tests, repro scripts, running the app, type checks, log comparison
+- reward hacking forms and defenses
+- SWE-bench / Verified / Pro and Terminal-Bench designs and limits
+- pass@k vs pass^k; cost, turns, rework
 
 </Locale>
 
@@ -59,18 +77,33 @@ Our running teaching task is a coding-agent fix for a support bug that treats �
 
 <Locale lang="zh">
 
-## Level 0 · 先定义完成
+## Level 0 · 完成的定义
 
 ### 模型说“修好了”和任务完成差在哪里？
 
-完成定义来自需求与可观察行为。教学任务有两个关键用例：订单状态 `IN_TRANSIT`、用户说“没到”时不能进入未发货退款；状态 `NOT_SHIPPED` 且符合现行政策时仍可走原路径。再加授权、无证据等边界。模型答复像样、代码能编译，都不是这两个行为的充分证据。
+模型的“修好了”是一段**生成的文本**，它可能基于：真的跑过测试；改完代码“觉得”应该对了；甚至测试失败但它误读了输出。证据从弱到强：
 
-先复现原错并保存输入、状态、输出与版本；若无法复现，先调查条件，不要为了“做出 diff”随意改代码。验收要写成别人也能运行的检查。
+| 证据 | 能证明什么 | 不能证明什么 |
+| --- | --- | --- |
+| 模型说“已修复” | 模型认为修好了 | 任何事实 |
+| 有一个 diff | 代码被改了 | 改得对不对、有没有改坏别的 |
+| 新复现测试**先失败、后通过** | 这个具体 bug 的这条路径被修好了 | 其他路径、其他功能 |
+| 全量测试、lint、类型检查通过 | 没有破坏已有的被测行为 | 未被测试覆盖的行为 |
+| 在真实环境复现原始场景，行为正确 | 用户报告的问题确实消失了 | — |
+
+一个可靠的 coding agent（以及使用它的工程师）应该在报告中说清**达到了哪一级证据**：“复现测试由红变绿，全量 312 个测试通过；未在预发环境验证。”
+
+<Note type="danger" title="错误说法">
+
+“测试都通过了，所以修好了。”——如果原有测试根本没覆盖这个 bug（我们的例子正是如此：现有测试全绿，但 bug 存在），“测试全通过”什么也没证明。必须有一个**先失败**的测试。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 原 bug 的最小复现包含哪些字段？
-2. 编译通过为何不是验收？
+1. 把五级证据从弱到强排序。
+2. 为什么复现测试必须“先失败”？
+3. 一个好的完成报告应该包含什么？
 
 </Note>
 
@@ -78,16 +111,23 @@ Our running teaching task is a coding-agent fix for a support bug that treats �
 
 <Locale lang="en">
 
-## Level 0 · Define done
+## Level 0 · Definition of done
 
-### What separates “I fixed it” from task completion?
+### How does "fixed" differ from done?
 
-Done comes from observable behavior. With `IN_TRANSIT` plus “not arrived,” the unshipped-refund path must not run; with `NOT_SHIPPED`, valid behavior should remain. Compilation or a plausible explanation is not enough. Reproduce the original failure with input, state, output, and version before editing, or state clearly why it could not be reproduced.
+"Fixed" is generated text. Evidence, weakest to strongest: self-report; a diff (code changed); a reproducing test that **failed first and now passes** (this path is fixed); full tests, lint, and types pass (no regressions in tested behavior); the original scenario works in a real environment. Reports should state which level was reached.
+
+<Note type="danger" title="Wrong claim">
+
+"All tests pass, so it's fixed." If no test covered the bug — exactly our case — that proves nothing. You need a test that failed first.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. What belongs in a minimal reproduction?
-2. Why is compilation not acceptance?
+1. Rank the five evidence levels.
+2. Why must the reproducing test fail first?
+3. What belongs in a completion report?
 
 </Note>
 
@@ -95,18 +135,48 @@ Done comes from observable behavior. With `IN_TRANSIT` plus “not arrived,” t
 
 <Locale lang="zh">
 
-## Level 1 · 反馈闭环
+## Level 1 · 复现优先的循环
 
 ### 读、写、跑、观察、修应怎样循环？
 
-先用搜索定位分支与调用者；写一个会在旧实现失败的测试；做最小修复；跑定向测试，再运行相关集成/静态检查；看 diff 和实际 API 轨迹。如果失败，区分“代码逻辑错误”“测试环境坏了”“断言写错”，再选择下一步，而不是机械重试同一命令。
+```
+探索 ──► 复现 ──► 计划 ──► 修改 ──► 定向验证 ──► 全量验证 ──► 自查 diff ──► 报告
+  ▲                         │            │             │
+  └──────── 假设错了 ◄────────┴──── 失败 ◄─┴──── 失败 ◄────┘
+```
 
-每次循环都要有新信息。连续三次同一报错而不改变假设，应停下来调查依赖、环境或错误源。测试结果是外部反馈，但也可能是虚假的安全感：测试只覆盖了写过的情形。
+在例子上走一遍：
+
+1. **探索**：`grep -rn "not_shipped"`、读 `support/intent.py` 和它的调用方。目标是建立假设：“关键词‘没到’被映射成 `not_shipped`，但没有参考订单 API 的状态。”**不要一上来就改**。
+2. **复现**：写一个测试：输入“我的订单还没到”、订单状态 `in_transit`，期望意图是 `delivery_delayed`。运行——**失败**，输出 `not_shipped`。现在 bug 被“抓住”了。
+3. **计划**：最小的修复是什么？意图判断应该结合订单状态：状态为 `in_transit` 时，“没到”对应 `delivery_delayed`。改动范围：`intent.py` 一个函数。
+4. **修改**：只改必要的地方。不顺手重构、不改格式、不动无关文件。
+5. **定向验证**：跑新测试——通过。跑 `test_intent.py` 全部——通过。
+6. **全量验证**：跑整个测试套件、lint、类型检查。发现 `test_routing.py` 有一个测试失败了——原来另一个模块依赖旧行为。回到第 3 步重新评估：这个依赖是合理的还是也该改？
+7. **自查 diff**：完整读一遍 `git diff`。有没有调试用的 `print` 留下？有没有意外修改？测试文件的改动是否只是**新增**？
+8. **报告**：改了什么、为什么、证据级别、未验证的部分、需要人决定的点。
+
+### 为什么不直接让 agent“修好它”？
+
+跳过复现直接改，会出现三种常见失败：
+
+- **修错了地方**：agent 根据猜测改了一个看起来相关的函数，测试仍然全绿（因为本来就没覆盖），agent 报告“已修复”。
+- **修了症状**：在调用处加个特判 `if "没到" in text and status == "in_transit"`，而不是修根因。
+- **无法确认**：没有失败测试，就没有“修好了”的客观标准。
+
+复现测试同时是**修复的验收标准**和**防止回归的保险**。
+
+<Note type="tip" title="把方法写进项目记忆文件">
+
+在 CLAUDE.md / AGENTS.md 里写上“修 bug 时先写能复现的失败测试，再修改代码；完成前运行 `uv run pytest` 和 `uv run mypy`”，agent 每次都会遵循。这比每次在任务里提醒更可靠，再配合 Stop hook 检查（见 [Agent Harness](/docs/ai-native/harness) Level 4）就更稳了。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 回归测试先红再绿说明什么？
-2. 同一错误重复三次时应怎么做？
+1. 画出复现优先循环的 8 个步骤。
+2. 全量测试发现另一个测试失败时，应该怎么处理？
+3. 跳过复现直接修，会出现哪三种失败？
 
 </Note>
 
@@ -114,16 +184,27 @@ Done comes from observable behavior. With `IN_TRANSIT` plus “not arrived,” t
 
 <Locale lang="en">
 
-## Level 1 · The feedback loop
+## Level 1 · Reproduce-first loop
 
-### How should read, write, run, observe, and fix repeat?
+### How should read–write–run–observe–fix cycle?
 
-Search the branch and callers, write a regression that fails before the fix, make the smallest patch, run focused tests then relevant integration and static checks, and inspect the diff and actual API trace. On failure, distinguish code defect, broken environment, and bad assertion. Each iteration should produce new evidence rather than repeating an unchanged command.
+Explore → reproduce → plan → edit → targeted verification → full verification → self-review the diff → report, looping back when a hypothesis fails. On our bug: grep and read to form a hypothesis without editing; write a test (input "hasn't arrived," status `in_transit`, expect `delivery_delayed`) and watch it **fail**; plan the minimal change; edit only what's needed; run the new test and its file; run the full suite, lint, and types — a routing test fails because another module relied on the old behavior, so revisit the plan; read the whole diff for leftovers and confirm test changes are additions; report evidence level and open questions.
+
+### Why not just "fix it"?
+
+Skipping reproduction leads to fixing the wrong place (tests were green anyway), patching the symptom with a special case, or having no objective definition of fixed. The reproducing test is both acceptance criterion and regression guard.
+
+<Note type="tip" title="Put the method in the memory file">
+
+"Write a failing reproduction test before changing code; run tests and type checks before finishing" in `CLAUDE.md`/`AGENTS.md`, backed by a stop hook, beats reminding the agent per task.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. What does red-then-green demonstrate?
-2. What should you do after three identical failures?
+1. Draw the eight steps.
+2. What do you do when the full suite reveals another failure?
+3. Three failure modes of skipping reproduction?
 
 </Note>
 
@@ -131,18 +212,36 @@ Search the branch and callers, write a regression that fails before the fix, mak
 
 <Locale lang="zh">
 
-## Level 2 · 测试层级与空白
+## Level 2 · 没有测试时
 
 ### 没有现成测试时如何验证？
 
-先找可执行的最小证据：类型/语法检查、目标函数的独立输入输出、API 请求复现、浏览器可见结果。能新增有意义的回归测试就新增；若依赖真实外部系统，可用受控假件测逻辑，再在获准的测试环境验证集成。假件测试不能证明生产 API 的授权或最新状态。
+真实项目里经常没有测试，或者测试基础设施很难搭。按投入从小到大：
 
-避免写“实现的镜像测试”：若代码硬编码 `status == NOT_SHIPPED`，测试也只断言这个字符串，无法发现“没到”被误判的根因。用真实失败案例和相邻反例做断言。输出还需要检查订单系统状态与用户答复的对应关系。
+| 手段 | 做法 | 适合 |
+| --- | --- | --- |
+| 复现脚本 | 写一个最小脚本调用出问题的函数，打印结果 | 纯逻辑 bug |
+| 特征测试（characterization test） | 修改前先给**现有行为**写测试，“冻结”当前输出；修改后只有预期的那一项变化 | 改老代码、重构 |
+| 类型检查 / 静态分析 | `mypy`、`tsc`、linter | 接口改动、重命名 |
+| 运行应用 | 启动服务，用 `curl` 调接口；前端用浏览器自动化截图 | 集成问题、UI |
+| 日志与 trace 对比 | 修改前后跑同一组输入，对比关键日志 | 难以断言的复杂行为 |
+| 人工验证步骤 | 写清楚“如何手动验证”，交给人执行 | 涉及外部系统、无法自动化 |
+
+**特征测试**值得单独强调：修改一段没有测试的老代码前，先写测试记录它**现在**的行为（哪怕行为是错的），然后修改。这样能确保除了你要改的那一点，其他行为都没变。
+
+### 什么时候不该让 agent 自己验证？
+
+- 验证需要生产凭证或会产生真实副作用（真的发起一笔退款）
+- 验证需要访问真实用户数据
+- 结果需要人的判断（UI 是否好看、文案是否合适）
+
+这些情况下，agent 应该**说明它做了哪些验证、没做哪些、人应该怎么验证**，而不是含糊地说“已完成”。
 
 <Note title="自测：到这里你应该能回答">
 
-1. mock 测试不能证明什么？
-2. 为什么相邻反例重要？
+1. 列出四种没有现成测试时的验证手段。
+2. 什么是特征测试？什么时候用？
+3. 哪些验证不应该交给 agent 自己做？
 
 </Note>
 
@@ -150,16 +249,21 @@ Search the branch and callers, write a regression that fails before the fix, mak
 
 <Locale lang="en">
 
-## Level 2 · Test layers and gaps
+## Level 2 · Without tests
 
-### How do you verify in a repository with no existing tests?
+### How do you verify without tests?
 
-Without existing tests, use the smallest executable evidence: type checks, isolated function cases, API reproduction, and visible UI checks. Add a meaningful regression if possible. Mocks can test branching, but cannot prove production authorization or current order state. Test the real failure and neighboring counterexample rather than mirroring a hard-coded implementation detail.
+In rising effort: a minimal repro script; **characterization tests** that freeze current behavior before you change legacy code so only the intended output changes; type checks and static analysis; running the app (curl, browser automation, screenshots); comparing logs or traces on the same inputs before and after; and documented manual steps for a human.
+
+### When shouldn't the agent verify itself?
+
+When verification needs production credentials or real side effects, touches real user data, or requires human judgment. The agent should state what it verified, what it didn't, and how a human should check.
 
 <Note title="Self-check: you should be able to answer">
 
-1. What can a mock not prove?
-2. Why test neighboring counterexamples?
+1. Four verification methods without tests?
+2. What's a characterization test and when do you use one?
+3. Which checks shouldn't be delegated to the agent?
 
 </Note>
 
@@ -167,18 +271,47 @@ Without existing tests, use the smallest executable evidence: type checks, isola
 
 <Locale lang="zh">
 
-## Level 3 · 评估 agent
+## Level 3 · Reward hacking
 
-### 如何评估整个 coding agent 而不只看一次补丁？
+### agent 怎样“作弊”让测试通过？
 
-用隔离任务集保存原始仓库 commit、用户目标、隐藏验收、时间/工具预算；按同一环境多次运行，量化最终行为通过率、无关改动、越权动作、步数、耗时和人工审查负担。代码风格评分不能替代行为测试，单条幸运成功也不能代表稳定性。
+当目标是“让测试通过”时，模型可能找到满足**字面目标**、但违背**真实意图**的捷径。这叫 **reward hacking**（或 specification gaming）。这不是理论担忧：主流模型的系统卡（system card）里都报告过 coding 场景下的此类行为，例如为了通过测试而对测试用例做特殊处理，模型厂商也把降低这类行为作为训练目标之一。
 
-对失败分类：没找到正确文件、改错条件、测试没跑、测试被错误解释、修复后引入回归。把每类失败回到 harness、上下文、工具反馈或验收设计。连接 [Agent Evaluation](/docs/evaluation/agent-eval)，但 coding 任务还要保留可执行测试和 diff 证据。
+常见形式：
+
+| 形式 | 例子 |
+| --- | --- |
+| 修改测试 | 把 `assert intent == "delivery_delayed"` 改成 `assert intent in ("delivery_delayed", "not_shipped")` |
+| 跳过 / 删除测试 | 加 `@pytest.mark.skip`；删掉失败的测试 |
+| 针对测试输入写特例 | `if text == "我的订单还没到": return "delivery_delayed"` |
+| 吞掉异常 | `try: … except Exception: pass`，让崩溃“消失” |
+| 写死期望值 | 函数直接返回测试期望的常量 |
+| 改测试配置 | 修改 `pytest.ini` 排除失败的目录 |
+| 声称运行过 | 报告“测试已通过”，实际没跑或输出是失败 |
+
+### 怎么发现和防？
+
+| 防御 | 做法 |
+| --- | --- |
+| 明确指令 | 在任务和记忆文件里写明：“不得修改或删除已有测试；若认为测试本身有误，停下来说明理由” |
+| 保护测试文件 | 用 PreToolUse hook 拦截对 `tests/` 中已有文件的修改（允许新增文件） |
+| 隐藏测试 | 评估时用 agent 看不到的测试验收（SWE-bench 正是这么设计的） |
+| 审查 diff 分类 | 把测试文件改动和源码改动分开审查；测试改动只应是**新增断言** |
+| 静态检查 | 检测新增的 `skip`、`except: pass`、对测试字符串的硬编码 |
+| 独立重跑 | 不相信 agent 报告的输出，由 CI 独立运行测试 |
+| 变异测试 | 故意改坏代码，看测试能否发现——检验测试本身是否有效 |
+
+<Note type="tip" title="面试加分">
+
+被问“怎么确认 agent 的改动是对的”，在讲完测试之后补一句：“我还会专门检查 agent 有没有为了通过测试而改测试或写特例——这是有记录的真实行为，所以我们用 hook 保护已有测试，并在 CI 里独立重跑。”这显示你真的大量用过 coding agent。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 为什么一次成功不够评价 agent？
-2. 代码风格分数能替代行为测试吗？
+1. 列出五种 reward hacking 的形式。
+2. 设计三种防御手段，其中至少一种不依赖模型的自觉。
+3. 为什么 CI 要独立重跑，而不是信任 agent 报告的测试输出？
 
 </Note>
 
@@ -186,16 +319,141 @@ Without existing tests, use the smallest executable evidence: type checks, isola
 
 <Locale lang="en">
 
-## Level 3 · Evaluating the agent
+## Level 3 · Reward hacking
 
-### How do you evaluate the coding agent, not just one patch?
+### How do agents game tests?
 
-Build isolated tasks with base commits, user goals, hidden acceptance, and fixed tool/time budgets. Run repeatedly and measure behavioral pass rate, unrelated edits, policy violations, steps, latency, and review effort. Classify failures by discovery, patch, execution, interpretation, and regression, then map them back to the harness and verification design.
+When the goal is "make tests pass," models can satisfy the letter rather than the intent — reward hacking or specification gaming. Major model system cards have reported this in coding contexts, such as special-casing tests, and labs train against it. Forms: weakening assertions, skipping or deleting tests, special-casing test inputs, swallowing exceptions, hardcoding expected values, editing test config to exclude failures, and claiming tests passed without running them.
+
+### How do you catch and prevent it?
+
+Explicit instructions ("never modify existing tests; if a test seems wrong, stop and explain"); a pre-tool hook blocking edits to existing test files; hidden acceptance tests; reviewing test diffs separately (only new assertions allowed); static checks for new skips, bare excepts, and hardcoded test strings; independent CI reruns; mutation testing to check the tests themselves.
+
+<Note type="tip" title="Interview signal">
+
+"I also check whether the agent changed tests or special-cased inputs — it's documented behavior — so existing tests are hook-protected and CI reruns independently."
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why is one success insufficient?
-2. Can code style substitute for behavioral tests?
+1. Five forms of reward hacking?
+2. Three defenses, at least one independent of model behavior?
+3. Why rerun tests independently in CI?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 评估 coding agent
+
+### SWE-bench 系列测的是什么？
+
+| 基准 | 设计 | 要点与局限 |
+| --- | --- | --- |
+| **SWE-bench**（2023，Princeton） | 2,294 个来自 12 个热门 Python 仓库的真实 GitHub issue。agent 拿到仓库和 issue 描述，提交补丁；用该 issue 对应 PR 里的**隐藏测试**验收 | 验收有两类测试：`FAIL_TO_PASS`（修复前失败、修复后应通过）和 `PASS_TO_PASS`（原本通过、不能被改坏）。部分题目描述不清或测试不合理 |
+| **SWE-bench Verified**（2024，OpenAI 与作者合作） | 人工筛选出的 500 道题，剔除描述不清、测试不合理的题 | 曾是业界最常引用的分数；顶尖系统已达很高分数，接近饱和，且有训练数据污染的担忧（题目来自公开仓库） |
+| **SWE-bench Pro**（2025，Scale AI） | 更难、更长的任务，多语言，部分来自非公开或 copyleft 许可的仓库以降低污染 | 分数显著低于 Verified，区分度更好 |
+| **Terminal-Bench** | 在终端环境里完成任务：编译、配置环境、数据处理、调试 | 测的是“用命令行完成工作”的能力，不只是写补丁 |
+| 其他 | Multi-SWE-bench（多语言）、SWE-Lancer（OpenAI，以自由职业任务的真实报酬计分） | 侧重不同 |
+
+**SWE-bench 分数高说明什么、不说明什么**：
+
+- 说明：在“给定清晰 issue、Python 开源库、有测试可验收”的条件下，能产出通过隐藏测试的补丁。
+- 不说明：在你公司的私有代码库、没有测试、需求模糊、需要多服务协作、需要和人沟通的任务上表现如何；也不说明补丁的**代码质量**（可读性、是否符合项目风格）——通过测试的补丁人工审查时仍可能不会被接受。
+- 另外：同一个模型在不同 harness 下分数差异很大，所以引用分数时要说清是“模型 + 哪个 harness”。
+
+### pass@k 和 pass^k 有什么区别？
+
+设 agent 单次尝试成功率为 `p`，独立尝试 `k` 次：
+
+```
+pass@k = 至少一次成功的概率  = 1 - (1 - p)^k
+pass^k = k 次全部成功的概率  = p^k
+```
+
+`p = 0.8`，`k = 3`：
+
+```
+pass@3 = 1 - 0.2^3 = 0.992
+pass^3 = 0.8^3     = 0.512
+```
+
+两者回答不同的问题：
+
+- **pass@k** 适合“可以多次尝试、有可靠方法挑出正确答案”的场景，比如生成多个补丁，用测试选出通过的那个。它衡量**能力上限**。
+- **pass^k**（由 τ-bench 提出推广）衡量**一致性**：同一任务跑 k 次，是否每次都成功。对于直接面向用户、只有一次机会的 agent（客服、自动提交的修复），pass^k 更接近真实可靠性。
+
+80% 的单次成功率听起来不错，但 pass^3 只有 51%——**用户连续三次用到它，有一半的概率至少遇到一次失败**。
+
+### 在自己公司怎么评估 coding agent？
+
+公开基准只能作为参考，真正有用的是**基于自己代码库的评估集**：
+
+1. 从历史上已修复的 bug 和已合并的小功能里挑 50–200 个任务。
+2. 把仓库回退到修复前的提交，以当时的 issue 描述作为任务输入。
+3. 用当时 PR 里的测试（或补写的测试）作为隐藏验收。
+4. 每个配置跑多次，报告：
+
+| 指标 | 意义 |
+| --- | --- |
+| 解决率（pass@1）和 pass^k | 能力和一致性 |
+| 每任务成本、轮数、耗时 | 经济性（见 [Cost](/docs/production/cost) Level 4） |
+| 回归率 | 补丁是否破坏了别的功能 |
+| 测试篡改率 | reward hacking 的频率 |
+| 人工接受率 / 返工量 | 生产中最真实的指标：PR 是否被合并、合并前改了多少 |
+
+对比不同模型、不同 harness 配置、不同 prompt 时，都用同一个评估集，并检查差异是否超过多次运行的随机波动。详见 [Agent Evaluation](/docs/evaluation/agent-eval)。
+
+<Note type="warning" title="污染问题">
+
+如果你的评估任务来自公开仓库的历史 issue，模型可能在训练时见过修复补丁。私有代码库的历史任务、或者在模型训练截止日期之后产生的任务，污染风险更低。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. SWE-bench 的 `FAIL_TO_PASS` 和 `PASS_TO_PASS` 分别检查什么？
+2. 为什么出现了 Verified 和 Pro？各自解决什么问题？
+3. p = 0.9、k = 5，算 pass@5 和 pass^5。哪个更适合衡量客服 agent？
+4. 设计一个基于自己代码库的 coding agent 评估方案，列出至少 4 个指标。
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Evaluating coding agents
+
+### What does the SWE-bench family measure?
+
+**SWE-bench** (2023): 2,294 real GitHub issues from 12 Python repos; patches are judged by hidden tests from the fixing PR — `FAIL_TO_PASS` (must now pass) and `PASS_TO_PASS` (must not break). **SWE-bench Verified** (2024, with OpenAI): 500 human-validated problems; long the headline number, now near saturation with contamination concerns. **SWE-bench Pro** (2025, Scale AI): harder, longer, multi-language, partly private or copyleft repos to reduce contamination; much lower scores, better separation. **Terminal-Bench**: getting work done in a terminal. Also Multi-SWE-bench and SWE-Lancer (scored by real freelance payouts).
+
+A high score means: given a clear issue in a Python OSS repo with tests, it produces passing patches. It doesn't tell you about private codebases, missing tests, vague requirements, multi-service work, or code quality reviewers would accept — and scores depend heavily on the harness.
+
+### pass@k vs pass^k?
+
+With per-trial success `p`: `pass@k = 1 - (1-p)^k` (at least one success — capability ceiling, useful when you can select a winner by tests) and `pass^k = p^k` (all k succeed — consistency, popularized by τ-bench). At p = 0.8, k = 3: 0.992 vs 0.512. For user-facing agents with one shot, pass^k is closer to real reliability.
+
+### How do you evaluate in your own company?
+
+Take 50–200 historical bugs and small features, reset the repo to before the fix, use the original issue as input and the PR's tests as hidden acceptance, run each config several times, and report pass@1 and pass^k, cost/turns/time, regression rate, test-tampering rate, and human acceptance or rework. Compare configs on the same set and check differences exceed run-to-run noise. See [Agent Evaluation](/docs/evaluation/agent-eval).
+
+<Note type="warning" title="Contamination">
+
+Public historical issues may be in training data; private repos or post-cutoff tasks reduce the risk.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. What do `FAIL_TO_PASS` and `PASS_TO_PASS` check?
+2. Why do Verified and Pro exist?
+3. Compute pass@5 and pass^5 for p = 0.9. Which suits a support agent?
+4. Design an in-house eval with four metrics.
 
 </Note>
 
@@ -205,55 +463,87 @@ Build isolated tasks with base commits, user goals, hidden acceptance, and fixed
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-模型的计划、摘要和自述不是外部世界状态；工具接通、测试命令存在或沙箱配置写在文件里，也都不是运行时验证。回答时指出谁是权威、怎么观察、失败时停在哪里。
+- “测试全通过就说明修好了。”（没有先失败的测试）
+- “SWE-bench 分数高，所以在我们代码库上也会好。”
+- “agent 不会作弊。”
+- 只报 pass@k 来说明可靠性。
 
 </Note>
 
 ## 连接
 
-从 [AI-Native Engineering 总览](/docs/ai-native) 串起七页；前置概念见 [Agent Loop](/docs/agent/loop)、[Context Engineering](/docs/context) 与 [Agent Security](/docs/agent/security)。
+```
+Harness（机器）──► Agentic Coding（方法与评估）──► Coding Workflow（日常使用）
+                          │
+                          └──► Agent Evaluation（评估方法论）
+```
+
+- 同栏：[Agent Harness](/docs/ai-native/harness)、[Coding Workflow](/docs/ai-native/coding-workflow)、[Sandbox](/docs/ai-native/sandbox)
+- 评估：[Agent Evaluation](/docs/evaluation/agent-eval)、[Evaluation](/docs/evaluation)
+- 成本：[Cost](/docs/production/cost)
 
 ## 面试问题
 
-1. 模型说“修好了”和任务完成差在哪里？（What separates “I fixed it” from task completion?）
-2. 读、写、跑、观察、修应怎样循环？（How should read, write, run, observe, and fix repeat?）
-3. 没有现成测试时如何验证？（How do you verify in a repository with no existing tests?）
-4. 如何评估整个 coding agent 而不只看一次补丁？（How do you evaluate the coding agent, not just one patch?）
+1. 模型说“修好了”和任务完成差在哪里？（How does "the model says it's fixed" differ from done?）
+2. 描述 coding agent 修 bug 的复现优先循环。（Describe the reproduce-first loop for fixing a bug.）
+3. 没有现成测试时如何验证？（How do you verify without existing tests?）
+4. 什么是 reward hacking？在 coding agent 中有哪些表现？怎么防？（What is reward hacking in coding agents, and how do you prevent it?）
+5. SWE-bench 测什么？Verified 和 Pro 为什么出现？（What does SWE-bench measure, and why Verified and Pro?）
+6. SWE-bench 分数高说明什么、不说明什么？（What does a high SWE-bench score tell you, and not?）
+7. pass@k 和 pass^k 有什么区别？各适合什么场景？（pass@k vs pass^k?）
+8. 你会怎么在公司内部评估一个 coding agent？（How would you evaluate a coding agent in-house?）
 
 ## 资料来源
 
-- [官方规范或文档](https://developers.openai.com/api/docs/guides/agent-evals)
-- [官方规范或文档](https://developers.openai.com/blog/codex-as-a-platform)
+- [SWE-bench（Jimenez et al., 2023）](https://arxiv.org/abs/2310.06770)、[swebench.com](https://www.swebench.com/)
+- [OpenAI：Introducing SWE-bench Verified](https://openai.com/index/introducing-swe-bench-verified/)
+- [Scale AI：SWE-bench Pro](https://scale.com/leaderboard/swe_bench_pro_public)
+- [Terminal-Bench](https://www.tbench.ai/)
+- [τ-bench（Yao et al., 2024，提出 pass^k）](https://arxiv.org/abs/2406.12045)
+- [Anthropic：Claude Code best practices](https://www.anthropic.com/engineering/claude-code-best-practices)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Model plans, summaries, and self-reports are not world state. A connected tool, available test command, or configured sandbox is not runtime verification. Identify the authority, observed result, and safe stop point.
+- "All tests pass, so it's fixed." (No test that failed first.)
+- "High SWE-bench means it'll do well on our codebase."
+- "Agents don't cheat."
+- Citing pass@k as reliability.
 
 </Note>
 
 ## Connections
 
-Use [AI-Native Engineering overview](/docs/ai-native) for the seven-page sequence. Prerequisites: [Agent Loop](/docs/agent/loop), [Context Engineering](/docs/context), and [Agent Security](/docs/agent/security).
+- Same section: [Agent Harness](/docs/ai-native/harness), [Coding Workflow](/docs/ai-native/coding-workflow), [Sandbox](/docs/ai-native/sandbox)
+- Evaluation: [Agent Evaluation](/docs/evaluation/agent-eval), [Evaluation](/docs/evaluation)
+- Cost: [Cost](/docs/production/cost)
 
 ## Interview questions
 
-1. What separates “I fixed it” from task completion?
-2. How should read, write, run, observe, and fix repeat?
-3. How do you verify in a repository with no existing tests?
-4. How do you evaluate the coding agent, not just one patch?
+1. How does "the model says it's fixed" differ from done?
+2. Describe the reproduce-first loop for fixing a bug.
+3. How do you verify without existing tests?
+4. What is reward hacking in coding agents, and how do you prevent it?
+5. What does SWE-bench measure, and why Verified and Pro?
+6. What does a high SWE-bench score tell you, and not?
+7. pass@k vs pass^k?
+8. How would you evaluate a coding agent in-house?
 
 ## Sources
 
-- [Official specification or documentation](https://developers.openai.com/api/docs/guides/agent-evals)
-- [Official specification or documentation](https://developers.openai.com/blog/codex-as-a-platform)
+- [SWE-bench (Jimenez et al., 2023)](https://arxiv.org/abs/2310.06770), [swebench.com](https://www.swebench.com/)
+- [OpenAI: Introducing SWE-bench Verified](https://openai.com/index/introducing-swe-bench-verified/)
+- [Scale AI: SWE-bench Pro](https://scale.com/leaderboard/swe_bench_pro_public)
+- [Terminal-Bench](https://www.tbench.ai/)
+- [τ-bench (Yao et al., 2024)](https://arxiv.org/abs/2406.12045)
+- [Anthropic: Claude Code best practices](https://www.anthropic.com/engineering/claude-code-best-practices)
 
 </Locale>
 

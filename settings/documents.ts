@@ -101,12 +101,12 @@ export const Documents: Paths[] = [
     title: { zh: 'Production AI', en: 'Production AI' },
     href: '/production',
     items: [
-      { title: { zh: 'API Engineering', en: 'API Engineering' }, href: '/api-engineering' },
       { title: { zh: 'Latency', en: 'Latency' }, href: '/latency' },
+      { title: { zh: 'API Engineering', en: 'API Engineering' }, href: '/api-engineering' },
       { title: { zh: 'Cost', en: 'Cost' }, href: '/cost' },
       { title: { zh: 'Scaling', en: 'Scaling' }, href: '/scaling' },
-      { title: { zh: 'Observability', en: 'Observability' }, href: '/observability' },
       { title: { zh: 'Reliability', en: 'Reliability' }, href: '/reliability' },
+      { title: { zh: 'Observability', en: 'Observability' }, href: '/observability' },
     ],
   },
   {
@@ -152,13 +152,13 @@ export const Documents: Paths[] = [
     title: { zh: 'AI-Native Engineering', en: 'AI-Native Engineering' },
     href: '/ai-native',
     items: [
-      { title: { zh: 'MCP', en: 'MCP' }, href: '/mcp' },
       { title: { zh: 'Agent Harness', en: 'Agent Harness' }, href: '/harness' },
-      { title: { zh: 'Claude Code / Codex', en: 'Claude Code / Codex' }, href: '/coding-workflow' },
       { title: { zh: 'Agentic Coding', en: 'Agentic Coding' }, href: '/agentic-coding' },
+      { title: { zh: 'Claude Code / Codex', en: 'Claude Code / Codex' }, href: '/coding-workflow' },
+      { title: { zh: 'MCP', en: 'MCP' }, href: '/mcp' },
+      { title: { zh: 'Sandbox', en: 'Sandbox' }, href: '/sandbox' },
       { title: { zh: 'Context Compaction', en: 'Context Compaction' }, href: '/compaction' },
       { title: { zh: 'Agent State', en: 'Agent State' }, href: '/agent-state' },
-      { title: { zh: 'Sandbox', en: 'Sandbox' }, href: '/sandbox' },
     ],
   },
   {

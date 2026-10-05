@@ -1,10 +1,10 @@
 ---
-title: LLM API Engineering
-titleEn: LLM API Engineering
-description: 设计可流式、可取消、可限流且不会重复执行副作用的 AI API。
-descriptionEn: Design streaming, cancellable, rate-limited AI APIs with safe side effects.
-date: 2026-09-24
-keywords: ['llm api', 'streaming', 'timeout', 'retry', 'rate limit', 'idempotency']
+title: API Engineering
+titleEn: API Engineering
+description: 单个 LLM 请求的工程细节：异步与连接池、超时分层、SSE 流式与中途失败、错误分类与带抖动的重试、客户端限流、幂等键与异步任务。
+descriptionEn: "Request-level engineering for LLM calls — async I/O, layered timeouts, SSE streaming and mid-stream failure, error classification, jittered retries, client-side rate limiting, idempotency, async jobs."
+date: 2026-10-04
+keywords: ['api', 'sse', 'streaming', 'timeout', 'retry', 'exponential backoff', 'jitter', '429', 'rate limit', 'token bucket', 'idempotency key', 'async job', 'webhook']
 tier: A
 status: todo
 cursor: ''
@@ -13,49 +13,69 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策 `P-17 v3` 来自检索，实时订单状态来自受权订单 API。示意数字只用于手算，不代表你的项目实测或当前供应商报价。
+这一页管**一个请求从你的服务发出去、再回到用户手里**的全部工程细节。它和 [Reliability](/docs/production/reliability) 的分工是：这里讲单个请求怎么写对（超时、流式、重试、幂等）；Reliability 讲整个系统在依赖故障时怎么活下来（熔断、降级、fallback、演练）。
+
+面试里这块常以“写一个调用 LLM 的 FastAPI 接口，要求生产可用”的形式出现，然后逐项追问：超时怎么设？流到一半断了怎么办？429 怎么处理？工具调用超时会不会重复退款？这一页把每个追问的标准答案和背后原因讲清楚。
+
+贯穿例子：“喵喵粮仓”客服的 `/chat` 接口。用户问订单 `20240915` 没到能不能退，后端调用模型；模型可能调用 `get_order_status`（只读）和 `create_refund`（有副作用）两个工具。
 
 ## 这一页怎么学
 
-| Level | 先回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 一次请求的契约 | LLM API 为什么不能只写一个同步调用？ | 15–25 min |
-| 1 · 流式传输 | SSE 或 WebSocket 流式输出改善什么，必须处理什么？ | 15–25 min |
-| 2 · 超时与重试 | 429、5xx 与超时分别如何处理？ | 15–25 min |
-| 3 · 并发与背压 | 流量突增时谁负责限流和排队？ | 15–25 min |
-| 4 · 副作用与验收 | 工具调用超时后，怎样避免重复退款？ | 15–25 min |
+| 0 · 为什么不能同步调用 | 长耗时请求会把服务拖垮的机制是什么？超时要设几层？ | 25 min |
+| 1 · 流式输出 | SSE 怎么工作？流到一半出错、用户关页面怎么办？ | 30 min |
+| 2 · 错误分类与重试 | 哪些错误能重试？退避为什么要加抖动？重试为什么会放大故障？ | 40 min |
+| 3 · 客户端限流 | 供应商的 RPM / TPM 限制怎么在调用侧遵守？ | 20 min |
+| 4 · 幂等与副作用 | 退款工具超时了，结果未知，该不该重试？ | 30 min |
+| 5 · 异步任务 | 跑几分钟的任务怎么设计接口？ | 20 min |
+
+**Level 2 和 Level 4 是重点**，几乎每次都会被追问。全页约 2.5 小时。
 
 ## 需要掌握
 
-- LLM API 为什么不能只写一个同步调用？
-- SSE 或 WebSocket 流式输出改善什么，必须处理什么？
-- 429、5xx 与超时分别如何处理？
-- 流量突增时谁负责限流和排队？
-- 工具调用超时后，怎样避免重复退款？
+- 异步 I/O 与连接池为什么对 LLM 调用特别重要
+- 超时分层：连接超时、读取（空闲）超时、总 deadline
+- SSE 事件格式、中途失败（HTTP 200 已发出）、客户端断开后取消上游
+- 错误分类表：哪些重试、哪些不重试、哪些要先修请求
+- 指数退避 + full jitter 公式，`Retry-After`，重试预算，多层重试放大
+- 令牌桶限流，按 RPM 和 TPM 双维度控制
+- 幂等键的生成规则、“未知结果”的处理流程
+- 长任务：`202 Accepted` + 任务 ID + 轮询 / webhook / 流
 
 </Locale>
 
 <Locale lang="en">
 
-We continue the pet-food support case: order `20240915` has not arrived. Current policy `P-17 v3` comes from retrieval; live order state comes from an authorized order API. All numerical examples are for learning, not project measurements or current provider prices.
+This page owns everything about a single request leaving your service and coming back to the user. [Reliability](/docs/production/reliability) owns how the whole system survives dependency failures (breakers, degradation, fallbacks, drills).
 
-## How to study this page
+In interviews this shows up as "write a production-ready FastAPI endpoint that calls an LLM," followed by: how do you set timeouts? What if the stream breaks halfway? How do you handle 429? Can a tool timeout double-refund? This page gives the answers and the reasons.
 
-| Level | Question | Time |
+Running example: the pet-food `/chat` endpoint. The model may call `get_order_status` (read-only) and `create_refund` (side effect).
+
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · The request contract | Why is one synchronous model call not enough? | 15–25 min |
-| 1 · Streaming transport | What does streaming improve and what must it handle? | 15–25 min |
-| 2 · Timeouts and retries | How should 429s, 5xxs, and timeouts be handled? | 15–25 min |
-| 3 · Concurrency and backpressure | Who limits and queues work during a burst? | 15–25 min |
-| 4 · Side effects and acceptance | How do you prevent duplicate refunds after a timeout? | 15–25 min |
+| 0 · Why not a sync call | How do slow requests take a service down? How many timeout layers? | 25 min |
+| 1 · Streaming | How does SSE work? What about mid-stream errors and disconnects? | 30 min |
+| 2 · Errors and retries | What's retryable? Why jitter? How do retries amplify outages? | 40 min |
+| 3 · Client-side rate limiting | How do you respect provider RPM/TPM limits? | 20 min |
+| 4 · Idempotency | The refund call timed out with unknown outcome — retry? | 30 min |
+| 5 · Async jobs | How do you expose a multi-minute task? | 20 min |
+
+**Levels 2 and 4 are the core.** About 2.5 hours.
 
 ## Must know
 
-- Why is one synchronous model call not enough?
-- What does streaming improve and what must it handle?
-- How should 429s, 5xxs, and timeouts be handled?
-- Who limits and queues work during a burst?
-- How do you prevent duplicate refunds after a timeout?
+- why async I/O and connection pools matter for LLM calls
+- layered timeouts: connect, read/idle, total deadline
+- SSE format, mid-stream failure after HTTP 200, cancelling upstream on disconnect
+- the error classification table
+- exponential backoff with full jitter, `Retry-After`, retry budgets, retry amplification
+- token-bucket limiting on both RPM and TPM
+- idempotency key design and the unknown-outcome procedure
+- long tasks: `202 Accepted` + job ID + polling / webhook / stream
 
 </Locale>
 
@@ -63,18 +83,58 @@ We continue the pet-food support case: order `20240915` has not arrived. Current
 
 <Locale lang="zh">
 
-## Level 0 · 一次请求的契约
+## Level 0 · 为什么不能只写一个同步调用
 
-### LLM API 为什么不能只写一个同步调用？
+### 长耗时请求怎样把服务拖垮？
 
-继续“喵喵粮仓”示例：用户问订单 `20240915` 是否可退款。一个 FastAPI 端点要鉴权、查订单实时状态、检索现行 `P-17 v3`、调用模型，并把回答和引用送到前端。模型是一个有配额、可能变慢或部分失败的远程依赖；HTTP 200 也不能证明答复满足业务规则。
+普通 Web API 一个请求几十毫秒；LLM 调用动辄 3–30 秒，agent 任务能到几分钟。用 [Scaling](/docs/production/scaling) 里的 Little's Law（`并发 = 到达率 × 每请求耗时`）算：
 
-先定义请求 ID、租户与用户身份、可选客户端幂等键、截止时间、取消信号、响应状态与错误类型。异步函数让等待 I/O 的线程能服务其他请求，但不会凭空增加模型供应商配额。把“生成建议”与“实际退款”分成不同受控操作。
+```
+QPS 50 × 每请求 8 s = 同时在途 400 个请求
+```
+
+如果用**同步阻塞**的写法（每个请求占一个线程等模型返回），你需要 400 个线程，大部分时间都在等网络——线程池很快耗尽，新请求排队，连健康检查都超时，负载均衡器判定实例死亡，流量涌向其他实例，雪崩。
+
+所以 LLM 网关几乎都用**异步 I/O**：一个事件循环同时挂起成百上千个“等待网络”的请求，只在数据到达时才占用 CPU。
+
+```python
+# FastAPI + 异步客户端：全进程复用一个客户端（连接池）
+client = AsyncAnthropic(max_retries=2, timeout=httpx.Timeout(60.0, connect=5.0))
+
+@app.post("/chat")
+async def chat(req: ChatRequest):
+    resp = await client.messages.create(model=MODEL, max_tokens=800, messages=req.messages)
+    return {"text": resp.content[0].text}
+```
+
+<Note type="warning" title="异步代码里的同步调用">
+
+在 `async def` 里调用同步的 `requests.get()` 或同步 SDK，会**阻塞整个事件循环**——所有请求一起卡住。这是 FastAPI 项目里最常见的性能事故之一。要么用异步客户端，要么用 `def`（FastAPI 会放到线程池），要么 `run_in_threadpool`。
+
+</Note>
+
+### 为什么要复用连接池？
+
+每次新建 HTTPS 连接要做 TCP 握手 + TLS 握手，跨地域可能多出 100–300 ms。**全进程复用一个客户端对象**，它内部维护连接池（HTTP keep-alive），后续请求直接复用已建立的连接。每个请求 new 一个 client 是常见错误：既慢，又可能耗尽文件描述符。
+
+连接池大小本身也是一道限流：池满了，新请求在池外排队。这个排队时间要计入 trace，否则会被误判成“模型 TTFT 变慢”。
+
+### 超时要设几层？
+
+| 超时 | 作用 | 客服例子 |
+| --- | --- | --- |
+| 连接超时 | 连不上就快速失败 | 5 s |
+| 读取 / 空闲超时 | 两次收到数据之间最长间隔；流式时防止“连接还在但不出 token” | 30 s |
+| 总 deadline | 整个请求（含重试）不能超过的上限，由产品 SLO 决定 | 60 s |
+| 工具超时 | 每个工具单独设，从剩余 deadline 中分配 | `get_order_status` 2 s |
+
+**只设一个 600 秒的超时等于没设**：一个卡住的连接会占用资源 10 分钟。流式请求不适合只设“总读取超时”（长回答本来就要几十秒），要用**空闲超时**判断“卡住”。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 一次请求的成功除 HTTP 200 还需要什么？
-2. async 为什么不等于无限吞吐？
+1. QPS 30、平均 10 s，同时在途多少请求？同步阻塞写法会出什么事？
+2. 为什么要全进程复用一个 SDK 客户端？
+3. 流式请求为什么要用空闲超时而不是总超时判断卡住？
 
 </Note>
 
@@ -82,16 +142,31 @@ We continue the pet-food support case: order `20240915` has not arrived. Current
 
 <Locale lang="en">
 
-## Level 0 · The request contract
+## Level 0 · Why a sync call isn't enough
 
-### Why is one synchronous model call not enough?
+### How do slow requests take a service down?
 
-A support request authenticates the caller, reads live order state, retrieves current policy, calls a model, and returns a cited answer. The provider has quotas and can fail partially; HTTP 200 says nothing about policy correctness. Define request ID, tenant, deadline, cancellation, response states, and error classes. Async I/O frees the server while waiting, but does not increase provider quota. Keep advice separate from an actual refund operation.
+LLM calls take seconds to minutes. By Little's Law, 50 QPS × 8 s = 400 in-flight requests. Blocking one thread per request exhausts the pool; new requests queue, health checks time out, the load balancer evicts the instance, and traffic cascades. LLM gateways use async I/O so one event loop can park hundreds of network waits.
+
+<Note type="warning" title="Sync calls inside async code">
+
+A synchronous HTTP call inside `async def` blocks the whole event loop. Use an async client, a plain `def` endpoint (FastAPI runs it in a threadpool), or `run_in_threadpool`.
+
+</Note>
+
+### Why reuse a connection pool?
+
+New HTTPS connections cost TCP + TLS handshakes, 100–300 ms cross-region. Create one client per process; it keeps connections alive. The pool is also a limiter — time spent waiting for a pooled connection must appear in traces, or it looks like slow TTFT.
+
+### How many timeout layers?
+
+Connect (fail fast, ~5 s), read/idle (max gap between bytes — detects a stalled stream), total deadline including retries (from the SLO), and per-tool timeouts carved from the remaining deadline. A single 600 s timeout is effectively none.
 
 <Note title="Self-check: you should be able to answer">
 
-1. What proves success beyond HTTP 200?
-2. Why does async not mean unlimited throughput?
+1. At 30 QPS and 10 s per request, how many in flight? What happens with blocking threads?
+2. Why one SDK client per process?
+3. Why use an idle timeout for streams?
 
 </Note>
 
@@ -99,18 +174,69 @@ A support request authenticates the caller, reads live order state, retrieves cu
 
 <Locale lang="zh">
 
-## Level 1 · 流式传输
+## Level 1 · 流式输出
 
-### SSE 或 WebSocket 流式输出改善什么，必须处理什么？
+### SSE 是怎么工作的？
 
-流式把模型逐步产出的内容及时给用户，主要改善首个可见内容的等待感；总生成工作不一定减少。SSE 适合单向服务器到浏览器的文本事件，WebSocket 适合双向音频/实时控制；都要设计事件序号、完成事件和错误事件。不要把“第一个网络字节”误称为“第一个有意义的答案 token”。
+SSE（Server-Sent Events）是一条普通的 HTTP 响应，`Content-Type: text/event-stream`，服务端不断往里写文本块，每个事件以空行结尾：
 
-断线后的客户端不应把半句退款承诺当最终答复。服务端检测取消并尽可能停止下游调用；若供应商已产生费用或副作用，取消不等于回滚。引用和最终业务状态可在完成事件中校验后提交。前端明确展示“生成中/已完成/失败”。
+```
+event: content_block_delta
+data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"您的订单"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"目前显示"}}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":212}}
+
+event: message_stop
+data: {"type":"message_stop"}
+```
+
+几个要点：
+
+- **单向**：服务端 → 客户端。主流 LLM API（Anthropic Messages、OpenAI Responses / Chat Completions）的流式都用 SSE。
+- **工具调用参数也是流式的**：参数 JSON 会被切成片段（如 `input_json_delta`），**必须拼完整、解析成功后才能执行工具**。
+- **usage 通常在流末尾**才给出，计费和监控要在流结束时记录。
+- **事件类型分开处理**：文本、思考、工具调用、错误是不同的事件。
+
+### SSE 和 WebSocket 怎么选？
+
+| | SSE | WebSocket |
+| --- | --- | --- |
+| 方向 | 服务端单向推送 | 双向 |
+| 协议 | 普通 HTTP，过代理、负载均衡容易 | 需要协议升级，部分代理要额外配置 |
+| 适用 | 文本聊天、一问一答的流式回答 | 语音实时对话、用户可随时打断、协同编辑 |
+
+文本客服用 SSE 足够；实时语音（用户说话时模型可被打断、音频双向流）才需要 WebSocket 或 WebRTC。
+
+### 流到一半出错怎么办？
+
+这是流式最容易被追问的点：**HTTP 200 和响应头早就发出去了**，中途出错没法再改状态码。你只能：
+
+1. 在流里发一个**错误事件**（例如 `event: error`，供应商也会这样做，Anthropic 在过载时会在流中发 `overloaded_error`）。
+2. 前端识别后，**保留已显示的部分**并提示“回答中断，点击重试”，或者自动重试。
+3. 后端记录这个请求为失败（不是成功！），否则错误率统计会漏掉。
+
+自动重试时要注意：已经输出的半截内容不能直接拼上新的完整回答（会重复）；要么丢弃重来，要么把半截作为 assistant 前缀让模型续写（需评估质量）。**如果流中已经发出了工具调用并执行了有副作用的操作，就不能简单重放**——见 Level 4。
+
+### 用户关掉页面后会发生什么？
+
+如果后端没处理，**上游的模型请求会继续生成到结束**——你照样为这几百个 token 付费，还占着连接。正确做法：检测到客户端断开（FastAPI 的 `await request.is_disconnected()`，或流写入时抛异常），**取消上游请求**（关闭上游流），并在 trace 里标记为 `cancelled`。
+
+<Note type="warning" title="代理缓冲会让流式变成非流式">
+
+Nginx 等反向代理默认会缓冲响应，攒够一大块才转发，用户看到的效果是“等很久然后一次性出现”。要关闭代理缓冲（如设置 `X-Accel-Buffering: no` 响应头），并留意 CDN、负载均衡器的空闲超时——长时间不发数据会被切断，可以定期发心跳注释行（以冒号开头的 SSE 注释）。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. SSE 与 WebSocket 在这个案例中怎么选？
-2. 断流后为何不能展示半句为已完成？
+1. 流式的工具调用参数为什么不能边收边执行？
+2. 流到一半供应商返回过载错误，前端和后端各该做什么？
+3. 用户关掉页面，后端不处理会有什么后果？
+4. 本地流式正常，上线后变成一次性出现，最可能是什么原因？
 
 </Note>
 
@@ -118,16 +244,36 @@ A support request authenticates the caller, reads live order state, retrieves cu
 
 <Locale lang="en">
 
-## Level 1 · Streaming transport
+## Level 1 · Streaming
 
-### What does streaming improve and what must it handle?
+### How does SSE work?
 
-Streaming reduces the wait to first visible content but does not necessarily reduce total work. SSE fits one-way text events; WebSocket fits bidirectional audio and control. Define sequence IDs, completion, and error events, and distinguish first network byte from first meaningful token. A disconnected client must not treat a partial refund sentence as final. Cancellation should propagate downstream where possible, but cannot undo costs or completed side effects.
+A normal HTTP response with `Content-Type: text/event-stream`; the server writes `event:` / `data:` blocks separated by blank lines. It's one-way. Major LLM APIs stream over SSE. Tool-call arguments arrive as JSON fragments — accumulate and parse them fully before executing. Usage typically arrives at the end. Handle text, thinking, tool-use, and error events separately.
+
+### SSE or WebSocket?
+
+SSE for text chat: plain HTTP, proxy-friendly. WebSocket or WebRTC for real-time voice with barge-in or other bidirectional streams.
+
+### What if the stream fails halfway?
+
+The 200 and headers are already sent. Emit an error event (providers do this too — e.g. an `overloaded_error` mid-stream), let the client keep the partial text and offer retry, and log the request as a failure. On retry, don't append a full new answer to the partial one; restart, or continue from the partial as an assistant prefix. If a side-effecting tool already ran, you can't blindly replay — see Level 4.
+
+### What happens when the user closes the tab?
+
+Unless you handle it, the upstream generation runs to completion and you pay for it. Detect disconnects, close the upstream stream, and mark the trace `cancelled`.
+
+<Note type="warning" title="Proxy buffering">
+
+Reverse proxies buffer by default, turning a stream into one late blob. Disable buffering (e.g. `X-Accel-Buffering: no`) and send heartbeat comment lines so idle timeouts don't cut long streams.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. When would you choose SSE versus WebSocket?
-2. Why is a partial stream not a completed answer?
+1. Why not execute tool arguments while they're streaming?
+2. What do client and server do on a mid-stream overload error?
+3. What happens if you ignore client disconnects?
+4. Streaming works locally but arrives all at once in production — likely cause?
 
 </Note>
 
@@ -135,18 +281,80 @@ Streaming reduces the wait to first visible content but does not necessarily red
 
 <Locale lang="zh">
 
-## Level 2 · 超时与重试
+## Level 2 · 错误分类与重试
 
 ### 429、5xx 与超时分别如何处理？
 
-把总请求 deadline 分给订单工具、检索、模型首 token 与生成；不能让每层独立等满 30 秒。连接超时、读/首 token 超时、总超时处理的是不同慢点。仅对可重试且幂等的调用做**有上限**的指数退避与 jitter；尊重供应商的重试提示。429 先判断配额/限流是否短期可恢复，4xx 参数或授权错误通常直接失败；5xx 可在剩余 deadline 内有限重试。
+第一原则：**先分类，再决定**。重试只对“过一会儿可能自己好”的错误有意义。
 
-示意总预算 8 秒，已花 6 秒才遇 429，再睡 4 秒重试必定过期。要记录每次 attempt 的耗时和最终结果。多层 SDK、应用与网关都重试会放大负载；明确只有一层拥有重试策略。
+| 错误 | 含义 | 处理 |
+| --- | --- | --- |
+| 400 参数错误 | 请求本身有问题 | **不重试**。修请求；记录并告警 |
+| 400 上下文超长 | 输入 + max_tokens 超过窗口 | **不重试原样请求**。裁剪 / 压缩上下文后再发 |
+| 401 / 403 | 密钥无效、无权限 | **不重试**。告警，可能是密钥轮换问题 |
+| 404 | 模型名错误或已下线 | **不重试**。检查模型 ID |
+| 429 | 超过速率限制 | **重试**，优先遵守 `Retry-After` 响应头 |
+| 500 / 502 / 503 | 服务端临时故障 | **重试**，带退避 |
+| 529（Anthropic）/ overloaded | 供应商过载 | **重试**，带退避；持续出现考虑 fallback |
+| 客户端超时 | 不知道服务端是否处理了 | 只读请求可重试；**有副作用的看 Level 4** |
+| 流中途断开 | 部分输出已发出 | 见 Level 1 |
+
+对 LLM 生成本身（不调用工具），重试是安全的：最坏情况是多花一次 token 钱。真正危险的是**带副作用的工具调用**。
+
+### 退避为什么要加抖动（jitter）？
+
+**指数退避**：第 n 次重试前等 `base × 2^n`（1 s、2 s、4 s…），给对方恢复时间。
+
+只用指数退避的问题：1,000 个客户端在同一秒收到 503，它们会**在同一时刻**等 1 秒后同时重试，再同时等 2 秒同时重试——这叫**惊群（thundering herd）**，对方刚恢复就又被打垮。
+
+**Full jitter**（AWS 架构博客推荐的做法）把等待时间随机打散：
+
+```
+sleep = random_uniform(0, min(cap, base × 2^attempt))
+```
+
+```python
+async def call_with_retry(fn, *, max_attempts=4, base=0.5, cap=20.0, deadline):
+    for attempt in range(max_attempts):
+        try:
+            return await fn()
+        except RetryableError as e:          # 429 / 5xx / overloaded
+            if attempt == max_attempts - 1:
+                raise
+            wait = e.retry_after or random.uniform(0, min(cap, base * 2 ** attempt))
+            if time.monotonic() + wait > deadline:
+                raise                         # 剩余时间不够，别再等了
+            await asyncio.sleep(wait)
+```
+
+三个细节：
+
+- 有 `Retry-After` 就**用服务端给的值**，它比你猜的准。
+- 每次重试前**检查总 deadline**，剩余时间不够就放弃，不要让用户等到超时。
+- 官方 SDK（Anthropic、OpenAI）**默认自带重试**（通常 2 次，带退避）。自己再包一层重试就会叠加——见下文。
+
+### 重试为什么会放大故障？
+
+**多层重试的乘法效应**：前端重试 3 次 × 你的网关重试 3 次 × SDK 重试 3 次 = 对下游最多 **27 倍**的请求。下游本来只是有点慢，被重试流量直接打死——这就是**重试风暴（retry storm）**。
+
+应对：
+
+1. **只在一层重试**：通常是最靠近失败点的那一层；其他层直接把错误往上传。
+2. **重试预算（retry budget）**：重试请求不超过正常请求的一定比例（例如 10%）。下游大面积失败时，预算耗尽，停止重试，快速失败——这正是交给 [Reliability](/docs/production/reliability) 中熔断器接手的时机。
+3. **区分“可重试”和“应停止”**：持续的 429 说明你的配额不够，重试只会更糟，需要限流（Level 3）。
+
+<Note type="danger" title="错误说法">
+
+“遇到错误就重试三次。”——400 和 401 永远不会因重试而成功；有副作用的超时重试可能重复退款；多层各重试三次会把故障放大 27 倍。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 为什么每层 30 秒超时会突破用户预算？
-2. 429 和授权错误都适合重试吗？
+1. 把 400、上下文超长、401、429、503、超时分成“重试 / 不重试 / 先修再发”。
+2. 写出 full jitter 的公式，并解释它解决什么问题。
+3. 三层各重试 3 次，下游最多收到几倍请求？怎么避免？
+4. SDK 自带重试时，你还要不要自己写重试？
 
 </Note>
 
@@ -154,16 +362,32 @@ Streaming reduces the wait to first visible content but does not necessarily red
 
 <Locale lang="en">
 
-## Level 2 · Timeouts and retries
+## Level 2 · Errors and retries
 
-### How should 429s, 5xxs, and timeouts be handled?
+### How do you handle 429, 5xx, and timeouts?
 
-Allocate one end-to-end deadline across order lookup, retrieval, first token, and generation. Connection, read/first-token, and total timeouts cover different stalls. Retry only suitable idempotent calls with bounded exponential backoff and jitter, respecting provider hints. A 429 may reflect temporary throttling or exhausted quota; invalid requests and authorization failures should fail directly. If six seconds of an eight-second deadline are gone, a four-second backoff is pointless. Keep retry ownership in one layer.
+Classify first. Don't retry 400 (fix the request), context-length errors (trim, then resend), 401/403 (alert — likely a key issue), or 404 (wrong model ID). Retry 429 (honor `Retry-After`), 500/502/503, and overloaded errors (Anthropic's 529) with backoff. Client timeouts: retry reads; side-effecting calls go to Level 4. Retrying pure generation is safe — worst case you pay twice.
+
+### Why add jitter to backoff?
+
+Plain exponential backoff synchronizes clients: a thousand clients that failed together retry together — a thundering herd. Full jitter spreads them: `sleep = uniform(0, min(cap, base × 2^attempt))`. Prefer the server's `Retry-After`, check the remaining deadline before each wait, and remember official SDKs already retry (typically twice) by default.
+
+### How do retries amplify outages?
+
+Three layers × three retries = up to 27× load on a struggling dependency — a retry storm. Retry at one layer only, enforce a retry budget (e.g. retries ≤ 10% of requests), and stop retrying persistent 429s — that's a capacity problem. When the budget is exhausted, fail fast and let the circuit breaker in [Reliability](/docs/production/reliability) take over.
+
+<Note type="danger" title="Wrong claim">
+
+"Retry everything three times." 4xx never succeeds on retry, side-effecting retries can double-refund, and layered retries multiply load 27×.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why do independent 30-second timeouts violate the user deadline?
-2. Should 429s and authorization errors both be retried?
+1. Sort 400, context overflow, 401, 429, 503, and timeout into retry / don't / fix-then-send.
+2. Write the full-jitter formula and what it fixes.
+3. Three layers, three retries each — worst-case amplification and the fix?
+4. Do you add your own retries on top of the SDK's?
 
 </Note>
 
@@ -171,18 +395,53 @@ Allocate one end-to-end deadline across order lookup, retrieval, first token, an
 
 <Locale lang="zh">
 
-## Level 3 · 并发与背压
+## Level 3 · 客户端限流
 
-### 流量突增时谁负责限流和排队？
+### 供应商的速率限制长什么样？
 
-入口按用户/租户做速率与并发限制，下游再按模型与供应商配额设置并发 semaphore。连接池复用 HTTP 连接，但池大小、队列长度、超时都要有界。背压指服务在下游已满时减慢接收、拒绝或转异步，而不是无限堆积请求。
+LLM 供应商通常同时限制几个维度：
 
-示意供应商允许同时 50 个生成、平均每个占 4 秒；粗略稳态上限约 12.5 请求/秒，未计波动和预留。若突然来 100 请求/秒，先保护服务：短队列 + 有界等待，超预算返回明确可重试的限流响应，或降级到经验证的小模型。不能靠多开 FastAPI worker 把供应商上限变大。
+- **RPM**：每分钟请求数
+- **TPM**：每分钟 token 数。Anthropic 把输入（ITPM）和输出（OTPM）分开限制；有的供应商合并计算。
+- 部分供应商对**缓存读取的 token 不计入或少计入**输入 TPM——这让缓存不仅省钱，还提升了可用吞吐。
+
+响应头会告诉你剩余额度（如 `anthropic-ratelimit-input-tokens-remaining`、`x-ratelimit-remaining-tokens`）和重置时间。超限返回 429。
+
+### 怎么在调用侧主动不超限？
+
+与其等 429 再重试，不如在发请求前**自己控制速率**。最常用的算法是**令牌桶（token bucket）**：
+
+```
+桶容量 C，每秒补充 r 个令牌
+发请求前取令牌：够就发并扣除；不够就等（或拒绝）
+```
+
+- `r` 决定长期平均速率，`C` 决定允许多大的突发。
+- LLM 场景要**两个桶**：请求桶（RPM）和 token 桶（TPM）。发请求前按“预估输入 token + max_tokens”扣 token 桶，响应回来后按实际用量修正。
+- 多实例部署时，令牌桶要放在共享存储（如 Redis）里，或者给每个实例按比例分配额度。
+
+还有更简单的**并发信号量**：最多同时 N 个在途请求。它不精确对应 RPM/TPM，但实现简单，能防止突发把连接池和配额打满。
+
+### 漏桶和令牌桶有什么区别？
+
+| | 令牌桶 | 漏桶 |
+| --- | --- | --- |
+| 突发 | 允许（最多到桶容量） | 不允许，以恒定速率流出 |
+| 适合 | API 调用侧，允许短暂突发 | 需要严格平滑输出的场景 |
+
+LLM 调用侧通常用令牌桶。服务端对用户、租户的多层限流见 [Scaling](/docs/production/scaling)。
+
+<Note type="tip" title="面试加分">
+
+“持续 429 不是重试问题，是容量问题”：短期靠客户端令牌桶 + 优先级队列（付费用户、实时请求优先，离线任务让路），长期靠申请更高配额、预置吞吐、多供应商 / 多区域分流。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 50 并发、4 秒平均服务时长的粗略吞吐是多少？
-2. 无限队列为何会拖垮 P95？
+1. 为什么 LLM 调用侧要同时控 RPM 和 TPM？
+2. 发请求前扣 token 桶时，应该扣多少？响应后怎么修正？
+3. 持续出现 429，应该加大重试次数吗？
 
 </Note>
 
@@ -190,16 +449,31 @@ Allocate one end-to-end deadline across order lookup, retrieval, first token, an
 
 <Locale lang="en">
 
-## Level 3 · Concurrency and backpressure
+## Level 3 · Client-side rate limiting
 
-### Who limits and queues work during a burst?
+### What do provider limits look like?
 
-Rate-limit users and tenants at ingress, then cap concurrency by provider/model. Reuse HTTP connections with bounded pools and queues. Backpressure rejects or defers work when downstream capacity is full instead of accumulating unlimited waits. As an illustration, 50 concurrent generations averaging four seconds imply about 12.5 requests/s before headroom. More API workers do not increase provider capacity.
+RPM plus TPM — Anthropic limits input (ITPM) and output (OTPM) separately, and some providers don't count cached input toward ITPM, so caching also buys throughput. Response headers report remaining quota; overruns return 429.
+
+### How do you stay under the limits?
+
+Throttle before sending. A **token bucket** (capacity C, refill r/s) allows bursts up to C with an average of r. Use two buckets — requests and tokens — debiting estimated input + `max_tokens` up front and reconciling with actual usage. Share buckets across instances via Redis or split quota per instance. A concurrency semaphore is a cruder but simple alternative.
+
+### Token bucket or leaky bucket?
+
+Token buckets allow bursts; leaky buckets enforce a constant outflow. Callers typically use token buckets. Server-side per-user and per-tenant limits are in [Scaling](/docs/production/scaling).
+
+<Note type="tip" title="Interview move">
+
+Persistent 429s are a capacity problem, not a retry problem: bucket + priority queue now, higher quotas, provisioned throughput, or multi-provider routing later.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. What throughput does 50 concurrent calls at four seconds imply?
-2. Why does an unbounded queue damage P95?
+1. Why limit both RPM and TPM?
+2. How much do you debit up front, and how do you reconcile?
+3. Should you raise retry counts for persistent 429s?
 
 </Note>
 
@@ -207,18 +481,71 @@ Rate-limit users and tenants at ingress, then cap concurrency by provider/model.
 
 <Locale lang="zh">
 
-## Level 4 · 副作用与验收
+## Level 4 · 幂等与副作用
 
 ### 工具调用超时后，怎样避免重复退款？
 
-读订单、检索政策通常可安全重试；真正发起退款/发邮件是副作用。客户端超时只意味着没收到结果，不代表服务端没执行。为退款操作使用稳定幂等键，服务端存操作状态并按键返回原结果；重试前查询权威状态。LLM 不能自行决定授权或承诺已退款。
+场景：agent 调用 `create_refund(order_id="20240915", amount=89)`，3 秒超时，没收到响应。此时结果有三种可能：
 
-面试验收可以列出四组故障注入：模型首 token 卡住、429、流中断、退款提交后响应丢失。逐一检查用户提示、trace、重试次数、重复副作用和最终状态。连接到 [Reliability](/docs/production/reliability) 的降级策略与 [Agent Reliability](/docs/agent/reliability) 的工具结果语义。
+1. 请求没到退款服务——没退。
+2. 退款服务处理了，响应在回来路上丢了——**已经退了**。
+3. 退款服务还在处理——**马上会退**。
+
+调用方**无法区分**。直接重试，情况 2、3 就会重复退款。这叫**未知结果（unknown outcome）**，是分布式系统里最经典的问题。
+
+### 幂等键怎么设计？
+
+**幂等（idempotent）**：同一操作执行一次和执行多次，效果相同。做法是给每个副作用操作带一个**幂等键**，服务端记住“这个键已经处理过，结果是什么”：
+
+```
+POST /refunds
+Idempotency-Key: task_7f3a:step_4:refund:20240915
+{"order_id": "20240915", "amount": 89}
+
+服务端：
+  若 key 已存在 → 直接返回第一次的结果（不再退款）
+  若 key 不存在 → 执行退款，把 key 和结果原子地存下来
+```
+
+关键在于**键怎么生成**：
+
+| 生成方式 | 结果 |
+| --- | --- |
+| 每次调用随机 UUID | **错误**：重试时键变了，服务端认为是新请求 |
+| 由业务意图确定：`任务 ID + 步骤号 + 操作 + 对象` | **正确**：重试、进程重启后重放，键都一样 |
+
+agent 场景还有一个特殊点：模型可能在**下一轮**又决定调用一次 `create_refund`（它不确定上次是否成功）。所以幂等键最好由 harness 根据“这个任务对这个订单的退款”生成，而不是让模型自己填。
+
+### 没有幂等键时，未知结果怎么处理？
+
+**先查询，再决定**：
+
+```
+超时 → 调用 get_refund_status(order_id) 查询
+       ├─ 已退款     → 视为成功，记录
+       ├─ 没有记录   → 可以安全重试（最好仍带幂等键）
+       └─ 查不到 / 处理中 → 不重试；标记为“待核实”，交给人工或稍后对账
+```
+
+**绝对不要**让模型在不确定时“再试一次看看”。对用户也要如实说“退款请求已提交，正在确认结果”，而不是“已退款成功”。
+
+<Note type="tip" title="面试加分：至少一次 + 幂等 = 效果上恰好一次">
+
+分布式系统里，“恰好一次投递”很难保证，实际做法是“至少一次投递（会重试） + 接收方幂等（重复无副作用）”，效果上等于恰好一次。说出这句话，面试官就知道你懂背后的原理。
+
+</Note>
+
+<Note type="danger" title="错误说法">
+
+“超时了说明没成功，重试就行。”——超时只说明**你没收到响应**，不说明对方没执行。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 退款请求超时后能直接再调用一次吗？
-2. 哪四种注入故障能验证 API 设计？
+1. 退款调用超时的三种可能状态是什么？为什么不能直接重试？
+2. 为什么用随机 UUID 做幂等键是错的？应该怎么生成？
+3. 没有幂等支持时，未知结果的处理流程是什么？对用户怎么说？
 
 </Note>
 
@@ -226,16 +553,106 @@ Rate-limit users and tenants at ingress, then cap concurrency by provider/model.
 
 <Locale lang="en">
 
-## Level 4 · Side effects and acceptance
+## Level 4 · Idempotency and side effects
 
-### How do you prevent duplicate refunds after a timeout?
+### How do you avoid a double refund after a timeout?
 
-Read-only lookup is often retryable; issuing a refund or sending mail has side effects. A timeout means the client does not know the outcome, not that the server did nothing. Use a stable idempotency key and authoritative operation state so retries return the original result. Test stalled first token, 429, broken stream, and lost response after refund commit; verify user state, trace, attempts, and duplicate side effects.
+A timed-out `create_refund` has three possible states: never arrived, done but the response was lost, or still processing. The caller can't tell them apart — the classic **unknown outcome**. A blind retry double-refunds in two of three cases.
+
+### How do you design idempotency keys?
+
+The server stores key → result; a repeated key returns the original result without re-executing. The key must be derived from business intent — `task_id + step + operation + object` — not a random UUID per attempt, which changes on retry. In agents, have the harness generate the key, because the model may decide to "try the refund again" in a later turn.
+
+### Without idempotency support?
+
+Query, then decide: refunded → record success; no record → safe to retry (ideally with a key); unknown or pending → don't retry, mark for reconciliation or a human. Tell the user "submitted, confirming," not "refunded."
+
+<Note type="tip" title="Interview line">
+
+At-least-once delivery plus idempotent receivers gives effectively-once semantics.
+
+</Note>
+
+<Note type="danger" title="Wrong claim">
+
+"It timed out, so it failed — just retry." A timeout only means you didn't get a response.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Can you blindly retry a timed-out refund?
-2. Which four injected failures test the API design?
+1. What are the three states behind a refund timeout?
+2. Why is a random UUID the wrong key, and what's right?
+3. Walk through the unknown-outcome procedure and what you tell the user.
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 5 · 异步任务
+
+### 跑几分钟的任务怎么设计接口？
+
+coding agent 修一个 bug、生成一份长报告、批量处理 1,000 个工单——这些任务跑几分钟到几小时，不能挂在一个 HTTP 请求上（会撞上网关超时，用户刷新页面就丢了）。标准模式：
+
+```
+POST /tasks            → 202 Accepted  {"task_id": "t_91", "status": "queued"}
+                         任务进入队列，由后台 worker 执行
+GET  /tasks/t_91       → {"status": "running", "progress": "3/7 steps"}
+GET  /tasks/t_91       → {"status": "succeeded", "result": …}
+```
+
+拿结果的三种方式：
+
+| 方式 | 适用 | 注意 |
+| --- | --- | --- |
+| 轮询 | 最简单，前端定时查 | 轮询间隔与服务器负载的权衡 |
+| Webhook | 系统间集成，任务完成后回调对方 URL | 签名校验、重试投递、接收方幂等 |
+| 流式订阅 | 前端要实时看进度（如 agent 正在执行哪一步） | 断线后能凭 task_id 重新订阅 |
+
+关键设计点：
+
+- **任务状态存在持久化存储里**（数据库），不在 worker 内存里。worker 崩溃后任务能被识别并恢复或重试，详见 [Agent State](/docs/ai-native/agent-state)。
+- **取消**：提供 `POST /tasks/t_91/cancel`，worker 在步骤之间检查取消标志。
+- **进度可见**：agent 任务把当前步骤写入状态，用户和排障都能看到。
+
+<Note title="和 MCP Tasks、供应商 Batch API 的关系">
+
+这个模式到处都是：供应商的 Batch API 是“提交 → 轮询 → 取结果”；MCP 2026-07-28 版把长任务做成官方扩展 `io.modelcontextprotocol/tasks`，用 `tasks/get` 轮询状态。面试时可以说“这是同一个异步任务模式在不同层的体现”。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么长任务不能挂在一个同步 HTTP 请求上？
+2. 画出提交、查询、取结果的接口，并说明状态存在哪里。
+3. Webhook 回调要注意哪三件事？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 5 · Async jobs
+
+### How do you expose a multi-minute task?
+
+`POST /tasks` returns `202 Accepted` with a `task_id`; a worker runs it from a queue; clients poll, receive a webhook (signed, retried, idempotent on the receiver), or subscribe to a progress stream they can reattach to. Store task state durably, not in worker memory (see [Agent State](/docs/ai-native/agent-state)), support cancellation checked between steps, and expose progress.
+
+<Note title="Same pattern everywhere">
+
+Provider Batch APIs, and MCP's 2026-07-28 `io.modelcontextprotocol/tasks` extension (polled via `tasks/get`), are the same submit → poll → fetch pattern at different layers.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why can't long tasks ride on one synchronous request?
+2. Sketch the endpoints and where state lives.
+3. Three things to get right with webhooks?
 
 </Note>
 
@@ -245,57 +662,125 @@ Read-only lookup is often retryable; issuing a refund or sending mail has side e
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-不要把配置存在、HTTP 成功、示意数字或单次测试通过，当作生产质量与容量的证据。回答时先说明测量边界和分母，再说明取舍与验证方法。
+- “遇到错误就重试三次。”
+- “超时说明没成功。”
+- “用随机 UUID 做幂等键。”
+- “流式出错了返回 500。”（状态码早已发出）
+
+</Note>
+
+<Note type="warning" title="容易被追问">
+
+- SDK 默认就有重试，自己再包一层会叠加。
+- 用户断开后要取消上游，否则继续付费。
+- 持续 429 是容量问题，不是重试问题。
+- 流式工具参数要拼完整、校验通过才能执行。
 
 </Note>
 
 ## 连接
 
-从 [Production AI 总览](/docs/production) 进入；将本页指标带到 [AI System Design](/docs/system-design) 的具体白板题，并用 [Evaluation](/docs/evaluation) 验证质量。
+```
+API Engineering（单个请求写对）
+   ├─ 超时 / deadline ──► Latency（预算分配）
+   ├─ 重试预算耗尽   ──► Reliability（熔断、降级）
+   ├─ 限流           ──► Scaling（多层限流、队列）
+   └─ 幂等 / 异步任务 ──► Agent State（持久化与恢复）
+```
+
+- 同栏：[Latency](/docs/production/latency)、[Scaling](/docs/production/scaling)、[Reliability](/docs/production/reliability)
+- 相关：[Tool Calling](/docs/agent/tool-calling)、[Structured Output](/docs/application/structured-output)、[Agent State](/docs/ai-native/agent-state)
 
 ## 面试问题
 
-1. LLM API 为什么不能只写一个同步调用？（Why is one synchronous model call not enough?）
-2. SSE 或 WebSocket 流式输出改善什么，必须处理什么？（What does streaming improve and what must it handle?）
-3. 429、5xx 与超时分别如何处理？（How should 429s, 5xxs, and timeouts be handled?）
-4. 流量突增时谁负责限流和排队？（Who limits and queues work during a burst?）
-5. 工具调用超时后，怎样避免重复退款？（How do you prevent duplicate refunds after a timeout?）
+**Level 0–1**
+
+1. LLM API 为什么不能只写一个同步调用？（Why isn't a single synchronous call enough for LLM APIs?）
+2. 超时要设几层？各自防什么？（How many timeout layers do you set, and what does each guard?）
+3. SSE 流式输出到一半出错，怎么处理？（How do you handle an error halfway through an SSE stream?）
+4. 用户关闭页面后，后端要做什么？（What should the backend do when the user disconnects?）
+
+**Level 2–3**
+
+5. 429、5xx、400、超时分别怎么处理？（How do you handle 429, 5xx, 400, and timeouts?）
+6. 为什么指数退避要加 jitter？（Why add jitter to exponential backoff?）
+7. 什么是重试风暴？怎么避免？（What is a retry storm, and how do you prevent it?）
+8. 怎样在调用侧遵守供应商的 RPM 和 TPM？（How do you respect provider RPM and TPM limits client-side?）
+
+**Level 4–5**
+
+9. 工具调用超时后，怎样避免重复退款？（How do you avoid duplicate refunds after a tool timeout?）
+10. 幂等键怎么生成？为什么不能用随机 UUID？（How do you generate idempotency keys?）
+11. 跑几分钟的 agent 任务，接口怎么设计？（How do you design an API for a multi-minute agent task?）
 
 ## 资料来源
 
-- [官方文档](https://docs.aws.amazon.com/wellarchitected/2024-06-27/framework/rel_mitigate_interaction_failure_client_timeouts.html)
-- [官方文档](https://sre.google/sre-book/addressing-cascading-failures/)
+- [AWS Architecture Blog：Exponential Backoff And Jitter](https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/)
+- [Stripe：Idempotent requests](https://docs.stripe.com/api/idempotent_requests)
+- [Anthropic：Streaming messages](https://docs.claude.com/en/docs/build-with-claude/streaming)、[Errors](https://docs.claude.com/en/api/errors)、[Rate limits](https://docs.claude.com/en/api/rate-limits)
+- [MDN：Server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events)
+- [Google SRE Book：Handling Overload](https://sre.google/sre-book/handling-overload/)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Configuration, an HTTP success, teaching numbers, or one passing test do not prove production quality or capacity. State the measurement boundary and denominator before the tradeoff and validation.
+- "Retry everything three times."
+- "A timeout means it failed."
+- "Use a random UUID as the idempotency key."
+- "Return a 500 when the stream fails." (Headers are long gone.)
+
+</Note>
+
+<Note type="warning" title="Likely follow-ups">
+
+- SDKs already retry; don't stack layers.
+- Cancel upstream on disconnect or keep paying.
+- Persistent 429 is a capacity problem.
+- Assemble and validate streamed tool arguments before executing.
 
 </Note>
 
 ## Connections
 
-Use [Production AI overview](/docs/production), apply the metrics to [AI System Design](/docs/system-design), and validate quality through [Evaluation](/docs/evaluation).
+- Same section: [Latency](/docs/production/latency), [Scaling](/docs/production/scaling), [Reliability](/docs/production/reliability)
+- Related: [Tool Calling](/docs/agent/tool-calling), [Structured Output](/docs/application/structured-output), [Agent State](/docs/ai-native/agent-state)
 
 ## Interview questions
 
-1. Why is one synchronous model call not enough?
-2. What does streaming improve and what must it handle?
-3. How should 429s, 5xxs, and timeouts be handled?
-4. Who limits and queues work during a burst?
-5. How do you prevent duplicate refunds after a timeout?
+**Levels 0–1**
+
+1. Why isn't a single synchronous call enough for LLM APIs?
+2. How many timeout layers do you set, and what does each guard?
+3. How do you handle an error halfway through an SSE stream?
+4. What should the backend do when the user disconnects?
+
+**Levels 2–3**
+
+5. How do you handle 429, 5xx, 400, and timeouts?
+6. Why add jitter to exponential backoff?
+7. What is a retry storm, and how do you prevent it?
+8. How do you respect provider RPM and TPM limits client-side?
+
+**Levels 4–5**
+
+9. How do you avoid duplicate refunds after a tool timeout?
+10. How do you generate idempotency keys?
+11. How do you design an API for a multi-minute agent task?
 
 ## Sources
 
-- [Official documentation](https://docs.aws.amazon.com/wellarchitected/2024-06-27/framework/rel_mitigate_interaction_failure_client_timeouts.html)
-- [Official documentation](https://sre.google/sre-book/addressing-cascading-failures/)
+- [AWS Architecture Blog: Exponential Backoff And Jitter](https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/)
+- [Stripe: Idempotent requests](https://docs.stripe.com/api/idempotent_requests)
+- [Anthropic: Streaming](https://docs.claude.com/en/docs/build-with-claude/streaming), [Errors](https://docs.claude.com/en/api/errors), [Rate limits](https://docs.claude.com/en/api/rate-limits)
+- [MDN: Server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events)
+- [Google SRE Book: Handling Overload](https://sre.google/sre-book/handling-overload/)
 
 </Locale>
 

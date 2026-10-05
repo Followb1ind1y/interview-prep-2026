@@ -1,11 +1,11 @@
 ---
 title: Context Compaction
 titleEn: Context Compaction
-description: 长任务压缩上下文时保留目标、证据与未完成状态，并验证恢复质量。
-descriptionEn: Preserve goals, evidence, and open work during long-context compaction and test recovery.
-date: 2026-09-24
-keywords: ['context compaction', 'long-running agents', 'summary', 'checkpoint']
-tier: A
+description: 长任务 agent 的上下文管理：context rot、该保留什么、工具结果清理 / 自动压缩 / 子 agent / 外部记忆 / 重置交接五种手段的取舍，以及怎样验证压缩没有丢掉关键约束。
+descriptionEn: "Context management for long-running agents: context rot, what to keep, tradeoffs among tool-result clearing, auto-compaction, sub-agents, external memory, and reset-with-handoff, and verifying nothing critical was lost."
+date: 2026-10-04
+keywords: ['context compaction', 'context rot', 'auto-compact', 'context editing', 'tool result clearing', 'subagent', 'memory', 'long-running agent', 'handoff']
+tier: B
 status: todo
 cursor: ''
 mastery: { talk: 0, probe: 0 }
@@ -13,45 +13,59 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-贯穿本页的教学任务：用 coding agent 修复“猫粮客服把订单还没到误判为未发货”的问题。真实订单状态应来自订单 API，现行政策来自 `P-17 v3`；代码改动是否有效须靠运行与测试证据。以下文件名、状态和结果是示意，不是对你的实际项目的断言。
+coding agent 跑一个小时，读了 80 个文件、跑了 40 次测试，上下文早就超过窗口了。即使窗口够大（100 万 token），模型在超长上下文里的表现也会下降。**怎么管理 agent 的上下文**是 2025–2026 年 context engineering 最核心的工程问题之一。
+
+本页聚焦 **agent 运行时**的上下文管理手段。通用的压缩原理（摘要、抽取、去重）在 [Context Compression](/docs/context/compression) 里已经讲过；任务状态的持久化和崩溃恢复放在 [Agent State](/docs/ai-native/agent-state)。
+
+贯穿例子：agent 修订单状态 bug，已经跑了 60 轮。早期用户说过一个约束：“不要修改 `migrations/` 目录”。
 
 ## 这一页怎么学
 
-| Level | 要回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 为什么压缩 | 上下文很长时究竟出了什么问题？ | 15–25 min |
-| 1 · 保留清单 | 什么必须保留，什么可以丢？ | 15–25 min |
-| 2 · 压缩方法 | 滚动摘要、里程碑 checkpoint 与重置上下文怎么选？ | 15–25 min |
-| 3 · 压缩回归测试 | 如何证明压缩后没有忘掉关键条件？ | 15–25 min |
+| 0 · 长上下文的问题 | 窗口没满，为什么也会出问题？ | 20 min |
+| 1 · 保留什么 | 压缩时什么必须保留，什么可以丢？ | 20 min |
+| 2 · 五种手段 | 清理、压缩、子 agent、外部记忆、重置交接怎么选？ | 35 min |
+| 3 · 验证 | 怎样证明压缩后没忘掉关键条件？ | 15 min |
+
+**Level 2 是重点**。全页约 1.5 小时。
 
 ## 需要掌握
 
-- 上下文很长时究竟出了什么问题？
-- 什么必须保留，什么可以丢？
-- 滚动摘要、里程碑 checkpoint 与重置上下文怎么选？
-- 如何证明压缩后没有忘掉关键条件？
+- 三个问题：窗口溢出、context rot（长度增加导致质量下降）、成本随轮数近似平方增长
+- 必须保留：目标、约束、决策及原因、当前状态、未完成事项、证据指针；可以丢：已消化的原始输出、被否定方案的细节
+- 关键约束放在不会被压缩的位置（system prompt / 记忆文件），而不是只在历史里
+- 五种手段的取舍，以及压缩对前缀缓存的影响
+- 压缩后的探测验证
 
 </Locale>
 
 <Locale lang="en">
 
-Our running teaching task is a coding-agent fix for a support bug that treats “not arrived” as “not shipped.” Order state comes from the order API; current policy comes from `P-17 v3`; tests and runtime evidence determine whether a code change works. File names and sample results are illustrative, not claims about your project.
+A coding agent that runs for an hour reads 80 files and runs tests 40 times; its context blew past the window long ago. Even with a million-token window, quality degrades in very long contexts. Managing agent context is one of the central context-engineering problems of 2025–2026.
 
-## How to study this page
+This page covers runtime techniques. General compression methods are in [Context Compression](/docs/context/compression); durable task state and crash recovery are in [Agent State](/docs/ai-native/agent-state).
 
-| Level | Question | Time |
+Running example: 60 turns into the bug fix, with an early user constraint: "don't modify `migrations/`."
+
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · Why compact | What problem does compaction solve? | 15–25 min |
-| 1 · Preservation checklist | What must be kept and what can be dropped? | 15–25 min |
-| 2 · Compaction methods | How do rolling summaries, checkpoints, and context resets differ? | 15–25 min |
-| 3 · Compaction regression | How do you prove compaction preserved what mattered? | 15–25 min |
+| 0 · The problem | Why do things go wrong before the window fills? | 20 min |
+| 1 · What to keep | What must survive compaction, and what can go? | 20 min |
+| 2 · Five techniques | Clearing, compaction, sub-agents, external memory, reset with handoff? | 35 min |
+| 3 · Verification | How do you prove key constraints survived? | 15 min |
+
+**Level 2 is the core.** About 1.5 hours.
 
 ## Must know
 
-- What problem does compaction solve?
-- What must be kept and what can be dropped?
-- How do rolling summaries, checkpoints, and context resets differ?
-- How do you prove compaction preserved what mattered?
+- three problems: overflow, context rot, roughly quadratic cost
+- keep goals, constraints, decisions with reasons, current state, open items, evidence pointers; drop digested raw output and rejected-attempt details
+- put critical constraints where compaction can't remove them
+- tradeoffs among the five techniques and their cache impact
+- probing after compaction
 
 </Locale>
 
@@ -59,18 +73,28 @@ Our running teaching task is a coding-agent fix for a support bug that treats �
 
 <Locale lang="zh">
 
-## Level 0 · 为什么压缩
+## Level 0 · 长上下文的问题
 
 ### 上下文很长时究竟出了什么问题？
 
-Coding agent 搜索、测试、修改多轮后，工具日志和历史消息占用 context；成本、延迟上升，且重要信息可能被无关输出淹没。压缩是用较短表示承接继续工作所需的信息，不是“反正快满了就随便总结”。与 [Context Compression](/docs/context/compression) 的一般上下文工程相连，本页关注**可恢复的执行任务**。
+三个不同的问题，常被混为一谈：
 
-教学任务进行到第 40 步：已经定位“未到货”误判，写了回归测试，补丁已应用但集成测试还没跑。若压缩只留下“修好了”，下一轮会误报完成。应该写成“补丁已应用、`IN_TRANSIT` 定向测试通过、集成测试未运行”。
+| 问题 | 表现 | 原因 |
+| --- | --- | --- |
+| **溢出** | 请求报错：输入超过上下文窗口 | 硬上限 |
+| **Context rot（上下文腐化）** | 窗口没满，但模型开始忽略早期约束、重复已失败的方案、混淆不同文件 | 研究（如 Chroma 2025 年的 *Context Rot* 报告）显示，**随着输入变长，模型表现普遍下降**，即使任务难度不变；中间位置的信息更容易被忽略（lost in the middle，见 [Context Window](/docs/context/window)） |
+| **成本与延迟** | 每轮越来越贵、越来越慢 | 每轮重发全部历史，累计 token 近似平方增长（见 [Cost](/docs/production/cost) Level 2）；长 prompt 增加 prefill 时间 |
+
+所以“窗口有 100 万 token，不用管理上下文”是错误的。Anthropic 的工程文章把上下文称为**有限的注意力预算**：每多放一个无关 token，就在稀释模型对关键信息的注意力。
+
+### 例子中的典型症状
+
+第 60 轮时，上下文里有 40 次测试日志、80 个文件的内容。agent 开始修改 `migrations/0042_order_status.py`——第 2 轮用户说过的约束，被埋在 15 万 token 的历史中间，模型“没看到”。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 压缩的目标是省 token 还是保持可继续工作？
-2. “补丁已应用”与“完成”能互换吗？
+1. 区分溢出、context rot 和成本问题。
+2. 为什么“窗口足够大就不需要管理上下文”是错的？
 
 </Note>
 
@@ -78,16 +102,16 @@ Coding agent 搜索、测试、修改多轮后，工具日志和历史消息占�
 
 <Locale lang="en">
 
-## Level 0 · Why compact
+## Level 0 · The problem
 
-### What problem does compaction solve?
+### What actually goes wrong with long context?
 
-Search output and test logs grow until context becomes costly and hard to use. Compaction replaces raw history with a smaller representation of what the task still needs. At step 40 of our bug fix, the patch may be applied and a focused test passed while integration remains unrun. A summary saying “fixed” would corrupt the task state.
+Three distinct problems: **overflow** (hard window limit), **context rot** (quality drops as input grows even at fixed difficulty — e.g. Chroma's 2025 *Context Rot* report — and mid-context information gets lost; see [Context Window](/docs/context/window)), and **cost/latency** (resending history grows tokens roughly quadratically; see [Cost](/docs/production/cost)). Treat context as a finite attention budget. In our example, by turn 60 the "don't touch migrations" constraint is buried mid-history and the agent edits a migration.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Is compaction only token saving or also continuity?
-2. Can “patch applied” mean “done”?
+1. Distinguish overflow, context rot, and cost.
+2. Why is "the window is huge, no need to manage it" wrong?
 
 </Note>
 
@@ -95,18 +119,50 @@ Search output and test logs grow until context becomes costly and hard to use. C
 
 <Locale lang="zh">
 
-## Level 1 · 保留清单
+## Level 1 · 保留什么
 
 ### 什么必须保留，什么可以丢？
 
-保留当前目标与验收、用户不可变约束、已完成且有证据的步骤、关键决策及理由、修改的文件和基线 commit、失败/未跑测试、未决风险、下一步、工具/环境状态和来源引用。原始长搜索列表、重复报错全文和已解决的试探可删或改成 artifact 链接。
+判断标准：**接下来继续工作需要什么**。
 
-示意压缩条目：`goal: 区分 IN_TRANSIT/NOT_SHIPPED`；`files: refund_rule.py + test_refund.py`；`verified: focused tests 8/8`；`pending: API integration`；`source: git diff + test log IDs`。**不要捏造**“8/8”这类数字，只有运行记录存在才可写。
+| 必须保留 | 例子 |
+| --- | --- |
+| 目标 | 修复“没到”被误判为“未发货”的 bug |
+| 约束 | 不改 `migrations/`；只能用现有依赖；必须通过 `mypy` |
+| 已做的决策及原因 | “意图判断结合订单状态，而不是改关键词表——因为关键词表被其他模块共用” |
+| 当前状态 | 已修改 `intent.py`；新增测试已通过；`test_routing.py::test_fallback` 仍失败 |
+| 未完成事项 | 确认 `routing.py` 是否依赖旧行为 |
+| 证据指针 | 文件路径和行号（`support/intent.py:42`）、测试命令 |
+| 失败过的方案 | “尝试过在调用处加特判——被否定，因为只修了症状” |
+
+| 可以丢 | 原因 |
+| --- | --- |
+| 已读文件的完整内容 | 保留路径，需要时重新读 |
+| 测试日志全文 | 保留结论（哪个测试失败、错误类型） |
+| 搜索结果列表 | 保留有用的那几个位置 |
+| 被否定方案的细节 | 只保留“试过、为什么不行” |
+
+**证据指针比证据本身更值得保留**：路径 + 行号只占几十个 token，需要时可以重新读取，而且读到的是**当前**内容（文件可能已被修改）。这就是“即时检索（just-in-time）”的思路。
+
+### 关键约束应该放在哪？
+
+约束如果只存在于对话历史里，就会被压缩、被稀释。更稳的做法是把它放到**不会被压缩的位置**：
+
+- 项目级约束 → 项目记忆文件（CLAUDE.md / AGENTS.md），每轮都会注入
+- 任务级约束 → 任务描述 / 计划文件，压缩时作为固定部分保留
+- 能用代码强制的约束 → hook（PreToolUse 拦截对 `migrations/` 的写入），这样即使模型忘了也不会出事
+
+<Note type="tip" title="面试加分">
+
+“我不依赖模型在长上下文里记住约束：项目约束放记忆文件，任务约束放进压缩时固定保留的部分，硬约束用 hook 强制。”——这句话把 compaction 和 harness 设计串起来了。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 重复日志可以怎样缩短又不失证据？
-2. 为什么要保留基线 commit？
+1. 列出压缩时必须保留的 6 类信息。
+2. 为什么保留文件路径比保留文件内容更好？
+3. “不要改 migrations” 这个约束，应该放在哪三个地方？
 
 </Note>
 
@@ -114,16 +170,27 @@ Search output and test logs grow until context becomes costly and hard to use. C
 
 <Locale lang="en">
 
-## Level 1 · Preservation checklist
+## Level 1 · What to keep
 
-### What must be kept and what can be dropped?
+### What must survive, and what can go?
 
-Keep goal and acceptance, user constraints, evidence-backed completions, decisions, changed files and base commit, failing or unrun tests, risks, next action, environment, and provenance. Replace bulky search output and repeated resolved logs with artifact references. A compact state may list focused tests as 8/8 only if a real test log supports that count.
+Keep what continuing the work needs: goal, constraints, decisions with reasons, current state (files changed, which tests pass/fail), open items, evidence pointers (paths, lines, commands), and failed approaches with why. Drop full file contents (keep paths and re-read), full logs (keep conclusions), search result lists, and details of rejected attempts. Pointers beat payloads: tiny, and re-reading returns *current* content — the just-in-time idea.
+
+### Where should critical constraints live?
+
+Not only in history. Project constraints in the memory file (injected every turn); task constraints in the plan or the fixed part of the compaction summary; enforceable constraints in a hook so forgetting is harmless.
+
+<Note type="tip" title="Interview signal">
+
+"I don't rely on the model remembering constraints in long context: memory file, fixed summary section, and hooks for hard rules."
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. How can repeated logs be shortened without losing evidence?
-2. Why retain the base commit?
+1. Six categories to keep?
+2. Why paths over contents?
+3. Three places for the migrations constraint?
 
 </Note>
 
@@ -131,18 +198,70 @@ Keep goal and acceptance, user constraints, evidence-backed completions, decisio
 
 <Locale lang="zh">
 
-## Level 2 · 压缩方法
+## Level 2 · 五种手段
 
-### 滚动摘要、里程碑 checkpoint 与重置上下文怎么选？
+### 滚动摘要、子 agent、外部记忆、重置上下文怎么选？
 
-滚动摘要在同一任务中持续更新，方便短暂停顿，但多次改写容易累积失真；里程碑 checkpoint 保存结构化状态与 artifact 引用，更适合重启/跨 worker；上下文重置则把旧消息移出工作窗，再从受信任状态与当前仓库重新构造。三者可配合，不能把模型生成的摘要当权威数据库。
+| 手段 | 做法 | 优点 | 代价 |
+| --- | --- | --- | --- |
+| **1. 清理旧工具结果** | 把较早的大段工具输出替换为占位符（“[已读取 intent.py，共 210 行]”）。Anthropic API 提供的 context editing 功能可在超过阈值时自动清理旧工具结果 | 最轻量，不需要额外模型调用；对话结构不变 | 清理会改变历史前缀，**破坏一次缓存** |
+| **2. 自动压缩（compaction）** | 接近窗口上限时，用模型把历史总结成结构化摘要，以摘要 + 最近几轮继续。Claude Code 的自动压缩和 `/compact` 命令即是如此，部分 API 也提供服务端压缩 | 能处理任意长的任务 | 摘要可能丢细节；需要一次额外模型调用；之后缓存从头建立 |
+| **3. 子 agent 隔离** | 把“在全仓库找所有调用点”交给子 agent，它在自己的上下文里读 30 个文件，只把 500 token 的结论交回主 agent | 主上下文保持干净；子任务可并行 | 子 agent 看不到主 agent 的全部上下文，需要在任务描述里交代清楚；总 token 可能更多 |
+| **4. 外部记忆 / 笔记** | agent 把计划、进度、发现写到文件（`PROGRESS.md`、`TODO.md`）或记忆工具里，需要时读回 | 跨压缩、跨会话保留；人也能读 | 依赖 agent 主动维护；可能过时 |
+| **5. 重置 + 交接** | 结束当前会话，用一份交接文档（目标、进度、下一步）开启全新会话 | 上下文完全干净，没有 context rot | 交接文档写不好就丢信息；需要重新建立对代码的理解 |
 
-某些 API 提供不透明的自动压缩项，适合延续模型上下文；应用仍要自行保存业务状态和可审计证据。面试不必断言所有产品用相同压缩算法，讲清“何时触发、保留什么、如何校验”即可。
+### 怎么组合使用？
+
+一个合理的默认策略：
+
+```
+始终：    关键约束在记忆文件 / hook；探索任务交给子 agent
+上下文 50%：清理早期工具结果
+上下文 80%：自动压缩为结构化摘要（目标 / 约束 / 决策 / 状态 / 待办 / 证据指针）
+多小时任务：每完成一个里程碑写进度文件并提交 git；必要时重置会话，从进度文件继续
+```
+
+Anthropic 关于长时间运行 agent 的工程文章描述了类似做法：第一个会话负责建立环境和任务清单，之后每个会话读取进度文件和 git 日志接着做，每次只推进一个功能，完成后提交并更新进度——**用 git 历史和进度文件作为跨会话的外部记忆**。
+
+### 压缩摘要应该长什么样？
+
+结构化模板比自由文本可靠：
+
+```
+## 目标
+修复：用户说“订单没到”且订单状态为 in_transit 时，意图被判为 not_shipped
+
+## 约束（必须遵守）
+- 不修改 migrations/
+- 必须通过 uv run pytest 和 uv run mypy
+
+## 已做决策
+- 在 intent.classify() 中结合订单状态判断（关键词表被 routing.py 共用，不改）
+
+## 当前状态
+- 已改：support/intent.py:38-55
+- 新增测试 tests/test_intent.py::test_not_arrived_in_transit —— 通过
+- tests/test_routing.py::test_fallback —— 失败（AssertionError: expected not_shipped）
+
+## 下一步
+- 阅读 routing.py:120 附近，判断 test_fallback 是否依赖旧的错误行为
+
+## 已排除
+- 在调用处加特判（只修症状）
+```
+
+<Note type="warning" title="压缩与缓存">
+
+每次清理或压缩都会改变历史前缀，下一轮的缓存要重新建立（见 [Cost](/docs/production/cost) Level 2）。所以压缩不宜太频繁：在“上下文太长导致的质量和成本损失”与“缓存重建成本”之间权衡。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 自动压缩项能替代业务状态库吗？
-2. 滚动摘要有什么累积风险？
+1. 比较五种手段的优点和代价。
+2. 子 agent 为什么能节省主 agent 的上下文？有什么代价？
+3. 写一份压缩摘要模板，至少包含 5 个部分。
+4. 为什么压缩不应该太频繁？
 
 </Note>
 
@@ -150,16 +269,36 @@ Keep goal and acceptance, user constraints, evidence-backed completions, decisio
 
 <Locale lang="en">
 
-## Level 2 · Compaction methods
+## Level 2 · Five techniques
 
-### How do rolling summaries, checkpoints, and context resets differ?
+### How do you choose?
 
-Rolling summaries are convenient but can drift after repeated rewrites. Structured milestone checkpoints support process restarts; a context reset rebuilds a smaller window from trusted state and current workspace. Some APIs provide opaque automatic compaction for model continuity, but the application still owns authoritative business state and audit artifacts.
+1. **Clear old tool results** — replace bulky early outputs with placeholders (Anthropic's context editing can do this past a threshold); cheap, but breaks the cache once.
+2. **Auto-compaction** — near the limit, summarize history into a structured summary plus recent turns (Claude Code's auto-compact and `/compact`; some APIs compact server-side); handles any length but may lose detail and costs a model call plus a cache rebuild.
+3. **Sub-agents** — delegate exploration; only a short conclusion returns; keeps main context clean and parallelizes, but sub-agents need explicit briefs and total tokens may rise.
+4. **External memory** — progress and plan files or a memory tool; survives compaction and sessions and is human-readable, but needs upkeep.
+5. **Reset with handoff** — start a fresh session from a handoff doc; no rot, but a weak handoff loses information.
+
+### How do you combine them?
+
+Always: constraints in memory files and hooks, exploration in sub-agents. At ~50%: clear old tool results. At ~80%: structured compaction. Multi-hour tasks: write progress files and commit at milestones; reset when needed. Anthropic's long-running-agent write-up uses git history plus a progress file as cross-session memory, advancing one feature per session.
+
+### What should a compaction summary look like?
+
+A template beats free text: goal, constraints, decisions, current state with paths and test status, next steps, ruled-out approaches.
+
+<Note type="warning" title="Compaction and caching">
+
+Each clear or compaction changes the prefix and forces a cache rebuild; don't compact too often.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Can automatic compaction replace a business state store?
-2. What drift risk comes with rolling summaries?
+1. Compare the five techniques.
+2. How do sub-agents save context, and at what cost?
+3. Write a five-part summary template.
+4. Why not compact too often?
 
 </Note>
 
@@ -167,18 +306,19 @@ Rolling summaries are convenient but can drift after repeated rewrites. Structur
 
 <Locale lang="zh">
 
-## Level 3 · 压缩回归测试
+## Level 3 · 验证
 
 ### 如何证明压缩后没有忘掉关键条件？
 
-做“暂停—压缩—恢复”对照：同一个基线任务，分别用未压缩和压缩状态继续；检查是否找到正确文件、是否仍知道 `IN_TRANSIT` 与 `NOT_SHIPPED` 的区别、是否承认未跑的测试、是否重复执行副作用、最终验收差异。压缩前后也对账目标、约束、文件、未决项的覆盖。
-
-若压缩后 agent 把“没到”重新当“未发货”，应回看摘要缺的是订单权威来源还是案例反例；修复保留规则并纳入回归集。所谓 context anxiety 可作为“接近窗口边界时行为异常”的非正式描述，不能当统一的可量化模型病症。
+1. **探测问题**：压缩后立即（或在评估中）问 agent：“当前任务有哪些约束？”“哪些方案已经被排除？”答不出就说明摘要有缺失。
+2. **约束遵守测试**：在评估任务里早期埋一个约束（“不要改 migrations”），让任务长到触发压缩，检查压缩后是否违反。
+3. **重复检测**：压缩后 agent 是否重试了已被排除的方案？对比 trace 中压缩前后的工具调用。
+4. **A/B 对比**：同一组长任务，不同压缩策略（阈值、模板、是否用子 agent），比较完成率、成本、约束违反次数。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 压缩质量如何用任务结果验收？
-2. “context anxiety”能否当严格技术指标？
+1. 设计一个检测“压缩后忘记约束”的评估用例。
+2. 怎样从 trace 发现 agent 在压缩后重复了失败方案？
 
 </Note>
 
@@ -186,16 +326,16 @@ Rolling summaries are convenient but can drift after repeated rewrites. Structur
 
 <Locale lang="en">
 
-## Level 3 · Compaction regression
+## Level 3 · Verification
 
-### How do you prove compaction preserved what mattered?
+### How do you prove nothing critical was lost?
 
-Run pause–compact–resume comparisons on the same base task. Check file discovery, the `IN_TRANSIT`/`NOT_SHIPPED` distinction, unrun-test awareness, duplicate side effects, and final acceptance. Audit the compacted state against goals, constraints, files, and open issues. Treat “context anxiety” as an informal description of behavior near a context boundary, not a standardized diagnosis.
+Probe after compaction ("what are the constraints? what's ruled out?"); plant an early constraint in long eval tasks and check for violations after compaction; detect retries of ruled-out approaches by diffing tool calls before and after; A/B compaction strategies on the same long tasks for completion, cost, and violations.
 
 <Note title="Self-check: you should be able to answer">
 
-1. How do you validate compaction with task outcomes?
-2. Is “context anxiety” a formal metric?
+1. Design an eval case for forgotten constraints.
+2. How do traces reveal repeated failed approaches?
 
 </Note>
 
@@ -205,55 +345,71 @@ Run pause–compact–resume comparisons on the same base task. Check file disco
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-模型的计划、摘要和自述不是外部世界状态；工具接通、测试命令存在或沙箱配置写在文件里，也都不是运行时验证。回答时指出谁是权威、怎么观察、失败时停在哪里。
+- “窗口有 100 万 token，所以不需要管上下文。”
+- “压缩就是让模型总结一下。”（没有结构、没有验证）
+- “约束告诉过模型一次就行。”
 
 </Note>
 
 ## 连接
 
-从 [AI-Native Engineering 总览](/docs/ai-native) 串起七页；前置概念见 [Agent Loop](/docs/agent/loop)、[Context Engineering](/docs/context) 与 [Agent Security](/docs/agent/security)。
+- 机制：[Context Window](/docs/context/window)、[Context Compression](/docs/context/compression)、[Prompt Caching](/docs/context/caching)
+- 同栏：[Agent Harness](/docs/ai-native/harness)、[Agent State](/docs/ai-native/agent-state)
+- 成本：[Cost](/docs/production/cost)
 
 ## 面试问题
 
-1. 上下文很长时究竟出了什么问题？（What problem does compaction solve?）
-2. 什么必须保留，什么可以丢？（What must be kept and what can be dropped?）
-3. 滚动摘要、里程碑 checkpoint 与重置上下文怎么选？（How do rolling summaries, checkpoints, and context resets differ?）
-4. 如何证明压缩后没有忘掉关键条件？（How do you prove compaction preserved what mattered?）
+1. 上下文很长时究竟出了什么问题？什么是 context rot？（What goes wrong with long context? What is context rot?）
+2. 压缩时什么必须保留，什么可以丢？（What must survive compaction?）
+3. 关键约束应该放在哪里才不会被压缩丢掉？（Where should critical constraints live?）
+4. 清理工具结果、自动压缩、子 agent、外部记忆、重置交接怎么选？（How do you choose among the five techniques?）
+5. 压缩对 prompt 缓存有什么影响？（How does compaction affect prompt caching?）
+6. 如何证明压缩后没有忘掉关键条件？（How do you verify compaction kept what matters?）
 
 ## 资料来源
 
-- [官方规范或文档](https://developers.openai.com/api/docs/guides/compaction)
-- [官方规范或文档](https://developers.openai.com/api/docs/guides/agents-api/overview)
+- [Anthropic Engineering：Effective context engineering for AI agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
+- [Anthropic Engineering：Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
+- [Anthropic：Context editing](https://docs.claude.com/en/docs/build-with-claude/context-editing)
+- [Chroma Research：Context Rot](https://research.trychroma.com/context-rot)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Model plans, summaries, and self-reports are not world state. A connected tool, available test command, or configured sandbox is not runtime verification. Identify the authority, observed result, and safe stop point.
+- "We have a million tokens, no need to manage context."
+- "Compaction is just asking for a summary." (No structure, no verification.)
+- "Telling the model a constraint once is enough."
 
 </Note>
 
 ## Connections
 
-Use [AI-Native Engineering overview](/docs/ai-native) for the seven-page sequence. Prerequisites: [Agent Loop](/docs/agent/loop), [Context Engineering](/docs/context), and [Agent Security](/docs/agent/security).
+- Mechanics: [Context Window](/docs/context/window), [Context Compression](/docs/context/compression), [Prompt Caching](/docs/context/caching)
+- Same section: [Agent Harness](/docs/ai-native/harness), [Agent State](/docs/ai-native/agent-state)
+- Cost: [Cost](/docs/production/cost)
 
 ## Interview questions
 
-1. What problem does compaction solve?
-2. What must be kept and what can be dropped?
-3. How do rolling summaries, checkpoints, and context resets differ?
-4. How do you prove compaction preserved what mattered?
+1. What goes wrong with long context? What is context rot?
+2. What must survive compaction?
+3. Where should critical constraints live?
+4. How do you choose among the five techniques?
+5. How does compaction affect prompt caching?
+6. How do you verify compaction kept what matters?
 
 ## Sources
 
-- [Official specification or documentation](https://developers.openai.com/api/docs/guides/compaction)
-- [Official specification or documentation](https://developers.openai.com/api/docs/guides/agents-api/overview)
+- [Anthropic Engineering: Effective context engineering for AI agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
+- [Anthropic Engineering: Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
+- [Anthropic: Context editing](https://docs.claude.com/en/docs/build-with-claude/context-editing)
+- [Chroma Research: Context Rot](https://research.trychroma.com/context-rot)
 
 </Locale>
 
@@ -270,8 +426,6 @@ Use [AI-Native Engineering overview](/docs/ai-native) for the seven-page sequenc
 </Locale>
 
 - 30s:
-
-- 2min:
 
 <Locale lang="zh">
 

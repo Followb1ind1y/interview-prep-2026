@@ -1,10 +1,10 @@
 ---
 title: Agent Harness
 titleEn: Agent Harness
-description: 从模型、工具、状态、执行环境与验证闭环理解 agent 的运行时。
-descriptionEn: Understand the agent runtime through model, tools, state, execution, and verification.
-date: 2026-09-24
-keywords: ['agent harness', 'agent loop', 'tools', 'state', 'verification']
+description: 模型之外的一切：agent 循环、工具设计（ACI）、上下文装配、权限与 hooks、验证与停止条件。能在白板上写出一个最小可用的 coding-agent harness。
+descriptionEn: "Everything outside the model: the agent loop, tool design (ACI), context assembly, permissions and hooks, verification and stop conditions — enough to whiteboard a minimal coding-agent harness."
+date: 2026-10-04
+keywords: ['agent harness', 'agent loop', 'tool use', 'aci', 'agent-computer interface', 'permissions', 'hooks', 'subagent', 'claude agent sdk', 'codex', 'scaffold']
 tier: A
 status: todo
 cursor: ''
@@ -13,45 +13,73 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-贯穿本页的教学任务：用 coding agent 修复“猫粮客服把订单还没到误判为未发货”的问题。真实订单状态应来自订单 API，现行政策来自 `P-17 v3`；代码改动是否有效须靠运行与测试证据。以下文件名、状态和结果是示意，不是对你的实际项目的断言。
+2025–2026 年 AI 工程圈有一个共识：**agent = 模型 + harness**。同一个模型，放在不同的 harness 里，在 SWE-bench 这类基准上的分数能差出一大截；Claude Code、Codex、Cursor 之间的体验差异，很大一部分来自 harness 而不是模型。所以面试官越来越常问“如果让你设计一个 coding agent，你会怎么做”——他们考的就是 harness。
+
+这一页讲 harness 的每个组成部分：循环怎么写、工具怎么设计、上下文怎么装、权限怎么管、什么时候算做完。读完应该能在白板上画出一个最小可用的 coding-agent harness，并解释每个设计选择。
+
+前置：[Agent Loop](/docs/agent/loop) 和 [Tool Calling](/docs/agent/tool-calling)。贯穿例子：让 agent 修复“喵喵粮仓”客服把“订单还没到”误判成“未发货”的 bug——它要读代码、改代码、跑测试。
 
 ## 这一页怎么学
 
-| Level | 要回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 模型之外的东西 | 为什么一个强模型加长 prompt 还不是可靠 coding agent？ | 15–25 min |
-| 1 · 一次 agent loop | 一轮读文件、修改、测试的控制流是什么？ | 15–25 min |
-| 2 · 组件边界 | harness、MCP server 与 sandbox 各管哪层？ | 15–25 min |
-| 3 · 质量与工程设计 | 面试中怎么设计一个最小可用的 coding-agent harness？ | 15–25 min |
+| 0 · harness 是什么 | 为什么强模型加长 prompt 还不是可靠的 coding agent？ | 20 min |
+| 1 · 核心循环 | 一轮读文件、修改、测试的控制流是什么？写出伪代码 | 30 min |
+| 2 · 工具设计（ACI） | 编辑工具为什么用字符串替换？工具多了有什么问题？ | 40 min |
+| 3 · 上下文装配 | 每一轮模型看到的输入由什么组成？ | 25 min |
+| 4 · 权限与 hooks | 谁决定一个工具调用能不能执行？ | 25 min |
+| 5 · 验证与停止 | agent 什么时候算做完？卡住了怎么办？ | 20 min |
+| 6 · 白板设计 | 面试中怎么设计一个最小可用的 coding-agent harness？ | 20 min |
+
+**Level 1、2、6 是重点**。全页约 3 小时。
 
 ## 需要掌握
 
-- 为什么一个强模型加长 prompt 还不是可靠 coding agent？
-- 一轮读文件、修改、测试的控制流是什么？
-- harness、MCP server 与 sandbox 各管哪层？
-- 面试中怎么设计一个最小可用的 coding-agent harness？
+- harness 的职责清单，以及“同一模型不同 harness 表现差距大”的原因
+- agent 循环伪代码：`stop_reason == tool_use` 就执行工具、把 `tool_result` 追加回去
+- 工具错误作为 `tool_result`（`is_error`）返回给模型，而不是让循环崩溃
+- ACI 原则：少而精的工具、精确的编辑操作、输出截断与分页、可操作的错误信息
+- 工具数量的成本：token 开销、选择准确率，以及延迟加载（tool search）
+- 上下文组成：system prompt、项目记忆文件、工具定义、历史、工具结果；对缓存友好
+- 权限层：模型提议 → 规则 / 用户 / 分类器授权 → 沙箱执行；hooks 的拦截点
+- 停止条件：完成、预算、卡住检测、需要人确认；“说做完了”不等于做完
+- harness / MCP server / sandbox 三层的分工
 
 </Locale>
 
 <Locale lang="en">
 
-Our running teaching task is a coding-agent fix for a support bug that treats “not arrived” as “not shipped.” Order state comes from the order API; current policy comes from `P-17 v3`; tests and runtime evidence determine whether a code change works. File names and sample results are illustrative, not claims about your project.
+The 2025–2026 consensus: **agent = model + harness**. The same model scores very differently on SWE-bench-style benchmarks depending on the harness, and much of the difference between Claude Code, Codex, and Cursor comes from the harness. "Design a coding agent" is a harness question.
 
-## How to study this page
+This page covers each part: the loop, tool design, context assembly, permissions, and when the work counts as done. You should finish able to whiteboard a minimal coding-agent harness and defend each choice.
 
-| Level | Question | Time |
+Prereqs: [Agent Loop](/docs/agent/loop), [Tool Calling](/docs/agent/tool-calling). Running task: fix the bug where "not arrived" is treated as "not shipped" — read code, edit, run tests.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · Beyond the model | Why is a strong model with a long prompt not yet a reliable coding agent? | 15–25 min |
-| 1 · One agent loop | What is the control flow for read, edit, and test? | 15–25 min |
-| 2 · Component boundaries | What do the harness, MCP server, and sandbox each own? | 15–25 min |
-| 3 · Quality and design | How do you design a minimal viable coding-agent harness? | 15–25 min |
+| 0 · What a harness is | Why isn't a strong model plus a long prompt a reliable coding agent? | 20 min |
+| 1 · The core loop | What's the control flow for read–edit–test? Write the pseudocode | 30 min |
+| 2 · Tool design (ACI) | Why string-replace edits? What goes wrong with many tools? | 40 min |
+| 3 · Context assembly | What does the model see each turn? | 25 min |
+| 4 · Permissions and hooks | Who decides whether a tool call runs? | 25 min |
+| 5 · Verification and stopping | When is the agent done? What if it's stuck? | 20 min |
+| 6 · Whiteboard design | How do you design a minimal coding-agent harness in an interview? | 20 min |
+
+**Levels 1, 2, and 6 are the core.** About 3 hours.
 
 ## Must know
 
-- Why is a strong model with a long prompt not yet a reliable coding agent?
-- What is the control flow for read, edit, and test?
-- What do the harness, MCP server, and sandbox each own?
-- How do you design a minimal viable coding-agent harness?
+- harness responsibilities, and why harnesses change results so much
+- loop pseudocode: on `tool_use`, execute and append `tool_result`
+- return tool errors as `tool_result` with `is_error` instead of crashing
+- ACI principles: few sharp tools, precise edits, truncated/paginated output, actionable errors
+- the cost of many tools, and deferred loading via tool search
+- context composition and cache-friendliness
+- permission layers and hook interception points
+- stop conditions; "it says done" isn't done
+- the harness / MCP server / sandbox split
 
 </Locale>
 
@@ -59,90 +87,50 @@ Our running teaching task is a coding-agent fix for a support bug that treats �
 
 <Locale lang="zh">
 
-## Level 0 · 模型之外的东西
+## Level 0 · harness 是什么
 
 ### 为什么一个强模型加长 prompt 还不是可靠 coding agent？
 
-贯穿本栏的**教学任务**：修复猫粮客服把“订单还没到”误判成“未发货”的 bug。模型可以提出编辑建议，但它不知道仓库当前代码、订单 API 实际返回、测试结果或是否有权限改生产环境。Harness 是围绕模型的控制层：接收目标，选择/执行工具，管理 context 与状态，接收环境反馈，并落实权限和停止条件。
+模型本身只做一件事：**输入一段上下文，输出一段文本**（其中可能包含“我想调用某个工具”的结构化请求）。它不能读文件、不能跑测试、不记得上一次调用、不知道自己有没有越权。
 
-最小循环是“目标 → 模型提出下一步 → harness 校验权限并执行 → 环境返回结果 → 模型继续或停止”。模型输出可能是一段文字或工具调用意图；文件是否真的改成、测试是否真的通过由外部环境决定。把“模型认为修好了”与“有外部验收证据”分开。
+把模型放进聊天窗口，让它“修好这个 bug”，它只能根据你贴进去的代码**猜**修改。没有办法验证，也看不到报错。
 
-<Note title="自测：到这里你应该能回答">
+**Harness** 是包在模型外面、让它变成 agent 的全部代码：
 
-1. 模型提议编辑与文件已改成功有什么区别？
-2. harness 至少负责哪四件事？
+| 职责 | 具体做什么 |
+| --- | --- |
+| 循环控制 | 调模型 → 执行工具 → 把结果喂回去 → 再调模型，直到结束 |
+| 工具 | 提供读文件、搜索、编辑、跑命令等能力，并负责执行 |
+| 上下文装配 | 决定每一轮模型看到什么：system prompt、项目说明、历史、工具结果 |
+| 状态 | 记住做到哪了；长任务压缩上下文、支持中断恢复 |
+| 权限 | 决定哪些工具调用可以直接执行、哪些要问用户、哪些禁止 |
+| 验证 | 跑测试、lint、类型检查，用外部信号判断是否真的修好 |
+| 停止 | 完成、超预算、卡住、需要人确认时停下 |
+| 界面 | 把进度、diff、需要确认的操作展示给用户 |
 
-</Note>
+<Note type="tip" title="为什么 harness 决定这么多">
 
-</Locale>
-
-<Locale lang="en">
-
-## Level 0 · Beyond the model
-
-### Why is a strong model with a long prompt not yet a reliable coding agent?
-
-Our teaching task is to fix a support bug that treats “not arrived” as “not shipped.” A model can propose a patch, but it does not know the live repository, order API response, test results, or production permissions by itself. The harness is the control layer that receives a goal, routes tools, maintains context and state, enforces boundaries, and feeds observations back. Model belief is not verification.
-
-<Note title="Self-check: you should be able to answer">
-
-1. How is a proposed edit different from a committed file change?
-2. Name four harness responsibilities.
+同一个模型，换一个 harness，SWE-bench 分数差异可以很大。原因很直观：工具好不好用（编辑操作是否精确）、报错信息是否清楚、上下文里有没有项目约定、能不能跑测试拿到反馈——这些都直接决定模型能不能“看见”自己的错误并修正。面试时说出“agent 的能力 = 模型能力 × harness 让模型看到和做到的东西”，是很好的开场。
 
 </Note>
-
-</Locale>
-
-<Locale lang="zh">
-
-## Level 1 · 一次 agent loop
-
-### 一轮读文件、修改、测试的控制流是什么？
-
-示意：用户给目标和验收条件；harness 先把仓库路径、当前分支、相关文件与允许工具提供给模型。模型请求搜索 `arrival`/`shipment` 判定逻辑；harness 调用文件搜索，返回命中行；模型再提出补测试与修复；harness 写入并运行定向测试；测试报告失败或通过后，模型决定继续。
-
-工具 schema 只保证参数形状，例如 `path` 是字符串；它不能证明路径允许、内容安全或退款业务正确。写文件前还需路径作用域、权限和实际文件版本检查。若测试失败，结果应原样反馈而不是被 harness 美化成“基本成功”。记录 trace：每步输入、工具、耗时、结果、版本。
-
-<Note title="自测：到这里你应该能回答">
-
-1. 工具参数合法为何不代表操作安全？
-2. 测试失败应怎样回到模型？
-
-</Note>
-
-</Locale>
-
-<Locale lang="en">
-
-## Level 1 · One agent loop
-
-### What is the control flow for read, edit, and test?
-
-The harness gives the model task, repository context, and allowed tools. The model requests a search; the harness runs it and returns real lines. The model proposes a test and patch; the harness applies them and runs a focused test. A tool schema validates argument shape, not path authorization or business correctness. Feed failures back as failures and trace each step.
-
-<Note title="Self-check: you should be able to answer">
-
-1. Why does a valid tool argument not mean a safe action?
-2. How should failed tests re-enter the loop?
-
-</Note>
-
-</Locale>
-
-<Locale lang="zh">
-
-## Level 2 · 组件边界
 
 ### harness、MCP server 与 sandbox 各管哪层？
 
-Harness 管循环、上下文、工具路由、审批/策略、状态与恢复；MCP 是可选的连接协议，让外部 server 暴露工具/资源/提示；sandbox 管文件、进程、网络与资源的执行隔离。三者可组合，但不能互相代替。MCP 工具可返回 `get_order_status=运输中`，其 server 仍必须服务端鉴权；harness 决定是否把结果交给模型；sandbox 限制测试命令只能碰测试数据库。
+这三个词常被混在一起：
 
-重点是**业务权威**：订单状态由订单系统决定，测试通过由测试运行器决定，最终发布由部署/审核流程决定。模型和 harness 可以编排，不能凭语言输出创造这些事实。
+| 层 | 管什么 | 不管什么 |
+| --- | --- | --- |
+| Harness | 循环、上下文、调用哪个工具、是否允许、何时停止 | 工具内部怎么实现 |
+| MCP server | 以标准协议**提供**工具 / 资源（例如订单查询、Jira、数据库） | 是否允许调用、在什么上下文里调用 |
+| Sandbox | **限制**工具执行时能碰到的文件、网络、凭证、资源 | 决定调用什么 |
+
+一句话：**harness 决定做什么，MCP 提供能做什么，sandbox 限制做了之后能影响什么**。详见 [MCP](/docs/ai-native/mcp) 和 [Sandbox](/docs/ai-native/sandbox)。
 
 <Note title="自测：到这里你应该能回答">
 
-1. MCP 接上工具后还需要 sandbox 吗？
-2. 谁决定订单真实状态？
+1. 列出 harness 的至少 6 项职责。
+2. 聊天窗口里的模型修 bug，缺了哪两样东西？
+3. 用一句话区分 harness、MCP server、sandbox。
 
 </Note>
 
@@ -150,16 +138,29 @@ Harness 管循环、上下文、工具路由、审批/策略、状态与恢复�
 
 <Locale lang="en">
 
-## Level 2 · Component boundaries
+## Level 0 · What a harness is
 
-### What do the harness, MCP server, and sandbox each own?
+### Why isn't a strong model plus a long prompt enough?
 
-The harness owns orchestration, context, routing, approval policy, state, and recovery. MCP optionally standardizes access to external capabilities. The sandbox isolates execution with filesystem, process, network, and resource controls. An order-status server still enforces its own authorization. The model cannot turn a claim into authoritative order state or a passing test.
+A model maps context to text, possibly including a structured tool request. It can't read files, run tests, remember prior calls, or know whether it's authorized. In a chat window it can only guess a fix with no feedback.
+
+The **harness** is all the code that turns it into an agent: loop control, tools and their execution, context assembly, state and resume, permissions, verification, stopping, and UI.
+
+<Note type="tip" title="Why harnesses matter so much">
+
+The same model scores very differently across harnesses because tools, error messages, project conventions in context, and test feedback determine whether the model can see and fix its own mistakes. "Agent capability = model capability × what the harness lets the model see and do" is a strong opener.
+
+</Note>
+
+### Harness vs MCP server vs sandbox?
+
+The harness decides what to do; MCP servers expose what can be done; the sandbox limits what an action can affect. See [MCP](/docs/ai-native/mcp) and [Sandbox](/docs/ai-native/sandbox).
 
 <Note title="Self-check: you should be able to answer">
 
-1. Do MCP tools eliminate the need for a sandbox?
-2. Who determines real order state?
+1. List six harness responsibilities.
+2. What two things does a chat-window model lack for bug fixing?
+3. Distinguish the three layers in one sentence.
 
 </Note>
 
@@ -167,18 +168,74 @@ The harness owns orchestration, context, routing, approval policy, state, and re
 
 <Locale lang="zh">
 
-## Level 3 · 质量与工程设计
+## Level 1 · 核心循环
 
-### 面试中怎么设计一个最小可用的 coding-agent harness？
+### 一轮读文件、修改、测试的控制流是什么？
 
-从单任务基线开始：只读搜索、受限编辑、受限测试、git diff；定义最大步数/时间/费用，保存请求与工具 trace；每个副作用有审批或服务端策略；完成必须通过可观察验收。示意验收是“运输中订单不走未发货退款分支，未发货订单原行为不回归”，而不是“模型说已修复”。
+agent 循环的核心只有十几行。以 Anthropic Messages API 的形状为例（OpenAI Responses API 结构类似，只是字段名不同）：
 
-再谈长任务 checkpoint、MCP 扩展工具、多 agent 和压缩。量化同一任务集上的完成率、正确性、步数、P95、成本、越权尝试与回滚。OpenAI 当前官方资料把 harness 作为控制层、sandbox 作为执行层；实际产品配置会演进，面试解释架构职责比背某一版界面更稳。
+```python
+messages = [{"role": "user", "content": task}]
+
+for turn in range(MAX_TURNS):                       # 停止条件 1：轮数上限
+    resp = client.messages.create(
+        model=MODEL, system=SYSTEM, tools=TOOLS, messages=messages, max_tokens=8000,
+    )
+    messages.append({"role": "assistant", "content": resp.content})
+
+    if resp.stop_reason != "tool_use":              # 停止条件 2：模型不再调用工具
+        break
+
+    results = []
+    for block in resp.content:
+        if block.type != "tool_use":
+            continue
+        decision = authorize(block.name, block.input)          # 权限（Level 4）
+        if decision.denied:
+            out, err = f"Denied: {decision.reason}", True
+        else:
+            try:
+                out, err = run_tool(block.name, block.input), False   # 在沙箱里执行
+            except ToolError as e:
+                out, err = str(e), True                         # 错误也要回给模型
+        results.append({"type": "tool_result", "tool_use_id": block.id,
+                        "content": truncate(out), "is_error": err})
+
+    messages.append({"role": "user", "content": results})
+```
+
+走一遍修 bug 的例子：
+
+| 轮次 | 模型输出 | harness 执行 | 回给模型 |
+| --- | --- | --- | --- |
+| 1 | `tool_use: grep("not shipped")` | 在仓库里搜索 | 3 处匹配，`support/intent.py:42` |
+| 2 | `tool_use: read("support/intent.py")` | 读文件 | 带行号的文件内容 |
+| 3 | `tool_use: bash("pytest tests/test_intent.py")` | 跑测试 | 全部通过——现有测试没覆盖这个 bug |
+| 4 | `tool_use: edit(tests/…)` 新增复现测试 | 写入文件 | 成功 |
+| 5 | `tool_use: bash("pytest …")` | 跑测试 | 1 个失败（复现成功） |
+| 6 | `tool_use: edit(support/intent.py, old=…, new=…)` | 修改 | 成功 |
+| 7 | `tool_use: bash("pytest")` | 跑全部测试 | 全部通过 |
+| 8 | 文本：总结改了什么、测试结果 | `stop_reason = end_turn` | 循环结束 |
+
+### 几个关键细节
+
+1. **`tool_use_id` 必须对上**：每个 `tool_result` 都要引用对应的 `tool_use` 的 ID。模型一轮可能发出多个工具调用（**并行工具调用**），harness 可以并行执行，但要把所有结果放在同一条 user 消息里返回。
+2. **错误不中断循环**：文件不存在、命令失败、权限被拒——都作为 `is_error: true` 的结果返回给模型。模型看到“文件不存在”会去搜索正确的路径；如果 harness 直接抛异常退出，agent 就失去了自我修正的机会。
+3. **历史只追加，不修改**：这样每一轮都能命中前缀缓存（见 [Cost](/docs/production/cost) Level 2）。
+4. **截断工具输出**：`pytest` 可能输出 5 万行日志；直接塞进上下文会撑爆窗口、浪费钱，还会淹没关键信息。截断时保留开头和结尾，并告诉模型“已截断，可用参数查看更多”。
+
+<Note type="warning" title="stop_reason 不只有两种">
+
+除了 `tool_use` 和 `end_turn`，还有 `max_tokens`（输出被截断，可能是一个不完整的工具调用！）、`refusal`、`pause_turn` 等。harness 必须处理每一种：被截断的工具调用不能执行，应该提高上限后重试或让模型继续。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 最小 harness 的验收证据是什么？
-2. 为什么应先建立单 agent 基线？
+1. 不看笔记，写出 agent 循环的伪代码，标出两个停止条件。
+2. 工具执行出错时，为什么要作为结果返回而不是抛异常？
+3. 模型一轮发出三个工具调用，harness 该怎么返回结果？
+4. `stop_reason = max_tokens` 时，最后一个工具调用能执行吗？
 
 </Note>
 
@@ -186,16 +243,433 @@ The harness owns orchestration, context, routing, approval policy, state, and re
 
 <Locale lang="en">
 
-## Level 3 · Quality and design
+## Level 1 · The core loop
 
-### How do you design a minimal viable coding-agent harness?
+### What's the control flow?
 
-Start with read-only search, scoped edits, bounded tests, and diff inspection. Add step, time, and cost limits; tool traces; server-side policy for side effects; and observable acceptance. For this bug, success means transit orders avoid the not-shipped branch while genuinely unshipped orders still work. Compare task completion, quality, steps, latency, cost, and violations before adding checkpointing, MCP, or multiple agents.
+The loop: call the model with system, tools, and messages; append the assistant content; if `stop_reason` isn't `tool_use`, stop; otherwise authorize and execute each `tool_use` block (in the sandbox), collect `tool_result` blocks keyed by `tool_use_id` with `is_error` on failure, truncate output, append them as one user message, and repeat up to `MAX_TURNS`.
+
+The bug-fix walk-through: grep → read → run existing tests (all pass — not covered) → add a reproducing test → it fails → edit the fix → full test run passes → summarize and end.
+
+### Key details
+
+Match every `tool_use_id`, and return all results of parallel calls in one message. Return errors to the model instead of crashing — that's how it self-corrects. Append history, never rewrite it, to keep prefix caching. Truncate tool output, keeping head and tail, and tell the model it was truncated.
+
+<Note type="warning" title="More stop reasons than two">
+
+`max_tokens` may leave a half-written tool call that must not execute; also handle refusals and pause/continuation reasons.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. What evidence accepts the minimal harness?
-2. Why establish a single-agent baseline first?
+1. Write the loop and mark both stop conditions.
+2. Why return tool errors instead of raising?
+3. How do you return results for three parallel tool calls?
+4. Can you execute the last tool call after `max_tokens`?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 2 · 工具设计（ACI）
+
+### 什么是 ACI？
+
+SWE-agent 论文（Princeton，2024）提出了 **ACI（Agent-Computer Interface，智能体-计算机接口）** 的概念：就像人用的软件需要好的 UI（HCI），给 agent 用的工具也需要专门设计。他们发现，只改工具的设计、不换模型，就能显著提升解决率。Anthropic 后来在构建 SWE-bench agent 时也写道：他们花在优化工具上的时间比优化总体 prompt 还多。
+
+### 编辑工具为什么用“字符串替换”而不是“重写整个文件”？
+
+修改代码有几种设计：
+
+| 设计 | 做法 | 问题 |
+| --- | --- | --- |
+| 重写整个文件 | 模型输出完整新文件 | 大文件输出 token 多（贵、慢）；模型可能在“抄写”时悄悄改掉无关代码 |
+| 按行号编辑 | “替换第 40–45 行” | 前一次编辑后行号就变了，模型容易算错 |
+| 统一 diff | 模型输出 patch | 模型生成格式完全正确的 diff 比较困难，上下文行稍有不对就应用失败 |
+| **精确字符串替换** | `old_string` → `new_string`，要求 `old_string` 在文件中**唯一** | 需要模型给足够的上下文保证唯一；但失败时有清晰的错误 |
+
+Claude Code 的 Edit 工具、Anthropic 的 text editor 工具都用字符串替换，而且**要求先读过文件、`old_string` 必须唯一匹配**。好处是：
+
+- 输出只包含改动部分，省 token。
+- 不会误改其他地方。
+- 失败时能给出**可操作的错误**：“`old_string` 匹配到 3 处，请提供更多上下文”或“没有找到匹配，文件可能已被修改，请重新读取”。模型看到这种错误能自己修正。
+
+### 好的工具还有哪些原则？
+
+| 原则 | 例子 |
+| --- | --- |
+| 少而精，按任务而非按 API 设计 | 一个 `search_code(pattern, path_glob)` 比 `list_dir` + `read_file` + 自己过滤更好用 |
+| 名字和描述写清何时用、何时不用 | 描述中写“仅用于只读查询；修改文件请用 edit” |
+| 输出简洁、可分页 | 搜索结果最多 50 条，附“还有 230 条，可用 offset 翻页” |
+| 返回有意义的标识 | 返回文件路径和行号，而不是内部 UUID |
+| 错误信息可操作 | “测试命令不存在。项目使用 `uv run pytest`，见 pyproject.toml” |
+| 防误用（poka-yoke） | 要求绝对路径，避免工作目录变化导致改错文件 |
+
+### 工具多了有什么问题？
+
+每个工具的名字、描述、参数 schema **每一轮都占用输入 token**。接上 5 个 MCP server、80 个工具，可能每轮凭空多出几万 token：
+
+- **成本和延迟**：每轮都多付这些 token（缓存能缓解成本，但仍占窗口）。
+- **选择准确率下降**：工具越多、越相似，模型越容易选错。
+- **上下文被挤占**：留给代码和推理的空间变少。
+
+解决方案：**按需加载（tool search / deferred tools）**——只把工具名列表放进上下文，模型需要时先调用一个“搜索工具”的工具，harness 再把那几个工具的完整定义加载进来。Claude Code 对 MCP 工具就采用这种延迟加载，Anthropic API 也提供了 tool search 工具。
+
+<Note type="tip" title="面试加分">
+
+被问“你会给 coding agent 设计哪些工具”时，不要只列名字。说出“编辑用精确字符串替换并要求唯一匹配”“工具输出截断并提示翻页”“错误信息要告诉模型下一步怎么做”“工具太多时延迟加载”，就显示你真的理解 ACI。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 比较四种编辑工具设计，说明字符串替换的优点。
+2. 为什么 `old_string` 要求唯一匹配？匹配失败时应该返回什么？
+3. 写出三条 ACI 原则并各举一个例子。
+4. 接了 80 个工具会有什么问题？怎么解决？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 2 · Tool design (ACI)
+
+### What is ACI?
+
+SWE-agent (Princeton, 2024) introduced the **Agent-Computer Interface**: tools for agents need design the way human software needs UI. Changing only the tools, not the model, significantly raised solve rates. Anthropic likewise reported spending more time optimizing tools than the overall prompt for its SWE-bench agent.
+
+### Why string-replace edits?
+
+Whole-file rewrites cost output tokens and risk silent changes; line-number edits break after the first edit; unified diffs are hard to generate exactly. **Exact string replacement** with a uniqueness requirement (and a read-before-edit rule) outputs only the change, can't touch other code, and fails with actionable errors: "matched 3 times, add context" or "no match, re-read the file."
+
+### Other principles?
+
+Few task-shaped tools; names and descriptions that say when (not) to use them; concise, paginated output; meaningful identifiers like paths and line numbers; errors that suggest the next step; poka-yoke constraints like absolute paths.
+
+### What goes wrong with many tools?
+
+Every definition costs input tokens each turn, similar tools hurt selection accuracy, and context shrinks. Load on demand: list names only and let the model search for tools, loading full definitions when needed — Claude Code defers MCP tools this way, and Anthropic's API offers a tool search tool.
+
+<Note type="tip" title="Interview signal">
+
+Don't list tool names; explain unique-match string replacement, truncation with pagination hints, errors that guide the next action, and deferred loading.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Compare the four edit designs.
+2. Why require a unique match, and what does failure return?
+3. Give three ACI principles with examples.
+4. What breaks with 80 tools, and the fix?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 3 · 上下文装配
+
+### 每一轮模型看到的输入由什么组成？
+
+按“越稳定越靠前”排列（为了前缀缓存）：
+
+```
+┌ 工具定义                     几乎不变
+├ system prompt               harness 的行为规范：怎么用工具、何时问用户、输出格式
+├ 项目记忆文件                  CLAUDE.md / AGENTS.md：构建命令、测试命令、代码约定、禁区
+├ 环境信息                     工作目录、git 分支、操作系统（会话内基本不变）
+├ 对话与工具历史                 只追加
+└ 本轮新消息 / 工具结果
+```
+
+**项目记忆文件**是 2025 年后 coding agent 的标配：Claude Code 读 `CLAUDE.md`，Codex 等工具读 `AGENTS.md`（已成为多家工具通用的约定）。它解决的问题是：模型不知道“这个项目用 `pnpm` 不用 `npm`”“测试要用 `uv run pytest`”“不要改 `migrations/` 目录”。这些信息每次都要用，所以放在固定位置，每轮自动注入。
+
+### 长任务的上下文怎么办？
+
+几十轮之后，历史里塞满了读过的文件、测试日志，窗口快满了，模型也开始“忘记”早期的约束。harness 有几种手段：
+
+| 手段 | 做法 |
+| --- | --- |
+| 清理旧工具结果 | 把很久以前的大段工具输出替换为占位说明 |
+| 自动压缩（compaction） | 接近窗口上限时，把历史总结成一段摘要，用摘要替换历史继续 |
+| 子 agent | 把“在 30 个文件里找调用点”这种探索任务交给子 agent，它在自己独立的上下文里干活，只把结论返回给主 agent |
+| 外部笔记 | 让 agent 把计划和进度写到文件里（如 `TODO.md`），需要时再读回 |
+
+这些在 [Context Compaction](/docs/ai-native/compaction) 详细展开。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 列出每轮输入的组成部分，并说明为什么按这个顺序排。
+2. 项目记忆文件解决什么问题？里面应该写什么？
+3. 子 agent 怎样帮主 agent 节省上下文？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 3 · Context assembly
+
+### What does the model see each turn?
+
+Most stable first, for caching: tool definitions → system prompt (behavior rules) → project memory file (`CLAUDE.md`, or `AGENTS.md`, now a cross-tool convention: build/test commands, conventions, no-go areas) → environment info → append-only history → this turn's results. Memory files exist because the model can't know "use pnpm" or "don't touch migrations/."
+
+### What about long tasks?
+
+Clear stale tool output, auto-compact near the window limit, delegate exploration to sub-agents with isolated context that return conclusions, and keep external notes like a `TODO.md`. Details in [Context Compaction](/docs/ai-native/compaction).
+
+<Note title="Self-check: you should be able to answer">
+
+1. List the parts of each turn's input and why that order.
+2. What does a project memory file solve, and what goes in it?
+3. How do sub-agents save the main agent's context?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 权限与 hooks
+
+### 谁决定一个工具调用能不能执行？
+
+**不是模型**。模型只是“提议”调用某个工具；harness 在执行前做授权判断。核心原则：**模型提议，系统授权，沙箱限制**。
+
+典型的权限分层（以 Claude Code 的设计为例，其他 harness 类似）：
+
+| 层 | 机制 | 例子 |
+| --- | --- | --- |
+| 规则 | allow / deny 列表，按工具和参数匹配 | 允许 `Bash(npm test:*)`；禁止 `Bash(rm -rf:*)`、禁止读 `.env` |
+| 模式 | 不同的自动化程度 | 每次都问 / 自动接受文件编辑 / 计划模式只读 / 在隔离环境里全自动 |
+| 用户确认 | 规则未覆盖的调用弹窗确认 | “允许运行 `git push`？” |
+| 分类器 | 用模型判断某个操作在当前上下文里是否安全（自动模式） | 拦截看起来像数据外传的命令 |
+| 沙箱 | 即使授权通过，执行也被限制在边界内 | 只能写工作目录、网络只能访问白名单 |
+
+为什么要多层？因为**任何单层都可能失效**：规则写不全、用户会疲劳地一直点“允许”、模型可能被 prompt injection 诱导去执行危险操作。沙箱是最后一道防线，它不依赖模型的判断，见 [Sandbox](/docs/ai-native/sandbox)。
+
+### hooks 是什么？
+
+**Hooks** 是 harness 在生命周期的固定位置调用的用户脚本，让团队可以**用确定性代码**插入规则，而不是靠 prompt 祈祷模型遵守。常见的拦截点：
+
+| 时机 | 用途 |
+| --- | --- |
+| 工具执行前（PreToolUse） | 拦截危险命令、禁止修改某些目录、要求特定参数；可以拒绝并把原因告诉模型 |
+| 工具执行后（PostToolUse） | 编辑文件后自动跑格式化和 lint，把错误反馈给模型 |
+| 用户提交消息时 | 自动附加上下文（如当前工单信息） |
+| agent 准备停止时（Stop） | 检查测试是否通过；没通过就阻止停止，让 agent 继续修 |
+| 会话开始 / 压缩前后 | 注入或保存状态 |
+
+<Note type="tip" title="prompt 规则 vs hook 规则">
+
+“请不要修改 migrations 目录”写在 CLAUDE.md 里，模型**大概率**会遵守；写成 PreToolUse hook，就**一定**会被拦截。面试时说出“能用确定性代码强制的规则，不要只写在 prompt 里”，很加分。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么说“模型提议，系统授权”？列出四层权限机制。
+2. 为什么需要多层权限而不是只靠用户确认？
+3. 用 hook 实现“测试没通过就不能结束”，应该挂在哪个时机？
+4. 什么时候用 prompt 规则，什么时候用 hook？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Permissions and hooks
+
+### Who decides whether a tool call runs?
+
+Not the model. The model proposes, the harness authorizes, the sandbox contains. Layers: allow/deny rules matched on tool and arguments; modes (ask every time, auto-accept edits, read-only plan mode, fully autonomous in isolation); user confirmation for uncovered calls; a classifier judging risky actions in autonomous modes; and the sandbox as the last line. Every single layer can fail — incomplete rules, approval fatigue, prompt injection — so they stack.
+
+### What are hooks?
+
+User scripts the harness runs at fixed lifecycle points, enforcing rules with deterministic code: before a tool runs (block or reject with a reason), after a tool runs (format and lint, feed errors back), on user prompt submit (add context), on stop (block stopping until tests pass), and around sessions and compaction.
+
+<Note type="tip" title="Prompt rule vs hook rule">
+
+"Don't touch migrations" in `CLAUDE.md` is usually followed; as a pre-tool hook it's always enforced. Anything enforceable in code shouldn't live only in a prompt.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Explain "model proposes, system authorizes" and list four layers.
+2. Why not rely on user confirmation alone?
+3. Where would you hook "can't finish until tests pass"?
+4. When prompt rules, when hooks?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 5 · 验证与停止
+
+### agent 什么时候算做完？
+
+模型输出 `end_turn` 并说“已修复”，只说明**模型认为**做完了。真正的完成需要**外部信号**：
+
+| 信号 | 可信度 |
+| --- | --- |
+| 模型说“修好了” | 最低，只是自述 |
+| 代码改了 | 低，不知道改得对不对 |
+| 新增的复现测试先失败、修改后通过 | 高 |
+| 完整测试套件、lint、类型检查通过 | 高 |
+| 在真实环境中复现原始场景，行为正确 | 最高 |
+
+harness 可以把验证做成强制步骤：Stop hook 检查测试结果、CI 跑完整套件、最终报告中必须附上实际的测试命令和输出。见 [Agentic Coding](/docs/ai-native/agentic-coding)。
+
+### 卡住了怎么办？
+
+agent 卡住的典型表现：
+
+- 同一个工具调用、同样的参数，重复多次
+- 同一个测试错误，连续几轮没变化
+- 在两种改法之间来回切换
+- 轮数或 token 接近上限，但进展不明显
+
+harness 的处理：检测到重复时插入提示（“你已经连续 3 次尝试同样的修改，请换个思路或说明阻碍”）；达到预算上限时停下来，**如实报告**做到哪一步、卡在哪、需要什么信息，交给人。
+
+<Note type="danger" title="错误做法">
+
+预算用完时让 agent 写一个“看起来完成了”的总结。正确的停止报告应该区分：已验证的、已修改但未验证的、没做的、阻碍是什么。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 把五种完成信号按可信度排序。
+2. 列出三种 agent 卡住的表现，harness 怎么检测？
+3. 预算用完时，停止报告应该包括什么？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 5 · Verification and stopping
+
+### When is the agent done?
+
+`end_turn` plus "fixed" is self-report. Rank signals: the model's claim < code changed < a reproducing test that failed and now passes ≈ full suite, lint, and type checks pass < the original scenario behaves correctly in a real environment. Make verification mandatory with a stop hook, CI, and reports that include actual commands and output. See [Agentic Coding](/docs/ai-native/agentic-coding).
+
+### What if it's stuck?
+
+Symptoms: identical tool calls repeated, the same test error for several turns, oscillating between two fixes, budget burning without progress. Inject a nudge on repetition; at budget limits, stop and report honestly what's verified, what's changed but unverified, what's not done, and what's blocking.
+
+<Note type="danger" title="Wrong move">
+
+Letting the agent write a summary that looks finished when the budget runs out.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Rank the five completion signals.
+2. Three stuck symptoms and how to detect them?
+3. What goes into a budget-exhausted stop report?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 6 · 白板设计
+
+### 面试中怎么设计一个最小可用的 coding-agent harness？
+
+按这个顺序讲，大约 5 分钟：
+
+**1. 明确范围**：本地 CLI 还是云端后台任务？单仓库？要不要自动提交 PR？（假设：云端，接收 issue，产出 PR。）
+
+**2. 画架构**：
+
+```
+ Issue ──► Task API ──► 任务队列 ──► Worker
+                                     │
+                    ┌────────────────┼─────────────────┐
+                    ▼                ▼                 ▼
+              Agent Loop       Context Builder    Permission Gate
+              (Level 1)        (system + AGENTS.md  (规则 + 模式
+                │               + 历史 + 压缩)       + hooks)
+                ▼
+            Tool Router ──► 内置工具：read / grep / glob / edit / bash
+                │      └──► MCP Client ──► 外部 server（issue 系统、文档）
+                ▼
+            Sandbox（每任务一个容器 / microVM：仓库副本、网络白名单、无生产凭证）
+                │
+                ▼
+            Verifier（测试、lint、类型检查）──► 生成 PR + 报告
+                                                    │
+        State Store（任务状态、checkpoint、trace）◄───┘
+```
+
+**3. 逐个说明设计选择**（挑 3–4 个最重要的展开）：
+
+- 工具：精确字符串替换编辑；bash 输出截断；先读后改。
+- 上下文：项目记忆文件；长任务自动压缩；探索任务交给子 agent。
+- 安全：每个任务一个隔离沙箱；不放生产凭证；网络出口白名单；对仓库外的写操作需要审批。
+- 验证：先写复现测试；Stop hook 要求测试通过；PR 描述附测试输出。
+- 预算：最大轮数、token 上限、卡住检测，超出时提交部分结果并说明。
+- 状态：checkpoint 存外部，worker 崩溃可恢复（见 [Agent State](/docs/ai-native/agent-state)）。
+
+**4. 怎么评估**：用一组带隐藏测试的历史 issue（类似 SWE-bench 的思路），看解决率、成本、轮数、人工返工率（见 [Agentic Coding](/docs/ai-native/agentic-coding) Level 4）。
+
+<Note type="tip" title="可以引用的现成实现">
+
+不必从零写：Claude Agent SDK 把 Claude Code 的 harness（循环、工具、权限、hooks、子 agent、压缩）做成了库；OpenAI 的 Codex CLI 是开源的；OpenAI Agents SDK 也提供了循环和工具抽象。面试时说“我会基于现成的 agent SDK，重点投入在工具、沙箱和验证上”是务实的回答。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 不看笔记，画出 coding-agent harness 的架构图。
+2. 你会重点展开哪三个设计选择？为什么？
+3. 怎么评估这个 harness 好不好？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 6 · Whiteboard design
+
+### How do you design a minimal coding-agent harness?
+
+About five minutes, in order:
+
+1. **Scope**: local CLI or cloud background tasks? Assume cloud: issue in, PR out.
+2. **Architecture**: Task API → queue → worker running the agent loop, a context builder (system + `AGENTS.md` + history + compaction), a permission gate (rules, modes, hooks), a tool router (built-in read/grep/glob/edit/bash plus an MCP client), a per-task sandbox (repo copy, egress allowlist, no production credentials), a verifier (tests, lint, types), and a state store for task status, checkpoints, and traces.
+3. **Design choices** — expand three or four: string-replace edits with truncation; memory files, compaction, sub-agents; per-task isolation; reproduce-first testing with a stop hook; budgets and stuck detection; external checkpoints.
+4. **Evaluation**: historical issues with hidden tests, measuring solve rate, cost, turns, and human rework ([Agentic Coding](/docs/ai-native/agentic-coding) Level 4).
+
+<Note type="tip" title="Existing building blocks">
+
+The Claude Agent SDK packages Claude Code's harness as a library; OpenAI's Codex CLI is open source; the OpenAI Agents SDK provides loop and tool abstractions. "Build on an agent SDK and invest in tools, sandboxing, and verification" is a pragmatic answer.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Draw the architecture from memory.
+2. Which three choices would you expand, and why?
+3. How would you evaluate it?
 
 </Note>
 
@@ -205,55 +679,128 @@ Start with read-only search, scoped edits, bounded tests, and diff inspection. A
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-模型的计划、摘要和自述不是外部世界状态；工具接通、测试命令存在或沙箱配置写在文件里，也都不是运行时验证。回答时指出谁是权威、怎么观察、失败时停在哪里。
+- “agent 就是一个很长的 system prompt。”
+- “工具出错就终止任务。”（应该把错误返回给模型）
+- “让模型自己决定能不能执行危险命令。”
+- “模型说修好了就提交 PR。”
+
+</Note>
+
+<Note type="warning" title="容易被追问">
+
+- 编辑工具为什么要求唯一匹配？
+- 工具太多怎么办？
+- 规则写在 prompt 里还是 hook 里？
+- `stop_reason = max_tokens` 时怎么处理？
 
 </Note>
 
 ## 连接
 
-从 [AI-Native Engineering 总览](/docs/ai-native) 串起七页；前置概念见 [Agent Loop](/docs/agent/loop)、[Context Engineering](/docs/context) 与 [Agent Security](/docs/agent/security)。
+```
+Agent Loop / Tool Calling ──► Harness ──► Coding Workflow（用户视角）
+                                │
+                                ├──► Agentic Coding（验证）
+                                ├──► Compaction / Agent State（长任务）
+                                ├──► MCP（外部能力）
+                                └──► Sandbox（执行边界）
+```
+
+- 前置：[Agent Loop](/docs/agent/loop)、[Tool Calling](/docs/agent/tool-calling)、[Planning](/docs/agent/planning)
+- 同栏：[Coding Workflow](/docs/ai-native/coding-workflow)、[Agentic Coding](/docs/ai-native/agentic-coding)、[Compaction](/docs/ai-native/compaction)、[MCP](/docs/ai-native/mcp)、[Sandbox](/docs/ai-native/sandbox)
+- 安全：[Agent Security](/docs/agent/security)
 
 ## 面试问题
 
-1. 为什么一个强模型加长 prompt 还不是可靠 coding agent？（Why is a strong model with a long prompt not yet a reliable coding agent?）
-2. 一轮读文件、修改、测试的控制流是什么？（What is the control flow for read, edit, and test?）
-3. harness、MCP server 与 sandbox 各管哪层？（What do the harness, MCP server, and sandbox each own?）
-4. 面试中怎么设计一个最小可用的 coding-agent harness？（How do you design a minimal viable coding-agent harness?）
+**Level 0–1**
+
+1. 为什么一个强模型加长 prompt 还不是可靠的 coding agent？（Why isn't a strong model with a long prompt a reliable coding agent?）
+2. 写出 agent 循环的伪代码。（Write the agent loop in pseudocode.）
+3. 工具执行出错时 harness 应该怎么做？（What should the harness do when a tool fails?）
+
+**Level 2–3**
+
+4. 什么是 ACI？编辑工具为什么用字符串替换？（What is ACI, and why string-replace edits?）
+5. 接了几十个工具会有什么问题？怎么解决？（What goes wrong with dozens of tools, and how do you fix it?）
+6. coding agent 每轮的上下文由什么组成？CLAUDE.md / AGENTS.md 解决什么问题？（What's in each turn's context, and what do memory files solve?）
+
+**Level 4–6**
+
+7. 谁决定一个工具调用能不能执行？权限怎么分层？（Who authorizes tool calls, and how are permissions layered?）
+8. hooks 是什么？什么规则应该写成 hook？（What are hooks, and which rules belong in them?）
+9. agent 什么时候算做完？卡住了怎么办？（When is an agent done, and what if it's stuck?）
+10. harness、MCP server、sandbox 各管哪层？（What do harness, MCP server, and sandbox each own?）
+11. 设计一个最小可用的 coding-agent harness。（Design a minimal coding-agent harness.）
 
 ## 资料来源
 
-- [官方规范或文档](https://developers.openai.com/api/docs/guides/agents/sandboxes)
-- [官方规范或文档](https://developers.openai.com/blog/codex-as-a-platform)
+- [SWE-agent: Agent-Computer Interfaces Enable Automated Software Engineering (Yang et al., 2024)](https://arxiv.org/abs/2405.15793)
+- [Anthropic Engineering：Building effective agents](https://www.anthropic.com/engineering/building-effective-agents)、[Writing effective tools for agents](https://www.anthropic.com/engineering/writing-tools-for-agents)
+- [Anthropic：Tool use 文档](https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview)
+- [Claude Agent SDK](https://docs.claude.com/en/docs/agent-sdk/overview)、[Claude Code hooks](https://docs.claude.com/en/docs/claude-code/hooks)
+- [OpenAI Codex CLI（GitHub）](https://github.com/openai/codex)、[AGENTS.md](https://agents.md/)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Model plans, summaries, and self-reports are not world state. A connected tool, available test command, or configured sandbox is not runtime verification. Identify the authority, observed result, and safe stop point.
+- "An agent is a long system prompt."
+- "Abort the task when a tool fails."
+- "Let the model decide whether a dangerous command is OK."
+- "Open the PR when the model says it's fixed."
+
+</Note>
+
+<Note type="warning" title="Likely follow-ups">
+
+- Why unique-match edits?
+- What about too many tools?
+- Prompt rule or hook?
+- Handling `max_tokens` mid tool call.
 
 </Note>
 
 ## Connections
 
-Use [AI-Native Engineering overview](/docs/ai-native) for the seven-page sequence. Prerequisites: [Agent Loop](/docs/agent/loop), [Context Engineering](/docs/context), and [Agent Security](/docs/agent/security).
+- Prereqs: [Agent Loop](/docs/agent/loop), [Tool Calling](/docs/agent/tool-calling), [Planning](/docs/agent/planning)
+- Same section: [Coding Workflow](/docs/ai-native/coding-workflow), [Agentic Coding](/docs/ai-native/agentic-coding), [Compaction](/docs/ai-native/compaction), [MCP](/docs/ai-native/mcp), [Sandbox](/docs/ai-native/sandbox)
+- Security: [Agent Security](/docs/agent/security)
 
 ## Interview questions
 
-1. Why is a strong model with a long prompt not yet a reliable coding agent?
-2. What is the control flow for read, edit, and test?
-3. What do the harness, MCP server, and sandbox each own?
-4. How do you design a minimal viable coding-agent harness?
+**Levels 0–1**
+
+1. Why isn't a strong model with a long prompt a reliable coding agent?
+2. Write the agent loop in pseudocode.
+3. What should the harness do when a tool fails?
+
+**Levels 2–3**
+
+4. What is ACI, and why string-replace edits?
+5. What goes wrong with dozens of tools, and how do you fix it?
+6. What's in each turn's context, and what do memory files solve?
+
+**Levels 4–6**
+
+7. Who authorizes tool calls, and how are permissions layered?
+8. What are hooks, and which rules belong in them?
+9. When is an agent done, and what if it's stuck?
+10. What do harness, MCP server, and sandbox each own?
+11. Design a minimal coding-agent harness.
 
 ## Sources
 
-- [Official specification or documentation](https://developers.openai.com/api/docs/guides/agents/sandboxes)
-- [Official specification or documentation](https://developers.openai.com/blog/codex-as-a-platform)
+- [SWE-agent (Yang et al., 2024)](https://arxiv.org/abs/2405.15793)
+- [Anthropic Engineering: Building effective agents](https://www.anthropic.com/engineering/building-effective-agents), [Writing effective tools for agents](https://www.anthropic.com/engineering/writing-tools-for-agents)
+- [Anthropic: Tool use](https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview)
+- [Claude Agent SDK](https://docs.claude.com/en/docs/agent-sdk/overview), [Claude Code hooks](https://docs.claude.com/en/docs/claude-code/hooks)
+- [OpenAI Codex CLI](https://github.com/openai/codex), [AGENTS.md](https://agents.md/)
 
 </Locale>
 

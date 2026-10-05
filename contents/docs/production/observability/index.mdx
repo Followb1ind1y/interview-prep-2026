@@ -1,11 +1,11 @@
 ---
 title: Observability
 titleEn: Observability
-description: 用可回放 trace 串起质量、延迟、成本和版本，同时保护用户数据。
-descriptionEn: Connect quality, latency, cost, and versions with replayable privacy-aware traces.
-date: 2026-09-24
-keywords: ['observability', 'tracing', 'metrics', 'genai', 'privacy']
-tier: A
+description: 一次 agent 请求的 trace 长什么样、按 OpenTelemetry GenAI 约定记哪些字段、慢 / 贵 / 错分开告警、日志脱敏，以及把线上问题变成评估用例的闭环。
+descriptionEn: What an agent trace looks like, which OpenTelemetry GenAI fields to record, separate alerts for slow / expensive / wrong, redaction, and turning incidents into eval cases.
+date: 2026-10-04
+keywords: ['observability', 'trace', 'span', 'opentelemetry', 'gen_ai semantic conventions', 'langfuse', 'llm-as-judge', 'pii redaction', 'online eval', 'drift']
+tier: B
 status: todo
 cursor: ''
 mastery: { talk: 0, probe: 0 }
@@ -13,49 +13,61 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策 `P-17 v3` 来自检索，实时订单状态来自受权订单 API。示意数字只用于手算，不代表你的项目实测或当前供应商报价。
+传统可观测性回答“哪里慢、哪里报错”。LLM 系统还要回答两个传统工具答不了的问题：**这一步花了多少钱**、**这个回答对不对**。而且 agent 的执行路径每次都不同，没有 trace 几乎无法排障。
+
+这一页的重点是**能画出一个 agent 请求的 trace 树、说出该记哪些字段**，并知道质量信号怎么进入监控。工具选型只做快速了解。
+
+贯穿例子：“喵喵粮仓”客服回答订单 `20240915` 能否按 `P-17 v3` 退款。
 
 ## 这一页怎么学
 
-| Level | 先回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 三类信号 | 日志、指标和 trace 各回答什么问题？ | 15–25 min |
-| 1 · 一条可回放的 trace | 一次 RAG/Agent 请求至少要留哪些字段？ | 15–25 min |
-| 2 · 指标与告警 | 怎样把慢、贵、错分成不同告警？ | 15–25 min |
-| 3 · 隐私与采样 | 如何排错又不把客户数据泄漏到日志？ | 15–25 min |
-| 4 · 实验与事故回流 | 一次线上问题如何变成可验证的改进？ | 15–25 min |
+| 0 · 三种信号 | 日志、指标、trace 各回答什么？LLM 多了什么？ | 15 min |
+| 1 · 一个 agent 请求的 trace | span 树怎么组织？按 OTel GenAI 约定记哪些字段？ | 30 min |
+| 2 · 告警 | 怎样把慢、贵、错分开告警？质量信号从哪来？ | 25 min |
+| 3 · 隐私 | 怎样排错又不把用户数据泄漏到日志？ | 15 min |
+| 4 · 从事故到改进 | 一次线上问题怎么变成可验证的改进？ | 15 min |
+
+**Level 1 是重点**。全页约 1.5 小时。
 
 ## 需要掌握
 
-- 日志、指标和 trace 各回答什么问题？
-- 一次 RAG/Agent 请求至少要留哪些字段？
-- 怎样把慢、贵、错分成不同告警？
-- 如何排错又不把客户数据泄漏到日志？
-- 一次线上问题如何变成可验证的改进？
+- 日志 / 指标 / trace 的分工；LLM 特有的成本信号和质量信号
+- agent trace 的 span 树：`invoke_agent` → `chat` → `execute_tool`
+- OTel GenAI 字段：provider、model、token 用量（含缓存）、finish reason、会话 ID、工具名、prompt 版本
+- 慢 / 贵 / 错三类告警的指标和阈值；线上抽样评审
+- 内容记录默认关闭、脱敏、保留期限、访问控制
+- trace → 标注 → 评估集 → 修复 → 回归 的闭环
 
 </Locale>
 
 <Locale lang="en">
 
-We continue the pet-food support case: order `20240915` has not arrived. Current policy `P-17 v3` comes from retrieval; live order state comes from an authorized order API. All numerical examples are for learning, not project measurements or current provider prices.
+Classic observability answers "where is it slow, where does it fail?" LLM systems add two questions classic tools can't answer: **what did this step cost** and **was this answer right**. Agent execution paths differ every time, so without traces debugging is nearly impossible.
 
-## How to study this page
+The emphasis is drawing an agent trace tree and naming the fields; tool choices get a quick pass.
 
-| Level | Question | Time |
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · Three signal types | What do logs, metrics, and traces answer? | 15–25 min |
-| 1 · A replayable trace | What minimum fields make a RAG/agent request replayable? | 15–25 min |
-| 2 · Metrics and alerts | How do you alert separately on slow, expensive, and wrong? | 15–25 min |
-| 3 · Privacy and sampling | How do you debug without leaking customer data? | 15–25 min |
-| 4 · Experiments and incident feedback | How does an incident become a verified improvement? | 15–25 min |
+| 0 · Three signals | What do logs, metrics, and traces each answer? What's new for LLMs? | 15 min |
+| 1 · An agent trace | How is the span tree organized? Which OTel GenAI fields? | 30 min |
+| 2 · Alerts | How do you separate slow, expensive, and wrong? Where do quality signals come from? | 25 min |
+| 3 · Privacy | How do you debug without leaking user data into logs? | 15 min |
+| 4 · Incident to improvement | How does a production issue become a verified fix? | 15 min |
+
+**Level 1 is the core.** About 1.5 hours.
 
 ## Must know
 
-- What do logs, metrics, and traces answer?
-- What minimum fields make a RAG/agent request replayable?
-- How do you alert separately on slow, expensive, and wrong?
-- How do you debug without leaking customer data?
-- How does an incident become a verified improvement?
+- logs / metrics / traces; LLM-specific cost and quality signals
+- the agent span tree: `invoke_agent` → `chat` → `execute_tool`
+- OTel GenAI fields: provider, model, token usage incl. cache, finish reason, conversation ID, tool name, plus prompt version
+- metrics and thresholds for slow / expensive / wrong; sampled online judging
+- content capture off by default, redaction, retention, access control
+- the trace → label → eval set → fix → regression loop
 
 </Locale>
 
@@ -63,18 +75,29 @@ We continue the pet-food support case: order `20240915` has not arrived. Current
 
 <Locale lang="zh">
 
-## Level 0 · 三类信号
+## Level 0 · 三种信号
 
 ### 日志、指标和 trace 各回答什么问题？
 
-指标聚合回答“最近 P95 是否升高、429 比例多少”；trace 串起某一次请求的父子 span，回答“这条退款问题慢在哪里”；日志记录离散事件与结构化错误。三者通过 request/trace ID 关联，不能把一堆无关联日志叫可观测。
+| 信号 | 回答 | 例子 |
+| --- | --- | --- |
+| 指标（metrics） | **有没有问题、多严重**：聚合数字，便宜，适合告警 | P95 延迟、错误率、每小时花费、转人工率 |
+| Trace | **问题在哪一步**：一个请求经过的所有步骤及耗时、因果关系 | 这个请求慢在检索还是第二轮模型调用 |
+| 日志（logs） | **当时具体发生了什么**：离散事件的细节 | 订单 API 返回的错误信息 |
 
-教学案例的一条 trace 可含 `auth → order_lookup → retrieval → rerank → model → response`，分支并行时结构也应并行，而不是画成假串行。每段记录开始/结束、状态和版本。业务正确性另需评测或真实状态校验，不能只靠没有异常日志判断。
+排障路径通常是：指标告警 → 找到异常时段的 trace → 定位到某个 span → 看该 span 的日志和属性。
+
+### LLM 系统多了什么？
+
+1. **成本信号**：每个模型调用的 token 数和花费，必须能聚合到请求、任务、租户、功能（见 [Cost](/docs/production/cost) Level 5）。
+2. **质量信号**：HTTP 200 不代表答对（见 [Reliability](/docs/production/reliability) Level 0）。需要用户反馈、转人工、LLM-as-judge 评分等信号。
+3. **内容**：prompt 和回答本身是排障最重要的信息，但也是最敏感的数据（Level 3）。
+4. **版本**：同一个请求用的是哪个 prompt 版本、哪个模型快照、哪个索引版本——没有这些，无法判断是哪次发布引起的问题。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 指标、trace、日志分别最适合回答什么？
-2. 并行检索与工具应如何表示？
+1. 指标、trace、日志在排障中的先后顺序是什么？
+2. LLM 系统比传统服务多了哪四类需要观测的东西？
 
 </Note>
 
@@ -82,16 +105,20 @@ We continue the pet-food support case: order `20240915` has not arrived. Current
 
 <Locale lang="en">
 
-## Level 0 · Three signal types
+## Level 0 · Three signals
 
-### What do logs, metrics, and traces answer?
+### What does each signal answer?
 
-Metrics summarize trends, traces show one request’s causal path, and logs capture structured events or errors. Correlate them with a trace/request ID. A support trace can contain auth, order lookup, retrieval, rerank, model, and response spans; represent parallel work honestly. No exception log does not establish answer correctness.
+Metrics: is there a problem and how bad (cheap aggregates for alerting). Traces: which step (causal timing across a request). Logs: what exactly happened. Debug flow: alert → traces in the window → span → logs and attributes.
+
+### What's new for LLM systems?
+
+Cost per call aggregated to request, task, tenant, and feature; quality signals because 200 ≠ correct; the content itself, which is both the best debugging data and the most sensitive; and versions — prompt, model snapshot, index — to tie problems to releases.
 
 <Note title="Self-check: you should be able to answer">
 
-1. What question does each signal answer?
-2. How should parallel tool and search work appear?
+1. In what order do you use metrics, traces, and logs?
+2. Name four LLM-specific things to observe.
 
 </Note>
 
@@ -99,18 +126,64 @@ Metrics summarize trends, traces show one request’s causal path, and logs capt
 
 <Locale lang="zh">
 
-## Level 1 · 一条可回放的 trace
+## Level 1 · 一个 agent 请求的 trace
 
-### 一次 RAG/Agent 请求至少要留哪些字段？
+### span 树怎么组织？
 
-根 span 保留请求 ID、时间、租户的受限标识、部署版本、最终状态；模型 span 保留供应商、模型/版本、prompt 模板版本、输入/输出与缓存 token、错误码、耗时；检索 span 保留索引版本、查询哈希或受控内容、候选 chunk ID/名次、过滤原因；工具 span 保留工具名、参数摘要、结果状态与幂等键引用。
+一个 trace 由多个 **span**（一段有起止时间的操作）组成，span 之间有父子关系。客服 agent 处理一次请求：
 
-若 `P-17 v3` 在候选 Top-10 却没有进 context，要能从候选、重排、最终选入 ID 三组字段看出断点。OpenTelemetry 有 GenAI 语义约定，但其字段和稳定性会演进；选定版本并在项目内统一，避免把不同 SDK 的同名字段误当同口径。
+```
+POST /chat                                          4,120 ms
+└─ invoke_agent support-agent                       4,050 ms
+   ├─ chat claude-sonnet (turn 1)                   1,380 ms  in 8,210 / cached 7,900 / out 46
+   │    finish_reason = tool_use
+   ├─ execute_tool get_order_status                   190 ms  order_id=20240915 → in_transit
+   ├─ execute_tool search_policy                      260 ms  top_k=5 → P-17 v3 §2, §4
+   │   └─ rerank                                      110 ms
+   └─ chat claude-sonnet (turn 2)                   2,150 ms  in 9,870 / cached 8,250 / out 188
+        finish_reason = end_turn
+```
+
+从这棵树一眼能看出：两轮模型调用占了 3.5 s；第一轮缓存命中率很高；工具调用很快；最终回答 188 token。如果用户说“回答错了”，可以直接看 `search_policy` 返回了哪些条款、第二轮模型输入里有没有这些条款。
+
+### 按 OpenTelemetry GenAI 约定记哪些字段？
+
+OpenTelemetry 有一套专门的 **GenAI 语义约定**（GenAI semantic conventions），统一了 LLM span 的命名和字段，让不同框架、不同观测后端能互通。2026 年这套约定已迁到独立仓库维护，状态仍在演进中，但核心字段已被主流框架和平台采用：
+
+| 字段 | 含义 |
+| --- | --- |
+| span 名 | `{操作} {模型}`，如 `chat claude-sonnet` |
+| `gen_ai.operation.name` | `chat`、`embeddings`、`execute_tool`、`invoke_agent` 等 |
+| `gen_ai.provider.name` | 供应商，如 `anthropic`、`openai` |
+| `gen_ai.request.model` / `gen_ai.response.model` | 请求的模型和实际响应的模型（别名可能被解析成具体快照） |
+| `gen_ai.usage.input_tokens` / `gen_ai.usage.output_tokens` | token 用量；缓存读取 / 写入也有对应的用量字段 |
+| `gen_ai.response.finish_reasons` | `end_turn`、`tool_use`、`max_tokens`（被截断！）等 |
+| `gen_ai.conversation.id` | 把同一会话的多个请求关联起来 |
+| `gen_ai.tool.name` / `gen_ai.tool.call.id` | 工具名、本次调用 ID |
+| 输入 / 输出消息内容 | **默认不记录，需显式开启**（Level 3） |
+
+再加上你自己的业务字段：`tenant_id`、`feature`、`prompt_version`、`index_version`、`task_id`、`cost_usd`、`degradation_level`（当前在降级阶梯哪一级）。
+
+还有几个对应的指标：`gen_ai.client.token.usage`（token 用量分布）、`gen_ai.client.operation.duration`（调用耗时）、`gen_ai.server.time_to_first_token`（TTFT）。
+
+<Note type="tip" title="trace 上下文要跨过 MCP">
+
+MCP 2026-07-28 规范约定了在请求的 `_meta` 里传递 OpenTelemetry 的 `traceparent` 等字段。这样 agent 调用远程 MCP server 时，server 端的 span 能挂到同一棵 trace 树上，不会在跨服务时断掉。
+
+</Note>
+
+<Note type="warning" title="一定要记 finish_reason">
+
+`max_tokens` 意味着回答被截断——用户看到的可能是半句话或不完整的 JSON。这个比例突然上升，通常是某次 prompt 改动让模型变啰嗦了。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 要证明 `P-17 v3` 在哪一步丢失，至少要哪三组 ID？
-2. 为什么版本字段比单纯日志文本重要？
+1. 画出一个两轮 agent 请求的 span 树，标出每个 span 的类型。
+2. 列出至少 6 个 GenAI 字段和 3 个业务字段。
+3. 为什么要同时记 `request.model` 和 `response.model`？
+4. `finish_reason = max_tokens` 的比例上升说明什么？
 
 </Note>
 
@@ -118,16 +191,34 @@ Metrics summarize trends, traces show one request’s causal path, and logs capt
 
 <Locale lang="en">
 
-## Level 1 · A replayable trace
+## Level 1 · An agent trace
 
-### What minimum fields make a RAG/agent request replayable?
+### How is the span tree organized?
 
-Keep request/time/tenant scope, deployment and final status at the root. Model spans need provider/model/prompt version, token categories, errors, and duration. Retrieval spans need index version, candidate IDs/ranks, and filter reasons; tool spans need status and idempotency reference. Store final context IDs separately from candidates. OpenTelemetry GenAI conventions can help, but pin and document the schema because conventions evolve.
+`POST /chat` → `invoke_agent support-agent` → `chat` (turn 1, finish_reason `tool_use`) → `execute_tool get_order_status` and `execute_tool search_policy` (with a `rerank` child) → `chat` (turn 2, `end_turn`). One glance shows two model calls dominate, cache hit rates are high, tools are fast. For a "wrong answer" report you inspect which clauses retrieval returned and whether they reached turn 2's input.
+
+### Which OpenTelemetry GenAI fields?
+
+The GenAI semantic conventions (moved to their own repository in 2026, still evolving, widely adopted) standardize spans: name `{operation} {model}`; `gen_ai.operation.name` (`chat`, `embeddings`, `execute_tool`, `invoke_agent`); `gen_ai.provider.name`; `gen_ai.request.model` and `gen_ai.response.model`; `gen_ai.usage.input_tokens` / `output_tokens` plus cache usage; `gen_ai.response.finish_reasons`; `gen_ai.conversation.id`; `gen_ai.tool.name` / `gen_ai.tool.call.id`; message content is opt-in. Add business fields: tenant, feature, prompt version, index version, task ID, cost, degradation level. Metrics include `gen_ai.client.token.usage`, `gen_ai.client.operation.duration`, `gen_ai.server.time_to_first_token`.
+
+<Note type="tip" title="Trace context across MCP">
+
+The 2026-07-28 MCP spec documents propagating `traceparent` in request `_meta`, so remote MCP server spans join the same trace.
+
+</Note>
+
+<Note type="warning" title="Always record finish_reason">
+
+A rising `max_tokens` rate means truncated answers — often a prompt change made the model wordier.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Which three ID sets locate where `P-17 v3` vanished?
-2. Why are version fields more useful than free-text logs?
+1. Draw a two-turn agent span tree.
+2. Name six GenAI fields and three business fields.
+3. Why record both request and response model?
+4. What does a rising `max_tokens` finish rate mean?
 
 </Note>
 
@@ -135,18 +226,38 @@ Keep request/time/tenant scope, deployment and final status at the root. Model s
 
 <Locale lang="zh">
 
-## Level 2 · 指标与告警
+## Level 2 · 告警
 
 ### 怎样把慢、贵、错分成不同告警？
 
-黄金指标至少分成功/受控失败/未知结果、请求量、P50/P95/P99、429/5xx、超时、取消、队列等待、token 与成本。RAG 再看索引新鲜度、无证据率、引用可核对率；agent 看步数、重复工具和未完成副作用。按模型、租户、功能、部署版本分桶，但避免高基数字段直接做 metric label。
+| 类别 | 指标 | 告警示例 | 第一步排查 |
+| --- | --- | --- | --- |
+| 慢 | TTFT / E2E P95、首个有用内容时间 | E2E P95 连续 10 分钟超过 6 s | 按 span 类型看哪段变慢，见 [Latency](/docs/production/latency) |
+| 错（硬） | 错误率、429 率、熔断器状态 | 5 分钟错误率超过 2% | 按依赖分组看是哪个下游 |
+| 贵 | 每小时花费、每请求 token、缓存命中率、平均轮数 | 每小时花费超过过去 7 天同期 3 倍 | 按租户、功能、prompt 版本切片 |
+| 错（软） | 用户差评率、转人工率、judge 评分、schema 失败率、`max_tokens` 比例 | 抽样 judge 有据率从 95% 降到 90% | 按 prompt 版本、意图类别看，找具体 trace |
 
-质量指标有延迟：线上许多回答没有即时真值，自动 judge 也可能误判。把“答案待验证”单独计数，人工复核/真实业务结果回流 [Evaluation](/docs/evaluation)，不要把没有投诉当正确。告警要有明确动作：回滚、降级、限流、重建索引或人工升级。
+告警原则：**按症状告警，不按原因告警**。“用户等太久”是症状，值得叫醒人；“某台机器 CPU 高”是原因，可能根本没影响用户。
+
+### 质量信号从哪来？
+
+质量没法直接从 HTTP 状态码读出来，需要组合几种信号：
+
+| 信号 | 优点 | 缺点 |
+| --- | --- | --- |
+| 显式反馈（点赞 / 点踩） | 直接 | 覆盖率很低（通常只有少数用户会点），偏向极端体验 |
+| 隐式反馈（转人工、重新提问、放弃对话） | 覆盖全部流量 | 有噪声，需要解释 |
+| 确定性检查（schema、引用存在、业务规则） | 便宜、精确 | 只能查可规则化的错误 |
+| 线上抽样 + LLM-as-judge | 能评判“是否有证据支持”等语义质量 | 有成本（可走 Batch API），judge 本身需要校准 |
+| 人工抽检 | 最准 | 慢、贵，用来校准 judge |
+
+还要监控**漂移**：用户问题的分布在变（新品上线、促销期），检索命中率在变，即使模型和 prompt 都没改，质量也可能下降。详见 [Production Eval](/docs/evaluation/production-eval)。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 没有投诉是否等于答案正确？
-2. 哪些字段不适合直接做高基数 metric label？
+1. 为慢、贵、硬错、软错各设计一个告警。
+2. 为什么告警要按症状而不是原因？
+3. 只靠点赞点踩衡量质量有什么问题？
 
 </Note>
 
@@ -154,16 +265,21 @@ Keep request/time/tenant scope, deployment and final status at the root. Model s
 
 <Locale lang="en">
 
-## Level 2 · Metrics and alerts
+## Level 2 · Alerts
 
-### How do you alert separately on slow, expensive, and wrong?
+### How do you separate slow, expensive, and wrong?
 
-Track outcomes, volume, P50/P95/P99, throttling, errors, timeouts, queue wait, token usage, and spend. Add index freshness and evidence quality for RAG, step count and unresolved side effects for agents. Avoid high-cardinality metric labels. Production answers often lack immediate ground truth, so track pending verification and feed reviews or real outcomes into evaluation instead of equating no complaint with success.
+Slow: TTFT/E2E P95, time to useful content. Hard errors: error rate, 429 rate, breaker state. Expensive: hourly spend versus the same hour last week, tokens per request, cache hit rate, turns per task. Soft errors: thumbs-down, escalation, judge scores, schema failures, `max_tokens` rate. Alert on symptoms users feel, not causes.
+
+### Where do quality signals come from?
+
+Explicit feedback (direct but sparse and skewed), implicit feedback (escalation, rephrasing, abandonment — full coverage, noisy), deterministic checks (cheap, narrow), sampled LLM-as-judge (semantic, costs money — use Batch, calibrate it), and human review (accurate, slow; calibrates the judge). Watch for drift in the question mix and retrieval even when nothing shipped. See [Production Eval](/docs/evaluation/production-eval).
 
 <Note title="Self-check: you should be able to answer">
 
-1. Does no complaint imply correctness?
-2. Which identifiers should not be high-cardinality metric labels?
+1. Design one alert each for slow, expensive, hard error, soft error.
+2. Why alert on symptoms?
+3. What's wrong with thumbs alone?
 
 </Note>
 
@@ -171,18 +287,30 @@ Track outcomes, volume, P50/P95/P99, throttling, errors, timeouts, queue wait, t
 
 <Locale lang="zh">
 
-## Level 3 · 隐私与采样
+## Level 3 · 隐私
 
 ### 如何排错又不把客户数据泄漏到日志？
 
-默认不记录明文密钥、完整用户 prompt、订单详情或工具凭证。必要时对内容做脱敏、加密、按角色访问、短期保留；可用文档 ID、哈希、长度、版本和错误类别满足多数统计。采样策略对成功高频请求抽样，对失败可提高保留率，但也必须遵守敏感数据政策；“失败全部原样保存”不是安全默认值。
+prompt 和回答里有姓名、地址、电话、订单号，甚至用户粘贴的身份证号。全部原样写进日志，日志系统就成了最大的数据泄漏面——访问日志的人通常比访问生产数据库的人多得多。
 
-回放需要能在授权环境中重新取权威订单状态与当时政策快照。若源数据已删除或权限撤回，trace 也要遵守删除/保留规则。日志设计要经过和业务数据相同的安全审查。
+分层做法：
+
+1. **默认不记内容**：只记元数据（token 数、耗时、模型、工具名、finish reason），这已经能解决大部分性能和成本问题。OTel GenAI 约定也把消息内容设为需显式开启。
+2. **脱敏后记录**：需要内容时，先做 PII 检测和替换（`电话 138****5678`、`[ADDRESS]`），再写入。
+3. **采样**：只对一小部分请求或出错的请求记录完整内容。
+4. **分级存储**：完整内容放单独的、访问受控、有审计的存储，保留期短（如 30 天）；元数据可以长期保留。
+5. **可删除**：用户要求删除数据时，要能按用户 ID 找到并删除 trace 中的内容。
+
+<Note type="warning" title="工具返回值也是敏感数据">
+
+人们常记得给 prompt 脱敏，却忘了工具返回值——订单 API 返回的完整收货地址、CRM 返回的客户资料都会进 trace。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 为什么失败请求也不应默认全量保存明文？
-2. 不存 prompt 还能记录什么用于排错？
+1. 描述五层保护日志中用户数据的做法。
+2. 不记内容的情况下，还能排查哪些问题？
 
 </Note>
 
@@ -190,16 +318,22 @@ Track outcomes, volume, P50/P95/P99, throttling, errors, timeouts, queue wait, t
 
 <Locale lang="en">
 
-## Level 3 · Privacy and sampling
+## Level 3 · Privacy
 
-### How do you debug without leaking customer data?
+### How do you debug without leaking user data?
 
-Do not log plaintext secrets, full prompts, order details, or tool credentials by default. Prefer IDs, hashes, lengths, versions, and error classes; use redaction, encryption, access control, and retention where content is essential. Sample successful requests and retain more failure metadata within the same privacy policy. Replay in an authorized environment using the historical policy snapshot; honor deletion and access changes.
+Logs are often readable by far more people than production databases. Layer it: metadata only by default (OTel GenAI makes content opt-in); redact PII before writing content; sample full content for a fraction or for failures; store content separately with access control, audit, and short retention; support deletion by user ID.
+
+<Note type="warning" title="Tool results are sensitive too">
+
+Teams redact prompts and forget tool outputs — full addresses from the order API, CRM profiles.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why should failed requests not default to full plaintext capture?
-2. What can you log without the prompt?
+1. Describe the five protection layers.
+2. What can you still debug without content?
 
 </Note>
 
@@ -207,18 +341,44 @@ Do not log plaintext secrets, full prompts, order details, or tool credentials b
 
 <Locale lang="zh">
 
-## Level 4 · 实验与事故回流
+## Level 4 · 从事故到改进
 
 ### 一次线上问题如何变成可验证的改进？
 
-给事故绑定 trace ID、影响范围、根因层、修复版本与回归样本。例如新 prompt 让“运输中”误判成“未发货”：抽取可脱敏案例，写明订单状态和期望引用，进离线集；同流量桶做 canary，比较结果、P95、成本与安全负例，再扩大。
+例子：用户投诉“订单显示运输中，客服却说没发货，不能退款”。
 
-区分配置检查、测试环境通过、线上 canary 通过与全量用户体验；不要把“日志字段存在”当“可回放且能定位”。让 dashboard 能从聚合异常钻到具体 trace，再回到可复现样本。
+```
+1. 找 trace       按 conversation.id 找到那次请求
+2. 定位           execute_tool get_order_status 返回 in_transit ✓
+                  search_policy 返回了 P-17 v3 §2（未发货政策），没有 §4（运输中政策）✗
+3. 根因           检索 query 没有带上订单状态，所以按“没到”检索到了错误条款
+4. 加入评估集      把这个对话（脱敏后）加入回归评估集，标注正确答案
+5. 修复           检索 query 改为包含订单状态
+6. 验证           新版本在评估集上通过这个用例，且其他用例不退化
+7. 上线           灰度发布，监控该意图的转人工率和 judge 评分
+```
+
+关键在第 4 步：**每一个线上事故都变成一个评估用例**，评估集就会越来越贴近真实失败模式，同样的问题不会悄悄回来。
+
+### 常见的 LLM 观测工具有哪些？
+
+快速了解，面试时能说出一两个并讲清为什么选它即可：
+
+| 工具 | 特点 |
+| --- | --- |
+| Langfuse | 开源可自部署，trace + prompt 管理 + 评估，兼容 OTel |
+| LangSmith | LangChain 生态，trace 与评估集成紧密 |
+| Arize Phoenix | 开源，基于 OTel / OpenInference，偏评估与排障 |
+| Braintrust | 偏评估与实验对比，也有线上日志 |
+| Datadog / Grafana 等通用平台 | 已有 APM 的团队直接接入 GenAI span |
+
+选型时看：是否支持 OTel（避免锁定）、能否自部署（数据合规）、是否把 trace 和评估集打通。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 如何从线上错误形成回归样本？
-2. 为什么有 trace 字段不等于能复盘？
+1. 用“运输中被当成未发货”的例子，走一遍从 trace 到上线的七步。
+2. 为什么每个线上事故都要变成评估用例？
+3. 选 LLM 观测工具时看哪三点？
 
 </Note>
 
@@ -226,16 +386,21 @@ Do not log plaintext secrets, full prompts, order details, or tool credentials b
 
 <Locale lang="en">
 
-## Level 4 · Experiments and incident feedback
+## Level 4 · Incident to improvement
 
-### How does an incident become a verified improvement?
+### How does a production issue become a verified fix?
 
-Tie an incident to trace IDs, affected population, causal layer, fix version, and a regression case. For a prompt that confuses “in transit” with “not shipped,” create a redacted labeled case and run a canary on comparable traffic, checking quality, P95, cost, and authorization negatives. Distinguish configured instrumentation from genuinely replayable production traces.
+"Order shows in transit but the bot says it hasn't shipped": find the trace by conversation ID → the order tool returned `in_transit` correctly, but retrieval returned the not-shipped clause and missed the in-transit clause → root cause: the retrieval query ignored order state → add the redacted conversation to the regression set → fix → verify without regressions → canary while watching that intent's escalation and judge scores. Every incident becomes an eval case.
+
+### Which tools?
+
+Langfuse (open source, self-hostable, OTel-compatible), LangSmith (LangChain ecosystem), Arize Phoenix (open source, OTel/OpenInference), Braintrust (eval-centric), or existing APM like Datadog/Grafana ingesting GenAI spans. Choose on OTel support, self-hosting for compliance, and trace-to-eval integration.
 
 <Note title="Self-check: you should be able to answer">
 
-1. How does a production error become a regression case?
-2. Why are populated trace fields not sufficient for replay?
+1. Walk the seven steps for the in-transit incident.
+2. Why turn every incident into an eval case?
+3. Three criteria for choosing a tool?
 
 </Note>
 
@@ -245,57 +410,71 @@ Tie an incident to trace IDs, affected population, causal layer, fix version, an
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-不要把配置存在、HTTP 成功、示意数字或单次测试通过，当作生产质量与容量的证据。回答时先说明测量边界和分母，再说明取舍与验证方法。
+- “错误率很低，所以质量没问题。”
+- “把所有 prompt 和回答都记到日志里方便排查。”
+- “trace 只记模型调用。”（工具、检索、重排都要记）
 
 </Note>
 
 ## 连接
 
-从 [Production AI 总览](/docs/production) 进入；将本页指标带到 [AI System Design](/docs/system-design) 的具体白板题，并用 [Evaluation](/docs/evaluation) 验证质量。
+- 同栏：[Latency](/docs/production/latency)、[Cost](/docs/production/cost)、[Reliability](/docs/production/reliability)
+- 评估：[Production Eval](/docs/evaluation/production-eval)、[Evaluation](/docs/evaluation)
+- 协议：[MCP](/docs/ai-native/mcp)（跨服务 trace 传播）
 
 ## 面试问题
 
-1. 日志、指标和 trace 各回答什么问题？（What do logs, metrics, and traces answer?）
-2. 一次 RAG/Agent 请求至少要留哪些字段？（What minimum fields make a RAG/agent request replayable?）
+1. 日志、指标和 trace 各回答什么问题？（What do logs, metrics, and traces each answer?）
+2. 画出一个 agent 请求的 trace，并说明要记哪些字段。（Draw an agent trace and list the fields you record.）
 3. 怎样把慢、贵、错分成不同告警？（How do you alert separately on slow, expensive, and wrong?）
-4. 如何排错又不把客户数据泄漏到日志？（How do you debug without leaking customer data?）
-5. 一次线上问题如何变成可验证的改进？（How does an incident become a verified improvement?）
+4. AI 回答质量的线上信号从哪里来？（Where do online quality signals come from?）
+5. 如何排错又不把客户数据泄漏到日志？（How do you debug without leaking customer data?）
+6. 一次线上问题如何变成可验证的改进？（How does a production issue become a verified improvement?）
 
 ## 资料来源
 
-- [官方文档](https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/)
-- [官方文档](https://opentelemetry.io/docs/specs/semconv/general/trace/)
+- [OpenTelemetry GenAI semantic conventions](https://github.com/open-telemetry/semantic-conventions-genai)
+- [MCP 2026-07-28 changelog（trace context 传播）](https://modelcontextprotocol.io/specification/2026-07-28/changelog)
+- [Langfuse 文档](https://langfuse.com/docs)、[Arize Phoenix 文档](https://arize.com/docs/phoenix)
+- [Google SRE Book：Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Configuration, an HTTP success, teaching numbers, or one passing test do not prove production quality or capacity. State the measurement boundary and denominator before the tradeoff and validation.
+- "Error rate is low, so quality is fine."
+- "Log every prompt and response for debugging."
+- "Traces only need model calls." (Tools, retrieval, rerank too.)
 
 </Note>
 
 ## Connections
 
-Use [Production AI overview](/docs/production), apply the metrics to [AI System Design](/docs/system-design), and validate quality through [Evaluation](/docs/evaluation).
+- Same section: [Latency](/docs/production/latency), [Cost](/docs/production/cost), [Reliability](/docs/production/reliability)
+- Evaluation: [Production Eval](/docs/evaluation/production-eval), [Evaluation](/docs/evaluation)
+- Protocol: [MCP](/docs/ai-native/mcp)
 
 ## Interview questions
 
-1. What do logs, metrics, and traces answer?
-2. What minimum fields make a RAG/agent request replayable?
+1. What do logs, metrics, and traces each answer?
+2. Draw an agent trace and list the fields you record.
 3. How do you alert separately on slow, expensive, and wrong?
-4. How do you debug without leaking customer data?
-5. How does an incident become a verified improvement?
+4. Where do online quality signals come from?
+5. How do you debug without leaking customer data?
+6. How does a production issue become a verified improvement?
 
 ## Sources
 
-- [Official documentation](https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/)
-- [Official documentation](https://opentelemetry.io/docs/specs/semconv/general/trace/)
+- [OpenTelemetry GenAI semantic conventions](https://github.com/open-telemetry/semantic-conventions-genai)
+- [MCP 2026-07-28 changelog](https://modelcontextprotocol.io/specification/2026-07-28/changelog)
+- [Langfuse docs](https://langfuse.com/docs), [Arize Phoenix docs](https://arize.com/docs/phoenix)
+- [Google SRE Book: Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/)
 
 </Locale>
 
@@ -312,8 +491,6 @@ Use [Production AI overview](/docs/production), apply the metrics to [AI System 
 </Locale>
 
 - 30s:
-
-- 2min:
 
 <Locale lang="zh">
 
