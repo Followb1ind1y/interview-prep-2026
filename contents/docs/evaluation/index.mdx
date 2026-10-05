@@ -3,7 +3,7 @@ title: Evaluation
 titleEn: Evaluation
 description: Eval 已经不是 RAG 专属。从 golden set 到线上回归，才是 AI Engineer 思维。
 descriptionEn: Eval is no longer RAG-only. Golden sets through online regression.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["evaluation", "llm-as-judge", "recall@k", "faithfulness", "trajectory eval"]
 ---
 
@@ -30,6 +30,19 @@ Evaluation 要回答的不是“有一个分数吗”，而是：**系统对哪�
 4. 验收 agent 的真实业务状态和轨迹，测试超时、越权与重复写入
 5. 用线上 trace、成熟结果和受控放量，将故障转成有标签的回归 case
 
+## 2026-10 复习指引
+
+这一栏你已学完。2026-10-04 每页新增了一个“深入” Level，原文没有改动，你的高亮和 MyQuestion 都还在。下表标出新增内容的优先级；每页顶部的绿色提示框列出了要新学和要复习的具体 Level。
+
+| 优先级 | 页面 → 新增内容 |
+| --- | --- |
+| 🔴 必学 | [Fundamentals](/docs/evaluation/fundamentals) L4：置信区间手算、错误分析流程（先学这个，其他页依赖它） |
+| 🔴 必学 | [Offline](/docs/evaluation/offline) L4：McNemar 与 bootstrap、合成数据 |
+| 🔴 必学 | [LLM Eval](/docs/evaluation/llm-eval) L4：Cohen's kappa、Judge 偏差、LMArena、基准版图 |
+| 🔴 必学 | [Agent Eval](/docs/evaluation/agent-eval) L4：按最终状态评分、pass^k、主流 agent 基准 |
+| 🔴 必学 | [Production Eval](/docs/evaluation/production-eval) L4：A/B 样本量、SRM、护栏与线上评估 |
+| 🔴 必学 | [RAG Eval](/docs/evaluation/rag-eval) L4：RAGAS 指标的具体算法、无标注评估 |
+
 </Locale>
 
 <Locale lang="en">
@@ -54,5 +67,13 @@ For concrete metrics, start with [Fundamentals Level 2](/docs/evaluation/fundame
 3. Choose graders for open text, calibrate judges with people, and calculate retrieval metrics.
 4. Verify real agent state and trajectory under timeout, denied access, and duplicate writes.
 5. Use production traces, mature outcomes, and controlled rollout to turn failures into labeled regressions.
+
+## October 2026 review guide
+
+You've finished this section. On 2026-10-04 each page gained a deep-dive level; original text is unchanged and your highlights and MyQuestion entries remain. Each page's green note lists exactly what to learn and review.
+
+| Priority | Page → new content |
+| --- | --- |
+| 🔴 Must learn | All six Level 4s, starting with [Fundamentals](/docs/evaluation/fundamentals) (confidence intervals, error analysis) |
 
 </Locale>

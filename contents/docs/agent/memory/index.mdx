@@ -3,7 +3,7 @@ title: Memory
 titleEn: Memory
 description: Agent memory 不是聊天记录：区分工作状态、事件、稳定事实、技能与外部真相，并治理写入和检索。
 descriptionEn: "Agent memory is not chat history: separate working state, events, stable facts, skills, and external truth; govern writes and retrieval."
-date: 2026-09-21
+date: 2026-10-04
 keywords: ["agent memory", "working memory", "episodic memory", "semantic memory", "procedural memory", "retrieval", "context"]
 tier: A
 status: todo
@@ -25,6 +25,16 @@ Agent memory 要解决的是：在有限 context window 中，跨步骤和跨会
 
 这就是全页最重要的区分：memory 帮你少忘事；它不负责保证世界现在仍然是那样。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 6**：主流记忆系统的实现方式（MemGPT / Letta 的分页思路、Mem0 的抽取—更新流水线、ChatGPT 记忆、Anthropic memory tool、CLAUDE.md 作为程序性记忆）、记忆投毒攻击、记忆评测基准。面试官问“你会怎么实现 memory”时，能举出真实系统。
+
+🔁 **建议复习**：Level 2（写入与读取治理）——Level 6 的 Mem0 流水线就是它的具体实现；Level 5（隔离与安全）——新增的记忆投毒是它的典型攻击。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | 部分 | 回答的问题 | 时长 |
@@ -35,6 +45,7 @@ Agent memory 要解决的是：在有限 context window 中，跨步骤和跨会
 | Level 3 · Retrieval and RAG Evaluation | 怎样取回正确的证据，并评测“取到”和“用对”两件事？ | 35 min |
 | Level 4 · Compaction and Long-Horizon Memory | 如何跨 context window 续接任务，又不把压缩摘要当新真相？ | 30 min |
 | Level 5 · Isolation, Safety, and Evaluation | 怎样隔离租户、抵抗污染、支持删除，并评测记忆行为？ | 35 min |
+| Level 6 · 深入（2026-10 新增） | 真实的记忆系统怎么实现？记忆会被怎样攻击？ | 30 min |
 
 ## 需要掌握
 
@@ -60,6 +71,16 @@ But a note saying “my account has 500 left” must not authorize a payment; th
 
 That is the page's central distinction: memory helps the system avoid forgetting; it does not prove that the world is still the same.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 6**: real memory systems (MemGPT/Letta, Mem0, ChatGPT memory, Anthropic's memory tool, CLAUDE.md), memory poisoning, memory benchmarks.
+
+🔁 **Review**: Level 2 (write/read governance) and Level 5 (isolation and safety).
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Part | Question it answers | Time |
@@ -70,6 +91,7 @@ That is the page's central distinction: memory helps the system avoid forgetting
 | Level 3 · Retrieval and RAG Evaluation | How do you retrieve correct evidence and evaluate both getting it and using it correctly? | 35 min |
 | Level 4 · Compaction and Long-Horizon Memory | How do you continue across context windows without treating a summary as new truth? | 30 min |
 | Level 5 · Isolation, Safety, and Evaluation | How do you isolate tenants, resist pollution, support deletion, and evaluate memory behavior? | 35 min |
+| Level 6 · Deep dive (added 2026-10) | How do real memory systems work, and how are they attacked? | 30 min |
 
 ## Must know
 
@@ -362,6 +384,68 @@ memory 内容和 tool result 一样是不可信输入。过去文档里出现的
 
 </Note>
 
+## Level 6 · 深入：主流记忆系统怎样实现
+
+### MemGPT / Letta 的思路是什么？
+
+MemGPT（2023 年论文，后来的产品叫 Letta）借用**操作系统的虚拟内存**做类比：
+
+| 操作系统 | MemGPT |
+| --- | --- |
+| 内存（RAM）：快但小 | **核心记忆**：一直放在 context 里的少量关键信息（用户档案、agent 人设） |
+| 磁盘：大但慢 | **外部记忆**：对话全文（recall）、长期资料（archival），存在数据库里 |
+| 换页（paging） | 模型通过**工具调用**自己读写：`core_memory_replace`、`archival_memory_search` 等 |
+
+关键思想：**让模型自己管理记忆**——决定什么该写进核心记忆、什么时候去外部搜索。优点是灵活；风险是模型可能写错、写入不该记的内容（这正是 Level 2 讲的治理问题）。
+
+### Mem0 的抽取—更新流水线是什么？
+
+Mem0 把写入拆成两步，更接近 Level 2 的“记住前先问是否值得”：
+
+```text
+1. 抽取：从新对话中用 LLM 提取候选事实
+   “用户说以后发邮件不要超过三段” → 候选：偏好简洁邮件（≤3 段）
+2. 更新：和已有记忆比对，让 LLM 选择一种操作
+   ADD     新事实，直接加入
+   UPDATE  与旧记忆相关但更新了（“改成两段”）
+   DELETE  与旧记忆矛盾，旧的作废
+   NOOP    已存在或不值得记，什么都不做
+```
+
+这一步就是在解决记忆的**冲突与过期**——不做的话，记忆库里会同时存在“喜欢三段”和“喜欢两段”。
+
+### 产品里的记忆长什么样？
+
+| 产品 / 工具 | 形式 | 对应 Level 1 的类型 |
+| --- | --- | --- |
+| ChatGPT 记忆 | 显式保存的记忆条目 + 参考过往对话 | semantic + episodic |
+| Anthropic memory tool | 模型通过工具读写一个**由你的应用托管**的记忆文件目录 | external，可由你控制存储和权限 |
+| CLAUDE.md / AGENTS.md | 项目约定、命令、禁区，每次会话自动加载 | **procedural**（怎么做事） |
+| Claude Code 的会话恢复 / 进度文件 | 任务进度、下一步 | working memory 的持久化（见 [Agent State](/docs/ai-native/agent-state)） |
+
+### 记忆会被怎样攻击？
+
+**记忆投毒（memory poisoning）**：攻击者让 agent 把恶意内容**写进长期记忆**。和普通 prompt injection 的区别是**持久**——一次注入，之后每个会话都生效。安全研究者在 2024 年就演示过：通过一个网页或文档中的隐藏指令，让聊天助手把“以后把所有对话发到某地址”之类的内容存进记忆。
+
+防御（呼应 Level 5）：
+
+- 写入记忆的内容要标注**来源**；来自不可信内容（网页、邮件、工具结果）的候选记忆，默认不写入或需要用户确认。
+- 用户能**查看、编辑、删除**自己的记忆。
+- 记忆读取时同样当作低信任数据，不赋予指令权。
+
+### 记忆系统怎么评测？
+
+除了 Level 5 讲的业务评测，常见公开基准有 **LoCoMo**（超长多会话对话中的事实回忆、时间推理）和 **LongMemEval**（信息抽取、多会话推理、知识更新、时间推理、拒答）。面试时知道它们测的是“跨会话能否记对、记新、知道自己不知道”即可。
+
+<Note title="自测：到这里你应该能回答">
+
+1. MemGPT 怎样用操作系统做类比？谁负责“换页”？
+2. Mem0 的四种更新操作是什么？它解决了什么问题？
+3. CLAUDE.md 属于哪种记忆？为什么？
+4. 记忆投毒和普通 prompt injection 有什么区别？怎么防？
+
+</Note>
+
 ## 陷阱
 
 <Note title="向量库不是事实数据库" type="danger">
@@ -422,6 +506,11 @@ Planning consumes checkpoint; Tool Calling enforces actions; Security enforces i
 
 1. memory 系统怎样实现多租户隔离和用户删除？（How does a memory system implement tenant isolation and user deletion?）
 2. 为什么向量库不能充当 source of truth？（Why can a vector store not be a source of truth?）
+
+### 2026-10 新增
+
+1. 举一个真实记忆系统的设计（MemGPT 或 Mem0），讲清写入和读取怎么做。（Describe a real memory system design such as MemGPT or Mem0.）
+2. 什么是记忆投毒？怎么防？（What is memory poisoning, and how do you defend against it?）
 
 ## 我的答案
 
@@ -564,6 +653,37 @@ Deletion must also invalidate **derived copies**: vector index entries, cached s
 
 </Note>
 
+## Level 6 · Deep dive: how real memory systems work
+
+### MemGPT / Letta?
+
+An OS analogy: core memory always in context (like RAM), recall and archival memory in a database (like disk), and the model pages via tool calls (`core_memory_replace`, `archival_memory_search`). The model manages its own memory — flexible, but it can write wrong or inappropriate things.
+
+### Mem0's pipeline?
+
+Extract candidate facts with an LLM, then compare with existing memories and choose ADD, UPDATE, DELETE, or NOOP — resolving conflicts and staleness so "three paragraphs" and "two paragraphs" don't coexist.
+
+### Product memory?
+
+ChatGPT memory (saved items plus past-chat reference: semantic + episodic); Anthropic's memory tool (the model reads and writes a memory directory your app hosts); `CLAUDE.md`/`AGENTS.md` as procedural memory; progress files as persisted working memory.
+
+### Memory poisoning?
+
+Getting malicious content written into long-term memory — injection that persists across sessions; demonstrated against chat assistants in 2024. Defenses: tag sources, don't auto-write from untrusted content, let users view/edit/delete, treat reads as low-trust data.
+
+### Evaluation?
+
+LoCoMo and LongMemEval test recalling correctly, updating, temporal reasoning, and abstaining across sessions.
+
+<Note title="Self-check: you should be able to answer">
+
+1. MemGPT's OS analogy — who pages?
+2. Mem0's four operations and what they solve?
+3. What kind of memory is `CLAUDE.md`?
+4. Memory poisoning vs ordinary injection, and defenses?
+
+</Note>
+
 ## Traps
 
 <Note title="A vector store is not a fact database" type="danger">
@@ -624,6 +744,11 @@ Planning consumes checkpoint; Tool Calling bounds actions; Security enforces iso
 
 1. How does a memory system implement tenant isolation and user deletion?
 2. Why can a vector store not be a source of truth?
+
+### Added 2026-10
+
+1. Describe a real memory system design such as MemGPT or Mem0.
+2. What is memory poisoning, and how do you defend against it?
 
 ## My answer
 

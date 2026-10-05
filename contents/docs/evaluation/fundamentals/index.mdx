@@ -3,7 +3,7 @@ title: Evaluation Fundamentals
 titleEn: Evaluation Fundamentals
 description: 从业务决策、可评分样本和分母开始，建立能解释成功、失败与未知的评测闭环。
 descriptionEn: Start with business decisions, scoreable cases, and denominators to build an honest evaluation loop.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["evaluation", "eval case", "gold label", "denominator", "slices", "metric"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 本页是六页的地基。从一个可评分样本开始，先定义目标和标签，再手算分母与分层指标，最后串起离线、线上、人工与自动评审。后续页才讲评测集、LLM judge、RAG 和 Agent 专项指标。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 4**：评测数字的不确定性（比例的标准误与置信区间手算、样本量量感、多次运行）和**错误分析**流程（读 trace → 开放编码 → 归类 → 计数 → 为高频失败写评估器）。面试官追问“80% 和 82% 有没有差别”“评估集从哪来”时要用到。
+
+🔁 **建议复习**：Level 2（分母与切片）——Level 4 在它上面加上“这个数字有多可信”；手算混淆矩阵那一节面试高频，建议再算一遍。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -25,6 +35,7 @@ mastery: { talk: 0, probe: 0 }
 | 1 · 成功标准 | 同一个回答为何可能“流畅但错”？ | 25 min |
 | 2 · 分母和切片 | 80% 成功率来自哪些样本？Precision、Recall、F1 怎样算？ | 35 min |
 | 3 · 闭环 | 参考答案不足或没有参考答案时怎样评？ | 25 min |
+| 4 · 深入（2026-10 新增） | 80% 和 82% 真的有差别吗？评估集里的失败类别从哪来？ | 35 min |
 
 贯穿案例：客服查询订单系统、检索当前政策，决定是否能承诺退款。所有订单、政策和计数均为教学示意，不对应真实客户。
 
@@ -44,6 +55,16 @@ For “Can order 20240915 be refunded?”, **being polite**, **citing a policy**
 
 This page is the foundation for all six pages. Define one scoreable case and its label, calculate denominators and slices, then connect offline, online, human, and automatic grading. Later pages cover datasets, LLM judges, RAG, and agents.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 4**: uncertainty in eval numbers (standard errors, confidence intervals, sample sizes, repeated runs) and the error-analysis workflow.
+
+🔁 **Review**: Level 2 (denominators, slices) and the confusion-matrix arithmetic.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question | Time |
@@ -52,6 +73,7 @@ This page is the foundation for all six pages. Define one scoreable case and its
 | 1 · Success criteria | Why can a fluent answer still fail? | 25 min |
 | 2 · Denominators and slices | What does “80% success” count? How do Precision, Recall, and F1 work? | 35 min |
 | 3 · Feedback loop | How do we score with a partial or absent reference answer? | 25 min |
+| 4 · Deep dive (added 2026-10) | Is 80% really different from 82%? Where do failure categories come from? | 35 min |
 
 The running case is a support assistant that queries an order system and current policy before deciding whether it may promise a refund. All orders, policies, and counts below are teaching examples.
 
@@ -340,6 +362,78 @@ For multiclass intent classification, inspect per-class Precision/Recall/F1 and 
 
 </Note>
 
+## Level 4 · 深入：数字有多可信，失败类别从哪来
+
+### 80% 和 82% 真的有差别吗？
+
+评估集是从所有可能请求中抽出的一个**样本**，样本上的成功率有抽样误差。对比例（成功率），标准误（SE）和 95% 置信区间的近似公式：
+
+```text
+SE ≈ sqrt( p × (1 - p) / n )
+95% 置信区间 ≈ p ± 1.96 × SE
+```
+
+手算三个例子（p = 0.80）：
+
+| 样本数 n | SE | 95% 区间 |
+| --- | --- | --- |
+| 50 | 0.057 | 80% ± 11 个百分点 |
+| 100 | 0.040 | 80% ± 8 个百分点 |
+| 400 | 0.020 | 80% ± 4 个百分点 |
+| 1,600 | 0.010 | 80% ± 2 个百分点 |
+
+结论：**100 条样本上的 80% 和 82% 没有可区分的差别**——两个区间大面积重叠。要把误差缩小一半，样本要变成 4 倍。面试时被问“新 prompt 从 80% 提到 82%，能上线吗”，第一反应应该是“样本多少？区间多大？”。比较两个版本时用同一批样本做**配对比较**会更灵敏（见 [Offline](/docs/evaluation/offline) Level 4）。
+
+### 同一个样本为什么要跑多次？
+
+LLM 输出有随机性，同一条样本跑两次结果可能不同。所以：
+
+- 关键评估每条样本跑 3–5 次，报告**均值和波动范围**；
+- 区分“版本 A 比 B 好”和“这次运气好”——两次运行同一版本的差异，就是你的噪声下限；
+- agent 场景还要看 pass^k（见 [Agent Eval](/docs/evaluation/agent-eval) Level 4）。
+
+### 评估集里的失败类别从哪来？
+
+很多团队一开始就去找现成的指标（“忠实度”“相关性”），结果测了一堆分数，却不对应真实的失败。业界推荐的做法是**先做错误分析（error analysis）**，这一流程由 Hamel Husain、Shreya Shankar 等人在 2024–2025 年广泛推广：
+
+```text
+1. 抽样   从生产或测试中取约 100 条 trace
+2. 开放编码 逐条读，用一句话写下“第一个出错的地方”，不预设类别
+   例：“把‘没到’当成‘未发货’”“引用了 v2 政策”“没查订单就承诺退款”
+3. 归类   把相似的笔记合并成失败类别（轴向编码）
+   例：状态误判 / 政策版本错误 / 未核实就承诺 / 语气问题
+4. 计数   每类出现几次，按频率 × 严重程度排序
+5. 写评估器 只为排在前面的类别写自动检查（代码断言或 LLM judge）
+6. 循环   修复后重新抽样，看分布怎么变
+```
+
+这样得到的评估器**直接对应你产品的真实失败**，而不是通用指标。Level 0 的 eval case 结构、Level 1 的维度划分，都应该从这个分析里来。
+
+### 三类评估器怎么选？
+
+| 评估器 | 适合 | 成本 |
+| --- | --- | --- |
+| 代码断言 | 能规则化的：格式、是否调用了查订单工具、金额是否 ≤ 订单金额 | 几乎为零，确定 |
+| LLM judge | 语义判断：是否有证据支持、语气是否得当（见 [LLM Eval](/docs/evaluation/llm-eval)） | 中等，需要校准 |
+| 人工 | 校准 judge、高风险抽检、新失败类别发现 | 高 |
+
+原则：**能用代码断言的不用 judge，能用 judge 的不用人工**，但 judge 必须用人工标签校准。
+
+<Note type="tip" title="面试加分">
+
+被问“你怎么搭评估体系”，从错误分析讲起：“我先读 100 条 trace，开放编码找出第一个出错点，归成几类，按频率和严重度排序，只为前几类写评估器——能用代码断言就不用 judge。报告数字时附上样本量和置信区间。”
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. n = 200、成功率 85%，算 95% 置信区间。
+2. 为什么 100 条样本上的 80% 和 82% 不能说明哪个版本更好？
+3. 描述错误分析的六个步骤。为什么要“开放编码”而不是预设类别？
+4. 三类评估器各适合什么？
+
+</Note>
+
 ## 连接
 
 ```text
@@ -357,6 +451,11 @@ Production → 把真实失败送回离线
 4. 如何区分产品 KPI 与离线 proxy metric？（How do you distinguish a business KPI from an offline proxy?）
 5. 为什么总体通过率之外还要看切片？（Why inspect slices beyond aggregate pass rate?）
 6. 以危险承诺为正类，怎样从 TP/FP/FN/TN 手算 Precision、Recall、F1，并选发布护栏？（Calculate and choose classification metrics.）
+
+### 2026-10 新增
+
+1. 评估集上 80% 和 82% 有没有差别？怎么判断？（Is 80% vs 82% on your eval set a real difference?）
+2. 你会怎样从零开始找出产品的失败类别？（How do you discover your product's failure categories from scratch?）
 
 ## 我的答案
 
@@ -393,6 +492,39 @@ You may have reference **conditions**, evidence, forbidden actions, and human pr
 
 </Note>
 
+## Level 4 · Deep dive: how trustworthy is the number, and where do failure categories come from?
+
+### Is 80% different from 82%?
+
+`SE ≈ sqrt(p(1-p)/n)`, 95% CI ≈ p ± 1.96 SE. At p = 0.8: ±11 points at n=50, ±8 at 100, ±4 at 400, ±2 at 1,600. On 100 cases, 80% vs 82% is indistinguishable; halving the error takes 4× the data. Paired comparisons on the same cases are more sensitive ([Offline](/docs/evaluation/offline) Level 4).
+
+### Why run each case multiple times?
+
+Outputs are stochastic. Run key evals 3–5 times, report mean and spread; run-to-run variance of one version is your noise floor; agents also need pass^k.
+
+### Where do failure categories come from?
+
+Error analysis, popularized by Hamel Husain and Shreya Shankar: sample ~100 traces, open-code the first failure in each, group notes into categories (axial coding), count and rank by frequency × severity, write evaluators only for the top categories, repeat. Evaluators then match your product's real failures rather than generic metrics.
+
+### Which evaluator type?
+
+Code assertions for anything rule-based, LLM judges for semantic checks (calibrated), humans for calibration, high-risk audits, and discovering new categories.
+
+<Note type="tip" title="Interview move">
+
+Start with error analysis, rank categories, prefer code assertions, and report sample size with confidence intervals.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. CI for n = 200 at 85%?
+2. Why can't 100 cases separate 80% from 82%?
+3. The six error-analysis steps; why open coding?
+4. When each evaluator type?
+
+</Note>
+
 ## Connections
 
 ```text
@@ -410,6 +542,11 @@ Production → real failures back into offline tests
 4. How do you distinguish a business KPI from an offline proxy?
 5. Why inspect slices beyond aggregate pass rate?
 6. With unsafe promises as positive, calculate Precision, Recall, and F1 from TP/FP/FN/TN and choose a release guardrail.
+
+### Added 2026-10
+
+1. Is 80% vs 82% on your eval set a real difference?
+2. How do you discover your product's failure categories from scratch?
 
 ## My answer
 

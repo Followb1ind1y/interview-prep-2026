@@ -3,7 +3,7 @@ title: Planning
 titleEn: Planning
 description: 从目标与验收条件开始，把开放任务拆成有依赖、可验证、可重新规划的步骤。
 descriptionEn: "Start with goal and acceptance: decompose open work into dependent, verifiable, and revisable steps."
-date: 2026-09-26
+date: 2026-10-04
 keywords: ["planning", "task decomposition", "plan and execute", "replanning", "verification", "agent"]
 tier: A
 status: todo
@@ -30,6 +30,16 @@ Planning 不是让 agent 在开头写一张很长的待办清单。它是把一�
 
 Agent planning 也一样。它不是要预测所有未来步骤，而是每一步都知道“我想拿到什么事实；拿不到时怎么办”。把咖啡换成报价和政策，就是本页的采购故事。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 6**：reasoning 模型时代的 planning——模型内化了多少规划、显式计划什么时候仍然必要、待办清单工具（todo list）的作用、METR 的“任务时长”指标（AI 能完成的任务长度大约每 7 个月翻一倍）。
+
+🔁 **建议复习**：Level 2（先计划还是边做边想）和你的三个 MyQuestion（Plan mode 类比、模型怎么知道何时计划、避免空转）——Level 6 从 reasoning 模型的角度补充了它们。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | 部分 | 回答的问题 | 时长 |
@@ -40,6 +50,7 @@ Agent planning 也一样。它不是要预测所有未来步骤，而是每一�
 | Level 3 · Replanning | 什么观察真正需要改计划？怎样保留证据、只重算受影响部分？ | 30 min |
 | Level 4 · Verification and Reflection | 如何证明任务完成，并让反思产出可执行修复？ | 35 min |
 | Level 5 · Long-Horizon Planning | context 变长时，怎样用 checkpoint、预算和压缩维持任务连贯？ | 35 min |
+| Level 6 · 深入（2026-10 新增） | reasoning 模型还需要显式 planning 吗？怎样衡量长程能力？ | 25 min |
 
 ## 需要掌握
 
@@ -70,6 +81,16 @@ first step: check whether the nearest shop is open
 
 Agent planning works the same way. It does not predict every future step. Each step says “which fact am I trying to obtain, and what happens if I cannot?” The procurement story later swaps coffee availability for quotes and policy.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 6**: planning with reasoning models, when explicit plans still matter, todo-list tools, METR's task time horizon.
+
+🔁 **Review**: Level 2 and your three MyQuestion answers on plan mode and stalls.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Part | Question it answers | Time |
@@ -80,6 +101,7 @@ Agent planning works the same way. It does not predict every future step. Each s
 | Level 3 · Replanning | Which observations truly require a plan change, and how do you preserve evidence while recomputing only affected work? | 30 min |
 | Level 4 · Verification and Reflection | How do you prove completion and make reflection produce an executable fix? | 35 min |
 | Level 5 · Long-Horizon Planning | As context grows, how do checkpoints, budgets, and compaction preserve coherence? | 35 min |
+| Level 6 · Deep dive (added 2026-10) | Do reasoning models still need explicit planning? How is long-horizon ability measured? | 25 min |
 
 ## Must know
 
@@ -489,6 +511,48 @@ evidence: policy_id=P-Net30, checked_at=...
 
 </Note>
 
+## Level 6 · 深入：reasoning 模型时代的 planning
+
+### reasoning 模型还需要显式的 planning 吗？
+
+2024 年底起，reasoning 模型（OpenAI o 系列、Claude 的 extended thinking、Gemini thinking 等）在回答前会先生成一段思考，这段思考里本身就包含拆解和规划。对**短任务**，这让很多显式 planner 变得多余：以前要“先让模型写计划 → 再逐步执行”，现在模型在思考里就完成了。
+
+但对**长任务**，显式计划仍然必要，原因不是模型不会想，而是：
+
+| 理由 | 说明 |
+| --- | --- |
+| 思考不持久 | 思考内容只存在于那一次调用；上下文压缩或会话重启后就没了。显式计划可以存到外部（Level 5） |
+| 人要审阅 | 高风险任务需要人在执行前确认路径（如 Plan mode）。隐藏的思考无法审阅 |
+| 可验证 | 显式步骤可以逐一打勾验收（Level 4）；思考里的计划无法检查是否被执行 |
+| 防遗漏 | 长任务中模型容易忘掉早期计划的后几步 |
+
+### 待办清单工具有什么用？
+
+coding agent 普遍提供一个**待办清单工具**（例如 Claude Code 的 todo list）：模型把计划写成清单，做完一项就更新状态。它看起来简单，作用却很实在：
+
+- 计划**留在上下文的最新位置**，不会被埋在几十轮之前（呼应 [Context Window](/docs/context/window) 的位置问题）。
+- 用户能实时看到进度和剩余步骤。
+- 模型完成时能对照清单检查有没有漏项，减少“做了一半就宣布完成”。
+
+这正是 Level 0 到 Level 4 讲的东西在产品里最轻量的落地：目标 → 步骤 → 状态 → 验收。
+
+### 怎样衡量 agent 的长程能力？
+
+**METR** 在 2025 年提出用“**任务时长（time horizon）**”衡量 AI：给出一组人类专家完成需要不同时间（几秒到几小时）的任务，看 AI 能以 50% 成功率完成的任务对应人类多长时间。他们的结论是：这个时长在过去几年**大约每 7 个月翻一倍**。
+
+面试时的用法：
+
+- 解释为什么长程 planning 越来越重要——模型能接的任务越来越长，规划、状态持久化和验证的价值随之上升。
+- 注意它是 **50% 成功率**下的时长；要求高可靠性（如 80%、99%）时，可处理的任务长度短得多——这和 [Agent Loop](/docs/agent/loop) Level 3 的复合错误算术是同一个道理。
+
+<Note title="自测：到这里你应该能回答">
+
+1. reasoning 模型让哪类显式 planning 变得多余？哪些场景仍然需要显式计划？
+2. 待办清单工具解决了哪三个问题？
+3. METR 的 time horizon 怎么定义？为什么要强调“50% 成功率”？
+
+</Note>
+
 ## 陷阱
 
 <Note title="把计划当成真相而不是假设" type="warning">
@@ -549,6 +613,11 @@ Memory stores durable notes; Tool Calling executes bounded actions; Evals score 
 
 1. 一个长程 agent checkpoint 应保存什么？（What belongs in a long-horizon agent checkpoint?）
 2. 怎样防止 context compaction 让 agent 丢失目标？（How do you prevent context compaction from losing the goal?）
+
+### 2026-10 新增
+
+1. reasoning 模型还需要显式 planning 吗？（Do reasoning models still need explicit planning?）
+2. 什么是 METR 的 time horizon？对 agent 设计有什么启示？（What is METR's time horizon, and what does it imply for agent design?）
 
 ## 我的答案
 
@@ -722,6 +791,28 @@ At significant actions, context compaction, and before writes, compare state aga
 
 </Note>
 
+## Level 6 · Deep dive: planning with reasoning models
+
+### Do reasoning models still need explicit plans?
+
+Reasoning models decompose inside their thinking, which makes explicit planners redundant for short tasks. Long tasks still need explicit plans because thinking doesn't persist across compaction or sessions, humans need to review paths, explicit steps can be checked off, and later steps get forgotten.
+
+### Why todo-list tools?
+
+Coding agents expose a todo tool (e.g. Claude Code's): the plan stays at the most recent position in context, users see progress, and the model checks for skipped items before finishing — the lightest product form of goal → steps → state → acceptance.
+
+### How is long-horizon ability measured?
+
+METR's 2025 time-horizon metric: the human-expert duration of tasks an AI completes with 50% success, which has roughly doubled every ~7 months. Note the 50% — at 80% or 99% reliability the horizon is much shorter, the same compounding math as [Agent Loop](/docs/agent/loop) Level 3.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What planning do reasoning models make redundant, and where are explicit plans still needed?
+2. Three problems todo tools solve?
+3. Define METR's time horizon and why 50% matters.
+
+</Note>
+
 ## Traps
 
 <Note title="A plan is a hypothesis, not truth" type="warning">
@@ -782,6 +873,11 @@ Memory stores durable notes; Tool Calling executes bounded actions; Evals score 
 
 1. What belongs in a long-horizon agent checkpoint?
 2. How do you prevent context compaction from losing the goal?
+
+### Added 2026-10
+
+1. Do reasoning models still need explicit planning?
+2. What is METR's time horizon, and what does it imply for agent design?
 
 ## My answer
 

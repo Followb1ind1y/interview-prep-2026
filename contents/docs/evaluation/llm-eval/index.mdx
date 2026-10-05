@@ -3,7 +3,7 @@ title: LLM Evaluation
 titleEn: LLM Evaluation
 description: 给开放式回答选择合适 grader：确定性检查、语义方法、rubric、成对比较与人工校准。
 descriptionEn: "Choose graders for open-ended outputs: deterministic checks, semantic methods, rubrics, pairwise review, and human calibration."
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["llm evaluation", "llm as judge", "rubric", "pairwise", "judge calibration", "bias"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 本页接 [Fundamentals](/docs/evaluation/fundamentals) 和 [Offline](/docs/evaluation/offline)：从确定性检查开始，理解语义相似的边界，再用有锚点的 LLM judge 分项评价多轮对话、做成对比较，最后用人工标注校准。贯穿案例仍是订单 20240915 的客服回复。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 4**：用 Cohen's kappa 修正 Judge 一致率（就用 Level 3 的那张表手算）、Judge 偏差的具体缓解手段、LMArena 的成对比较与 Bradley-Terry 评分及其争议、2026 年公共基准版图（哪些已饱和、现在看什么）。
+
+🔁 **建议复习**：Level 3（用人工标签校准 Judge）——Level 4 直接在它的数字上算 kappa；Level 2（成对比较与偏差）。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -25,6 +35,7 @@ mastery: { talk: 0, probe: 0 }
 | 1 · Judge | 如何分项评价多轮对话的质量？ | 40 min |
 | 2 · 成对比较 | A/B 哪个更好，如何处理位置与风格偏差？ | 25 min |
 | 3 · 校准 | Judge 与人工不一致时，怎样算并改进？ | 30 min |
+| 4 · 深入（2026-10 新增） | 70% 一致率扣掉碰巧一致还剩多少？公共基准现在看哪些？ | 35 min |
 
 ## 需要掌握
 
@@ -42,6 +53,16 @@ Many phrasings can correctly explain one refund decision. Exact string matching 
 
 Following [Fundamentals](/docs/evaluation/fundamentals) and [Offline](/docs/evaluation/offline), start with deterministic checks, understand semantic measures, use an anchored LLM judge to score multi-turn dialogue by dimension, compare pairs, then calibrate against human labels. The running case is the reply for order 20240915.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 4**: Cohen's kappa on Level 3's table, judge-bias mitigations, LMArena and Bradley-Terry ratings, the 2026 benchmark landscape.
+
+🔁 **Review**: Level 3 (calibration) and Level 2 (pairwise bias).
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question | Time |
@@ -50,6 +71,7 @@ Following [Fundamentals](/docs/evaluation/fundamentals) and [Offline](/docs/eval
 | 1 · Judge | How do you score multi-turn conversation quality by dimension? | 40 min |
 | 2 · Pairwise | Which A/B answer is better, and what biases matter? | 25 min |
 | 3 · Calibration | How do you measure and correct disagreement with people? | 30 min |
+| 4 · Deep dive (added 2026-10) | What's left of 70% agreement after chance? Which public benchmarks matter now? | 35 min |
 
 ## Must know
 
@@ -330,6 +352,70 @@ Define the denominator of **pairwise win rate**. On 20 matched dialogues under t
 
 </Note>
 
+## Level 4 · 深入：kappa、Judge 偏差、Arena 与基准版图
+
+### 为什么 70% 一致率还要扣掉“碰巧一致”？
+
+Level 3 的例子里，Judge 和人工在 10 条中一致 7 条（70%）。但如果 Judge 随便猜，也会有一部分碰巧一致。**Cohen's kappa** 扣掉这部分：
+
+```text
+kappa = (实际一致率 - 期望偶然一致率) / (1 - 期望偶然一致率)
+```
+
+用 Level 3 的同一张表：人工判 6 通过、4 失败；Judge 判 7 通过、3 失败。
+
+```text
+期望偶然一致 = P(都判通过) + P(都判失败)
+            = (6/10 × 7/10) + (4/10 × 3/10) = 0.42 + 0.12 = 0.54
+kappa = (0.70 - 0.54) / (1 - 0.54) = 0.16 / 0.46 ≈ 0.35
+```
+
+常用的粗略解读：0.2–0.4 一般，0.4–0.6 中等，0.6–0.8 较强，0.8 以上很强。**0.35 说明这个 Judge 比瞎猜好不了太多**，和 Level 3 “false pass 50%” 的结论一致。当正负样本很不平衡时（比如 95% 都通过），原始一致率会虚高，kappa 的修正尤其重要。
+
+### Judge 的偏差怎么缓解？
+
+| 偏差 | 表现 | 缓解 |
+| --- | --- | --- |
+| 位置偏差 | 成对比较时偏好放在前面（或后面）的答案 | 每对比较两次，交换位置；两次结论不一致记为平局或复核 |
+| 冗长偏差 | 偏好更长的回答 | rubric 明确“长度不加分”；对比时控制长度或单独评“简洁” |
+| 自我偏好 | 偏好同一家族模型的输出 | 用不同家族的模型做 Judge，或多 Judge 投票 |
+| 被自信语气带偏 | 语气笃定的错误答案得分更高 | 先让 Judge 核对证据（给出参考事实），再打分 |
+| 尺度漂移 | 1–10 分的绝对评分不稳定 | 用二元（通过 / 失败）或少档位的 rubric，配锚定示例 |
+
+经验法则：**二元判断 + 具体 rubric + 先给理由再给结论**，比“请给 1–10 分”稳定得多。
+
+### LMArena 是怎么排名的？有什么争议？
+
+**LMArena**（原 Chatbot Arena，LMSYS / 伯克利）让用户对两个匿名模型的回答投票，用 **Bradley-Terry 模型**（和国际象棋 Elo 等级分同一思路）把大量成对胜负换算成每个模型的分数：模型 A 胜 B 的概率由两者分数差决定。
+
+它的价值是反映**真实用户的偏好**；争议在于：
+
+- 用户投票受**风格**影响（更长、更多格式的回答更受欢迎），所以后来加入了“风格控制”版本的排名。
+- 2025 年的论文 *The Leaderboard Illusion* 指出，部分厂商能在发布前私下测试多个变体、只公开最好的，导致排名有偏。
+
+面试要点：Arena 分数衡量的是“开放聊天中的用户偏好”，**不等于你业务任务上的正确率**。
+
+### 2026 年的公共基准该看哪些？
+
+| 状态 | 基准 | 说明 |
+| --- | --- | --- |
+| 基本饱和 | MMLU、GSM8K、HumanEval | 顶尖模型接近满分，区分度很低，还有污染问题 |
+| 知识 / 推理 | GPQA Diamond、Humanity's Last Exam（HLE） | 研究生级难题、跨学科前沿难题 |
+| 编码 / agent | SWE-bench Verified / Pro、Terminal-Bench（见 [Agentic Coding](/docs/ai-native/agentic-coding)） | 真实仓库任务、终端任务 |
+| 工具使用 / 客服 | τ-bench / τ²-bench（见 [Agent Eval](/docs/evaluation/agent-eval)） | 多轮对话 + 工具 + 业务规则 |
+| 抽象推理 | ARC-AGI-2 | 少样本的新颖规则归纳 |
+
+两点提醒：基准会**饱和**（一两年就被刷满）和**被污染**（题目进了训练数据）；选模型时公共基准只能缩小候选范围，最终要在**自己的私有评估集**上比较（见 [Model Selection](/docs/application/model-selection)）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 用 Level 3 的表手算 kappa。为什么 70% 一致率需要修正？
+2. 列出 4 种 Judge 偏差及缓解方法。
+3. LMArena 用什么模型把成对胜负换成分数？它有什么局限？
+4. 为什么 MMLU 在 2026 年基本没有区分度了？
+
+</Note>
+
 ## 连接
 
 ```text
@@ -348,6 +434,12 @@ RAG / Agent → 结合检索和轨迹的专项评分
 5. 哪些情况不能只靠 LLM judge？（When is an LLM judge insufficient alone?）
 6. 评价多轮对话时，你会分别报告哪些质量维度、如何定义通过率？（Which conversation-quality metrics and denominators would you report?）
 7. A 胜 8、B 胜 7、平局 5，A 的胜率是多少？（Calculate pairwise win rate with a stated tie rule.）
+
+### 2026-10 新增
+
+1. 什么是 Cohen's kappa？为什么原始一致率不够？（What is Cohen's kappa, and why isn't raw agreement enough?）
+2. LLM judge 有哪些偏差？怎么缓解？（What biases do LLM judges have, and how do you mitigate them?）
+3. LMArena 排名说明什么、不说明什么？（What does an LMArena ranking tell you, and not?）
 
 ## 我的答案
 
@@ -387,6 +479,33 @@ Using one judge to create labels, tune its rubric, and report “agreement” wi
 
 </Note>
 
+## Level 4 · Deep dive: kappa, judge bias, Arena, benchmarks
+
+### Why correct 70% agreement for chance?
+
+Cohen's kappa = (observed − expected) / (1 − expected). Level 3's table: humans 6 pass / 4 fail, judge 7 pass / 3 fail; expected chance agreement = 0.6×0.7 + 0.4×0.3 = 0.54; kappa = 0.16 / 0.46 ≈ 0.35 — only "fair," consistent with the 50% false-pass rate. Kappa matters most with imbalanced labels.
+
+### Mitigating judge bias?
+
+Position: evaluate both orders, treat disagreement as a tie or review. Verbosity: rubric says length earns nothing. Self-preference: judge from a different model family or ensemble. Confident-but-wrong: give reference facts and check evidence first. Scale drift: binary or few-level rubrics with anchors. Binary + specific rubric + reasoning before verdict beats 1–10 scores.
+
+### LMArena?
+
+Formerly Chatbot Arena: anonymous pairwise user votes converted into Bradley-Terry ratings (Elo-like). It reflects open-chat preference but is style-sensitive (hence style-controlled rankings), and *The Leaderboard Illusion* (2025) argued private pre-release testing of variants biases it. It isn't your task accuracy.
+
+### Which public benchmarks matter in 2026?
+
+Saturated: MMLU, GSM8K, HumanEval. Knowledge/reasoning: GPQA Diamond, Humanity's Last Exam. Coding/agents: SWE-bench Verified/Pro, Terminal-Bench. Tool use: τ-/τ²-bench. Abstraction: ARC-AGI-2. Benchmarks saturate and get contaminated; use them to shortlist, then decide on private evals.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Compute kappa from Level 3's table.
+2. Four judge biases and fixes?
+3. How does LMArena score models, and its limits?
+4. Why is MMLU uninformative now?
+
+</Note>
+
 ## Connections
 
 ```text
@@ -405,6 +524,12 @@ RAG / Agent → retrieval- and trajectory-specific grading
 5. When is an LLM judge insufficient alone?
 6. Which dimensions and denominators would you report for multi-turn conversation quality?
 7. A wins 8, B wins 7, and 5 tie. What is A's win rate under your tie rule?
+
+### Added 2026-10
+
+1. What is Cohen's kappa, and why isn't raw agreement enough?
+2. What biases do LLM judges have, and how do you mitigate them?
+3. What does an LMArena ranking tell you, and not?
 
 ## My answer
 

@@ -3,7 +3,7 @@ title: RAG Evaluation
 titleEn: RAG Evaluation
 description: 手算检索指标，分开诊断检索、上下文组装、证据利用与最终回答。
 descriptionEn: Calculate retrieval metrics and diagnose retrieval, context assembly, grounded use, and answer outcomes separately.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["rag evaluation", "recall at k", "precision at k", "mrr", "ndcg", "faithfulness"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 继续订单 20240915：订单状态由工具给出，政策资料由检索系统给出。为了能手算，假设政策库里有两段对这道题真正相关的当前条款。下面所有排序与分数是教学示意，不是线上实测。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 4**：RAGAS 四个核心指标各自怎么算（不只是名字）、需要参考答案与不需要参考答案的评估、合成 RAG 测试集的构造、检索评测中“没有标注”时怎么办。
+
+🔁 **建议复习**：Level 1（四个检索指标手算）和 Level 2（Faithfulness 高也可能错）——Level 4 解释 RAGAS 里这些指标的具体计算方式；Level 3 的排错动作建议结合 [Construction](/docs/context/construction) 新增的 Level 4 一起看。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -25,6 +35,7 @@ mastery: { talk: 0, probe: 0 }
 | 1 · 检索指标 | Recall@K、Precision@K、MRR、nDCG 怎么算？ | 35 min |
 | 2 · 生成指标 | Faithfulness、相关性、正确性和完整性如何区分？ | 30 min |
 | 3 · 排错 | 高召回低正确率时先查哪里？ | 25 min |
+| 4 · 深入（2026-10 新增） | RAGAS 的指标具体怎么算？没有标注怎么评检索？ | 30 min |
 
 ## 需要掌握
 
@@ -41,6 +52,16 @@ A wrong refund answer can come from missing current policy in retrieval, failing
 
 We continue with order 20240915. An order tool supplies live state; retrieval supplies policy. For hand calculations, assume exactly two current policy passages are relevant to this question. Rankings and numbers are teaching examples, not production measurements.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 4**: how the four RAGAS metrics are computed, reference-based vs reference-free evaluation, synthetic RAG test sets, retrieval eval without labels.
+
+🔁 **Review**: Levels 1 and 2; read Level 3 alongside [Construction](/docs/context/construction) Level 4.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question | Time |
@@ -49,6 +70,7 @@ We continue with order 20240915. An order tool supplies live state; retrieval su
 | 1 · Retrieval metrics | Calculate Recall@K, Precision@K, MRR, and nDCG. | 35 min |
 | 2 · Generation metrics | Distinguish faithfulness, relevance, correctness, and completeness. | 30 min |
 | 3 · Debugging | With high recall but low answer accuracy, where do you inspect first? | 25 min |
+| 4 · Deep dive (added 2026-10) | How are RAGAS metrics computed? How do you evaluate retrieval without labels? | 30 min |
 
 ## Must know
 
@@ -270,6 +292,63 @@ Check citations claim by claim. A reply might cite `[P-17]`, but P-17 says nothi
 
 </Note>
 
+## Level 4 · 深入：RAGAS 指标怎么算、没有标注怎么办
+
+### RAGAS 的四个核心指标具体怎么算？
+
+面试官追问“faithfulness 是怎么算出来的”时，只说名字不够。RAGAS 的核心指标都是**用 LLM 把判断拆成小步骤**：
+
+| 指标 | 回答的问题 | 计算方式（简化） | 需要参考答案吗 |
+| --- | --- | --- | --- |
+| **Faithfulness**（忠实度） | 回答里的说法有没有被检索内容支持？ | ① 用 LLM 把回答拆成若干条独立陈述；② 逐条判断能否从检索内容推出；③ 支持的条数 / 总条数 | 不需要 |
+| **Answer Relevancy**（回答相关性） | 回答是否切题？ | 让 LLM 根据回答**反推**几个问题，计算这些问题和原问题的 embedding 相似度平均值 | 不需要 |
+| **Context Precision**（上下文精确率） | 相关的块是否排在前面？ | 逐个判断检索出的块是否相关，按排名加权（相关块越靠前分越高） | 通常需要 |
+| **Context Recall**（上下文召回率） | 回答问题所需的信息都检索到了吗？ | 把**参考答案**拆成陈述，逐条判断能否在检索内容中找到依据 | 需要 |
+
+用客服例子算 faithfulness：回答“您的订单运输中；根据 P-17 v3，运输中订单不能走未发货退款，可在签收后申请退货；退货运费由我们承担”拆成 3 条陈述。检索内容支持前两条，第三条（运费承担）检索内容没提——faithfulness = 2/3 ≈ 0.67。这正是 Level 2 说的：**编造的附加承诺会被 faithfulness 抓到，但“检索内容本身是旧版政策”它抓不到**。
+
+### 需要参考答案和不需要参考答案的评估怎么选？
+
+| | 需要参考答案（reference-based） | 不需要参考答案（reference-free） |
+| --- | --- | --- |
+| 例子 | Context Recall、答案正确性 | Faithfulness、Answer Relevancy |
+| 优点 | 能判断“对不对” | 不需要人工标注，可用于线上抽样 |
+| 缺点 | 标注成本高 | 只能判断“是否有依据、是否切题”，不能判断是否正确 |
+
+实践中：**离线评估集**用需要参考答案的指标（准）；**线上抽样**用不需要参考答案的指标（便宜、可大规模），发现问题再进入人工标注。
+
+### 合成 RAG 测试集怎么造？
+
+从文档库自动生成“问题 + 参考答案 + 对应段落”：
+
+```text
+1. 从知识库抽取段落（覆盖不同文档、不同章节）
+2. 让 LLM 基于段落生成问题和参考答案
+3. 把问题“进化”成更难的形式：
+   - 推理型：需要从段落中推理，而不是直接摘抄
+   - 多段落型：需要组合两个段落的信息（如“运输中 + 地区例外”）
+   - 条件型：加入限制条件（“如果我在海外呢？”）
+4. 过滤：去掉答案不能从段落得出的、过于简单或重复的
+5. 人工抽检
+```
+
+RAGAS 等工具提供了这类生成器。风险和 [Offline](/docs/evaluation/offline) Level 4 一样：问题偏“标准”，和真实用户的口语、错别字、模糊问法不同，所以要和真实查询混用。
+
+### 检索没有人工标注时怎么评？
+
+- **LLM 判断相关性**：对 top-k 每个块问 LLM“这段能否帮助回答这个问题”，近似得到 precision@k。需要用一小批人工标注校准（见 [LLM Eval](/docs/evaluation/llm-eval) Level 3–4）。
+- **用合成问题反查**：问题由某个段落生成，那个段落就是已知的正确答案，可以直接算 recall@k 和 MRR。
+- **线上隐式信号**：用户是否点开引用、是否追问“不是这个意思”。
+
+<Note title="自测：到这里你应该能回答">
+
+1. Faithfulness 和 Context Recall 分别怎么算？哪个需要参考答案？
+2. Answer Relevancy 为什么要“反推问题”？
+3. 什么时候用需要参考答案的指标，什么时候用不需要的？
+4. 怎样构造一个合成 RAG 测试集？“多段落型”问题为什么重要？
+
+</Note>
+
 ## 陷阱
 
 <Note type="danger" title="“RAG 准确率 90%”">
@@ -295,6 +374,11 @@ Production → 新资料与真实用户结果
 3. Faithfulness 与 correctness 为什么不同？（How do faithfulness and correctness differ?）
 4. 没有 gold 文档时如何开始评检索？（How do you start without gold documents?）
 5. 为什么引用必须逐条核对主张？（Why check citations claim by claim?）
+
+### 2026-10 新增
+
+1. Faithfulness 和 Context Recall 具体怎么算？（How are faithfulness and context recall actually computed?）
+2. 没有人工标注时怎么评估检索？（How do you evaluate retrieval without human labels?）
 
 ## 我的答案
 
@@ -327,6 +411,33 @@ Without gold documents, have experts annotate passages for a small representativ
 
 </Note>
 
+## Level 4 · Deep dive: computing RAGAS metrics, and evaluating without labels
+
+### How are the four RAGAS metrics computed?
+
+Faithfulness: split the answer into atomic claims, check each against retrieved context, supported / total (no reference needed). Answer relevancy: generate questions from the answer and average their embedding similarity to the original (no reference). Context precision: judge each retrieved chunk's relevance, rank-weighted (usually needs a reference). Context recall: split the reference answer into claims and check each is attributable to the context (needs a reference). Example: three claims, the free return shipping isn't in context → faithfulness 2/3 — it catches invented promises, not stale-but-retrieved policy.
+
+### Reference-based or reference-free?
+
+Reference-based judges correctness but needs labels — use offline. Reference-free judges grounding and relevance cheaply — use for online sampling, escalating issues to human labeling.
+
+### Synthetic RAG test sets?
+
+Sample passages, generate question + reference + source passage, evolve into reasoning, multi-passage, and conditional questions, filter, and spot-check. Mix with real queries, which are messier.
+
+### Retrieval without labels?
+
+LLM relevance judgments on top-k (calibrated on a small labeled set), synthetic questions whose source passage is the known answer (recall@k, MRR), and implicit online signals.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How are faithfulness and context recall computed, and which needs a reference?
+2. Why does answer relevancy reverse-generate questions?
+3. When reference-based vs reference-free?
+4. How do you build a synthetic set, and why multi-passage questions?
+
+</Note>
+
 ## Traps
 
 <Note type="danger" title="“RAG accuracy is 90%”">
@@ -352,6 +463,11 @@ Production → new data and real user outcomes
 3. How do faithfulness and correctness differ?
 4. How do you start without gold documents?
 5. Why check citations claim by claim?
+
+### Added 2026-10
+
+1. How are faithfulness and context recall actually computed?
+2. How do you evaluate retrieval without human labels?
 
 ## My answer
 

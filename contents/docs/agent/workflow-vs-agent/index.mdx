@@ -3,7 +3,7 @@ title: Workflow vs Agent
 titleEn: Workflow vs Agent
 description: 控制流预先由代码决定，还是让模型在运行时决定？用不确定性、风险与评测选择。
 descriptionEn: "Should code predefine control flow or should a model decide at runtime? Choose with uncertainty, risk, and evals."
-date: 2026-09-21
+date: 2026-10-04
 keywords: ["workflow", "agent", "control flow", "deterministic", "orchestration", "human approval"]
 tier: A
 status: todo
@@ -25,6 +25,16 @@ Workflow vs Agent 不是“传统系统 vs 智能系统”的二选一，也不�
 
 一句最实用的判断：**看不懂人话时可以请模型帮忙；一旦要算钱、改状态或执行承诺，就交回确定的程序。** 后面所有采购例子都只是把“外卖订单”换成了“供应商报价”。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 3**：Anthropic《Building effective agents》中的五种 workflow 模式（prompt chaining、routing、parallelization、orchestrator-workers、evaluator-optimizer）与 agent 的连续谱，以及每种模式在面试题中的对应场景。这是面试官最常引用的分类。
+
+🔁 **建议复习**：Level 1（选择维度）和 Level 2（hybrid 分界）——Level 3 给了它们一套业界通用的词汇。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | 部分 | 回答的问题 | 时长 |
@@ -33,6 +43,7 @@ Workflow vs Agent 不是“传统系统 vs 智能系统”的二选一，也不�
 | Level 1 · 怎么选择 | 不确定性、风险、成本、可验证性怎样形成判断？ | 30 min |
 | Level 2 · 最常见的答案是混合 | 怎样让 agent 只处理开放决策，让 workflow 把住事实与副作用？ | 35 min |
 | 陷阱 · 面试问题 | 能否用项目例子解释“为什么不该 agent-wash”？ | 15 min |
+| Level 3 · 深入（2026-10 新增） | 五种常见 workflow 模式是什么？各适合什么场景？ | 25 min |
 
 本页建立在 [Agent Loop](/docs/agent/loop) 和 [Tool Calling](/docs/agent/tool-calling) 之后：你已经知道 agent 的 loop 会带来工具、状态、成本和风险；现在要决定值不值得承担它们。
 
@@ -60,6 +71,16 @@ The procurement-negotiation assistant remains the example. Reading a quote, comp
 
 A useful rule: **use a model to understand open-ended language; hand money, state changes, and commitments back to deterministic code.** The procurement examples later merely replace an order with a supplier quote.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 3**: the five workflow patterns from Anthropic's *Building effective agents* and the workflow–agent spectrum.
+
+🔁 **Review**: Levels 1 and 2 — Level 3 gives them standard vocabulary.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Part | Question it answers | Time |
@@ -68,6 +89,7 @@ A useful rule: **use a model to understand open-ended language; hand money, stat
 | Level 1 · How do you choose? | How do uncertainty, risk, cost, and verifiability form a decision? | 30 min |
 | Level 2 · The common answer is hybrid | How do you let an agent handle open decisions while a workflow owns facts and side effects? | 35 min |
 | Traps · Interview questions | Can you explain “do not agent-wash” using a project example? | 15 min |
+| Level 3 · Deep dive (added 2026-10) | What are the five common workflow patterns and their use cases? | 25 min |
 
 This page follows [Agent Loop](/docs/agent/loop) and [Tool Calling](/docs/agent/tool-calling): you already know that loops bring tools, state, cost, and risk. Now decide whether they are worth it.
 
@@ -301,6 +323,48 @@ hybrid agent + gates:
 
 </Note>
 
+## Level 3 · 深入：五种 workflow 模式与连续谱
+
+### 业界常用的 workflow 模式有哪些？
+
+Anthropic 2024 年底的《Building effective agents》把 LLM 系统分为 **workflow**（LLM 和工具按预定代码路径编排）和 **agent**（LLM 动态决定自己的流程和工具使用），并总结了五种 workflow 模式。这套词汇在面试中被广泛使用：
+
+| 模式 | 结构 | 适用 | 采购谈判例子 |
+| --- | --- | --- | --- |
+| **Prompt chaining** | 任务拆成固定的顺序步骤，每步的输出是下一步的输入，步骤间可加程序检查（gate） | 能清晰拆成固定子任务，用延迟换准确率 | 抽取报价 → 检查是否在预算内（gate）→ 起草回复 |
+| **Routing** | 先分类输入，再交给专门的下游流程 | 输入类别明显不同、分开处理效果更好 | 区分“询价 / 投诉 / 合同修改”，分别走不同流程；简单问题走小模型 |
+| **Parallelization** | 多个 LLM 调用同时进行：**分段**（各做一部分）或**投票**（同一任务做多次取共识） | 子任务独立可并行；或需要多个视角提高置信度 | 同时检查价格、交期、条款三个维度；三次独立判断“是否有风险条款”投票 |
+| **Orchestrator-workers** | 中心 LLM 动态拆分任务、分派给 worker、汇总结果 | 子任务无法事先确定 | 根据合同内容决定要找哪些供应商比价（与 [Multi-Agent](/docs/agent/multi-agent) 相关） |
+| **Evaluator-optimizer** | 一个 LLM 生成，另一个 LLM 按标准评价并反馈，循环改进 | 有清晰的评价标准，且迭代确实能改进 | 起草谈判邮件 → 评审是否语气得当、条款准确 → 修改 |
+
+### workflow 和 agent 是二选一吗？
+
+不是，是一条**连续谱**，越往右模型决定的东西越多：
+
+```text
+单次 LLM 调用 → prompt chaining → routing → orchestrator-workers → 自主 agent
+（代码决定一切）                                                （模型决定流程和工具）
+```
+
+Level 0 的核心问题“控制流是谁决定的”在这条谱上就是一个**位置**：你把系统放在哪里，取决于 Level 1 的维度（不确定性、可验证性、出错代价）。Level 2 的 hybrid 通常是“外层 workflow + 某一步内嵌一个受限 agent”。
+
+同一篇文章的核心建议也值得记住：**先用最简单的方案，只在能证明收益时增加复杂度**；很多场景下，优化单次 LLM 调用（加检索、加示例）就够了。
+
+<Note type="tip" title="面试加分">
+
+被问“你会怎么设计这个系统”，先定位它在连续谱上的位置：“这一部分流程固定，用 prompt chaining 加 gate；输入类型差异大，前面加 routing；只有‘根据合同决定比价对象’这一步不确定，用一个受限的 orchestrator。”用标准术语描述架构，比“我会用一个 agent”清楚得多。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 说出五种 workflow 模式，各举一个例子。
+2. Parallelization 的“分段”和“投票”有什么区别？
+3. Orchestrator-workers 和 prompt chaining 的根本区别是什么？
+4. 怎样用“连续谱”描述一个 hybrid 系统？
+
+</Note>
+
 ## 陷阱
 
 <Note title="LLM workflow 也需要工程治理" type="warning">
@@ -346,6 +410,11 @@ Tool Calling / Reliability / Security enforce the boundary
 
 1. 怎样设计 workflow + agent 的混合系统？（How do you design a workflow-plus-agent hybrid?）
 2. 怎样用 eval 证明 agent 值得它的成本？（How do evals prove an agent is worth its cost?）
+
+### 2026-10 新增
+
+1. Anthropic 总结的五种 workflow 模式是什么？（What are the five workflow patterns from Anthropic's guide?）
+2. 用 workflow–agent 连续谱描述你会怎么设计一个系统。（Place your design on the workflow–agent spectrum.）
 
 ## 我的答案
 
@@ -417,6 +486,31 @@ If the product bottleneck is wrong business state, hybrid is worth it. If SLA de
 
 </Note>
 
+## Level 3 · Deep dive: five workflow patterns and the spectrum
+
+### Which workflow patterns are standard?
+
+From Anthropic's *Building effective agents* (late 2024), which splits workflows (predefined code paths) from agents (the LLM directs its own process): **prompt chaining** (fixed sequential steps with programmatic gates), **routing** (classify, then specialized flows or models), **parallelization** (sectioning or voting), **orchestrator-workers** (a central LLM splits and delegates dynamically), and **evaluator-optimizer** (generate, critique against criteria, revise).
+
+### Is it either/or?
+
+It's a spectrum: single call → chaining → routing → orchestrator-workers → autonomous agent. Placement follows Level 1's dimensions; Level 2 hybrids are usually an outer workflow with a constrained agent inside one step. Start simple and add complexity only when it measurably helps.
+
+<Note type="tip" title="Interview move">
+
+Describe the design in standard terms: "Chaining with gates for the fixed part, routing up front, one constrained orchestrator for the uncertain step."
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Name the five patterns with examples.
+2. Sectioning vs voting?
+3. Orchestrator-workers vs chaining, fundamentally?
+4. Describe a hybrid on the spectrum.
+
+</Note>
+
 ## Traps
 
 <Note title="An LLM workflow still needs engineering governance" type="warning">
@@ -462,6 +556,11 @@ Tool Calling / Reliability / Security enforce the boundary
 
 1. How do you design a workflow-plus-agent hybrid?
 2. How do evals prove an agent is worth its cost?
+
+### Added 2026-10
+
+1. What are the five workflow patterns from Anthropic's guide?
+2. Place your design on the workflow–agent spectrum.
 
 ## My answer
 

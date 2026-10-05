@@ -3,7 +3,7 @@ title: Multi-Agent
 titleEn: Multi-Agent
 description: 什么时候一个 agent 不够；怎样用明确任务、受限上下文和可验证交接避免多 agent 更差。
 descriptionEn: "When one agent is insufficient: use explicit tasks, bounded context, and verifiable handoffs so multiple agents are not worse."
-date: 2026-09-21
+date: 2026-10-04
 keywords: ["multi-agent", "supervisor", "router", "specialist", "parallelism", "coordination", "handoff"]
 tier: B
 status: todo
@@ -29,6 +29,16 @@ Multi-Agent 不是把一个 prompt 复制给五个模型后取多数票。它是
 
 Agent 也是一样：只有“可以独立做 + 能拿证据验收”的小任务才值得拆。worker 不是更聪明的投票者，而是临时负责一个清楚的交付物；最终决定和写入仍由编排层负责。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 4**：2025 年的三份关键实证（Anthropic 多 agent 研究系统的收益与 15 倍 token、Cognition 的反对意见、伯克利 MAST 失败分类）和 A2A 协议（agent 之间的协议，与 MCP 的分工）。
+
+🔁 **建议复习**：Level 0（为什么不是越多越强）和 Level 3（与单 agent 公平比较）——新增的实证数据正好用来支撑这两级的论点。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | 部分 | 回答的问题 | 时长 |
@@ -37,6 +47,7 @@ Agent 也是一样：只有“可以独立做 + 能拿证据验收”的小任�
 | Level 1 · 三种角色 | router、supervisor、specialist 的职责怎样不同？ | 30 min |
 | Level 2 · 交接比并发更重要 | worker 如何收到任务、返回证据、处理冲突与失败？ | 35 min |
 | Level 3 · 先证明拆分值得 | 怎样做成本、质量与协调评测？ | 30 min |
+| Level 4 · 深入（2026-10 新增） | 2025 年的实证怎么说？A2A 和 MCP 有什么区别？ | 30 min |
 
 本页建立在 [Planning](/docs/agent/planning) 和 [Memory](/docs/agent/memory) 之后：拆分前先有验收条件和最小任务状态；交接时传经过筛选的证据，而不是整段聊天历史。
 
@@ -68,6 +79,16 @@ That split helps because the searches do not wait for each other and each result
 
 Agents are the same. Split only a task that is both **independent and verifiable**. A worker is not an extra vote; it temporarily owns a clear deliverable. The orchestrator still owns the final decision and any write.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 4**: 2025 evidence (Anthropic's research system, Cognition's critique, the MAST failure taxonomy) and the A2A protocol vs MCP.
+
+🔁 **Review**: Levels 0 and 3 — the evidence supports their arguments.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Part | Question it answers | Time |
@@ -76,6 +97,7 @@ Agents are the same. Split only a task that is both **independent and verifiable
 | Level 1 · Three roles | How do router, supervisor, and specialist responsibilities differ? | 30 min |
 | Level 2 · Handoffs matter more than parallelism | How do workers receive tasks, return evidence, and handle conflict and failure? | 35 min |
 | Level 3 · Prove splitting is worthwhile | How do you evaluate cost, quality, and coordination? | 30 min |
+| Level 4 · Deep dive (added 2026-10) | What does 2025 evidence say? How does A2A differ from MCP? | 30 min |
 
 This page follows [Planning](/docs/agent/planning) and [Memory](/docs/agent/memory): define acceptance and minimum task state before splitting; pass filtered evidence at handoff rather than whole chat histories.
 
@@ -306,6 +328,55 @@ t2 terminal
 
 </Note>
 
+## Level 4 · 深入：2025 年的实证与 agent 间协议
+
+### 多 agent 到底有没有用？三份关键材料
+
+| 材料 | 结论 | 面试怎么用 |
+| --- | --- | --- |
+| Anthropic 多 agent 研究系统（2025） | 主 agent + 并行子 agent，在内部研究类评测上比单 agent 好 90.2%；token 消耗约为普通聊天的 15 倍；token 用量解释了大部分表现差异 | 证明“广度优先、可并行、子任务独立”的场景确实受益，但要付出成本 |
+| Cognition *Don't Build Multi-Agents*（2025） | 子 agent 看不到彼此的决策，会做出冲突的假设；主张共享完整上下文，紧耦合任务用单线程 | 证明“紧耦合任务”拆分有害 |
+| MAST：*Why Do Multi-Agent LLM Systems Fail?*（UC Berkeley 等，2025） | 分析多个开源多 agent 框架的大量轨迹，归纳出 14 种失败模式，分三大类：**规格与系统设计问题**、**agent 间不对齐**、**任务验证不足** | 给出“多 agent 会怎样失败”的结构化答案 |
+
+把它们和 Level 0 连起来：多 agent 的价值来自**并行和上下文隔离**，代价是**token、协调失败和一致性**。Level 3 的公平比较就是在量化这笔账。
+
+<Note type="tip" title="面试加分：一句话立场">
+
+“我默认用单 agent；只有当任务能拆成独立的、广度优先的子任务，且收益能覆盖大约数倍的 token 成本时，才用 orchestrator-worker。紧耦合的任务我会保持单线程，因为子 agent 之间的上下文割裂会导致决策冲突——Anthropic 和 Cognition 2025 年的两篇文章正好代表这两面。”
+
+</Note>
+
+### MAST 的三类失败分别长什么样？
+
+| 类别 | 例子（采购谈判场景） |
+| --- | --- |
+| 规格与系统设计 | 没讲清每个 worker 的职责边界，两个 worker 都去改报价；没有终止条件 |
+| agent 间不对齐 | 比价 worker 发现供应商不可靠，但没把这个信息传给谈判 worker；一个 agent 忽略另一个的输入 |
+| 任务验证不足 | 没有人检查最终报价是否满足预算约束；“验证者”只看格式不看内容 |
+
+这三类正好对应 Level 2 的交接合同和 Level 3 的评测——MAST 说明了为什么这些不是可选项。
+
+### A2A 是什么？和 MCP 有什么区别？
+
+**A2A（Agent2Agent）** 是 Google 在 2025 年 4 月发布的开放协议，同年交给 Linux 基金会治理，用于**不同团队、不同框架构建的 agent 之间**互相发现和协作。
+
+| | MCP | A2A |
+| --- | --- | --- |
+| 连接的是 | agent ↔ **工具 / 数据** | agent ↔ **agent** |
+| 对方是什么 | 有确定接口的能力（函数、资源） | 一个自主的 agent，内部怎么做不透明 |
+| 核心概念 | Tools、Resources、Prompts | **Agent Card**（描述 agent 的能力、端点、认证方式）、**Task**（有生命周期的任务，可长时间运行、流式更新） |
+| 类比 | 给 agent 装工具 | agent 之间的“外包”接口 |
+
+两者互补：一个 agent 用 MCP 调用自己的工具，用 A2A 把子任务委托给另一个组织的 agent。面试中注意：**跨组织的 agent 协作把 Level 2 的“把 worker 当成不可信外部服务”变成了字面意义**——对方的输出必须校验。
+
+<Note title="自测：到这里你应该能回答">
+
+1. Anthropic 多 agent 系统的收益和代价是什么？Cognition 反对的理由是什么？
+2. MAST 的三类失败各举一个例子。
+3. A2A 和 MCP 分别连接什么？Agent Card 是什么？
+
+</Note>
+
 ## 陷阱
 
 <Note title="把一个大 prompt 分给多个相同 worker" type="warning">
@@ -337,6 +408,12 @@ supervisor 不应成为高权限万能账号。它负责编排；实际写入仍
 1. 怎样设计一个可验证的 worker handoff？（How do you design a verifiable worker handoff?）
 2. multi-agent 为什么有时更差？（Why can multi-agent be worse?）
 3. 你会用哪些指标证明拆分值得？（Which metrics prove that splitting is worthwhile?）
+
+### 2026-10 新增
+
+1. 2025 年有哪些关于多 agent 的关键实证？你的立场是什么？（What 2025 evidence exists on multi-agent systems, and what's your stance?）
+2. 多 agent 系统常见的失败类别有哪些？（What are the common failure categories of multi-agent systems?）
+3. A2A 和 MCP 有什么区别？（How does A2A differ from MCP?）
 
 ## 我的答案
 
@@ -421,6 +498,34 @@ Teaching-scale numbers: single-agent baseline 82% completion, P95 45s, $0.40 per
 
 </Note>
 
+## Level 4 · Deep dive: 2025 evidence and agent-to-agent protocols
+
+### Does multi-agent help?
+
+Anthropic's research system beat a single agent by 90.2% on an internal research eval at ~15× chat tokens, with token usage explaining most of the gain — parallel, breadth-first, independent subtasks benefit. Cognition's *Don't Build Multi-Agents* shows sub-agents making conflicting assumptions — tightly coupled work suffers. MAST (*Why Do Multi-Agent LLM Systems Fail?*, Berkeley et al., 2025) catalogs 14 failure modes in three groups: specification and system design, inter-agent misalignment, and task verification.
+
+<Note type="tip" title="One-line stance">
+
+"Single agent by default; orchestrator-worker only for independent breadth-first subtasks whose gains cover several times the tokens; tightly coupled work stays single-threaded."
+
+</Note>
+
+### What do the MAST categories look like?
+
+Unclear role boundaries and missing stop conditions; a worker not passing a critical finding to another; nobody checking the final quote against the budget. They map to Level 2 contracts and Level 3 evaluation.
+
+### What is A2A, and how does it differ from MCP?
+
+Google's Agent2Agent protocol (April 2025, now under the Linux Foundation) lets agents from different teams and frameworks discover and delegate to each other via Agent Cards and long-running Tasks. MCP connects an agent to tools and data; A2A connects agents to agents whose internals are opaque. Cross-organization delegation makes "treat workers as untrusted services" literal.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Anthropic's gains and costs; Cognition's objection?
+2. One example per MAST category.
+3. What do A2A and MCP each connect? What's an Agent Card?
+
+</Note>
+
 ## Traps
 
 <Note title="Split one large prompt across identical workers" type="warning">
@@ -452,6 +557,12 @@ A supervisor should not become a high-privilege universal account. It orchestrat
 1. How do you design a verifiable worker handoff?
 2. Why can multi-agent be worse?
 3. Which metrics prove that splitting is worthwhile?
+
+### Added 2026-10
+
+1. What 2025 evidence exists on multi-agent systems, and what's your stance?
+2. What are the common failure categories of multi-agent systems?
+3. How does A2A differ from MCP?
 
 ## My answer
 

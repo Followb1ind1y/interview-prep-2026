@@ -3,7 +3,7 @@ title: Context Caching
 titleEn: Context Caching
 description: 分清 prompt cache、生成时 KV cache 与应用语义缓存，并会判断命中、失效和数据隔离。
 descriptionEn: Distinguish prompt-prefix reuse, generation KV state, and application answer caches, including hits and invalidation.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["prompt caching", "kv cache", "semantic cache", "cache invalidation", "cached tokens"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 本页沿用订单 20240915，先给一张分层图，再讲 prompt 前缀复用、KV cache、应用层精确/语义缓存，最后算命中率与失效。先读过 [Context Window](/docs/context/window) 和 [Attention & Transformer](/docs/llm/transformer) 的 KV 直觉会更顺。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 4**：Anthropic / OpenAI / Gemini 三家 prompt caching 的具体机制（断点、最小长度、TTL、价格倍数）、自部署的前缀缓存（vLLM、SGLang）、“缓存不命中”排查清单。
+
+🔁 **建议复习**：Level 1（前缀可复用）——Level 4 的排查清单直接对应它；你的两个 MyQuestion（隐式缓存为什么安全、缓存会不会给一样的答案）仍然成立，可顺带回看。另外 [Cost](/docs/production/cost) 新增了缓存盈亏点和 agent 缓存的算例。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -25,6 +35,7 @@ mastery: { talk: 0, probe: 0 }
 | 1 · 前缀 | 什么内容稳定，怎样检验 prompt cache 命中？ | 25 min |
 | 2 · 应用缓存 | 什么时候能直接复用答案，怎样防误命中？ | 30 min |
 | 3 · 运营 | 失效、隔离、收益该怎么测？ | 25 min |
+| 4 · 深入（2026-10 新增） | 三家 prompt caching 有什么不同？命中率为 0 怎么查？ | 30 min |
 
 ## 需要掌握
 
@@ -41,6 +52,16 @@ The support assistant repeatedly receives shared instructions and policy backgro
 
 We continue with order 20240915. First distinguish the layers, then prompt-prefix reuse, decoding KV state, application-level exact or semantic caches, and finally hit rate and invalidation. [Context Window](/docs/context/window) and the KV intuition in [Attention & Transformer](/docs/llm/transformer) are useful prerequisites.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 4**: provider mechanics (breakpoints, minimums, TTLs, price multipliers), self-hosted prefix caching, a zero-hit debugging checklist.
+
+🔁 **Review**: Level 1 and your two MyQuestion answers; see also the caching math in [Cost](/docs/production/cost).
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question | Time |
@@ -49,6 +70,7 @@ We continue with order 20240915. First distinguish the layers, then prompt-prefi
 | 1 · Prefix | What stays stable, and how do you verify a prompt-cache hit? | 25 min |
 | 2 · Application cache | When can an answer be reused, and how do you prevent false hits? | 30 min |
 | 3 · Operations | How do invalidation, isolation, and measured savings work? | 25 min |
+| 4 · Deep dive (added 2026-10) | How do the providers differ? How do you debug a zero hit rate? | 30 min |
 
 ## Must know
 
@@ -351,6 +373,62 @@ In one line: implicit prompt caching is **exact reuse of computation** and does 
 
 </Note>
 
+## Level 4 · 深入：三家实现、自部署与排查
+
+### 三家的 prompt caching 有什么不同？
+
+面试时能说出机制差异，比只说“有缓存”深得多。以下为 2025–2026 年的机制要点，**具体倍数、阈值按官方文档为准**：
+
+| | Anthropic | OpenAI | Gemini |
+| --- | --- | --- | --- |
+| 开启方式 | **显式**：在请求里用 `cache_control` 标记缓存断点（最多 4 个） | **自动**：足够长的前缀自动缓存 | 隐式（自动）+ 显式（创建缓存对象） |
+| 最小长度 | 约 1,024 token 起（部分模型更高） | 约 1,024 token 起，按固定步长增长 | 按模型而定 |
+| 有效期 | 默认约 5 分钟，命中会刷新；可选 1 小时 | 闲置几分钟到更长，视负载而定 | 显式缓存可设 TTL，按存储时长收费 |
+| 价格 | 写入约 1.25×（1 小时 TTL 约 2×），读取约 0.1× 输入价 | 无写入附加费，读取折扣随模型不同 | 隐式命中有折扣；显式另收存储费 |
+| 特色 | 缓存层级：**工具定义 → system → messages**，前面任何一处变化，后面全部失效 | 可传 `prompt_cache_key` 帮助把相同前缀路由到同一台机器 | 适合反复查询同一份大文档 / 视频 |
+
+### Anthropic 的断点怎么放？
+
+```text
+[工具定义] [system：客服规则 + 退款政策 P-17 v3]  ← 断点 1（几乎不变）
+[历史消息……]                                      ← 断点 2（agent 场景：随轮次后移）
+[本轮用户消息 / 工具结果]                            不缓存
+```
+
+agent 循环中，把断点放在“最后一条消息”上，每轮历史只追加，前一轮写入的缓存这一轮就能读到——这就是 [Cost](/docs/production/cost) Level 2 里 agent 成本能降 5 倍的原因。
+
+### 自部署时怎么做？
+
+- **vLLM** 的自动前缀缓存（Automatic Prefix Caching）：把 KV cache 按块做哈希，不同请求的相同前缀块直接复用。
+- **SGLang** 的 **RadixAttention**：用基数树（radix tree）组织所有请求的前缀，最大化共享。
+- 多副本时要做**前缀感知路由**：相同前缀的请求尽量发到同一副本，否则每台机器各算一遍。
+
+### 前缀明明稳定，cached tokens 却是 0，怎么查？
+
+| 检查项 | 常见原因 |
+| --- | --- |
+| 前缀长度 | 低于最小可缓存长度 |
+| 前缀是否逐字节相同 | system prompt 里有时间戳 / 请求 ID；工具列表顺序每次不同；JSON 序列化的键顺序不稳定；空格差异 |
+| 断点位置（Anthropic） | 没放 `cache_control`，或放在每次都变的内容之后 |
+| 时间 | 两次请求间隔超过 TTL |
+| 范围 | 不同组织 / 项目 / 区域之间不共享缓存 |
+| 上游改动 | 改了一个工具描述，后面全部失效 |
+
+<Note type="tip" title="面试加分">
+
+“我们曾经发现缓存命中率突然降到接近 0，最后查到是有人把当前日期加进了 system prompt 开头”——这种具体的排查故事很有说服力。即使没有亲身经历，也可以说“我会先检查前缀里有没有每次变化的内容，比如时间戳和工具顺序”。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. Anthropic 和 OpenAI 的 prompt caching 在开启方式和计费上有什么不同？
+2. Anthropic 的缓存层级是什么？改一个工具描述会怎样？
+3. agent 循环里缓存断点应该放在哪？为什么？
+4. 列出 4 个导致 cached tokens 为 0 的原因。
+
+</Note>
+
 ## 陷阱
 
 <Note type="danger" title="“Prompt cache 命中就是答案缓存命中”">
@@ -375,6 +453,12 @@ Isolation → 命中也不能跨越授权边界
 3. 何时不应缓存最终答案？（When should you avoid caching final answers?）
 4. 政策和订单状态变化时，如何失效缓存？（How do you invalidate after policy and order changes?）
 5. 怎么计算缓存收益而不忽视错误命中？（How do you measure savings without ignoring false hits?）
+
+### 2026-10 新增
+
+1. Anthropic 和 OpenAI 的 prompt caching 有什么区别？（How do Anthropic and OpenAI prompt caching differ?）
+2. agent 循环中缓存断点怎么放？（Where do you place cache breakpoints in an agent loop?）
+3. 自部署时怎样做前缀缓存和路由？（How do you do prefix caching and routing when self-hosting?）
 
 ## 我的答案
 
@@ -404,6 +488,33 @@ Start with a no-cache baseline, then enable each layer separately. On the same w
 
 </Note>
 
+## Level 4 · Deep dive: providers, self-hosting, debugging
+
+### How do providers differ?
+
+Anthropic: explicit `cache_control` breakpoints (up to 4), ~1,024-token minimum (higher on some models), ~5-minute TTL refreshed on hit or a 1-hour option, writes ~1.25× (1-hour ~2×), reads ~0.1×, and a hierarchy of tools → system → messages where any upstream change invalidates everything after it. OpenAI: automatic for long enough prefixes, no write surcharge, model-dependent read discount, optional `prompt_cache_key` to improve routing. Gemini: implicit plus explicit cached content with TTL and storage fees. Check current docs for exact numbers.
+
+### Where do breakpoints go in an agent loop?
+
+One after the stable tools/system/policy prefix, one on the latest message so each turn reads what the previous turn wrote — the source of the ~5× agent saving in [Cost](/docs/production/cost).
+
+### Self-hosting?
+
+vLLM's Automatic Prefix Caching hashes KV blocks; SGLang's RadixAttention shares prefixes via a radix tree; route requests with shared prefixes to the same replica.
+
+### Stable prefix, zero cached tokens?
+
+Check length minimums, byte-identical prefixes (timestamps, request IDs, tool order, JSON key order, whitespace), breakpoint placement, TTL expiry, org/project scope, and upstream edits.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How do Anthropic and OpenAI differ in enabling and pricing?
+2. What's Anthropic's cache hierarchy, and what does editing one tool do?
+3. Where do breakpoints go in an agent loop?
+4. Four causes of zero cached tokens?
+
+</Note>
+
 ## Traps
 
 <Note type="danger" title="“Prompt-cache hit means answer-cache hit”">
@@ -428,6 +539,12 @@ Isolation → a hit never bypasses authorization
 3. When should you avoid caching final answers?
 4. How do you invalidate after policy and order changes?
 5. How do you measure savings without ignoring false hits?
+
+### Added 2026-10
+
+1. How do Anthropic and OpenAI prompt caching differ?
+2. Where do you place cache breakpoints in an agent loop?
+3. How do you do prefix caching and routing when self-hosting?
 
 ## My answer
 

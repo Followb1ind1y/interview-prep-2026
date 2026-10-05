@@ -3,7 +3,7 @@ title: Agent Reliability
 titleEn: Agent Reliability
 description: 让 agent 在成功、失败和不确定时都可控：验收、预算、重试、降级、人工接管与轨迹评测。
 descriptionEn: "Keep agents controlled in success, failure, and uncertainty: acceptance, budgets, retries, fallbacks, handoffs, and trajectory evals."
-date: 2026-09-21
+date: 2026-10-04
 keywords: ["agent reliability", "timeout", "retry", "circuit breaker", "fallback", "human in the loop", "budget", "trace"]
 tier: A
 status: todo
@@ -28,6 +28,16 @@ mastery: { talk: 0, probe: 0 }
 可靠：  超时 → “结果未知” → 查记录 → 决定重试或停止
 ~~~
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 5**：可靠性的数学——复合错误、pass@k 与 pass^k（τ-bench）、每步验证怎样改变整体成功率，以及和 [Production Reliability](/docs/production/reliability) 的分工。
+
+🔁 **建议复习**：Level 2（失败分类与恢复）和 Level 3（checkpoint、at-least-once）——内容和重写后的 [API Engineering](/docs/production/api-engineering) Level 4、[Agent State](/docs/ai-native/agent-state) Level 2 互相印证，建议对照读一遍，确认术语一致。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | 部分 | 回答的问题 | 时长 |
@@ -37,6 +47,7 @@ mastery: { talk: 0, probe: 0 }
 | Level 2 · 失败如何分类恢复 | 参数错、权限拒绝、暂时故障、timeout、下游熔断各怎么处理？ | 40 min |
 | Level 3 · 崩溃后怎样接上 | checkpoint、replay、at-least-once 与幂等如何配合？ | 35 min |
 | Level 4 · 可靠性怎样被证明 | concurrent 副作用、trace、故障注入、SLO 怎样组成闭环？ | 40 min |
+| Level 5 · 深入（2026-10 新增） | 怎样用数字描述 agent 的可靠性？pass^k 是什么？ | 25 min |
 
 ## 需要掌握
 
@@ -67,6 +78,16 @@ unreliable: timeout → “it definitely failed” → submit again
 reliable:   timeout → “outcome unknown” → check record → retry or stop
 ~~~
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 5**: reliability math — compounding errors, pass@k vs pass^k (τ-bench), per-step verification, and the split with [Production Reliability](/docs/production/reliability).
+
+🔁 **Review**: Levels 2 and 3 alongside the rewritten [API Engineering](/docs/production/api-engineering) Level 4 and [Agent State](/docs/ai-native/agent-state) Level 2.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Part | Question it answers | Time |
@@ -76,6 +97,7 @@ reliable:   timeout → “outcome unknown” → check record → retry or stop
 | Level 2 · Classify and recover from failure | How do parameter error, permission denial, transient fault, timeout, and circuit breaking differ? | 40 min |
 | Level 3 · How do you resume after a crash? | How do checkpoint, replay, at-least-once delivery, and idempotency work together? | 35 min |
 | Level 4 · How do you prove reliability? | How do concurrent side effects, traces, fault injection, and SLOs close the loop? | 40 min |
+| Level 5 · Deep dive (added 2026-10) | How do you quantify agent reliability? What is pass^k? | 25 min |
 
 ## Must know
 
@@ -448,6 +470,63 @@ SLO 不应只写“模型可用率”。例如“95% 可自动完成的草稿任
 
 </Note>
 
+## Level 5 · 深入：可靠性的数学
+
+### 为什么“平均成功率 80%”不能描述 agent 的可靠性？
+
+同一个任务跑多次，agent 不一定每次都成功（模型输出有随机性、环境有变化）。用户关心的不是“平均成功率”，而是“**我每次用它，它是不是都能做对**”。
+
+τ-bench（Sierra，2024）为此推广了 **pass^k** 指标：同一任务独立跑 k 次，**全部成功**的概率。设单次成功率为 p：
+
+```text
+pass@k = 1 - (1 - p)^k    k 次里至少一次成功（能力上限）
+pass^k = p^k              k 次全部成功（一致性）
+
+p = 0.8：
+  pass@1 = 0.80    pass^1 = 0.80
+  pass@4 = 0.998   pass^4 = 0.41
+  pass@8 ≈ 1.00    pass^8 = 0.17
+```
+
+τ-bench 论文中，当时最好的模型在零售客服场景里 pass^1 还算可以，但 pass^8 低于 25%——**同一个客户问 8 次，几乎肯定会遇到至少一次失败**。这是“demo 很好、上线翻车”的数学解释。
+
+<Note type="tip" title="面试加分">
+
+“评估面向用户的 agent，我会同时报 pass@1 和 pass^k：pass@1 看能力，pass^k 看一致性。用户感知到的可靠性更接近 pass^k。”
+
+</Note>
+
+### 每步验证为什么效果这么大？
+
+[Agent Loop](/docs/agent/loop) Level 3 算过：单步 95%、20 步只剩 36%。如果在每一步加一个**确定性校验**（参数合法？结果符合预期？），把发现的错误拦下来让 agent 重试这一步：
+
+```text
+单步成功率 95%，校验能发现其中 80% 的错误并成功重试
+→ 有效单步成功率 ≈ 95% + 5% × 80% = 99%
+→ 20 步：0.99^20 ≈ 82%（原来 36%）
+```
+
+这就是 Level 1 的“进展可观测”和 Level 2 的“失败分类恢复”在数学上的价值：**它们提高的是每一步的有效成功率，而整体成功率对单步成功率是指数级敏感的。**
+
+### 这一页和 Production Reliability 怎么分工？
+
+| 页面 | 关注 |
+| --- | --- |
+| 本页（Agent Reliability） | **单个 agent 任务**的正确终态：终态分类、进展检测、副作用恢复、checkpoint、任务级可靠性指标 |
+| [Production Reliability](/docs/production/reliability) | **整个服务**：熔断、隔舱、降级阶梯、SLO、备用模型、故障注入 |
+| [API Engineering](/docs/production/api-engineering) | **单个请求**：超时、重试、幂等键 |
+
+面试中被问“怎么保证 agent 可靠”，可以按这三层组织回答：请求层不重复副作用、任务层到达正确终态、服务层在依赖故障时降级。
+
+<Note title="自测：到这里你应该能回答">
+
+1. p = 0.9，算 pass@3 和 pass^3。哪个更接近用户体验？
+2. 为什么 τ-bench 报告的 pass^8 远低于 pass^1？
+3. 每步校验把单步成功率从 95% 提到 99%，20 步的整体成功率怎么变？
+4. 按请求、任务、服务三层组织“agent 可靠性”的回答。
+
+</Note>
+
 ## 陷阱
 
 <Note title="静默 fallback" type="warning">
@@ -491,6 +570,11 @@ SLO 不应只写“模型可用率”。例如“95% 可自动完成的草稿任
 2. 为什么说 at-least-once + 幂等，而不是直接说 exactly-once？（Why say at-least-once plus idempotency instead of claiming exactly-once?）
 3. 两个 worker 同时写同一草稿，你怎样防重复？（How do you prevent duplicate drafts from two concurrent workers?）
 4. 怎样用 fault injection 和 SLO 证明 agent reliability？（How do fault injection and SLOs prove agent reliability?）
+
+### 2026-10 新增
+
+1. pass@k 和 pass^k 有什么区别？为什么面向用户的 agent 要看 pass^k？（pass@k vs pass^k, and why pass^k for user-facing agents?）
+2. 为什么每步验证对长任务的成功率影响这么大？（Why does per-step verification matter so much for long tasks?）
 
 ## 我的答案
 
@@ -539,6 +623,35 @@ An SLO should not say only “model availability.” For example: “95% of auto
 
 </Note>
 
+## Level 5 · Deep dive: reliability math
+
+### Why isn't an 80% average enough?
+
+Users care whether it works every time. τ-bench (Sierra, 2024) popularized pass^k: the probability that all k independent runs succeed. With p = 0.8: pass@4 ≈ 0.998 but pass^4 = 0.41 and pass^8 = 0.17. In τ-bench's retail domain, the best model at the time had pass^8 below 25% — the math behind "great demo, flaky launch."
+
+<Note type="tip" title="Interview move">
+
+"For user-facing agents I report pass@1 for capability and pass^k for consistency; users feel pass^k."
+
+</Note>
+
+### Why does per-step verification matter so much?
+
+If checks catch 80% of a 5% per-step error rate and the retry succeeds, effective per-step success is ~99%, and 20 steps go from 36% to ~82%. Overall success is exponentially sensitive to per-step success.
+
+### How does this page split with production pages?
+
+This page: one agent task reaching a correct end state. [Production Reliability](/docs/production/reliability): the service under dependency failure. [API Engineering](/docs/production/api-engineering): the single request. Answer reliability questions in those three layers.
+
+<Note title="Self-check: you should be able to answer">
+
+1. p = 0.9: pass@3 and pass^3? Which matches user experience?
+2. Why was τ-bench's pass^8 far below pass^1?
+3. How do 20 steps change when per-step success goes 95% → 99%?
+4. Structure an agent reliability answer in three layers.
+
+</Note>
+
 ## Traps
 
 <Note title="Silent fallback" type="warning">
@@ -582,6 +695,11 @@ A queue's “exactly once” delivery claim does not replace business idempotenc
 2. Why say at-least-once plus idempotency instead of claiming exactly-once?
 3. How do you prevent duplicate drafts from two concurrent workers?
 4. How do fault injection and SLOs prove agent reliability?
+
+### Added 2026-10
+
+1. pass@k vs pass^k, and why pass^k for user-facing agents?
+2. Why does per-step verification matter so much for long tasks?
 
 ## My answer
 

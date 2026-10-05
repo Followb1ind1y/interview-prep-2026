@@ -3,7 +3,7 @@ title: Context Engineering
 titleEn: Context Engineering
 description: 重点不是写一个好 prompt，而是决定模型在某一时刻究竟应该看到哪些 context。
 descriptionEn: Not just a good prompt — decide what the model should see at this moment.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["context engineering", "prompt caching", "lost-in-the-middle", "compression"]
 ---
 
@@ -28,6 +28,17 @@ Context Engineering 要回答的是：**模型这一步该看到哪些信息，�
 4. 从示意 100K 历史压到 20K，仍保留来源、版本、未完成动作与不确定性
 5. 分清三层缓存；在政策变化、订单变化、跨租户场景下设计失效与拒绝测试
 
+## 2026-10 复习指引
+
+这一栏你已学完。2026-10-04 每页新增了一个“深入” Level，原文没有改动，你的高亮和 MyQuestion 都还在。下表标出新增内容的优先级；每页顶部的绿色提示框列出了要新学和要复习的具体 Level。
+
+| 优先级 | 页面 → 新增内容 |
+| --- | --- |
+| 🔴 必学 | [Caching](/docs/context/caching) L4：三家 prompt caching 机制、断点、命中为 0 的排查 |
+| 🔴 必学 | [Context Window](/docs/context/window) L4：有效长度（RULER / NoLiMa / Context Rot）、KV 显存手算 |
+| 🔴 必学 | [Model Context](/docs/context/model-context) L3：reasoning 模型在工具循环中要回传思考内容、指令层级 |
+| 🟡 了解 | [Construction](/docs/context/construction) L4、[Compression](/docs/context/compression) L4、[Isolation](/docs/context/isolation) L4 |
+
 </Locale>
 
 <Locale lang="en">
@@ -50,5 +61,14 @@ Context engineering asks: **what should the model see for this step, what remain
 3. Select enough evidence from 20 passages and locate failures in retrieval, assembly, or generation.
 4. Reduce an illustrative 100K history to 20K while preserving provenance, versions, pending actions, and uncertainty.
 5. Separate three cache layers; test invalidation and denial after policy, order, and tenant changes.
+
+## October 2026 review guide
+
+You've finished this section. On 2026-10-04 each page gained a deep-dive level; original text is unchanged and your highlights and MyQuestion entries remain. Each page's green note lists exactly what to learn and review.
+
+| Priority | Page → new content |
+| --- | --- |
+| 🔴 Must learn | [Caching](/docs/context/caching) L4, [Context Window](/docs/context/window) L4, [Model Context](/docs/context/model-context) L3 |
+| 🟡 Know | [Construction](/docs/context/construction) L4, [Compression](/docs/context/compression) L4, [Isolation](/docs/context/isolation) L4 |
 
 </Locale>

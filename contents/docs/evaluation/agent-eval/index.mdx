@@ -3,7 +3,7 @@ title: Agent Evaluation
 titleEn: Agent Evaluation
 description: 同时评任务结果、真实环境状态、工具轨迹和预算；用故障注入检验可恢复性。
 descriptionEn: Evaluate outcomes, real environment state, tool trajectories, and budgets with fault injection.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["agent evaluation", "task success", "trajectory", "tool calls", "environment grader", "fault injection"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 本页沿用订单 20240915，用一个可重置的模拟订单系统跑完整轨迹：查订单、查政策、作答，必要时等待授权。先定义真实成功，再拆工具选择/参数、过程约束、故障恢复与多 agent 协调。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 4**：一致性指标 pass^k、按最终状态而不是轨迹评分（τ-bench 的做法）、模拟用户与可重置环境、2026 年主要 agent 基准（τ²-bench、GAIA、WebArena、OSWorld、BrowseComp、SWE-bench 系列）各测什么。
+
+🔁 **建议复习**：Level 0（最终答案不等于任务完成）和 Level 1（不应只对照一条金标路径）——Level 4 的“按最终状态评分”是这两级在业界基准中的标准做法。也建议连着读 [Agentic Coding](/docs/ai-native/agentic-coding) Level 4 和 [Agent Reliability](/docs/agent/reliability) 新增的 Level 5。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -25,6 +35,7 @@ mastery: { talk: 0, probe: 0 }
 | 1 · Trajectory | 如何评工具选择、参数、顺序和约束？ | 30 min |
 | 2 · Robustness | 超时、重复调用、状态变化下怎样评？ | 30 min |
 | 3 · Trade-offs | 步数、延迟、成本和多 agent 收益如何报告？ | 25 min |
+| 4 · 深入（2026-10 新增） | 怎样评 agent 的一致性？公开的 agent 基准各测什么？ | 35 min |
 
 ## 需要掌握
 
@@ -41,6 +52,16 @@ A support agent saying “I refunded you” does not prove the order system chan
 
 We continue with order 20240915 in a resettable simulated order system: query the order, check policy, answer, and wait for authorization if needed. First define real success, then grade tool selection and arguments, trajectory constraints, fault recovery, and multi-agent coordination.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 4**: pass^k, state-based grading (τ-bench), simulated users and resettable environments, and what the major 2026 agent benchmarks measure.
+
+🔁 **Review**: Levels 0 and 1, plus [Agentic Coding](/docs/ai-native/agentic-coding) Level 4 and [Agent Reliability](/docs/agent/reliability) Level 5.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question | Time |
@@ -49,6 +70,7 @@ We continue with order 20240915 in a resettable simulated order system: query th
 | 1 · Trajectory | How do you grade tool choice, arguments, order, and constraints? | 30 min |
 | 2 · Robustness | What happens under timeout, retries, and state changes? | 30 min |
 | 3 · Trade-offs | How do steps, latency, cost, and multi-agent benefit enter the report? | 25 min |
+| 4 · Deep dive (added 2026-10) | How do you measure consistency? What do public agent benchmarks test? | 35 min |
 
 ## Must know
 
@@ -253,6 +275,60 @@ For each case grade **final state, duplicate actions, error classification, stop
 
 </Note>
 
+## Level 4 · 深入：一致性、状态评分、环境与公开基准
+
+### 为什么同一个 case 要跑多次？
+
+agent 的每一步都有随机性，同一个退款 case 跑 5 次可能 4 次对、1 次错。只跑一次，你测到的是运气。**pass^k**（k 次全部成功的概率）衡量一致性：单次成功率 0.8 时，pass^4 只有 0.41。面向用户的客服 agent，用户感受到的更接近 pass^k 而不是平均成功率。计算和含义见 [Agent Reliability](/docs/agent/reliability) Level 5。
+
+### 为什么按“最终状态”评分，而不是比对轨迹？
+
+Level 1 说过不应只对照一条金标路径。τ-bench（Sierra，2024）给出了一个干净的做法：
+
+```text
+1. 环境里有一个模拟的数据库（订单、用户、库存）
+2. 每个任务预先写好“正确完成后数据库应该是什么样”（目标状态）
+3. agent 跑完后，比较实际数据库状态和目标状态
+   - 退款记录是否正确创建？金额对吗？
+   - 有没有不该发生的修改（比如改了别的订单）？
+4. 同时检查给用户的回复里是否包含必须告知的信息
+```
+
+好处：agent 用什么顺序、调了几次查询都不重要，**只要最终世界状态正确、没有越权修改**。这正是 Level 0 “最终答案不等于任务完成”的可执行版本——评的是世界变成了什么样，而不是 agent 说了什么。
+
+### 模拟用户和可重置环境为什么必要？
+
+- **模拟用户**：客服 agent 是多轮对话，需要有人“扮演客户”。τ-bench 用 LLM 根据任务说明扮演用户（例如“你想退订单 20240915，但不记得订单号，只记得是上周买的猫粮”）。这让多轮评测可以自动化，代价是模拟用户本身可能不稳定，需要抽检。
+- **可重置环境**：每次运行前数据库恢复到同一初始状态，否则上一次运行的副作用会污染下一次（Level 2 的故障注入也依赖这一点）。
+- **τ²-bench**（2025）进一步引入“双控”场景：用户也能操作环境（例如电信客服中用户自己重启设备），考察 agent 指导用户协作完成任务的能力。
+
+### 2026 年主要的 agent 基准各测什么？
+
+| 基准 | 测什么 | 评分方式 |
+| --- | --- | --- |
+| τ-bench / τ²-bench | 客服场景：多轮对话 + 工具 + 业务政策（零售、航空、电信） | 最终数据库状态 + pass^k |
+| GAIA | 通用助手：需要网页搜索、文件处理、多步推理才能回答的问题 | 答案精确匹配 |
+| WebArena | 在自托管的真实网站（电商、论坛、代码托管）上完成任务 | 检查网站最终状态 |
+| OSWorld | 操作真实桌面系统和应用（computer use） | 执行脚本检查系统状态 |
+| BrowseComp（OpenAI，2025） | 在网上找到极难找的信息，答案容易验证、难以搜到 | 答案匹配 |
+| SWE-bench 系列、Terminal-Bench | 编码与终端任务（见 [Agentic Coding](/docs/ai-native/agentic-coding) Level 4） | 隐藏测试 |
+
+共同点：**能自动验证结果**（状态检查、精确答案、测试）。这也是你在公司里设计 agent 评测时最该学的一点——先想清楚“怎样自动判断任务真的完成了”。
+
+<Note type="tip" title="面试加分">
+
+“我评客服 agent 会借鉴 τ-bench：可重置的模拟订单系统、LLM 扮演的客户、按最终订单和退款状态评分，每个 case 跑多次报 pass^k，同时统计每成功任务的成本和步数。”
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么按最终状态评分比比对轨迹更好？它还要额外检查什么？
+2. 模拟用户解决了什么问题？带来什么新风险？
+3. 说出 4 个 agent 基准及各自测什么。它们的共同点是什么？
+
+</Note>
+
 ## 陷阱
 
 <Note type="danger" title="“最后说对了，所以 agent 评测通过”">
@@ -279,6 +355,12 @@ Production → 线上 trace 和恢复指标
 4. 写工具超时后如何评恢复行为？（How do you grade recovery after a write timeout?）
 5. 如何证明 multi-agent 比单 agent 值得？（How do you justify multi-agent over a single-agent baseline?）
 
+### 2026-10 新增
+
+1. 为什么 agent 评测要按最终状态评分？（Why grade agents on final state?）
+2. 怎样衡量 agent 的一致性？（How do you measure agent consistency?）
+3. 说出几个主流 agent 基准及各自测什么。（Name major agent benchmarks and what they test.）
+
 ## 我的答案
 
 </Locale>
@@ -300,6 +382,38 @@ A complete report shows task pass, controlled failure, unauthorized or duplicate
 1. Which is more deployable: three lucky steps or five verified steps? Why?
 2. When does multi-agent coordination deliver net benefit?
 3. Why doesn't mean step count alone prove agent quality?
+
+</Note>
+
+## Level 4 · Deep dive: consistency, state-based grading, environments, benchmarks
+
+### Why run each case several times?
+
+Agents are stochastic; one run measures luck. pass^k captures consistency (p = 0.8 gives pass^4 = 0.41) and is closer to what users feel. See [Agent Reliability](/docs/agent/reliability) Level 5.
+
+### Why grade final state instead of trajectories?
+
+τ-bench (Sierra, 2024): a simulated database, a predefined goal state per task, and a comparison after the run — correct refund records and no unauthorized changes — plus required information in the reply. Order and number of calls don't matter. It's the executable form of "final answer ≠ task done."
+
+### Simulated users and resettable environments?
+
+An LLM plays the customer from a task brief, automating multi-turn evaluation (spot-check it — simulators drift). Reset the environment each run so side effects don't leak. τ²-bench (2025) adds dual control, where the user also acts on the environment.
+
+### What do major agent benchmarks test?
+
+τ-/τ²-bench (customer service, state + pass^k), GAIA (general assistant questions, exact answers), WebArena (self-hosted websites, final site state), OSWorld (desktop computer use, state scripts), BrowseComp (hard-to-find web facts), SWE-bench family and Terminal-Bench (hidden tests). Common thread: automatic verification.
+
+<Note type="tip" title="Interview move">
+
+"Borrowing from τ-bench: a resettable mock order system, an LLM-simulated customer, grading on final order and refund state, multiple runs with pass^k, plus cost and steps per success."
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why state-based grading, and what else must it check?
+2. What do simulated users solve, and what risk do they add?
+3. Four benchmarks and what they test; the common thread?
 
 </Note>
 
@@ -328,6 +442,12 @@ Production → traces and recovery metrics
 3. How do tool-selection and argument-accuracy denominators differ?
 4. How do you grade recovery after a write timeout?
 5. How do you justify multi-agent over a single-agent baseline?
+
+### Added 2026-10
+
+1. Why grade agents on final state?
+2. How do you measure agent consistency?
+3. Name major agent benchmarks and what they test.
 
 ## My answer
 

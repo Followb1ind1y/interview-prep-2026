@@ -3,7 +3,7 @@ title: Context Window
 titleEn: Context Window
 description: 从 token 预算到长上下文质量，用同一客服案例算清容量、成本与证据位置。
 descriptionEn: Use one support case to reason about token budgets, long-context quality, and evidence position.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["context window", "token budget", "long context", "lost in the middle", "prefill"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 本页先用 [Tokenization](/docs/llm/tokenization) 的 token 概念做预算，再用 [Attention & Transformer](/docs/llm/transformer) 的 attention / KV cache 解释成本，最后看证据位置与长上下文评测。面试重点是会算、会诊断，不背某款模型今天的窗口数字。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 4**：声称窗口 ≠ 有效长度（RULER、NoLiMa、Context Rot）、KV cache 显存手算、长上下文分档定价。面试官追问“1M 窗口为什么还会答错”时要用到。
+
+🔁 **建议复习**：Level 1（prefill / decode 与 KV cache）——Level 4 的显存计算建立在它上面；Level 2（lost in the middle）——Level 4 把它扩展到 2025 年的新研究。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -25,6 +35,7 @@ mastery: { talk: 0, probe: 0 }
 | 1 · 计算 | 为什么上下文越长通常越慢、越贵？ | 25 min |
 | 2 · 质量 | 什么是 lost in the middle？它是绝对规律吗？ | 25 min |
 | 3 · 决策 | 长窗口与 RAG 如何选、如何验证？ | 25 min |
+| 4 · 深入（2026-10 新增） | 有效长度为什么远小于声称窗口？KV cache 吃多少显存？ | 30 min |
 
 贯穿例子：客服需要从聊天历史、订单查询和退款政策中判断订单 20240915 是否能退款。下面的 token 数是**教学假设**；真实值应由目标模型的计数接口与响应 usage 核对。
 
@@ -43,6 +54,16 @@ In [Model Context](/docs/context/model-context), the support assistant found an 
 
 This page starts with token budgeting from [Tokenization](/docs/llm/tokenization), connects cost to attention and the KV cache from [Attention & Transformer](/docs/llm/transformer), then examines evidence position and evaluation. In interviews, calculate and diagnose rather than memorize today's model limits.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 4**: claimed vs effective length (RULER, NoLiMa, Context Rot), KV-cache memory math, long-context pricing tiers.
+
+🔁 **Review**: Level 1 (prefill/decode, KV cache) and Level 2 (lost in the middle) — Level 4 builds on both.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question | Time |
@@ -51,6 +72,7 @@ This page starts with token budgeting from [Tokenization](/docs/llm/tokenization
 | 1 · Compute | Why does more context usually cost more time and money? | 25 min |
 | 2 · Quality | What is lost in the middle, and is it universal? | 25 min |
 | 3 · Decision | When do long context and retrieval make sense, and how do you test? | 25 min |
+| 4 · Deep dive (added 2026-10) | Why is effective length shorter than the claimed window? How much memory does the KV cache take? | 30 min |
 
 The running example is a support assistant deciding whether order 20240915 qualifies for a refund using history, an order lookup, and policy. All token counts below are **teaching assumptions**; verify real counts with the chosen model's counting endpoint and response usage.
 
@@ -277,6 +299,65 @@ Exceeding the window is a capacity problem and may trigger rejection or truncati
 
 </Note>
 
+## Level 4 · 深入：有效长度、KV 显存与长上下文定价
+
+### 为什么“声称 1M 窗口”不等于“能用好 1M”？
+
+窗口上限只说明**请求不会被拒绝**。模型在这个长度上还能不能找到、组合、推理证据，要靠专门的长上下文评测，而这些评测的结论一致指向：**有效长度通常明显小于声称长度**。
+
+| 评测 | 测什么 | 主要发现 |
+| --- | --- | --- |
+| Needle in a Haystack | 在长文中插一句话，问模型这句话的内容 | 很多模型接近满分，但它只测**字面匹配**的单点检索，太容易 |
+| RULER（NVIDIA，2024） | 多针检索、多跳追踪、聚合统计等合成任务，逐步加长 | 许多声称 32K 以上的模型，在任务变难后能保持质量的“有效长度”远低于声称值 |
+| NoLiMa（2025） | 问题和“针”之间**没有字面重合词**，必须靠语义联想 | 随长度增加，表现下降远比 needle 测试严重 |
+| Context Rot（Chroma，2025） | 任务难度不变，只增加输入长度、加入干扰内容 | 即使是简单任务，性能也随长度普遍下降；**相似但错误的干扰段落**伤害尤其大 |
+
+回到客服：政策库里有“未发货退款”和“已发货退货”两段非常相似的条款，正是 Context Rot 说的“相似干扰”。把整个政策库塞进 1M 窗口，模型更可能把两者混淆；先检索、再放入少量相关条款，反而更稳。
+
+<Note type="tip" title="面试加分">
+
+被问“窗口都 1M 了还要 RAG 吗”，可以说：“声称窗口是容量上限，不是质量保证。RULER、NoLiMa 和 Chroma 的 Context Rot 研究都显示，任务一旦需要语义匹配或存在相似干扰，长度增加就会明显降低质量。所以我会在自己的任务和长度上实测，而不是信窗口数字。”
+
+</Note>
+
+### KV cache 到底吃多少显存？
+
+Level 1 说长上下文会让 KV cache 变大，这里把它算出来。每个 token、每一层都要存一份 K 和一份 V：
+
+```text
+每 token KV 字节数 = 2 (K 和 V) × 层数 × KV 头数 × 每头维度 × 每个数值的字节数
+```
+
+以 Llama 3 70B 为例（80 层；用了 GQA，KV 头只有 8 个；每头 128 维；BF16 每个数 2 字节）：
+
+```text
+2 × 80 × 8 × 128 × 2 = 327,680 字节 ≈ 0.31 MB / token
+128K token 的一个请求 ≈ 0.31 MB × 131,072 ≈ 40 GB
+```
+
+一个 128K 上下文的请求，光 KV cache 就要约 40 GB——比很多单卡的剩余显存还多。这就是为什么：
+
+- 长上下文请求**挤占并发**：同样的显存能服务的长请求数远少于短请求（见 [Scaling](/docs/production/scaling) Level 4）。
+- **GQA**（多个 query 头共享一组 KV 头）这类结构很重要：如果 70B 用 64 个完整的 KV 头，KV cache 要再大 8 倍。
+- KV cache 量化、PagedAttention 等技术都在省这块显存（见 [Inference](/docs/llm/inference) Level 3）。
+
+### 长上下文为什么可能更贵？
+
+除了按 token 线性计费，一些供应商对**超过某个长度阈值**（例如 200K）的请求使用更高的单价档位——因为长请求占用的显存和算力不成比例地多。具体阈值和价格按官方价格页为准。面试时能说出“长上下文不只是 token 多，单价也可能更高，还会降低服务端并发”，就比只说“更贵”深一层。
+
+### 模型是怎么支持这么长的窗口的？
+
+简单了解即可：现代模型多用 **RoPE**（旋转位置编码）表示位置。要支持比预训练更长的上下文，常见做法是对位置编码做**插值或缩放**（如 Position Interpolation、YaRN），再用长文本数据继续训练。推论是：模型在**训练中见得多的长度**上表现最好，声称的上限附近往往见得少，这也是有效长度偏短的原因之一。
+
+<Note title="自测：到这里你应该能回答">
+
+1. Needle in a Haystack 为什么不足以证明长上下文能力？NoLiMa 改了什么？
+2. 用公式算 Llama 3 70B 一个 32K 请求的 KV cache 大小。
+3. GQA 为什么能显著降低长上下文的显存压力？
+4. 除了 token 数变多，长上下文还可能从哪两方面变贵？
+
+</Note>
+
 ## 陷阱
 
 <Note type="danger" title="“窗口越大，答案必然越好”">
@@ -302,6 +383,12 @@ Compression → 历史太长时怎样保留关键事实
 4. 1M 窗口是否让 RAG 失去意义？（Does a very large window eliminate RAG?）
 5. 长窗口与检索方案比较哪些质量和生产指标？（Which quality and production metrics would you compare?）
 
+### 2026-10 新增
+
+1. 声称窗口和有效上下文长度有什么区别？怎么测？（How do claimed and effective context length differ, and how do you measure it?）
+2. 估算一个 128K 请求的 KV cache 显存。（Estimate the KV-cache memory for a 128K request.）
+3. 为什么长上下文请求会降低服务端并发？（Why do long-context requests reduce serving concurrency?）
+
 ## 我的答案
 
 </Locale>
@@ -321,6 +408,39 @@ Compare three designs on a set of realistic support questions: A sends the whole
 1. When might sending one whole document be simpler than a RAG pipeline?
 2. Why does a large window not remove the need to query live order state?
 3. How would you compare A, B, and C without mistaking fluency for correctness?
+
+</Note>
+
+## Level 4 · Deep dive: effective length, KV memory, long-context pricing
+
+### Why doesn't a claimed 1M window mean 1M of usable context?
+
+The limit only means the request won't be rejected. Long-context evals consistently show effective length is shorter: Needle in a Haystack tests literal single-point retrieval and is too easy; RULER (NVIDIA, 2024) adds multi-needle, multi-hop tracing, and aggregation, and many models claiming 32K+ hold quality far below their claimed length; NoLiMa (2025) removes literal overlap between question and needle, and performance drops much faster; Chroma's Context Rot (2025) shows degradation with length even on simple tasks, especially with similar-but-wrong distractors — exactly the "not shipped" vs "shipped" refund clauses.
+
+<Note type="tip" title="Interview move">
+
+"A claimed window is capacity, not quality. RULER, NoLiMa, and Context Rot all show quality falling with length once semantic matching or distractors are involved, so I measure on my task at my lengths."
+
+</Note>
+
+### How much memory does the KV cache take?
+
+`bytes per token = 2 × layers × KV heads × head dim × bytes per value`. Llama 3 70B (80 layers, GQA with 8 KV heads, 128 dims, BF16): ≈ 0.31 MB per token, so a 128K request needs ≈ 40 GB of KV cache alone. That's why long requests crowd out concurrency, why GQA matters (64 full KV heads would be 8× larger), and why KV quantization and PagedAttention exist.
+
+### Why can long context cost more?
+
+Beyond linear token billing, some providers charge a higher rate above a length threshold (e.g. 200K) because long requests use disproportionate memory and compute. Check official pricing.
+
+### How do models reach such long windows?
+
+Mostly RoPE with position interpolation or scaling (e.g. YaRN) plus continued long-context training. Models perform best at lengths they saw most in training — one reason effective length trails the claim.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why is Needle in a Haystack insufficient, and what does NoLiMa change?
+2. Compute the KV cache for a 32K Llama 3 70B request.
+3. Why does GQA reduce long-context memory pressure?
+4. Two ways long context costs more beyond token count?
 
 </Note>
 
@@ -348,6 +468,12 @@ Compression → preserving facts when history grows
 3. How would you test lost in the middle?
 4. Does a very large window eliminate RAG?
 5. Which quality and production metrics would you compare?
+
+### Added 2026-10
+
+1. How do claimed and effective context length differ, and how do you measure it?
+2. Estimate the KV-cache memory for a 128K request.
+3. Why do long-context requests reduce serving concurrency?
 
 ## My answer
 

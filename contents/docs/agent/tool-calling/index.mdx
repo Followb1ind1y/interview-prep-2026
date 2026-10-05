@@ -3,7 +3,7 @@ title: Tool Calling
 titleEn: Tool Calling
 description: 模型怎样请求工具；schema、业务校验、结果回传、重试与幂等怎样共同保护真实操作。
 descriptionEn: "How a model requests tools: schema, business validation, result return, retries, and idempotency for real operations."
-date: 2026-09-21
+date: 2026-10-04
 keywords: ["tool calling", "function calling", "JSON Schema", "validation", "idempotency", "timeout", "tool result"]
 tier: A
 status: todo
@@ -31,6 +31,16 @@ Tool calling 是模型请求应用调用外部能力的协议，不是模型自�
 
 **tool calling 就是中间那张“申请单”，不是执行本身。** 后面的 schema、call id、retry 都是在让这张申请单不会被拿错、重复办或越权办。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 5**：2025–2026 年的工具调用新能力——strict 模式背后的约束解码、`tool_choice`、服务端工具、按需加载工具（tool search）、程序化工具调用（让模型写代码调用工具），以及工具定义的 token 成本。
+
+🔁 **建议复习**：Level 0（schema 与业务规则）——Level 5 解释 strict 模式到底保证了什么、没保证什么；Level 4（工具作为产品接口）——和重写后的 [Agent Harness](/docs/ai-native/harness) Level 2（ACI）互相补充。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | 部分 | 回答的问题 | 时长 |
@@ -40,6 +50,7 @@ Tool calling 是模型请求应用调用外部能力的协议，不是模型自�
 | Level 2 · 写操作的防线 | 为什么 JSON 合法仍不够？校验、授权、幂等、超时和 retry 怎么协作？ | 40 min |
 | Level 3 · 协议轨迹与边界 | 消息角色、并行乱序、MCP / computer use 边界是什么？ | 30 min |
 | Level 4 · 工具作为产品接口 | 怎样设计工具、观测失败、控制工具数量，并用评测改进？ | 30 min |
+| Level 5 · 深入（2026-10 新增） | strict 模式怎么保证格式？工具太多怎么办？什么是程序化工具调用？ | 30 min |
 
 先读 [Agent Loop](/docs/agent/loop)：本页默认你已经理解 result → state → next context。贯穿例子里的金额和报价编号是教学数据，不是价格策略。
 
@@ -73,6 +84,16 @@ database:    return the current Q-817 facts
 
 **Tool calling is the request form in the middle, not the execution.** Schema, call IDs, and retries later in this page make sure that form is not malformed, mixed up, repeated, or used beyond authority.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 5**: constrained decoding behind strict mode, `tool_choice`, server tools, tool search, programmatic tool calling, tool-definition token cost.
+
+🔁 **Review**: Level 0 and Level 4 with [Agent Harness](/docs/ai-native/harness) Level 2 (ACI).
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Part | Question it answers | Time |
@@ -82,6 +103,7 @@ database:    return the current Q-817 facts
 | Level 2 · Defenses for writes | Why is valid JSON still insufficient? How do validation, authorization, idempotency, timeouts, and retries work together? | 40 min |
 | Level 3 · Protocol trajectory and boundaries | What are message roles, out-of-order parallelism, and MCP / computer-use boundaries? | 30 min |
 | Level 4 · Tools as product interfaces | How do you design tools, observe failures, control tool count, and improve them with evals? | 30 min |
+| Level 5 · Deep dive (added 2026-10) | How does strict mode guarantee format? Too many tools? Programmatic tool calling? | 30 min |
 
 Read [Agent Loop](/docs/agent/loop) first: this page assumes that you understand result → state → next context. Amounts and quote identifiers in the running example are teaching data, not pricing policy.
 
@@ -530,6 +552,68 @@ create_counteroffer_draft 比含 operation 选择项的万能工具更安全、�
 
 </Note>
 
+## Level 5 · 深入：2025–2026 年的工具调用新能力
+
+### strict 模式是怎么“保证”参数符合 schema 的？
+
+Level 0 说兼容的 strict 配置能“大幅减少不符合 schema 的调用”。背后的机制是**约束解码（constrained decoding）**：模型每生成一个 token，服务端都根据 JSON Schema 计算“此刻哪些 token 是合法的”，把不合法 token 的概率直接置零。
+
+```text
+schema 要求 discount 是 number
+模型已生成：{"quote_id": "Q-817", "discount":
+此刻合法的下一个 token：数字、负号、空格……
+不合法："abc"、"{"  → 概率置零，不可能被选中
+```
+
+所以 strict 模式能做到**结构上**一定合法（字段齐全、类型正确）。但它仍然不知道 Q-817 是否存在、折扣是否越权——**语义和业务正确性仍由应用校验**，Level 0 的结论不变。代价：不是所有 JSON Schema 特性都支持；首次使用新 schema 可能有额外的编译延迟。
+
+### `tool_choice` 有什么用？
+
+控制模型这一轮**是否必须**调用工具：
+
+| 取值（各家命名略有不同） | 含义 | 用途 |
+| --- | --- | --- |
+| auto | 模型自己决定 | 默认 |
+| any / required | 必须调用某个工具 | 确定这一步必须查数据时 |
+| 指定某个工具 | 必须调用这个工具 | workflow 中固定步骤，用模型只为填参数 |
+| none | 不许调用工具 | 最后一步只生成回答 |
+
+指定工具是把 [Workflow vs Agent](/docs/agent/workflow-vs-agent) 的 hybrid 落地的常用手段：流程由代码固定，模型只负责从自然语言里抽取参数。
+
+### 工具很多时怎么办？
+
+每个工具定义每轮都算输入 token。接了几个 MCP server 后，上百个工具可能占掉几万 token，还会让模型选错。两种做法：
+
+- **按步骤筛选**：只暴露当前步骤需要的工具（见 [Construction](/docs/context/construction) Level 4）。
+- **按需加载（tool search）**：只给模型工具名或一个“搜索工具”的工具，需要时再加载完整定义。Claude Code 对 MCP 工具就采用延迟加载，Anthropic API 也提供了 tool search 工具。
+
+### 什么是程序化工具调用？
+
+传统方式：模型每调用一次工具，结果都要回到模型上下文，再由模型决定下一步。如果要处理 1,000 条报价、筛出前 10 条，1,000 条数据全要经过上下文。
+
+**程序化工具调用**：让模型**写一段代码**，在沙箱里调用工具、处理数据，只把最终结果交回上下文：
+
+```python
+quotes = [get_quote(s) for s in suppliers]          # 1,000 次调用在沙箱里完成
+best = sorted(quotes, key=lambda q: q.price)[:10]   # 过滤在代码里完成
+print(best)                                         # 只有这 10 条进入上下文
+```
+
+Anthropic 2025 年的文章（code execution with MCP）给过一个例子：把 MCP 工具暴露成代码 API、让 agent 写代码调用，token 消耗从约 15 万降到约 2,000。代价是需要安全的代码执行沙箱（见 [Sandbox](/docs/ai-native/sandbox)），并且中间数据模型看不到——如果需要模型判断每一条，就不适合。
+
+### 服务端工具是什么？
+
+网页搜索、网页抓取、代码执行等工具可以由**模型供应商直接执行**：你在请求中声明要用这些工具，供应商在一次 API 调用内部完成“调用 → 拿结果 → 继续生成”。好处是不用自己实现；代价是控制权和可观测性变弱，数据会经过供应商的执行环境。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 约束解码怎样保证参数结构合法？它不能保证什么？
+2. 什么时候把 `tool_choice` 设为指定工具？
+3. 工具太多会造成什么问题？两种解决办法是什么？
+4. 程序化工具调用在什么场景下能大幅省 token？代价是什么？
+
+</Note>
+
 ## 陷阱
 
 <Note title="严格 schema 不等于安全执行" type="danger">
@@ -592,6 +676,12 @@ Security：least privilege、approval、untrusted tool output
 2. 你会记录哪些 trace 字段来排查失败？（Which trace fields would you record to debug failures?）
 3. 如何评估 tool calling，而不只看最终文本？（How do you evaluate tool calling beyond the final text?）
 
+### 2026-10 新增
+
+1. strict 模式 / 结构化输出是怎么实现的？能保证什么、不能保证什么？（How do strict mode and structured outputs work, and what do they guarantee?）
+2. 工具很多时怎么办？（What do you do with too many tools?）
+3. 什么是程序化工具调用？什么时候用？（What is programmatic tool calling, and when do you use it?）
+
 ## 我的答案
 
 </Locale>
@@ -620,6 +710,37 @@ Evals should not inspect only final wording. Build fixed simulated-tool scenario
 - Which trace fields separate “wrong tool” from “permission denied”?
 - How do you reduce selection error when the tool set is large?
 - Why is final natural language insufficient when evaluating tool calling?
+
+</Note>
+
+## Level 5 · Deep dive: newer tool-calling capabilities
+
+### How does strict mode guarantee schema compliance?
+
+Constrained decoding: at each token the server masks tokens the JSON Schema doesn't allow, so structure is guaranteed. Whether Q-817 exists or the discount is authorized is still the application's job. Not every schema feature is supported, and new schemas may add first-use latency.
+
+### What is `tool_choice` for?
+
+auto (default), any/required (must call some tool), a specific tool (fixed workflow step; the model only fills arguments — a common hybrid technique), none (final answer only).
+
+### Too many tools?
+
+Definitions cost tokens every turn and hurt selection. Filter per step, or load on demand via tool search (Claude Code defers MCP tools; Anthropic's API offers a tool search tool).
+
+### Programmatic tool calling?
+
+The model writes code that calls tools in a sandbox and returns only the result — 1,000 quotes filtered in code, 10 reach context. Anthropic's 2025 "code execution with MCP" example cut ~150K tokens to ~2K. Costs: a secure sandbox, and the model can't judge each intermediate item.
+
+### Server tools?
+
+Search, fetch, and code execution run by the provider inside one API call — less work, less control and observability.
+
+<Note title="Self-check: you should be able to answer">
+
+1. How does constrained decoding guarantee structure, and what doesn't it guarantee?
+2. When do you force a specific tool?
+3. Problems with many tools and two fixes?
+4. When does programmatic tool calling save tokens, and at what cost?
 
 </Note>
 
@@ -684,6 +805,12 @@ Security: least privilege, approval, untrusted tool output
 1. How do you design a good tool rather than a universal CRUD tool?
 2. Which trace fields would you record to debug failures?
 3. How do you evaluate tool calling beyond the final text?
+
+### Added 2026-10
+
+1. How do strict mode and structured outputs work, and what do they guarantee?
+2. What do you do with too many tools?
+3. What is programmatic tool calling, and when do you use it?
 
 ## My answer
 

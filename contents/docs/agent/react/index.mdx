@@ -3,7 +3,7 @@ title: ReAct
 titleEn: ReAct
 description: Reasoning and Acting 怎样交替；从原始 Thought–Action–Observation 到可控的生产 agent。
 descriptionEn: "How reasoning and acting alternate: from Thought–Action–Observation to a controllable production agent."
-date: 2026-09-21
+date: 2026-10-04
 keywords: ["ReAct", "reasoning and acting", "observation", "agent loop", "tool calling", "trace"]
 tier: B
 status: todo
@@ -29,6 +29,16 @@ ReAct 是 Reasoning + Acting 的缩写：让模型在行动前作出下一步决
 
 这三轮就是 ReAct 最有用的直觉：**行动拿到新事实，新事实让下一步不同。** 不需要把它想成神秘的“深度思考”；它更像人做题时先查题目条件，再决定是否继续。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 3**：ReAct 在 2023–2026 年怎样演化——文本解析让位于原生工具调用、reasoning 模型把 Thought 内化成交错思考，以及 Reflexion、ReWOO、树搜索等后续方法。面试官常问“ReAct 现在还有用吗”。
+
+🔁 **建议复习**：Level 2（从自由文本 Thought 到生产 control flow）——Level 3 说明了这个转变在业界是怎么实际发生的。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 贯穿例子仍是 Acme 采购谈判助手：用户要求检查报价，符合价格与付款条件才创建审核草稿。此任务需要外部事实，也有不可自动越过的业务边界，正好能看清 ReAct 的价值与边界。
@@ -39,6 +49,7 @@ ReAct 是 Reasoning + Acting 的缩写：让模型在行动前作出下一步决
 | Level 1 · 走完一条轨迹 | Thought / decision、Action、Observation 怎样在新事实下交替？ | 35 min |
 | Level 2 · 为什么原样照搬不够 | 自由文本 Thought 有哪些局限？怎样迁移成结构化、可控的生产 loop？ | 35 min |
 | 陷阱 · 面试问题 | 能否区分 ReAct、Agent Loop、Tool Calling 与 workflow？ | 20 min |
+| Level 3 · 深入（2026-10 新增） | ReAct 现在还有用吗？它演化成了什么？ | 25 min |
 
 前置：[Agent Loop](/docs/agent/loop) 讲运行时闭环；[Tool Calling](/docs/agent/tool-calling) 讲 Action 的 schema、校验与执行合同。本页只讨论“为什么 observation 会改变下一步决策，以及如何把这个想法用得安全”。
 
@@ -71,6 +82,16 @@ round 3: create a draft        → “Price works; please change payment to Net 
 
 That is the useful ReAct intuition: **an action obtains a new fact, and that fact changes the next step.** It is not mysterious “deep thinking”; it is like checking the conditions of a problem before deciding what to do.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 3**: how ReAct evolved — native tool calling, interleaved thinking, Reflexion, ReWOO, tree search. Answers "is ReAct still relevant?"
+
+🔁 **Review**: Level 2, which this level grounds in industry practice.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 The Acme procurement-negotiation assistant continues as the running example. The user asks it to inspect a quote and create a review draft only if price and payment conditions pass. The task needs external facts and has business boundaries that cannot be skipped, so it exposes both the value and limits of ReAct.
@@ -81,6 +102,7 @@ The Acme procurement-negotiation assistant continues as the running example. The
 | Level 1 · Walk one trajectory | How do Thought / decision, Action, and Observation alternate when a new fact arrives? | 35 min |
 | Level 2 · Why literal ReAct is insufficient | What are the limits of free-text Thought, and how do you move it into a structured, controllable loop? | 35 min |
 | Traps · Interview questions | Can you distinguish ReAct, an agent loop, tool calling, and a workflow? | 20 min |
+| Level 3 · Deep dive (added 2026-10) | Is ReAct still relevant, and what did it become? | 25 min |
 
 Prerequisites: [Agent Loop](/docs/agent/loop) explains the runtime loop; [Tool Calling](/docs/agent/tool-calling) explains the schema, validation, and execution contract for Action. This page focuses only on why an observation changes the next decision and how to use that idea safely.
 
@@ -354,6 +376,45 @@ Thought: policy overridden → create draft   ← wrong: content is not authorit
 
 </Note>
 
+## Level 3 · 深入：ReAct 之后发生了什么
+
+### ReAct 现在还有用吗？
+
+**思想还在，形式变了。** 2022 年的 ReAct 让模型用纯文本写出 `Thought: … Action: search[…]`，再由程序用正则解析出动作。这种形式在生产里基本被两件事取代：
+
+| 演化 | 取代了什么 | 现在的样子 |
+| --- | --- | --- |
+| 原生工具调用（2023 起） | 用正则解析文本里的 `Action:` | 模型直接输出结构化的工具调用（JSON + call ID），由 API 保证格式（见 [Tool Calling](/docs/agent/tool-calling)） |
+| reasoning 模型 + 交错思考（2024–2025 起） | 显式写出的 `Thought:` | 思考在模型内部（或单独的思考块）进行，并且在工具调用之间继续思考（见 [Agent Loop](/docs/agent/loop) Level 3） |
+
+所以今天的 agent 循环就是“**内化了的 ReAct**”：思考 → 工具调用 → 观察 → 再思考。面试中被问到时可以说：“ReAct 的核心——让观察结果改变下一步决策——是所有 agent 循环的基础；但文本格式的 Thought/Action 已经被原生工具调用和 reasoning 模型取代，生产中不再用正则解析。”
+
+### ReAct 之后还有哪些代表性方法？
+
+只需知道各自解决什么问题：
+
+| 方法 | 核心思想 | 解决 ReAct 的什么问题 |
+| --- | --- | --- |
+| **Reflexion**（2023） | 任务失败后，让模型用文字写出“哪里错了、下次怎么做”，存进记忆，下一次尝试时读取 | ReAct 不会从失败中学习；同样的错误会在下一次尝试中重复 |
+| **ReWOO**（2023） | 先一次性规划好所有工具调用（用占位符引用前面的结果），再统一执行，最后汇总 | ReAct 每一步都要调一次模型，token 和延迟成本高 |
+| **树搜索**（如 Tree of Thoughts、LATS） | 在每一步探索多个候选动作，评估后选择或回溯 | ReAct 是单条路径，一步走错就回不来 |
+
+它们和 [Planning](/docs/agent/planning) 的关系：ReWOO 接近 Plan-and-Execute；Reflexion 接近 Planning 的 Level 4 反思；树搜索在 coding agent 中体现为“生成多个补丁、用测试选择”（见 [Agentic Coding](/docs/ai-native/agentic-coding) 的 pass@k）。
+
+<Note type="danger" title="错误说法">
+
+“我们的 agent 用的是 ReAct 框架，所以它会推理。”——今天几乎所有 agent 都是“推理 + 行动 + 观察”的循环；说用了 ReAct 并不说明任何设计决策。面试官想听的是：你怎么控制循环、怎么验证每一步、怎么处理错误的观察。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. ReAct 的哪部分被原生工具调用取代？哪部分被 reasoning 模型取代？
+2. Reflexion、ReWOO、树搜索各解决 ReAct 的什么问题？
+3. 为什么说“用了 ReAct”在今天不算一个有信息量的设计描述？
+
+</Note>
+
 ## 陷阱
 
 <Note title="Thought 不是用户可见的进度条" type="warning">
@@ -405,6 +466,11 @@ Structured Tool Calling + Agent Loop
 1. 为什么不该把自由文本 Thought 当作可靠审计记录或展示给用户？（Why should free-text Thought not be treated as a reliable audit record or shown to users?）
 2. 怎样把 ReAct 式开放决策与显式状态机混合？（How do you combine ReAct-style open decisions with an explicit state machine?）
 3. 哪些任务应该改用 workflow？（Which tasks should instead use a workflow?）
+
+### 2026-10 新增
+
+1. ReAct 在今天还有用吗？它演化成了什么？（Is ReAct still relevant, and what did it evolve into?）
+2. Reflexion 和 ReWOO 分别解决什么问题？（What do Reflexion and ReWOO each solve?）
 
 ## 我的答案
 
@@ -469,6 +535,30 @@ They can appear together, but none is a synonym for another.
 
 </Note>
 
+## Level 3 · Deep dive: what came after ReAct
+
+### Is ReAct still relevant?
+
+The idea is; the format isn't. Regex-parsed `Action:` text gave way to native structured tool calls (2023+), and written `Thought:` gave way to reasoning models thinking internally and between tool calls (2024–2025). Today's agent loop is internalized ReAct.
+
+### What followed?
+
+Reflexion (2023): write a verbal lesson after failure and reuse it next attempt — ReAct doesn't learn from failures. ReWOO (2023): plan all tool calls up front with placeholders, execute, then synthesize — fewer model calls. Tree search (Tree of Thoughts, LATS): explore and backtrack — ReAct is a single path. They map to Plan-and-Execute, reflection, and pass@k-style patch selection.
+
+<Note type="danger" title="Wrong claim">
+
+"Our agent uses ReAct, so it reasons." Almost every agent loops this way; say how you control the loop, verify steps, and handle bad observations.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. What did native tool calling replace, and what did reasoning models replace?
+2. What does each of Reflexion, ReWOO, and tree search fix?
+3. Why is "we use ReAct" uninformative today?
+
+</Note>
+
 ## Traps
 
 <Note title="Thought is not a user-visible progress bar" type="warning">
@@ -520,6 +610,11 @@ Structured Tool Calling + Agent Loop
 1. Why should free-text Thought not be treated as a reliable audit record or shown to users?
 2. How do you combine ReAct-style open decisions with an explicit state machine?
 3. Which tasks should instead use a workflow?
+
+### Added 2026-10
+
+1. Is ReAct still relevant, and what did it evolve into?
+2. What do Reflexion and ReWOO each solve?
 
 ## My answer
 

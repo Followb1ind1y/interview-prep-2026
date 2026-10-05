@@ -3,7 +3,7 @@ title: Context Compression
 titleEn: Context Compression
 description: 当历史超出预算时，保留决定、证据与不确定性；用可恢复的压缩避免摘要漂移。
 descriptionEn: Preserve decisions, evidence, and uncertainty when history exceeds budget; make compression recoverable.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["context compression", "compaction", "rolling summary", "tool result pruning", "provenance"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 本页接 [Construction](/docs/context/construction)：先判断哪些内容可删、哪些必须原样保留，再看滚动摘要和恢复机制。这里聚焦**选择与保真**；coding agent 的长程 compaction 在 [AI-Native Compaction](/docs/ai-native/compaction) 更细讲。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 4**：压缩技术谱系（抽取式、生成式、token 级如 LLMLingua、结构化状态、外部文件）、供应商侧的上下文编辑与压缩、压缩与缓存的冲突。
+
+🔁 **建议复习**：Level 1（四种动作）和 Level 3（验证）。另外 [AI-Native Compaction](/docs/ai-native/compaction) 已重写，讲 agent 运行时的五种手段，和本页互补，建议连着读。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -25,6 +35,7 @@ mastery: { talk: 0, probe: 0 }
 | 1 · 方法 | 裁剪、摘要、结构化状态、按需重取怎样组合？ | 30 min |
 | 2 · 演练 | 100K 到 20K 的预算怎样分，哪些不能丢？ | 30 min |
 | 3 · 验证 | 摘要漂移、过期和错误事实如何发现？ | 25 min |
+| 4 · 深入（2026-10 新增） | 压缩技术有哪几类？供应商提供了什么？压缩和缓存怎样冲突？ | 25 min |
 
 ## 需要掌握
 
@@ -41,6 +52,16 @@ The support assistant has accumulated an **illustrative 100K-token history** of 
 
 This page follows [Construction](/docs/context/construction): decide what can be dropped, what must remain exact, and how to make rolling summaries recoverable. The focus is **selection and fidelity**; [AI-Native Compaction](/docs/ai-native/compaction) covers long-running coding agents in more depth.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 4**: the compression spectrum (extractive, abstractive, token-level like LLMLingua, structured state, files), provider-side context editing, compression vs caching.
+
+🔁 **Review**: Levels 1 and 3, then the rewritten [AI-Native Compaction](/docs/ai-native/compaction).
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question | Time |
@@ -49,6 +70,7 @@ This page follows [Construction](/docs/context/construction): decide what can be
 | 1 · Methods | How do pruning, summaries, structured state, and re-retrieval combine? | 30 min |
 | 2 · Exercise | How do you budget 100K down to 20K without losing critical facts? | 30 min |
 | 3 · Validation | How do you catch summary drift, staleness, and invented facts? | 25 min |
+| 4 · Deep dive (added 2026-10) | What compression families exist? What do providers offer? How does compression fight caching? | 25 min |
 
 ## Must know
 
@@ -283,6 +305,47 @@ The `100K / 20K = 5:1` ratio measures size, not success. If the original input g
 
 </Note>
 
+## Level 4 · 深入：压缩技术谱系与供应商能力
+
+### 压缩技术有哪几类？
+
+| 类别 | 做法 | 适合 | 风险 |
+| --- | --- | --- | --- |
+| 抽取式 | 从原文**选出**相关句子、字段，原样保留 | 工具结果、政策条款——需要精确措辞的内容 | 选漏 |
+| 生成式（摘要） | 用模型**改写**成更短的叙述 | 冗长对话、探索过程 | 改写失真、否定词丢失、滚动漂移 |
+| token 级压缩 | 如 **LLMLingua**（微软）：用一个小语言模型估计每个 token 的信息量（困惑度），删掉低信息 token | 长检索资料、长示例 | 删出来的文本人读不通；论文报告最高约 20 倍压缩、损失有限，但对精确条件的影响要在自己的任务上测 |
+| 结构化状态 | 把关键事实写成字段（Level 0 的 `verified_facts`、`pending_actions`） | 跨轮必须精确保留的状态 | 需要设计 schema |
+| 外部化 | 把原文存到文件 / 存储，context 里只留引用，需要时重取 | 大块原始数据、可能被追问的证据 | 依赖重取工具 |
+
+经验法则：**越需要精确的内容，越该用抽取式或结构化；越是过程性的叙述，越适合生成式摘要。**
+
+### 供应商提供了哪些压缩能力？
+
+2025 年起，部分 API 和 agent 框架把上下文管理做成了内置功能：
+
+- **上下文编辑**：Anthropic API 的 context editing 可以在上下文超过阈值时自动清除较早的工具结果（也可清除旧的思考内容），保留最近的若干个。
+- **自动压缩**：Claude Code 和 Claude Agent SDK 在接近窗口上限时自动把历史总结成摘要继续；部分 API 也提供服务端压缩。
+- **记忆工具**：让模型把信息写到外部存储、需要时读回（见 [Memory](/docs/agent/memory)）。
+
+用内置功能时，仍要回答 Level 3 的问题：**压缩之后关键事实还在吗？**内置不等于验证过。
+
+### 压缩和缓存为什么冲突？
+
+[Caching](/docs/context/caching) 依赖“前缀逐 token 不变”；压缩恰恰是**改写或删除前面的内容**。每压缩一次，前缀就变了，之后的缓存要重新建立。实践中：
+
+- 不要每轮都压缩，而是**到阈值才压缩一次**（例如上下文到 80%）。
+- 把稳定内容（system、工具定义、政策）放在压缩区之前，压缩只动后面的对话历史，这样稳定前缀仍可命中。
+- 压缩后的摘要本身会成为新的稳定前缀，接下来的轮次又能命中。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 抽取式和生成式压缩各适合什么内容？
+2. LLMLingua 的原理是什么？有什么风险？
+3. 用了供应商内置的压缩，为什么还要自己验证？
+4. 怎样安排压缩，才能尽量少破坏 prompt 缓存？
+
+</Note>
+
 ## 连接
 
 ```text
@@ -299,6 +362,11 @@ AI-Native Compaction → 长程 agent 怎样重开上下文
 3. Rolling summary 最常见的漂移是什么？（How do rolling summaries drift?）
 4. 摘要和结构化状态怎样分工？（How do summaries and structured state differ?）
 5. 怎样衡量压缩后的正确性？（How do you evaluate compressed context?）
+
+### 2026-10 新增
+
+1. 压缩技术有哪几类？各适合什么内容？（What compression families exist, and what suits each?）
+2. 压缩和 prompt 缓存为什么冲突？怎么安排？（Why do compression and prompt caching conflict, and how do you schedule them?）
 
 ## 我的答案
 
@@ -328,6 +396,29 @@ An interviewer may ask whether you lost a negation, exception, amount, date, or 
 
 </Note>
 
+## Level 4 · Deep dive: the compression spectrum and provider features
+
+### What families exist?
+
+Extractive (select exact sentences/fields — tool output, policy clauses), abstractive summaries (conversations, exploration — risk of drift and lost negations), token-level compression like Microsoft's LLMLingua (a small LM drops low-information tokens; up to ~20× reported, test precise conditions yourself), structured state, and externalizing raw data behind references. The more precision matters, the more extractive or structured you go.
+
+### What do providers offer?
+
+Anthropic's context editing clears older tool results (and old thinking) past a threshold; Claude Code and the Agent SDK auto-compact near the limit; some APIs compact server-side; memory tools externalize facts. Built-in still needs Level 3 verification.
+
+### Why do compression and caching conflict?
+
+Caching needs an unchanged prefix; compression rewrites it. Compact at a threshold rather than every turn, keep stable content ahead of the compacted region, and let the new summary become the next stable prefix.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Extractive vs abstractive — which content suits each?
+2. How does LLMLingua work, and its risk?
+3. Why verify built-in compaction?
+4. How do you schedule compaction to protect the cache?
+
+</Note>
+
 ## Connections
 
 ```text
@@ -344,6 +435,11 @@ AI-Native Compaction → resume long-running agents across windows
 3. How do rolling summaries drift?
 4. How do summaries and structured state differ?
 5. How do you evaluate compressed context?
+
+### Added 2026-10
+
+1. What compression families exist, and what suits each?
+2. Why do compression and prompt caching conflict, and how do you schedule them?
 
 ## My answer
 

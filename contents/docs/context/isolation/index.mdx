@@ -3,7 +3,7 @@ title: Context Isolation
 titleEn: Context Isolation
 description: 用租户、agent 和 MCP 工具三种边界讲清谁能看到什么，以及权限如何在模型外执行。
 descriptionEn: Define who sees what across tenants, agents, and MCP tools, with authorization enforced outside the model.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["context isolation", "least privilege", "multi tenant", "mcp host", "prompt injection"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 本页按“要完成哪一步 → 哪些数据与能力必须可见 → 谁在模型外强制边界”来学。它衔接 [Agent Security](/docs/agent/security) 和 [MCP](/docs/ai-native/mcp)，但不要求先背协议细节。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 4**：子 agent 隔离的实测收益与代价（Anthropic 多 agent 研究系统 vs Cognition 的反对意见）、何时隔离有害、MCP 2026-07-28 无状态版本对隔离的影响。
+
+🔁 **建议复习**：Level 1（Host 与 MCP 的责任边界）——MCP 规范在 2026-07 有大改，Level 1 的结论仍成立，但请连着读重写后的 [MCP](/docs/ai-native/mcp) Level 2–3；Level 2（注入与多租户）。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -25,6 +35,7 @@ mastery: { talk: 0, probe: 0 }
 | 1 · 边界 | Host、MCP client/server 和子 agent 分别接收什么？ | 30 min |
 | 2 · 防护 | 隔离怎样对抗跨租户泄漏与间接注入？ | 30 min |
 | 3 · 验证 | 怎样证明授权在模型外生效且能力没被过度削弱？ | 25 min |
+| 4 · 深入（2026-10 新增） | 子 agent 隔离值不值？什么时候反而有害？ | 25 min |
 
 ## 需要掌握
 
@@ -41,6 +52,16 @@ Previous pages selected, compressed, and cached information. Now ask: **may this
 
 Study this as “what is this step doing → which data and capabilities must it receive → what enforces the boundary outside the model?” It connects to [Agent Security](/docs/agent/security) and [MCP](/docs/ai-native/mcp), but does not require protocol memorization first.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 4**: measured benefits and costs of sub-agent isolation (Anthropic's research system vs Cognition's critique), when isolation hurts, MCP 2026-07-28 implications.
+
+🔁 **Review**: Level 1 with the rewritten [MCP](/docs/ai-native/mcp) Levels 2–3, and Level 2.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question | Time |
@@ -49,6 +70,7 @@ Study this as “what is this step doing → which data and capabilities must it
 | 1 · Boundaries | What do the host, MCP client/server, and subagent receive? | 30 min |
 | 2 · Defense | How does isolation contain tenant leaks and indirect injection? | 30 min |
 | 3 · Verification | How do you prove authorization works without starving the task? | 25 min |
+| 4 · Deep dive (added 2026-10) | Is sub-agent isolation worth it, and when does it hurt? | 25 min |
 
 ## Must know
 
@@ -268,6 +290,49 @@ Multi-tenant caches need the same boundary. If customer A's order summary is cac
 
 </Note>
 
+## Level 4 · 深入：隔离的收益、代价与协议变化
+
+### 子 agent 隔离到底有多大收益？
+
+Anthropic 2025 年公开了他们的多 agent 研究系统（Claude 的 Research 功能）：一个主 agent 规划，派出多个子 agent **各自在独立的上下文窗口里**并行搜索，只把压缩后的发现交回主 agent。他们报告：
+
+- 在内部研究类评测上，这种多 agent 系统比单 agent 好 **90.2%**。
+- 但 token 消耗大约是普通聊天的 **15 倍**（单 agent 约 4 倍）。
+- 在他们的分析中，**token 用量本身**解释了表现差异的大部分——隔离的价值很大程度在于“让总体能用更多 token 去探索，而每个上下文仍保持干净”。
+
+所以隔离的收益是：**每个子任务的上下文更小、更聚焦**（减少 [Context Window](/docs/context/window) Level 4 讲的 context rot），并且可以并行。
+
+### 什么时候隔离反而有害？
+
+同年 Cognition（Devin 团队）发表 *Don't Build Multi-Agents*，观点相反：子 agent 看不到彼此的决策，**做出互相冲突的假设**。例子：让一个子 agent 做游戏背景、另一个做角色，结果风格完全不搭。他们的原则是：**共享完整上下文和完整轨迹**，紧耦合的工作宁可用单线程 agent。
+
+两者并不矛盾，结论是**看任务的耦合度**：
+
+| 任务特征 | 隔离 | 例子 |
+| --- | --- | --- |
+| 广度优先、子任务独立、只需要结论 | 适合 | 并行调研 10 个供应商的退款政策；在全仓库找调用点 |
+| 子任务之间要共享大量决策 | 不适合 | 多个子 agent 同时修改同一个模块的不同部分 |
+| 需要读大量资料但只用一小部分 | 适合 | 读 30 个文件，只返回 3 个相关位置 |
+
+客服例子：让“政策 specialist”只解释条款很适合隔离；但如果让一个子 agent 起草回复、另一个独立决定退款金额，两者可能不一致——应由主 agent 统一决策。
+
+### MCP 2026-07-28 对隔离有什么影响？
+
+重写后的 [MCP](/docs/ai-native/mcp) 页详细讲了，这里只列和隔离相关的三点：
+
+1. **协议无状态、去掉会话**：server 不能再依赖“同一会话”的隐含上下文；需要跨调用状态时，必须用显式句柄作为参数传递——数据流更显式，也更容易审计“到底传了什么”。
+2. **Sampling 被弃用**：以前 server 可以借用 host 的模型生成内容，这是一条 server 影响 host 上下文的通道；弃用后这条路径减少。
+3. **禁止 token 透传**：server 只接受签发给自己的令牌，身份边界更清楚。
+
+<Note title="自测：到这里你应该能回答">
+
+1. Anthropic 多 agent 研究系统的收益和代价各是什么？
+2. Cognition 反对多 agent 的核心理由是什么？
+3. 怎样根据任务耦合度决定是否隔离？举一个适合和一个不适合的例子。
+4. MCP 2026-07-28 的哪三点变化和隔离相关？
+
+</Note>
+
 ## 陷阱
 
 <Note type="danger" title="“模型遵守 system prompt，所以权限安全”">
@@ -292,6 +357,11 @@ MCP / Agent Security → 协议数据流与服务端控制
 3. Host 已过滤资料，server 为什么还要授权？（Why authorize at the server after host filtering?）
 4. 如何测试间接 prompt injection 和跨租户泄漏？（How do you test indirect injection and tenant leaks?）
 5. 隔离造成信息不足时该怎么办？（What should happen when isolation leaves the model short of facts?）
+
+### 2026-10 新增
+
+1. 子 agent 隔离的收益和代价是什么？什么时候不该隔离？（What are the benefits and costs of sub-agent isolation, and when shouldn't you isolate?）
+2. MCP 2026-07-28 的变化对上下文隔离有什么影响？（How does MCP 2026-07-28 affect context isolation?）
 
 ## 我的答案
 
@@ -326,6 +396,29 @@ Measure both **leakage / unauthorized-action rate** and **legitimate task succes
 
 </Note>
 
+## Level 4 · Deep dive: benefits, costs, protocol changes
+
+### How much does sub-agent isolation help?
+
+Anthropic's 2025 multi-agent research system (a lead agent plus parallel sub-agents, each with its own context, returning condensed findings) beat a single agent by 90.2% on an internal research eval, but used ~15× the tokens of chat (single agents ~4×), and token usage explained most of the performance difference. Isolation lets the system spend more tokens exploring while each context stays clean.
+
+### When does isolation hurt?
+
+Cognition's *Don't Build Multi-Agents* (2025): sub-agents that can't see each other's decisions make conflicting assumptions; share full context and traces, and keep tightly coupled work single-threaded. Reconcile by coupling: isolate breadth-first, independent, conclusion-only tasks; don't isolate work that shares many decisions. In support, a policy specialist is fine; separate agents drafting the reply and deciding the refund amount are not.
+
+### What does MCP 2026-07-28 change?
+
+Stateless requests with explicit handles make data flow auditable; deprecating Sampling removes a server-to-host influence path; banning token passthrough clarifies identity boundaries. See [MCP](/docs/ai-native/mcp).
+
+<Note title="Self-check: you should be able to answer">
+
+1. Benefits and costs of Anthropic's research system?
+2. Cognition's core objection?
+3. Decide isolation by coupling — one good and one bad example.
+4. Three MCP 2026-07-28 changes relevant to isolation?
+
+</Note>
+
 ## Traps
 
 <Note type="danger" title="“The model follows the system prompt, so authorization is safe”">
@@ -350,6 +443,11 @@ MCP / Agent Security → protocol data flow and service controls
 3. Why authorize at the server after host filtering?
 4. How do you test indirect injection and tenant leaks?
 5. What should happen when isolation leaves the model short of facts?
+
+### Added 2026-10
+
+1. What are the benefits and costs of sub-agent isolation, and when shouldn't you isolate?
+2. How does MCP 2026-07-28 affect context isolation?
 
 ## My answer
 

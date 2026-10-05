@@ -3,7 +3,7 @@ title: Production Evaluation
 titleEn: Production Evaluation
 description: 把发布门槛、线上 trace、成熟结果、受控放量和事故回归连成持续评测闭环。
 descriptionEn: Connect release gates, production traces, mature outcomes, controlled rollouts, and incident regressions.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["production evaluation", "online eval", "trace", "canary", "a b test", "regression"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 本页串起前五页，用同一个猫粮客服案例走完发布到回归：记录 trace、在线采样与分母、shadow/canary/A/B 的区别，以及一条“错误承诺退款”事故如何进入离线集。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 4**：线上 A/B 的样本量手算、护栏指标与主指标、样本比例失衡检查（SRM）、新奇效应，以及同步护栏和异步线上评估的分工。
+
+🔁 **建议复习**：Level 2（shadow、canary、A/B）和你的两个 MyQuestion（A/B 在流程中的位置）——Level 4 补上“A/B 要跑多久、多少流量才能下结论”。另外重写后的 [Observability](/docs/production/observability) 和 [Reliability](/docs/production/reliability) Level 4 讲了 trace 字段和灰度回滚，建议对照。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -25,6 +35,7 @@ mastery: { talk: 0, probe: 0 }
 | 1 · 在线评分 | 哪些线上样本能评分，哪些必须等待？ | 30 min |
 | 2 · 放量 | Shadow、canary、A/B 各验证什么？ | 30 min |
 | 3 · 闭环 | 如何从线上故障生成回归且防止只追最近事故？ | 25 min |
+| 4 · 深入（2026-10 新增） | A/B 要多少流量才能下结论？护栏和线上评估怎么分工？ | 30 min |
 
 ## 需要掌握
 
@@ -41,6 +52,16 @@ An offline golden set blocks known failures, but production brings new policies,
 
 This page connects the previous five through the same cat-food support case: traces, online sampling and denominators, shadow/canary/A/B, and an incident in which the assistant falsely promises a refund.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 4**: A/B sample sizes, guardrail vs primary metrics, SRM checks, novelty effects, sync guardrails vs async online evals.
+
+🔁 **Review**: Level 2 and your two MyQuestion answers; see also rewritten [Observability](/docs/production/observability) and [Reliability](/docs/production/reliability) Level 4.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question | Time |
@@ -49,6 +70,7 @@ This page connects the previous five through the same cat-food support case: tra
 | 1 · Online scoring | Which production cases can be scored, and which must wait? | 30 min |
 | 2 · Rollout | What do shadow, canary, and A/B each establish? | 30 min |
 | 3 · Feedback loop | How does an incident become a regression without chasing only recent failures? | 25 min |
+| 4 · Deep dive (added 2026-10) | How much traffic does an A/B test need? How do guardrails and online evals split work? | 30 min |
 
 ## Must know
 
@@ -309,6 +331,62 @@ Mirroring live requests to a new agent with a real refund-write tool is not harm
 
 </Note>
 
+## Level 4 · 深入：A/B 统计与线上持续评估
+
+### 一个 A/B 测试要多少流量才能下结论？
+
+比较两个版本的成功率（比例）时，常用的近似公式（显著性 0.05、统计功效 80%）：
+
+```text
+每组样本量 n ≈ 16 × p × (1 - p) / δ²
+p：基线成功率；δ：你希望能检测到的最小差异
+```
+
+例子：当前客服自动解决率 p = 85%，希望检测出 2 个百分点的提升：
+
+```text
+n ≈ 16 × 0.85 × 0.15 / 0.02² = 2.04 / 0.0004 ≈ 5,100 个对话 / 组
+```
+
+如果每天只有 1,000 个对话、各分一半，要跑约 10 天。要检测 1 个百分点的差异，样本量变成 4 倍。这就是为什么**小流量产品很难靠 A/B 发现小改进**——这时更依赖离线评估（见 [Offline](/docs/evaluation/offline) Level 4）。
+
+### A/B 要看哪些指标？
+
+| 类型 | 作用 | 客服例子 |
+| --- | --- | --- |
+| 主指标 | 决定是否上线的那一个 | 已验证的自动解决率 |
+| 护栏指标 | 不能变差的指标，变差就不上线 | 错误退款承诺率、转人工率、P95 延迟、每对话成本 |
+| 诊断指标 | 帮助解释结果 | 平均轮数、工具调用次数 |
+
+事先写好主指标和护栏阈值，避免“结果出来后挑一个好看的指标”。
+
+### A/B 结果有哪些常见陷阱？
+
+- **SRM（样本比例失衡）**：设计 50/50 分流，实际却是 52/48 且样本量很大——说明分流有 bug（例如某版本更容易报错、请求被丢掉），结果不可信。先检查 SRM 再看指标。
+- **新奇效应**：用户对新版本一开始反应不同（好奇或不习惯），过几天才稳定。不要只看前一两天。
+- **提前偷看**：每天看结果、一显著就停，会大幅提高假阳性。要么事先定好样本量，要么用专门支持连续监测的统计方法。
+- **结果延迟**：退款是否真正解决、用户是否回来投诉，要几天后才知道（Level 1 的 pending 问题）。
+
+### 护栏（guardrails）和线上评估有什么区别？
+
+| | 同步护栏 | 异步线上评估 |
+| --- | --- | --- |
+| 时机 | 回答发给用户**之前** | 回答发出**之后** |
+| 作用 | **拦截**：不合格就阻断、改写或转人工 | **度量**：抽样打分，看趋势、发现新问题 |
+| 要求 | 快、便宜、确定（多为规则或小模型） | 可以慢、可以贵（LLM judge，可走 Batch API） |
+| 例子 | 退款金额超过订单金额 → 阻断 | 每天抽 500 条对话评“回答是否有证据支持” |
+
+两者都需要：护栏防止最坏的结果到达用户，线上评估告诉你整体质量在怎么变化（包括护栏没覆盖到的失败）。线上评估发现的新失败类型，可以变成新的护栏规则和新的离线评估样本。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 基线 90%，想检测 3 个百分点的差异，每组大约需要多少样本？
+2. 主指标、护栏指标、诊断指标各是什么？给客服各举一个例子。
+3. 什么是 SRM？为什么要先检查它？
+4. 同步护栏和异步线上评估怎么分工？
+
+</Note>
+
 ## 陷阱
 
 <Note type="danger" title="“线上 judge 说 90 分，所以可直接发布”">
@@ -332,6 +410,12 @@ Offline gate → Shadow / replay → Canary → A/B / production
 3. Shadow、canary、A/B 各自能证明什么？（What can shadow, canary, and A/B establish?）
 4. 如何把一次幻觉变成可复现回归？（How does a hallucination become a regression case?）
 5. 怎样保证评测集不只代表最近事故？（How do you prevent incident-only eval drift?）
+
+### 2026-10 新增
+
+1. 一个 A/B 测试要多少样本？怎么估算？（How many samples does an A/B test need?）
+2. A/B 测试有哪些常见陷阱？（What are common A/B testing pitfalls?）
+3. 同步护栏和异步线上评估有什么区别？（How do synchronous guardrails differ from async online evals?）
 
 ## 我的答案
 
@@ -367,6 +451,33 @@ Use “trace → root-cause layer → frozen case → regression gate → limite
 
 </Note>
 
+## Level 4 · Deep dive: A/B statistics and continuous online eval
+
+### How much traffic does an A/B test need?
+
+Per arm, `n ≈ 16 × p(1−p) / δ²` (α = 0.05, 80% power). At p = 85% and δ = 2 points, ≈ 5,100 conversations per arm — about 10 days at 1,000 a day split evenly; 1 point needs 4×. Low-traffic products must lean on offline evals.
+
+### Which metrics?
+
+One pre-declared primary metric (verified resolution), guardrail metrics that block launch if worse (wrong refund promises, escalations, P95 latency, cost), and diagnostics (turns, tool calls).
+
+### Common traps?
+
+Sample ratio mismatch (a 50/50 split landing 52/48 at scale signals a bug — check first), novelty effects, peeking and stopping early, and delayed outcomes.
+
+### Guardrails vs online evals?
+
+Synchronous guardrails run before the user sees output and block (fast, cheap, deterministic); asynchronous online evals score samples afterward to track trends and find new failures (judges, batchable). New failures found online become guardrails and offline cases.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Baseline 90%, detect 3 points — per-arm n?
+2. Primary, guardrail, diagnostic metrics with examples?
+3. What is SRM and why check it first?
+4. Guardrails vs online evals?
+
+</Note>
+
 ## Traps
 
 <Note type="danger" title="“The online judge scored 90, so ship”">
@@ -390,6 +501,12 @@ Offline gate → Shadow / replay → Canary → A/B / production
 3. What can shadow, canary, and A/B establish?
 4. How does a hallucination become a reproducible regression?
 5. How do you prevent an incident-only eval set?
+
+### Added 2026-10
+
+1. How many samples does an A/B test need?
+2. What are common A/B testing pitfalls?
+3. How do synchronous guardrails differ from async online evals?
 
 ## My answer
 

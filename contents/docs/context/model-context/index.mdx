@@ -3,7 +3,7 @@ title: Model Context
 titleEn: Model Context
 description: 从一次客服请求出发，看清模型本轮实际拿到什么，以及谁负责跨轮组装输入。
 descriptionEn: Trace what the model actually receives in one support call and who assembles the next turn.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["model context", "context engineering", "tool results", "conversation state", "retrieval"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 本页沿用 [LLM Application](/docs/application) 的猫粮客服，接上 [Tokenization](/docs/llm/tokenization) 的 input token 和 [Attention & Transformer](/docs/llm/transformer) 的「根据当前输入生成」直觉。按你的 Production LLM / AI Engineer 定位，重点练能在面试里画出来的输入边界与责任分工；容量、压缩、缓存留到后续页面。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 3**：消息怎样经 chat template 变成 token、指令层级（instruction hierarchy）、reasoning 模型在工具循环中必须回传思考内容、有状态 vs 无状态 API。这是 2025–2026 年接 reasoning 模型时最常踩的坑。
+
+🔁 **建议复习**：Level 2（两轮调用怎样改变 context）——Level 3 在同一张两轮图上加了“思考块”这一层。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -24,6 +34,7 @@ mastery: { talk: 0, probe: 0 }
 | 0 · 一次调用 | Context 是什么？模型为什么不知道数据库里的订单？ | 15 min |
 | 1 · 信息来源 | 指令、历史、工具定义、结果、检索、记忆怎么区分？ | 25 min |
 | 2 · 多轮变化 | 查订单前后，谁把新事实带入下一轮？ | 25 min |
+| 3 · 深入（2026-10 新增） | 消息怎样变成 token？reasoning 模型跨轮要带什么？ | 30 min |
 
 这是第一批三个 Level。每级末尾先做自测，再决定讲法和难度是否合适。生成课件不会把页面标成已学；`/drill` 才记录实际进度。
 
@@ -42,6 +53,16 @@ A customer asks a cat-food support assistant: “Order 20240915 from last week h
 
 This page continues the [LLM Application](/docs/application) example. It builds on input tokens from [Tokenization](/docs/llm/tokenization) and generation from current input in [Attention & Transformer](/docs/llm/transformer). For a Production LLM / AI Engineer interview, focus on the input boundary and who owns each step. Window sizing, compression, and caching come later.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 3**: chat templates, the instruction hierarchy, passing reasoning back in tool loops, stateful vs stateless APIs.
+
+🔁 **Review**: Level 2 (how two calls change context) — Level 3 adds thinking blocks to the same picture.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question | Time |
@@ -49,6 +70,7 @@ This page continues the [LLM Application](/docs/application) example. It builds 
 | 0 · One call | What is context, and why can't the model see the order database? | 15 min |
 | 1 · Sources | How do instructions, history, tool definitions and results, retrieval, and memory differ? | 25 min |
 | 2 · Multiple turns | What changes after a lookup, and who carries the new fact forward? | 25 min |
+| 3 · Deep dive (added 2026-10) | How do messages become tokens? What must reasoning models carry across turns? | 30 min |
 
 These first three Levels are the initial batch. Try each self-check before deciding if the pacing works. Only `/drill` records actual learning progress.
 
@@ -359,6 +381,66 @@ Show an inspectable trace: record the **turn's goal, supplied sources and versio
 
 <Locale lang="zh">
 
+## Level 3 · 深入：消息怎样变成 token，跨轮还要带什么
+
+### system / user / tool 消息在模型眼里是什么？
+
+API 里的消息列表并不是模型直接“看到”的东西。服务端会用 **chat template**（对话模板）把它们拼成一条 token 序列，用特殊 token 标出每段的角色和边界。示意（不同模型的特殊 token 不同）：
+
+```text
+[系统开始] 你是猫粮店客服…… [工具定义] get_order_status(order_id)…… [系统结束]
+[用户开始] 订单 20240915 还没到，能退款吗？ [用户结束]
+[助手开始]
+```
+
+三个推论：
+
+1. **工具定义也是输入 token**：它被序列化进模板，每轮都计费、占窗口（见 [Cost](/docs/production/cost) Level 0）。
+2. **角色是训练出来的约定，不是硬隔离**：模型被训练成更服从 system 段，但文档里写的“忽略以上指令”仍然是同一条序列里的 token，所以才会有 prompt injection（见 [Isolation](/docs/context/isolation)）。
+3. 同一份内容放在 system 还是 user、放在前面还是后面，会影响行为和缓存命中（见 [Caching](/docs/context/caching)）。
+
+### 什么是指令层级（instruction hierarchy）？
+
+OpenAI 在 2024 年的论文 *The Instruction Hierarchy* 中提出：训练模型按**来源的可信度**排序指令——平台 / system（或 developer）> 用户 > 工具结果与检索文档。低优先级来源与高优先级冲突时，模型应服从高优先级；工具结果里的“指令”默认只当数据。OpenAI 的 API 因此区分了 `developer` 和 `user` 角色；其他厂商也用类似训练提升抗注入能力。
+
+面试要点：**指令层级降低了注入成功率，但不是安全边界**——它是模型的倾向，不是系统强制。权限仍要在服务端检查（见 [Agent Security](/docs/agent/security)）。
+
+### reasoning 模型在工具循环中要额外带什么？
+
+这是 2025 年后的新坑。reasoning 模型在调用工具前会先思考；下一轮调用时，**这段思考内容通常必须原样传回**，否则模型会丢掉“我为什么要调这个工具”的推理链：
+
+| 厂商 | 要求 |
+| --- | --- |
+| Anthropic（extended thinking） | 工具循环中，必须把包含 `tool_use` 的那条 assistant 消息里的 **thinking 块原样传回**（带签名，不能修改）；否则报错或推理断裂 |
+| OpenAI（Responses API） | 推理以 **reasoning item** 的形式出现；使用 `previous_response_id` 时服务端自动带上；无状态使用（如零数据保留）时要传回加密的推理内容 |
+
+回到两轮客服图：第 1 次调用里模型想“用户说没到，我需要先查订单状态才能判断适用哪条政策”，然后发出 `get_order_status`。第 2 次调用如果只带工具结果、丢了这段思考，模型等于从中间接手一个不知道来龙去脉的任务。
+
+### 有状态 API 和无状态 API 怎么选？
+
+| | 无状态（Anthropic Messages、Chat Completions） | 有状态（OpenAI Responses 的 `previous_response_id` / conversations） |
+| --- | --- | --- |
+| 历史在哪 | 你每次把完整历史发过去 | 服务端保存，你只发新内容 |
+| 优点 | 完全可控：你决定选入、压缩、删除什么；方便审计 | 代码简单；推理内容自动衔接 |
+| 代价 | 自己管理历史、缓存、推理块 | 要理解服务端的保留规则（例如顶层 `instructions` 不继承）；数据保留与合规要额外确认 |
+
+不管哪种，**context engineering 的责任仍在你**：服务端保存了历史，不代表每一轮都应该把全部历史给模型。
+
+<Note title="“context engineering”这个词从哪来">
+
+2025 年中，Shopify CEO Tobi Lütke 和 Andrej Karpathy 等人推广了这个说法，用来强调：构建 agent 的核心不是写一句巧妙的 prompt，而是**为下一步填入恰好合适的信息**——指令、工具、检索结果、状态、历史。Anthropic 随后的工程文章也采用了这个框架。面试时知道这个背景即可。
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. chat template 做了什么？为什么工具定义也算输入 token？
+2. 指令层级是什么？它能不能替代服务端权限检查？
+3. reasoning 模型在工具循环中为什么必须传回思考内容？Anthropic 和 OpenAI 分别怎么做？
+4. 有状态 API 保存了历史，为什么 context engineering 的责任仍在你？
+
+</Note>
+
 ## 陷阱
 
 <Note type="warning" title="“context = system prompt + 全部历史”">
@@ -394,11 +476,50 @@ Window → Construction → Compression → Caching → Isolation
 5. Prompt engineering 与 context engineering 怎样相交？（How do prompt engineering and context engineering overlap?）
 6. 如何区分取数、组装和生成错误？（How would you separate retrieval, assembly, and generation errors?）
 
+### 2026-10 新增
+
+1. chat template 和指令层级是什么？能防住 prompt injection 吗？（What are chat templates and the instruction hierarchy, and do they stop injection?）
+2. reasoning 模型在工具循环中要传回什么？为什么？（What must you pass back to reasoning models in tool loops, and why?）
+3. 有状态与无状态 API 怎么选？（How do you choose between stateful and stateless APIs?）
+
 ## 我的答案
 
 </Locale>
 
 <Locale lang="en">
+
+## Level 3 · Deep dive: from messages to tokens, and what crosses turns
+
+### What do roles look like to the model?
+
+A chat template serializes messages into one token sequence with special role tokens. Consequences: tool definitions are input tokens every turn; roles are trained conventions, not hard isolation — injected text is still tokens in the same sequence; placement affects behavior and caching.
+
+### What is the instruction hierarchy?
+
+OpenAI's 2024 paper trains models to rank instructions by source: platform/system or developer > user > tool results and documents. It lowers injection success but is a tendency, not an enforced boundary — authorization stays server-side.
+
+### What must reasoning models carry across tool turns?
+
+Anthropic extended thinking requires passing the thinking blocks of the assistant turn containing `tool_use` back unmodified (signed); OpenAI's Responses API represents reasoning as items, carried automatically with `previous_response_id` or passed back encrypted when stateless. Drop them and the model resumes without its own rationale.
+
+### Stateless or stateful API?
+
+Stateless (Messages, Chat Completions): you resend history and control everything. Stateful (Responses `previous_response_id` or conversations): simpler, reasoning carries over, but learn the retention rules (top-level `instructions` don't carry) and compliance implications. Either way, choosing what the model sees is still your job.
+
+<Note title="Where 'context engineering' comes from">
+
+Popularized in mid-2025 by Tobi Lütke and Andrej Karpathy: the job is filling the context with just the right information for the next step.
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. What does a chat template do, and why are tool definitions input tokens?
+2. What is the instruction hierarchy, and can it replace server-side checks?
+3. Why must thinking be passed back in tool loops?
+4. Why is context engineering still your job with a stateful API?
+
+</Note>
 
 ## Traps
 
@@ -434,6 +555,12 @@ Continue with [Context Window](/docs/context/window), [Construction](/docs/conte
 4. Does storing a transcript mean the model sees it every turn?
 5. How do prompt engineering and context engineering overlap?
 6. How would you separate retrieval, assembly, and generation errors?
+
+### Added 2026-10
+
+1. What are chat templates and the instruction hierarchy, and do they stop injection?
+2. What must you pass back to reasoning models in tool loops, and why?
+3. How do you choose between stateful and stateless APIs?
 
 ## My answer
 

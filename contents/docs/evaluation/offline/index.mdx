@@ -3,7 +3,7 @@ title: Offline Evaluation
 titleEn: Offline Evaluation
 description: 构建覆盖故障模式的 golden set，用固定环境、配对比较和发布门槛验证改动。
 descriptionEn: Build failure-aware golden sets and use fixed environments, paired comparisons, and release gates.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["offline evaluation", "golden dataset", "regression", "paired comparison", "release gate"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 本页围绕猫粮客服，讲建集、标注、配对比较、发布门槛和评测集泄漏。线上真实随机分流属于 [Production Evaluation](/docs/evaluation/production-eval)；离线 A/B 指的是在**相同样本与环境**上对比两个版本，不等同于线上 A/B 实验。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 4**：配对比较的显著性检验（McNemar 检验手算、bootstrap 置信区间）、合成评估数据的构造与验证、评估集的维护（防止对 holdout 过拟合）。面试官问“新版本更好，你怎么证明不是噪声”时要用到。
+
+🔁 **建议复习**：Level 2（同题配对比较）——Level 4 在同一个配对表上做显著性检验；也建议先读 [Fundamentals](/docs/evaluation/fundamentals) 新增的 Level 4（置信区间）。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -25,6 +35,7 @@ mastery: { talk: 0, probe: 0 }
 | 1 · 标签 | 谁标注，怎样处理分歧、版本与污染？ | 25 min |
 | 2 · 比较 | 同一批 case 怎样公平比较 A/B？ | 30 min |
 | 3 · 门槛 | 哪些退步挡发布，如何避免过拟合？ | 30 min |
+| 4 · 深入（2026-10 新增） | 版本 B 比 A 好，是真的还是噪声？合成数据怎么造？ | 35 min |
 
 ## 需要掌握
 
@@ -41,6 +52,16 @@ mastery: { talk: 0, probe: 0 }
 
 This page covers dataset construction, labels, paired comparisons, release gates, and leakage for the same support case. Real randomized traffic splitting belongs in [Production Evaluation](/docs/evaluation/production-eval). Offline A/B means two versions on the **same cases and environment**, not an online experiment.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 4**: significance for paired comparisons (McNemar, bootstrap), synthetic eval data, keeping eval sets healthy.
+
+🔁 **Review**: Level 2 (paired comparison) and [Fundamentals](/docs/evaluation/fundamentals) Level 4 first.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question | Time |
@@ -49,6 +70,7 @@ This page covers dataset construction, labels, paired comparisons, release gates
 | 1 · Labels | Who annotates, and how are disagreements, versions, and contamination handled? | 25 min |
 | 2 · Comparison | How do A and B run fairly on the same cases? | 30 min |
 | 3 · Gates | What blocks release, and how do you avoid overfitting? | 30 min |
+| 4 · Deep dive (added 2026-10) | Is B really better than A, or noise? How do you build synthetic data? | 35 min |
 
 ## Must know
 
@@ -258,6 +280,71 @@ Ten cases illustrate paired arithmetic; they are **not enough to claim populatio
 
 </Note>
 
+## Level 4 · 深入：显著性、合成数据与评估集维护
+
+### 版本 B 比 A 好，怎么证明不是噪声？
+
+同一批样本上比较两个版本，只有**结论不同的样本**提供信息。设 200 条样本：
+
+| | B 对 | B 错 |
+| --- | --- | --- |
+| **A 对** | 150 | b = 8（A 对 B 错） |
+| **A 错** | c = 18（A 错 B 对） | 24 |
+
+A 正确率 158/200 = 79%，B 正确率 168/200 = 84%，B 看起来好 5 个百分点。**McNemar 检验**只看两个“不一致”格子：
+
+```text
+统计量 = (|b - c| - 1)² / (b + c) = (|8 - 18| - 1)² / 26 = 81 / 26 ≈ 3.12
+显著性门槛（α = 0.05）≈ 3.84
+3.12 < 3.84 → 还不能说 B 显著更好
+```
+
+5 个百分点的提升，在 200 条样本上仍可能是噪声——因为真正改变结论的只有 26 条。要么扩大样本，要么接受“方向向好、证据不足”。
+
+**Bootstrap** 是更通用的方法，不需要公式：
+
+```text
+重复 1,000 次：从 200 条样本中有放回地抽 200 条，计算 B - A 的正确率差
+把 1,000 个差值排序，取第 2.5% 和第 97.5% 个 → 95% 置信区间
+若区间不包含 0 → 差异显著
+```
+
+它适用于任何指标（平均分、F1、成本），面试时说出“我会用配对 bootstrap 给差值算置信区间”就够了。
+
+### 合成评估数据怎么造？
+
+真实数据不够、或缺少边界情况时，用 LLM 生成测试样本。关键是**有结构地生成**，而不是让模型“随便出 100 道题”（会高度重复、偏简单）：
+
+```text
+1. 定义维度：订单状态 × 客户意图 × 难度 × 表达方式
+   状态：未发货 / 运输中 / 已签收 / 已退款
+   意图：退款 / 改地址 / 投诉
+   难度：直接 / 需要多步 / 含矛盾信息
+   表达：标准 / 口语 / 带情绪 / 中英混杂
+2. 组合出需要覆盖的格子（重点覆盖高风险组合，如“运输中 × 退款”）
+3. 每个格子让 LLM 生成几条样本
+4. 人工抽检：表达是否真实？标签是否正确？
+5. 去重、过滤不合格样本
+```
+
+合成数据的风险：分布和真实用户不同（太“标准”）；标签可能错。所以它适合**补边界情况**，不应完全替代从生产采样的真实数据。
+
+### 评估集怎么维护？
+
+- **持续补充**：每次线上事故变成新样本（见 [Production Eval](/docs/evaluation/production-eval) Level 3）；错误分析发现的新类别补进去。
+- **防止对 holdout 过拟合**：反复看 holdout 错题、针对性改 prompt，holdout 会慢慢失去“没见过”的意义（Goodhart 定律：指标一旦成为目标，就不再是好指标）。做法：限制查看 holdout 的频率，定期从新数据中重建 holdout。
+- **版本化**：评估集本身要有版本号；比较两个版本的模型时，必须用同一个版本的评估集。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 用 b = 5、c = 20 算 McNemar 统计量，结论是什么？
+2. 为什么 McNemar 只看不一致的样本？
+3. 描述配对 bootstrap 求差值置信区间的步骤。
+4. 怎样有结构地生成合成样本？它的主要风险是什么？
+5. 为什么反复看 holdout 会让它失效？
+
+</Note>
+
 ## 连接
 
 ```text
@@ -273,6 +360,11 @@ Production → 真实流量验证与失败回流
 3. A 6/10、B 8/10，为什么不能直接发布 B？（Why might you block B despite 8/10 versus 6/10?）
 4. 如何避免在同一个 eval set 上过拟合？（How do you avoid overfitting the eval set?）
 5. 离线对比与线上 A/B 的根本区别是什么？（How does offline comparison differ from an online A/B test?）
+
+### 2026-10 新增
+
+1. 怎样证明新版本的提升不是噪声？（How do you show an improvement isn't noise?）
+2. 合成评估数据怎么构造？有什么风险？（How do you build synthetic eval data, and what are the risks?）
 
 ## 我的答案
 
@@ -312,6 +404,30 @@ Offline data cannot cover every policy update, real user phrasing, or environmen
 
 </Note>
 
+## Level 4 · Deep dive: significance, synthetic data, maintenance
+
+### Is B really better than A?
+
+Only discordant cases carry information. With 200 cases, b = 8 (A right, B wrong) and c = 18 (A wrong, B right): A 79%, B 84%. McNemar: `(|b − c| − 1)² / (b + c) = 81/26 ≈ 3.12 < 3.84` at α = 0.05 — not yet significant, because only 26 cases changed. A paired bootstrap (resample cases 1,000 times, take the 2.5th–97.5th percentile of the difference) works for any metric; a CI excluding 0 means significant.
+
+### How do you build synthetic eval data?
+
+Define dimensions (order state × intent × difficulty × phrasing), cover high-risk cells, generate a few per cell, human-check realism and labels, dedupe and filter. It fills edge cases; it doesn't replace production samples.
+
+### How do you keep the set healthy?
+
+Add incidents and new failure categories; limit holdout exposure and rebuild it periodically (Goodhart's law); version the eval set and compare models on the same version.
+
+<Note title="Self-check: you should be able to answer">
+
+1. McNemar for b = 5, c = 20?
+2. Why only discordant pairs?
+3. Steps of a paired bootstrap?
+4. How to generate synthetic data, and its risk?
+5. Why does peeking at the holdout ruin it?
+
+</Note>
+
 ## Connections
 
 ```text
@@ -327,6 +443,11 @@ Production → real traffic and failure feedback
 3. Why might you block B despite 8/10 versus 6/10?
 4. How do you avoid overfitting the eval set?
 5. How does offline comparison differ from an online A/B test?
+
+### Added 2026-10
+
+1. How do you show an improvement isn't noise?
+2. How do you build synthetic eval data, and what are the risks?
 
 ## My answer
 

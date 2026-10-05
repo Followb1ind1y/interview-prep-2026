@@ -3,7 +3,7 @@ title: Agent Security
 titleEn: Agent Security
 description: 不可信内容遇上可执行工具时，如何用权限、隔离、确认和评测限制 agent 的 blast radius。
 descriptionEn: "When untrusted content meets executable tools: use permissions, isolation, confirmation, and evals to limit an agent's blast radius."
-date: 2026-09-21
+date: 2026-10-04
 keywords: ["agent security", "prompt injection", "indirect prompt injection", "excessive agency", "sandbox", "exfiltration", "least privilege"]
 tier: A
 status: todo
@@ -29,6 +29,16 @@ Agent security 的核心不是让模型永远不被 prompt injection 欺骗—�
 
 答错任何一题，执行器就应拒绝。把这三道门记住，比先记 SSRF、TOCTOU 这些术语更重要。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 6**：2025 年的安全框架与防御设计——OWASP LLM Top 10（2025 版）、“致命三要素”、六种抗注入的设计模式、Google DeepMind 的 CaMeL、用 AgentDojo 评测。面试官问“prompt injection 怎么根治”时，这一级给出业界目前最好的答案。
+
+🔁 **建议复习**：Level 1（为什么 prompt 层过滤不足）和 Level 4（MCP、TOCTOU、confused deputy）——重写后的 [MCP](/docs/ai-native/mcp) Level 3–4 和 [Sandbox](/docs/ai-native/sandbox) Level 2 对这两级有大量补充（token 透传、工具投毒、出口代理），建议对照读。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | 部分 | 回答的问题 | 时长 |
@@ -39,6 +49,7 @@ Agent security 的核心不是让模型永远不被 prompt injection 欺骗—�
 | Level 3 · 执行隔离 | sandbox、文件系统、网络出口、secrets 怎样缩小 blast radius？ | 35 min |
 | Level 4 · 现代攻击面 | MCP、computer use、SSRF、TOCTOU 怎样扩大 blast radius？ | 40 min |
 | Level 5 · 防御验证 | 怎样用红队案例、日志和分层控制持续检测失败？ | 35 min |
+| Level 6 · 深入（2026-10 新增） | 业界有哪些框架和设计模式能系统性地对抗注入？ | 35 min |
 
 ## 需要掌握
 
@@ -71,6 +82,16 @@ Similarly, an email, webpage, or PDF that tells an agent to upload every quote d
 
 If any answer is no, the executor denies the action. Remembering these three gates matters more than memorizing terms such as SSRF and TOCTOU first.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 6**: OWASP LLM Top 10 (2025), the lethal trifecta, six injection-resistant design patterns, DeepMind's CaMeL, AgentDojo.
+
+🔁 **Review**: Levels 1 and 4 with the rewritten [MCP](/docs/ai-native/mcp) Levels 3–4 and [Sandbox](/docs/ai-native/sandbox) Level 2.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Part | Question it answers | Time |
@@ -81,6 +102,7 @@ If any answer is no, the executor denies the action. Remembering these three gat
 | Level 3 · Execution containment | How do sandbox, filesystem, network egress, and secrets shrink blast radius? | 35 min |
 | Level 4 · Modern attack surface | How do MCP, computer use, SSRF, and TOCTOU expand blast radius? | 40 min |
 | Level 5 · Validate defenses | How do red-team cases, logs, and layered controls continuously detect failure? | 35 min |
+| Level 6 · Deep dive (added 2026-10) | Which frameworks and design patterns systematically resist injection? | 35 min |
 
 ## Must know
 
@@ -484,6 +506,64 @@ Without a network allowlist, the same injection can become **SSRF**: an internal
 
 </Note>
 
+## Level 6 · 深入：2025 年的框架与防御设计模式
+
+### OWASP LLM Top 10（2025 版）有哪些？
+
+OWASP 的 LLM 应用十大风险是面试中最常被引用的清单，记住编号和名字，能和本页各级对上：
+
+| 编号 | 风险 | 对应本页 |
+| --- | --- | --- |
+| LLM01 | Prompt Injection（提示注入） | Level 1 |
+| LLM02 | Sensitive Information Disclosure（敏感信息泄露） | Level 3 |
+| LLM03 | Supply Chain（供应链） | 第三方模型、插件、MCP server |
+| LLM04 | Data and Model Poisoning（数据与模型投毒） | 训练 / 检索数据被污染；记忆投毒（见 [Memory](/docs/agent/memory) Level 6） |
+| LLM05 | Improper Output Handling（输出处理不当） | 把模型输出直接拼进 SQL、shell、HTML |
+| LLM06 | Excessive Agency（过度代理） | Level 2 |
+| LLM07 | System Prompt Leakage（系统提示泄露） | 不要在 system prompt 里放密钥或权限逻辑 |
+| LLM08 | Vector and Embedding Weaknesses（向量与嵌入弱点） | 多租户向量库越权、嵌入投毒 |
+| LLM09 | Misinformation（错误信息） | 幻觉被当成事实使用 |
+| LLM10 | Unbounded Consumption（无限制消耗） | 成本与资源耗尽（见 [Cost](/docs/production/cost) Level 5） |
+
+### 什么是“致命三要素”？
+
+Simon Willison 2025 年提出：agent 同时具备 **①访问私有数据、②接触不可信内容、③对外通信能力** 时，数据泄露几乎无法靠模型自身防住。Level 4 的外泄轨迹就是三要素齐全的例子。设计原则：**任何一个任务里，至少去掉其中一个要素**（详见 [MCP](/docs/ai-native/mcp) Level 4）。
+
+### 有没有“从架构上”防注入的办法？
+
+2025 年的论文 *Design Patterns for Securing LLM Agents against Prompt Injections*（多家机构研究者合作）总结了六种模式。核心思想一致：**一旦 agent 读了不可信内容，就限制它之后能做的事**。
+
+| 模式 | 做法 | 采购谈判例子 |
+| --- | --- | --- |
+| Action-Selector | 模型只能从固定动作列表里选一个，不能根据外部内容自由组合 | 只能选“回复模板 A/B/C”之一 |
+| Plan-Then-Execute | 读不可信内容**之前**就把要调用的工具序列定好，之后内容只能影响参数，不能增加新动作 | 先定好“读邮件 → 起草回复”，邮件内容不能触发“转账” |
+| LLM Map-Reduce | 每份不可信内容由独立的子 LLM 处理，只返回受限格式（如是 / 否、数字） | 每封供应商邮件只抽取“报价金额” |
+| Dual LLM | 特权 LLM 规划和调用工具但**从不直接看**不可信内容；隔离 LLM 处理不可信内容，结果以变量引用传递 | 特权 LLM 只知道“邮件内容存在变量 `$email1` 中” |
+| Code-Then-Execute | 特权 LLM 先写一段程序描述整个流程，再执行；不可信数据只作为程序的数据 | 见下面的 CaMeL |
+| Context-Minimization | 在后续步骤里把原始用户输入或不可信内容从上下文中移除 | 抽取完报价后，丢掉邮件原文 |
+
+**CaMeL**（Google DeepMind，2025）是 Code-Then-Execute 和 Dual LLM 的完整实现：特权 LLM 把用户请求翻译成一段代码；不可信数据由隔离 LLM 解析；解释器给每个值打上**能力标签**（来源、允许流向哪里），执行工具调用时检查数据流是否违反策略。它把“模型会不会被骗”变成了“数据流是否合规”的可检查问题，代价是灵活性下降、任务完成率有一定损失。
+
+### 怎么评测 agent 的抗注入能力？
+
+**AgentDojo**（ETH Zurich 等，2024）是常用的基准：提供一组带工具的环境（邮件、银行、旅行、Slack 等）和大量注入攻击用例，同时测两件事——**正常任务完成率**和**攻击成功率**。这和 Level 5 的思路一致：只测安全会把系统做成什么都拒绝，只测效用会忽略风险。
+
+<Note type="tip" title="面试加分：怎样回答“prompt injection 能根治吗”">
+
+“目前没有让模型本身免疫注入的方法，所以我不依赖模型判断：一是按致命三要素拆分能力；二是用 Plan-Then-Execute 或 Dual LLM 这类模式，让不可信内容无法增加新动作；三是服务端授权和沙箱兜底；最后用 AgentDojo 这类基准同时测攻击成功率和任务完成率。”
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 说出 OWASP LLM Top 10（2025）中至少 6 项，并对应到本页的 Level。
+2. 致命三要素是什么？怎么打破？
+3. Plan-Then-Execute 和 Dual LLM 各怎样限制注入的影响？
+4. CaMeL 的核心思想是什么？代价是什么？
+5. 为什么 AgentDojo 要同时测任务完成率和攻击成功率？
+
+</Note>
+
 ## 陷阱
 
 <Note title="前端隐藏按钮不是权限控制" type="danger">
@@ -525,6 +605,12 @@ audit trace + adversarial evaluation
 6. 为什么 schema、确认或 sandbox 任何一个都不足够？（Why are schema, confirmation, or sandbox alone insufficient?）
 7. 怎样证明你的防线真的阻断了数据外泄和越权副作用？（How do you prove defenses block exfiltration and unauthorized side effects?）
 
+### 2026-10 新增
+
+1. 说出 OWASP LLM Top 10（2025）的主要风险。（Name the main OWASP LLM Top 10 2025 risks.）
+2. 有哪些从架构上抵御 prompt injection 的设计模式？（What design patterns resist prompt injection architecturally?）
+3. prompt injection 能根治吗？你会怎么做？（Can prompt injection be solved, and what would you do?）
+
 ## 我的答案
 
 </Locale>
@@ -553,6 +639,40 @@ Injection robustness, clear prompts, content filtering, minimal tools, server au
 - Name at least four defenses that can fail independently.
 - Which fields should a post-attack trace retain at minimum?
 - Why should you not claim that prompt injection is solved?
+
+</Note>
+
+## Level 6 · Deep dive: 2025 frameworks and defensive design patterns
+
+### OWASP LLM Top 10 (2025)?
+
+LLM01 Prompt Injection, LLM02 Sensitive Information Disclosure, LLM03 Supply Chain, LLM04 Data and Model Poisoning, LLM05 Improper Output Handling, LLM06 Excessive Agency, LLM07 System Prompt Leakage, LLM08 Vector and Embedding Weaknesses, LLM09 Misinformation, LLM10 Unbounded Consumption — map each to this page's levels.
+
+### The lethal trifecta?
+
+Simon Willison (2025): private data + untrusted content + external communication makes exfiltration nearly impossible to stop at the model level. Remove at least one leg per task.
+
+### Architectural defenses?
+
+*Design Patterns for Securing LLM Agents against Prompt Injections* (2025) lists six: Action-Selector, Plan-Then-Execute (fix the tool sequence before reading untrusted content), LLM Map-Reduce (isolated sub-LLMs return constrained outputs), Dual LLM (a privileged LLM never sees untrusted content, only variable references), Code-Then-Execute, and Context-Minimization. DeepMind's **CaMeL** (2025) implements code-then-execute with a quarantined parser and capability labels on every value, checking data flows against policy at tool-call time — trading some task completion for checkable security.
+
+### How do you evaluate injection resistance?
+
+AgentDojo (2024) runs tool environments with many injection cases and measures both benign task completion and attack success.
+
+<Note type="tip" title="Can injection be solved?">
+
+"Not at the model level today, so I don't rely on model judgment: split capabilities by the trifecta, use plan-then-execute or dual-LLM patterns, enforce server-side authorization and sandboxes, and measure both attack success and utility."
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Name six OWASP 2025 items and map them.
+2. What's the trifecta and how do you break it?
+3. How do Plan-Then-Execute and Dual LLM limit injection?
+4. CaMeL's idea and cost?
+5. Why measure both utility and attack success?
 
 </Note>
 
@@ -596,6 +716,12 @@ audit trace + adversarial evaluation
 5. How do you prevent SSRF and post-approval TOCTOU?
 6. Why are schema, confirmation, or sandbox alone insufficient?
 7. How do you prove defenses block exfiltration and unauthorized side effects?
+
+### Added 2026-10
+
+1. Name the main OWASP LLM Top 10 2025 risks.
+2. What design patterns resist prompt injection architecturally?
+3. Can prompt injection be solved, and what would you do?
 
 ## My answer
 

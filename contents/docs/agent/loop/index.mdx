@@ -3,7 +3,7 @@ title: Agent Loop
 titleEn: Agent Loop
 description: 从一次 LLM 调用到 Observe → Decide → Act：状态怎样回来，loop 为什么必须停止。
 descriptionEn: "From one LLM call to Observe → Decide → Act: how state comes back and why the loop must stop."
-date: 2026-09-21
+date: 2026-10-04
 keywords: ["agent loop", "observe", "decide", "act", "harness", "tool calling", "termination"]
 tier: A
 status: todo
@@ -28,6 +28,16 @@ Agent 不是“更长的 prompt”，也不是某个框架的名字。它是一�
 
 所以，这个 agent 的工作不是“替人拍板”。它每次只做一个小决定：先查真实报价、再查规则、最后最多创建草稿。后面看到 Acme、Q-817 或 Net 30 时，都把它们当作这个具体故事里的公司名、报价编号和付款期限；数字只是教学用，不需要有采购背景。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 3**：2025–2026 年真实 API 里的循环细节——stop_reason 的全部取值、并行工具调用、交错思考（interleaved thinking）、供应商托管的服务端工具、现成的 agent SDK，以及“每步 95% 成功、20 步只剩 36%”的复合错误算术。
+
+🔁 **建议复习**：Level 1（最小 loop 伪代码）——Level 3 在它上面补真实细节；Level 2（停止条件）——和新增的复合错误算术直接相关。也可连着读重写后的 [Agent Harness](/docs/ai-native/harness) Level 1。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 全页用一个采购谈判助手贯穿：用户说“查 Acme 的最新报价；若单价不高于 10.20 且付款条款为 Net 30，就准备下一轮报价，否则说明卡点。”助手可以读取报价、读取谈判政策、创建草稿；它不能直接发出承诺。
@@ -38,6 +48,7 @@ Agent 不是“更长的 prompt”，也不是某个框架的名字。它是一�
 | Level 1 · 状态如何走一圈 | Observe、Decide、Act 具体传递什么？为什么工具结果必须回来？ | 35 min |
 | Level 2 · 让 loop 正确结束 | 什么叫完成和进展？何时让人接管？最大步数为什么不是可选项？ | 35 min |
 | 陷阱 · 面试问题 | 能否不背框架名，画出数据流并指出失败点？ | 20 min |
+| Level 3 · 深入（2026-10 新增） | 真实 API 的循环还有哪些细节？为什么步数越多越容易失败？ | 30 min |
 
 建议先把 Level 1 的三轮例子手写成状态变化，再读 Level 2。之后的 [Tool Calling](/docs/agent/tool-calling) 会把“工具调用请求如何被校验与执行”拆细；[ReAct](/docs/agent/react) 会讨论一种常见的 loop 记录格式，而不是另一个必须背的 Agent 定义。
 
@@ -69,6 +80,16 @@ Imagine a small helper in the negotiation-practice product. A learner says: “C
 
 The agent is therefore not allowed to make the deal. It makes one small decision at a time: look up the real offer, check the rule, then at most create a draft. Treat Acme, Q-817, and Net 30 later in this page as a company name, an offer ID, and a payment period in this story. The numbers are teaching data; procurement background is not required.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 3**: real-API loop details — all stop reasons, parallel calls, interleaved thinking, server-side tools, agent SDKs, compounding-error math.
+
+🔁 **Review**: Level 1 (minimal loop) and Level 2 (stopping), plus [Agent Harness](/docs/ai-native/harness) Level 1.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 One procurement-negotiation assistant runs through the whole page. A user says: “Check Acme's latest quote. If unit price is at most 10.20 and payment is Net 30, prepare the next counteroffer; otherwise explain the blocker.” The assistant may read quotes and policy and create a draft; it may not send a commitment itself.
@@ -79,6 +100,7 @@ One procurement-negotiation assistant runs through the whole page. A user says: 
 | Level 1 · One trip around the loop | What flows through Observe, Decide, and Act? Why must a tool result come back? | 35 min |
 | Level 2 · Ending a loop correctly | What count as completion and progress? When should a human take over? Why is a step limit mandatory? | 35 min |
 | Traps · Interview questions | Can you draw the data flow and name failure points without reciting framework names? | 20 min |
+| Level 3 · Deep dive (added 2026-10) | What details do real APIs add to the loop? Why do more steps fail more? | 30 min |
 
 First write out the three rounds in Level 1 as changing state, then read Level 2. [Tool Calling](/docs/agent/tool-calling) later unpacks how a tool request is validated and executed. [ReAct](/docs/agent/react) covers one common way to record a loop, not a different definition of an agent.
 
@@ -535,6 +557,69 @@ These are fallbacks, not the definition of success. A good loop ends proactively
 
 <Locale lang="zh">
 
+## Level 3 · 深入：真实 API 里的循环细节与复合错误
+
+### 循环为什么会因为步数多而失败？
+
+这是面试里最该会算的一笔账。假设每一步（选工具、填参数、理解结果）独立地有 95% 的概率做对，整个任务需要连续做对 n 步：
+
+```text
+任务成功率 ≈ 0.95^n
+n = 5   → 77%
+n = 10  → 60%
+n = 20  → 36%
+n = 50  → 8%
+```
+
+单步看起来很可靠，长任务却大概率失败——**错误会复合**。这解释了 agent 工程里很多做法：
+
+- **缩短路径**：能用 workflow 固定的步骤就别让模型决定（见 [Workflow vs Agent](/docs/agent/workflow-vs-agent)）。
+- **每步验证**：工具层校验参数、检查结果，把单步成功率从 95% 提到 99%：`0.99^20 ≈ 82%`，提升巨大。
+- **可恢复**：错了能发现并回退，而不是一路错下去（见 [Reliability](/docs/agent/reliability)）。
+
+（真实任务中步骤并不独立，模型也能自我纠正，所以这只是直觉模型；但“步数越多越要投资单步可靠性”这个结论是稳的。）
+
+### stop_reason 除了“调用工具”和“结束”还有什么？
+
+Level 1 的伪代码只判断“有没有工具调用”。真实 API 返回的停止原因更多，harness 要逐一处理：
+
+| 停止原因（以 Anthropic 命名为例） | 含义 | harness 应该做什么 |
+| --- | --- | --- |
+| `tool_use` | 模型请求调用工具 | 授权、执行、回传结果 |
+| `end_turn` | 模型认为本轮完成 | 进入验收，而不是直接相信“完成”（Level 2） |
+| `max_tokens` | 输出被截断 | 截断的工具调用**不能执行**；提高上限重试或让模型继续 |
+| `stop_sequence` | 命中自定义停止符 | 按约定处理 |
+| `pause_turn` | 服务端工具运行时间较长，本轮暂停 | 把响应原样传回，让模型继续 |
+| `refusal` | 模型拒绝继续 | 记录原因，转人工或换路径 |
+
+OpenAI Responses API 的字段名不同（如输出项类型、`status`、`incomplete_details`），但需要处理的情况相同。
+
+### 并行工具调用和交错思考是什么？
+
+- **并行工具调用**：模型一轮里同时请求多个互相独立的工具（查订单 + 查政策）。harness 可以并行执行，按 call ID 把结果对应回去（见 [Tool Calling](/docs/agent/tool-calling) Level 1、Level 3）。省掉的是**一整轮模型调用**，对延迟帮助很大（见 [Latency](/docs/production/latency) Level 2）。
+- **交错思考（interleaved thinking）**：reasoning 模型在两次工具调用**之间**也会思考——拿到订单结果后先想“运输中意味着要查哪条政策”，再决定下一个调用。这让 Observe → Decide 的“Decide”变得更强；代价是每轮多了思考 token。思考内容要按 API 要求回传（见 [Model Context](/docs/context/model-context) Level 3）。
+
+### 循环一定要自己写吗？
+
+不一定。2025 年后有三种常见形态：
+
+| 形态 | 谁跑循环 | 例子 |
+| --- | --- | --- |
+| 自己写 | 你的代码 | Level 1 的伪代码 |
+| 服务端工具 | 供应商在**一次 API 调用内部**跑一小段循环 | 网页搜索、代码执行、网页抓取等由供应商执行的工具 |
+| Agent SDK | 库替你跑循环，你配置工具、权限、hooks | Claude Agent SDK、OpenAI Agents SDK、LangGraph |
+
+面试时可以说：“简单场景我会用 SDK，把精力放在工具设计、权限和验证上；需要精细控制状态和恢复时，自己写循环或用 LangGraph 这类显式状态机。”
+
+<Note title="自测：到这里你应该能回答">
+
+1. 单步成功率 95%、任务需要 30 步，整体成功率约多少？把单步提到 99% 呢？
+2. `max_tokens` 时最后一个工具调用为什么不能执行？
+3. 并行工具调用省掉的是什么？交错思考增强了循环的哪一步？
+4. 服务端工具和 agent SDK 分别替你做了什么？
+
+</Note>
+
 ## 陷阱
 
 <Note title="把工具定义交给模型，不等于给了系统能力" type="warning">
@@ -593,11 +678,44 @@ Agent Loop（Observe → Decide → Act）
 2. agent 连续 20 步、花费很高，怎样判断它在推进还是空转？（An agent runs 20 expensive steps. How do you tell progress from spinning?）
 3. 为什么最大步数、超时、预算和人工批准不能互相替代？（Why are maximum steps, timeouts, budgets, and human approval not substitutes?）
 
+### 2026-10 新增
+
+1. 单步 95% 成功率的 agent 跑 20 步，成功率大约多少？这说明什么？（An agent is 95% reliable per step; what about 20 steps, and what does it imply?）
+2. harness 需要处理哪些 stop_reason？（Which stop reasons must a harness handle?）
+3. 什么是交错思考？对 agent 循环有什么影响？（What is interleaved thinking, and how does it change the loop?）
+
 ## 我的答案
 
 </Locale>
 
 <Locale lang="en">
+
+## Level 3 · Deep dive: real-API loop details and compounding errors
+
+### Why do longer loops fail more?
+
+If each step is right 95% of the time, n steps succeed about `0.95^n`: 77% at 5, 60% at 10, 36% at 20, 8% at 50. Errors compound. Hence: shorten paths with workflows, validate each step (99% per step gives `0.99^20 ≈ 82%`), and make errors recoverable. Steps aren't truly independent, but the lesson holds.
+
+### Which stop reasons must the harness handle?
+
+`tool_use` (authorize, execute, return), `end_turn` (go to acceptance checks), `max_tokens` (never execute a truncated call), `stop_sequence`, `pause_turn` (a long server tool paused — send it back to continue), `refusal`. OpenAI's Responses API names differ but the cases are the same.
+
+### Parallel calls and interleaved thinking?
+
+Parallel calls save a whole model turn; match results by call ID. Interleaved thinking lets reasoning models think between tool calls, strengthening "Decide" at the cost of thinking tokens that must be passed back.
+
+### Must you write the loop yourself?
+
+Write it, use provider-run server tools (search, code execution) that loop inside one API call, or use an agent SDK (Claude Agent SDK, OpenAI Agents SDK, LangGraph) and invest in tools, permissions, and verification.
+
+<Note title="Self-check: you should be able to answer">
+
+1. 30 steps at 95% vs 99% per step?
+2. Why not execute the last call after `max_tokens`?
+3. What do parallel calls save? What does interleaved thinking strengthen?
+4. What do server tools and SDKs do for you?
+
+</Note>
 
 ## Traps
 
@@ -656,6 +774,12 @@ Agent Loop (Observe → Decide → Act)
 1. How do you define acceptance and stop conditions for an agent task?
 2. An agent runs 20 expensive steps. How do you tell progress from spinning?
 3. Why are maximum steps, timeouts, budgets, and human approval not substitutes?
+
+### Added 2026-10
+
+1. An agent is 95% reliable per step; what about 20 steps, and what does it imply?
+2. Which stop reasons must a harness handle?
+3. What is interleaved thinking, and how does it change the loop?
 
 ## My answer
 

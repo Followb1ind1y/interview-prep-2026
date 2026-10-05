@@ -3,7 +3,7 @@ title: Context Construction
 titleEn: Context Construction
 description: 从候选资料中组装当前决策需要的指令、事实、工具与状态，并能诊断拼装错误。
 descriptionEn: Assemble the instructions, evidence, tools, and state needed for the current decision.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["context construction", "retrieval", "reranking", "tool selection", "provenance"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 本页继续订单 20240915。它只教一次调用的组装：明确决策、筛选合法且新鲜的候选、在预算内放入证据和工具，再用 trace 检查故障。检索算法本身在 [RAG](/docs/rag)，压缩历史在下一页。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 4**：资料的格式与顺序（长文在前、问题在后、先引后答）、Contextual Retrieval 的实测收益、预取 vs 即时检索（just-in-time）、工具与示例的筛选。
+
+🔁 **建议复习**：Level 2（组装）——Level 4 给了具体的排布规则和数字；Level 3（三层排错）——面试高频，和 [RAG Eval](/docs/evaluation/rag-eval) 新增内容相连。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -25,6 +35,7 @@ mastery: { talk: 0, probe: 0 }
 | 1 · 候选 | 20 段资料如何筛成真正有用的几段？ | 30 min |
 | 2 · 组装 | 指令、证据、状态、工具怎样放入预算？ | 25 min |
 | 3 · 排错 | 是没检索到、没装进去，还是模型没用对？ | 25 min |
+| 4 · 深入（2026-10 新增） | 资料怎样排布？预先检索还是让 agent 即时去取？ | 30 min |
 
 ## 需要掌握
 
@@ -41,6 +52,16 @@ mastery: { talk: 0, probe: 0 }
 
 We continue with order 20240915. This page covers one call's assembly: define the decision, filter permitted and current candidates, fit evidence and tools within a budget, and inspect failures. [RAG](/docs/rag) covers retrieval algorithms; the next page covers compression.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 4**: formatting and ordering, Contextual Retrieval results, pre-retrieval vs just-in-time, curating tools and examples.
+
+🔁 **Review**: Level 2 (assembly) and Level 3 (three-layer debugging).
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question | Time |
@@ -49,6 +70,7 @@ We continue with order 20240915. This page covers one call's assembly: define th
 | 1 · Candidates | How do 20 passages become the few that matter? | 30 min |
 | 2 · Assembly | How do instructions, evidence, state, and tools fit a budget? | 25 min |
 | 3 · Debugging | Was evidence not retrieved, not assembled, or not used correctly? | 25 min |
+| 4 · Deep dive (added 2026-10) | How do you lay out evidence? Pre-retrieve or fetch just in time? | 30 min |
 
 ## Must know
 
@@ -288,6 +310,61 @@ Log context version, source IDs, selection reasons, and token usage. If asked wh
 
 </Note>
 
+## Level 4 · 深入：格式、顺序与即时检索
+
+### 资料在输入里怎样排布更好？
+
+Level 2 说“没有对所有模型通用的神奇排序”，这仍然成立；但厂商给过可操作的经验规则，面试时可以引用：
+
+| 规则 | 做法 | 依据 |
+| --- | --- | --- |
+| 长资料在前，问题在后 | 几万 token 的文档放在输入上部，用户问题和指令放在最后 | Anthropic 的长上下文提示指南提到，在其测试中把问题放在末尾可使回答质量提升最多约 30% |
+| 每份资料加结构化标签 | 用 XML 风格标签包住每份文档，附 `doc_id`、版本、生效日期 | 让模型能区分来源，也能按 ID 引用 |
+| 先引用，再回答 | 要求模型先摘出相关原文片段，再基于这些片段作答 | 迫使模型先“找到”证据，减少凭印象作答；也便于评估 |
+| 低信任资料单独标注 | 检索文档、工具结果明确标为“数据” | 配合指令层级降低注入风险（见 [Model Context](/docs/context/model-context) Level 3） |
+
+示意：
+
+```text
+<documents>
+  <document doc_id="P-17" version="v3" effective="…">…已发货订单须走退货流程…</document>
+  <document doc_id="P-12" version="v5" effective="…">…</document>
+</documents>
+<order_status source="order_api" checked_at="…">in_transit</order_status>
+
+先在 <quotes> 中摘录与本单相关的条款原文，再给出判断，并标注 doc_id。
+问题：订单 20240915 还没到，能退款吗？
+```
+
+### Contextual Retrieval 解决了什么？
+
+切块（chunking）会让片段丢掉上下文：一段“该情形下不适用退款”单独拿出来，不知道“该情形”指什么，检索时也匹配不上。Anthropic 2024 年提出的 **Contextual Retrieval**：在给每个块做 embedding 和 BM25 索引之前，先用模型为它生成一两句**说明它在全文中位置和含义**的上下文，拼在块前面。他们报告检索失败率下降 49%，再加上重排后下降 67%。代价是建索引时每个块多一次模型调用（可用 prompt caching 降低）。细节见 [RAG](/docs/rag)。
+
+### 预先检索还是即时检索？
+
+| | 预先检索（pre-retrieval） | 即时检索（just-in-time） |
+| --- | --- | --- |
+| 做法 | 调用模型前，系统先检索好资料放进 context | 只给模型轻量的标识（文件路径、文档 ID、查询工具），模型需要时自己去取 |
+| 优点 | 快，一次调用；结果可控 | 只取真正需要的；能根据中间发现调整查询；context 更干净 |
+| 代价 | 可能取多、取错；无法根据推理过程补查 | 多轮调用，延迟和成本更高；依赖模型会用工具 |
+| 典型 | 客服 RAG 问答 | coding agent 用 grep / 读文件探索（见 [Claude Code / Codex](/docs/ai-native/coding-workflow)） |
+
+Anthropic 的 context engineering 文章把趋势总结为：越来越多的 agent 采用**混合**策略——少量关键资料预先放入，其余让 agent 在运行时按需探索。
+
+### 工具和示例也需要筛选
+
+- **工具**：每个工具定义都占 token、都会分散模型的选择注意力。只暴露当前步骤需要的工具；工具很多时用按需加载（tool search，见 [Agent Harness](/docs/ai-native/harness) Level 2）。
+- **示例（few-shot）**：给几个**多样、典型**的示例，而不是把所有边界情况塞进去。示例太多会让模型过度模仿表面格式。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 长文档和问题在输入里怎么放？“先引用再回答”有什么好处？
+2. Contextual Retrieval 解决了切块的什么问题？代价是什么？
+3. 预先检索和即时检索各适合什么场景？
+4. 为什么工具定义也需要按步骤筛选？
+
+</Note>
+
 ## 陷阱
 
 <Note type="danger" title="“把检索 Top-5 直接拼接就是 Context Engineering”">
@@ -313,6 +390,12 @@ Evaluation → 故障定位与回归
 3. 为什么权限与版本过滤要先于相关性排序？（Why filter access and version before relevance ranking?）
 4. 如何区分检索、组装和生成故障？（How do you separate retrieval, assembly, and generation failures?）
 5. 工具定义为什么也需要选择？（Why curate tool definitions?）
+
+### 2026-10 新增
+
+1. 长文档、问题和指令在输入里怎样排布？（How do you order long documents, the question, and instructions?）
+2. 什么是 Contextual Retrieval？（What is Contextual Retrieval?）
+3. 预先检索和即时检索怎么选？（Pre-retrieval or just-in-time retrieval?）
 
 ## 我的答案
 
@@ -343,6 +426,33 @@ Measure **retrieval recall** (did evidence appear in candidates?), **context cov
 
 </Note>
 
+## Level 4 · Deep dive: formatting, ordering, just-in-time retrieval
+
+### How should evidence be laid out?
+
+Vendor heuristics worth citing: long documents first and the question last (Anthropic's long-context tips report up to ~30% better responses in its tests); wrap each document in structured tags with `doc_id`, version, and effective date; ask the model to quote relevant passages before answering; label retrieved and tool content as data.
+
+### What does Contextual Retrieval fix?
+
+Chunks lose context ("this case is not eligible" — which case?). Anthropic's 2024 method prepends a model-generated sentence situating each chunk before embedding and BM25 indexing, reporting 49% fewer failed retrievals, 67% with reranking, at the cost of one model call per chunk at index time (reduced with caching).
+
+### Pre-retrieve or just in time?
+
+Pre-retrieval is fast and controlled but can fetch too much or the wrong thing; just-in-time gives the agent identifiers and tools to fetch what it needs, adapting to findings at the cost of more turns. Agents increasingly mix both.
+
+### Curate tools and examples too
+
+Expose only the tools the step needs (tool search when there are many); use a few diverse, canonical examples rather than every edge case.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Where do long documents and the question go? Why quote first?
+2. What does Contextual Retrieval fix, and at what cost?
+3. When pre-retrieval vs just-in-time?
+4. Why curate tool definitions per step?
+
+</Note>
+
 ## Traps
 
 <Note type="danger" title="“Concatenating retrieval Top-5 is context engineering”">
@@ -368,6 +478,12 @@ Evaluation → failure diagnosis and regression
 3. Why filter access and version before relevance ranking?
 4. How do you separate retrieval, assembly, and generation failures?
 5. Why curate tool definitions?
+
+### Added 2026-10
+
+1. How do you order long documents, the question, and instructions?
+2. What is Contextual Retrieval?
+3. Pre-retrieval or just-in-time retrieval?
 
 ## My answer
 
