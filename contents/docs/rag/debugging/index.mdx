@@ -1,10 +1,10 @@
 ---
 title: Failure Diagnosis
 titleEn: Failure Diagnosis
-description: 按证据链定位 RAG 答错、漏答、越权与延迟故障。
-descriptionEn: Trace bad answers, misses, access failures, and latency by pipeline stage.
-date: 2026-09-24
-keywords: ['rag', 'debugging', 'trace', 'root cause']
+description: “RAG 答错了，你查什么？”——先复现与定义错误，再沿 原文 → 解析 → 切分 → 过滤 → 召回 → 融合 → 重排 → 组装 → 生成 逐层定位；六个典型案例；把每次排错变成回归测试与线上监控。
+descriptionEn: "'The RAG answer is wrong — what do you check?' Reproduce and define the error, then walk source, parsing, chunking, filters, retrieval, fusion, reranking, assembly, and generation; six typical cases; turn every fix into regression tests and monitoring."
+date: 2026-10-04
+keywords: ['rag debugging', 'failure diagnosis', 'trace', 'retrieval failure', 'generation failure', 'root cause', 'regression', 'monitoring']
 tier: A
 status: todo
 cursor: ''
@@ -13,45 +13,57 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+“RAG 答错了，你会查什么？”是 RAG 面试的终极问题——它检验你是否真正理解整条流水线。差的回答是“换个更好的模型”或“调一下 prompt”；好的回答是**按流水线逐层排除**，每一步说清楚看什么证据、怎么判断、怎么修。
+
+这一页把前面九页串起来。分层的**指标**在 [RAG Eval](/docs/evaluation/rag-eval)；这里讲**单个错误案例的排查流程**和常见案例。
+
+贯穿例子：用户问“订单 20240915 还没到，能退款吗？”，系统回答“可以，未发货订单支持全额退款”——实际订单状态是**运输中**，正确答案是“不适用未发货退款，签收后 7 日内可申请退货”。
 
 ## 这一页怎么学
 
-| Level | 要回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 复现与分层 | 一个错误回答要先保存什么？ | 15–25 min |
-| 1 · 从源到候选 | 正确政策没进候选，应沿哪条链查？ | 15–25 min |
-| 2 · 从候选到回答 | 正确段在 Top-K，答案为什么仍错？ | 15–25 min |
-| 3 · 修复与回归 | 怎么把一次故障变成可靠改进？ | 15–25 min |
+| 0 · 排查之前 | 怎样确认“错”在哪？trace 要记录什么？ | 15 min |
+| 1 · 逐层定位 | 从原文到生成，每一层看什么？ | 35 min |
+| 2 · 六个典型案例 | 常见错误长什么样、在哪一层、怎么修？ | 35 min |
+| 3 · 闭环 | 怎样让同一个错误不再出现？线上监控什么？ | 15 min |
+
+**Level 1 和 Level 2 是重点**，面试时要能流畅地走一遍。全页约 1.5 小时。
 
 ## 需要掌握
 
-- 一个错误回答要先保存什么？
-- 正确政策没进候选，应沿哪条链查？
-- 正确段在 Top-K，答案为什么仍错？
-- 怎么把一次故障变成可靠改进？
+- 排查前：复现、确定标准答案、拿到完整 trace
+- 九层排查顺序与每层的检查证据
+- 六个典型案例的症状、层级、修复
+- 修复后：加入评估集、回归测试、线上监控信号
 
 </Locale>
 
 <Locale lang="en">
 
-We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+"The RAG answer is wrong — what do you check?" is the capstone RAG question. Weak answers: "use a better model," "tweak the prompt." Strong answers walk the pipeline layer by layer, naming the evidence, the judgment, and the fix.
 
-## How to study this page
+This page ties the section together; layered metrics live in [RAG Eval](/docs/evaluation/rag-eval).
 
-| Level | Question | Time |
+Running case: asked about order 20240915, the system says "Yes, unshipped orders get a full refund" — but the order is **in transit**; the correct answer is "not eligible for the unshipped refund; return within 7 days of delivery."
+
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · Reproduce and separate | What do you preserve for one wrong answer? | 15–25 min |
-| 1 · Source to candidates | How do you trace a missing policy before generation? | 15–25 min |
-| 2 · Candidates to answer | Why can an answer be wrong when Top-K is right? | 15–25 min |
-| 3 · Fix and regression | How does one failure become a reliable improvement? | 15–25 min |
+| 0 · Before debugging | How do you pin down the error? What must the trace hold? | 15 min |
+| 1 · Layer by layer | What do you check at each layer? | 35 min |
+| 2 · Six cases | What do common failures look like, where, and how to fix? | 35 min |
+| 3 · Closing the loop | How do you prevent recurrence? What do you monitor? | 15 min |
+
+**Levels 1 and 2 are the core.** About 1.5 hours.
 
 ## Must know
 
-- What do you preserve for one wrong answer?
-- How do you trace a missing policy before generation?
-- Why can an answer be wrong when Top-K is right?
-- How does one failure become a reliable improvement?
+- reproduce, define the expected answer, get the full trace
+- the nine-layer order and evidence per layer
+- six typical cases
+- eval additions, regression tests, monitoring signals
 
 </Locale>
 
@@ -59,18 +71,32 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="zh">
 
-## Level 0 · 复现与分层
+## Level 0 · 排查之前
 
-### 一个错误回答要先保存什么？
+### 怎样确认“错”在哪？
 
-固定用户问题、时间、租户、订单工具返回、索引版本、模型和提示版本；保存每阶段的候选 ID、过滤原因、重排名次、最终 context、回答主张和引用。没有这些，无法判断是源文、检索还是生成。注意日志脱敏和按权限访问。
+1. **复现**：用同样的输入（问题、用户、租户、时间点、对话历史）重跑。LLM 有随机性，要跑几次看是否稳定出错。
+2. **写下标准答案和依据**：正确答案是什么？依据哪个文档的哪个块？**这一步最常被跳过**，但没有它就无法判断问题出在哪层。例子中：正确依据是 `P-17 v3` 第 4 条 + 订单 API 返回的 `in_transit`。
+3. **拿到完整 trace**。
 
-示例：客服说“订单 20240915 未发货，可以退款”，用户其实只说“没到”。先查订单 API 是否返回“运输中”，再看模型是否把“没到”误当状态。不要只凭最终答复猜检索坏了。
+### trace 要记录什么？
+
+| 阶段 | 字段 |
+| --- | --- |
+| 输入 | 原始问题、改写后的查询、用户 / 租户、对话历史摘要 |
+| 过滤 | 应用的过滤条件（租户、版本、ACL、日期） |
+| 召回 | 每一路的 Top-K：`chunk_id`、名次、分数 |
+| 融合与重排 | 融合得分、重排分数与名次、被丢弃的原因 |
+| 组装 | 最终放进 context 的块、顺序、token 数、被截断的内容 |
+| 工具 | 订单 API 的请求与返回 |
+| 生成 | 模型、prompt 版本、完整输出、引用的 `chunk_id` |
+
+没有这些，排查就只能猜。字段设计也见 [Observability](/docs/production/observability) Level 1。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 缺少订单工具输出时为什么无法定位？
-2. 什么日志信息需要保护？
+1. 排查前的三个准备步骤是什么？哪一步最常被跳过？
+2. 列出 trace 中召回、组装、生成阶段各要记录的字段。
 
 </Note>
 
@@ -78,16 +104,20 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="en">
 
-## Level 0 · Reproduce and separate
+## Level 0 · Before debugging
 
-### What do you preserve for one wrong answer?
+### Pin down the error
 
-Preserve query, timestamp, tenant, live order result, index and prompt versions, candidates, filter reasons, rerank order, final context, answer claims, and citations. Protect sensitive traces. For the refund error, first check whether the order API said “in transit”; the model may have inferred “not shipped” from “not arrived.”
+Reproduce with identical inputs (question, user, tenant, time, history), several times; write down the expected answer and its evidence (`P-17 v3` clause 4 + `in_transit` from the API) — the most-skipped step; get the full trace.
+
+### What must the trace hold?
+
+Raw and rewritten queries, user/tenant; applied filters; per-branch top-K with ranks and scores; fused and reranked scores with drop reasons; final context chunks, order, tokens, truncation; tool requests and responses; model, prompt version, output, cited chunk IDs.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why is diagnosis impossible without tool output?
-2. Which trace data needs protection?
+1. Three preparation steps; which is skipped most?
+2. Trace fields for retrieval, assembly, generation?
 
 </Note>
 
@@ -95,18 +125,38 @@ Preserve query, timestamp, tenant, live order result, index and prompt versions,
 
 <Locale lang="zh">
 
-## Level 1 · 从源到候选
+## Level 1 · 逐层定位
 
-### 正确政策没进候选，应沿哪条链查？
+### 从原文到生成，每一层看什么？
 
-依次问：现行 `P-17 v3` 原文有无该条？解析文本是否保留条件与表格列？段边界是否切断？embedding 是否截断、BM25 analyzer 是否认出编号？版本/ACL 过滤是否错误？ANN 相对精确基线是否漏检？最后看各路 Top-K。
+**从上游往下游查**——上游错了，下游一定错；先排除上游，才能确定是下游的问题。
 
-每一步都有可复现实物：源页、解析产物、chunk、索引版本、查询与原始排名。若政策根本没写，改搜索算法不会创造真实证据；需要内容所有者修文档或升级人工处理。
+| # | 层 | 问题 | 怎么查 | 若在这层出错，看哪页 |
+| --- | --- | --- | --- | --- |
+| 1 | 原文 | 资料库里**有**正确答案吗？ | 在原始文档中找 | 内容缺失 → 补资料，或让系统说“不知道” |
+| 2 | 解析 | 索引里的文本和原文**一致**吗？ | 看该块在索引中的实际文本 | [Ingestion](/docs/rag/ingestion) |
+| 3 | 切分 | 正确的块**完整**吗？条件和标题在同一块里吗？ | 看块的边界 | [Chunking](/docs/rag/chunking) |
+| 4 | 过滤 | 正确块**没被误过滤**？错误块（旧版、别的租户）**被过滤掉**了吗？ | 看过滤条件和块的元数据 | [Ingestion](/docs/rag/ingestion) Level 2、[Vector Search](/docs/rag/vector-search) Level 3 |
+| 5 | 召回 | 正确块在**任一路**的 Top-K 里吗？各自排第几？ | 看每一路的名次 | [Embedding](/docs/rag/embedding)、[Sparse Retrieval](/docs/rag/sparse-retrieval) |
+| 6 | 融合 | 融合后还在候选里吗？ | 看融合得分和截断 | [Hybrid Search](/docs/rag/hybrid-search) |
+| 7 | 重排 | 重排后排第几？有没有被条件相反的块压下去？ | 看重排分数 | [Reranking](/docs/rag/reranking) |
+| 8 | 组装 | 它**真的进了 context** 吗？有没有被截断？有没有和冲突的块放在一起？ | 看最终 prompt | [Construction](/docs/context/construction) |
+| 9 | 生成 | 模型看到了正确证据，回答是否**依据它**？是否和订单 API 结果一致？ | 看输出和引用 | [Prompt Engineering](/docs/application/prompt-engineering)、[Structured Output](/docs/application/structured-output) |
+
+一个高效的捷径：**先看第 8 层**（正确块在不在最终 context 里），一次就能把问题切成两半——
+
+```text
+正确块在 context 里  → 问题在第 9 层（生成）
+正确块不在 context 里 → 问题在第 1–8 层，再往上游逐层找
+```
+
+这就是 [Architecture](/docs/rag/architecture) Level 2 四道关口的实操版本。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 正确条款在原文但不在 chunk，故障在哪？
-2. ANN 漏检如何验证？
+1. 不看笔记，按顺序说出九层。
+2. 为什么要从上游往下游查？
+3. 先看第 8 层能把问题分成哪两半？
 
 </Note>
 
@@ -114,16 +164,19 @@ Preserve query, timestamp, tenant, live order result, index and prompt versions,
 
 <Locale lang="en">
 
-## Level 1 · Source to candidates
+## Level 1 · Layer by layer
 
-### How do you trace a missing policy before generation?
+### What do you check at each layer?
 
-Walk source page → parsed text → chunk → embedding/lexical tokens → version and ACL filters → ANN versus exact baseline → per-branch Top-K. Keep artifacts at each step. If the source policy lacks the answer, retrieval tuning cannot manufacture valid evidence; route to content ownership or human review.
+Go upstream to downstream: (1) source — is the answer in the corpus? (2) parsing — does indexed text match the original? (3) chunking — is the chunk complete with condition and heading? (4) filters — correct chunk not wrongly filtered, wrong ones (old versions, other tenants) removed? (5) retrieval — rank in each branch? (6) fusion — still a candidate? (7) reranking — pushed down by a near-opposite? (8) assembly — actually in the final context, untruncated, not beside conflicting chunks? (9) generation — grounded in it and consistent with the order API?
+
+Shortcut: check layer 8 first. If the right chunk is in context, it's generation; if not, search layers 1–8 — the practical form of the four gates.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Where is the fault if source has the clause but no chunk does?
-2. How do you verify ANN misses?
+1. Name the nine layers in order.
+2. Why upstream first?
+3. How does checking layer 8 split the search?
 
 </Note>
 
@@ -131,18 +184,70 @@ Walk source page → parsed text → chunk → embedding/lexical tokens → vers
 
 <Locale lang="zh">
 
-## Level 2 · 从候选到回答
+## Level 2 · 六个典型案例
 
-### 正确段在 Top-K，答案为什么仍错？
+### 案例 1：引用了过期政策
 
-核对融合是否将它挤出、重排是否降级、去重是否误删、token 预算是否裁掉、context 中是否还保留完整条件；再看模型是否引用支持的句子、是否与实时订单状态结合。若 `P-17 v3` 进了 prompt 但仍回答旧流程，属于证据使用或指令问题。
+| | |
+| --- | --- |
+| 症状 | 回答引用了 `P-17 v2`（旧版允许运输中退款） |
+| 排查 | 第 4 层：向量检索带了版本过滤，但 **BM25 那一路漏了过滤**，`v2` 从 BM25 进入融合 |
+| 修复 | 两路统一过滤；加一个回归用例“版本切换后不得引用旧版” |
 
-用 [RAG Evaluation](/docs/evaluation/rag-eval) 分开报 candidate recall、context coverage、faithfulness、任务正确性。高总体 Recall@K 不代表这条失败样本的证据一定在 prompt；用 case trace 定位。
+### 案例 2：表格行丢了表头
+
+| | |
+| --- | --- |
+| 症状 | 问“已签收的运费谁出”，回答“不可以” |
+| 排查 | 第 3 层：表格按行切分，“已签收 \| 不可以 \| 7 日内可以 \| 买家”没有表头，模型把第二列“未发货退款：不可以”当成了答案 |
+| 修复 | 按行切分时每行带表头（见 [Ingestion](/docs/rag/ingestion) Level 1） |
+
+### 案例 3：编号查询失败
+
+| | |
+| --- | --- |
+| 症状 | 问“P-17 第 4 条怎么说”，返回 P-71 的内容 |
+| 排查 | 第 5 层：系统只有向量检索，编号被模糊化；同时分词器把“P-17”拆成了“P”和“17” |
+| 修复 | 加 BM25 做混合检索；分词器自定义词典保护编号 |
+
+### 案例 4：正确块在 context 里，模型仍答错
+
+| | |
+| --- | --- |
+| 症状 | context 里同时有“未发货可全额退款”（第 1 位）和“运输中不适用未发货退款”（第 5 位），模型选了前者 |
+| 排查 | 第 9 层：模型没有用订单状态去匹配条件；第 7 层也有问题：条件相反的块排在了前面 |
+| 修复 | 重排把条件匹配的块排前；prompt 要求“先确认订单状态，再选择适用条款，引用条款号”；把订单状态作为结构化字段放进 context |
+
+这正是本页开头的错误。
+
+### 案例 5：资料库里没有答案，却硬答
+
+| | |
+| --- | --- |
+| 症状 | 问海外订单退款，回答了一段国内政策 |
+| 排查 | 第 1 层：海外政策根本没入库；第 7 层：没有相关性阈值，最相似的国内条款被当作答案 |
+| 修复 | 设置重排分数阈值，低于阈值时说明“未找到适用政策”并转人工；补充海外政策 |
+
+### 案例 6：多轮对话第二轮答非所问
+
+| | |
+| --- | --- |
+| 症状 | 第一轮问运输中能否退款，第二轮问“那签收以后呢？”，回答了不相关的内容 |
+| 排查 | 第 5 层之前：检索查询直接用了“那签收以后呢？”，没有指代补全 |
+| 修复 | 检索前做查询改写，结合对话历史补全指代（见 [Advanced RAG](/docs/rag/advanced) Level 1） |
+
+<Note type="tip" title="面试加分：用一个案例走完全程">
+
+被问“RAG 答错了你查什么”，不要只背九层。挑一个案例（例如案例 4）讲：“我先复现并写下正确依据是 P-17 v3 第 4 条；然后看最终 context，发现它在第 5 位、条件相反的块在第 1 位，所以召回没问题，问题在重排和生成；修复是……；最后把这个对话加入评估集做回归。”有具体案例的回答远比清单有说服力。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 正确段 Top-10 但没进 prompt，先查哪几步？
-2. 高总体 recall 能否证明单例生成故障？
+1. 案例 1 中旧版政策从哪条路进来的？怎么防？
+2. 案例 4 为什么同时涉及重排和生成两层？
+3. 案例 5 的两个根因是什么？
+4. 选一个案例，用“症状 → 排查 → 修复 → 回归”的结构讲一遍。
 
 </Note>
 
@@ -150,16 +255,27 @@ Walk source page → parsed text → chunk → embedding/lexical tokens → vers
 
 <Locale lang="en">
 
-## Level 2 · Candidates to answer
+## Level 2 · Six cases
 
-### Why can an answer be wrong when Top-K is right?
+1. **Expired policy cited**: BM25 branch lacked the version filter → filter both branches; add a version-switch regression case.
+2. **Table row without headers**: "delivered: no…" read as the answer → repeat headers in row chunks.
+3. **ID lookup fails**: dense-only retrieval plus a tokenizer splitting "P-17" → add BM25 and protect IDs.
+4. **Right chunk in context, wrong answer**: the opposite clause ranked first and the model didn't match on order state → rerank by condition, require "confirm status, pick clause, cite it," pass status as a structured field. This is the running error.
+5. **Answering without an answer**: overseas policy never ingested and no threshold → calibrated threshold with "no applicable policy" and escalation; ingest the policy.
+6. **Second turn off-topic**: retrieval used "what about after delivery?" verbatim → rewrite with conversation history.
 
-Inspect fusion cutoff, rerank displacement, accidental deduplication, prompt-budget trimming, and whether the full condition survives. Then inspect grounded claims and live-state use. Report candidate recall, context coverage, faithfulness, and task correctness separately. Aggregate recall cannot prove the failed case had usable evidence in its prompt.
+<Note type="tip" title="Interview move">
+
+Walk one case end to end: reproduce, state the expected evidence, inspect the final context, localize the layer, fix, and add a regression case.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Where do you inspect when the right passage is Top-10 but absent from the prompt?
-2. Can high aggregate recall prove a generation fault for one case?
+1. Where did the old policy enter in case 1?
+2. Why does case 4 span reranking and generation?
+3. Case 5's two root causes?
+4. Tell one case as symptom → investigation → fix → regression.
 
 </Note>
 
@@ -167,18 +283,34 @@ Inspect fusion cutoff, rerank displacement, accidental deduplication, prompt-bud
 
 <Locale lang="zh">
 
-## Level 3 · 修复与回归
+## Level 3 · 闭环
 
-### 怎么把一次故障变成可靠改进？
+### 怎样让同一个错误不再出现？
 
-按根因只改一个主要环节，加入包含输入、期望证据 ID、业务状态和允许回答的回归样本；用同一批查询对比改前改后，防止修好“运输中”却破坏“未发货”。同时跑权限负例、过期政策、无答案样本。
+```text
+1. 把这次的对话（脱敏后）加入评估集，标注正确答案和正确块
+2. 修复
+3. 在完整评估集上回归：这个用例通过，其他用例不退化
+4. 能自动检测的，加成规则检查（如“引用的块版本必须是当前生效版本”）
+5. 灰度上线（见 Reliability Level 4）
+```
 
-延迟故障拆成解析/索引新鲜度（离线）、query embedding、双路检索、重排、context、生成（在线）各段 P50/P95。若重排 P95 暴涨，可减少候选或选择性重排；必须重新看质量。线上异常按触发来源、索引/模型版本与用户影响回流评测集。
+### 线上监控哪些 RAG 特有的信号？
+
+| 信号 | 说明 |
+| --- | --- |
+| “未找到答案”比例 | 突然上升：可能索引出问题或新话题出现；突然下降到 0：阈值可能失效，系统在硬答 |
+| 引用覆盖率 | 回答中有引用的比例；下降说明模型开始脱离证据作答 |
+| 检索分数分布 | 重排最高分的分布整体下移，说明查询分布变了或索引变差 |
+| 过期版本引用 | 引用的块中非当前生效版本的比例，应为 0 |
+| 索引新鲜度 | 文档更新到可被检索的延迟（见 [Ingestion](/docs/rag/ingestion) Level 3） |
+| 线上抽样 faithfulness | 用 judge 抽样评估（见 [RAG Eval](/docs/evaluation/rag-eval) Level 4） |
 
 <Note title="自测：到这里你应该能回答">
 
-1. 修复单例为何要测相邻状态？
-2. P95 变慢时为何不能只删重排？
+1. 修复后要做哪五步才算闭环？
+2. “未找到答案”比例突然降到 0 可能意味着什么？
+3. 列出四个 RAG 特有的线上监控信号。
 
 </Note>
 
@@ -186,16 +318,21 @@ Inspect fusion cutoff, rerank displacement, accidental deduplication, prompt-bud
 
 <Locale lang="en">
 
-## Level 3 · Fix and regression
+## Level 3 · Closing the loop
 
-### How does one failure become a reliable improvement?
+### Prevent recurrence
 
-Change the diagnosed layer, add a regression case with expected evidence IDs and live state, and compare before/after on the same queries. Include authorization negatives, stale documents, and no-answer cases. Split latency by online stage and track P50/P95; if reranking dominates tail latency, reduce candidates or route selectively, then recheck quality. Feed incidents back into the evaluation set.
+Add the redacted conversation to the eval set with the expected answer and chunk; fix; regress on the full set; add automatic rule checks (e.g. cited chunks must be the current version); roll out gradually.
+
+### What to monitor?
+
+No-answer rate (spikes = index trouble or new topics; dropping to zero = thresholds failing and the system bluffing), citation coverage, top reranker score distribution, expired-version citations (should be 0), index freshness, and sampled online faithfulness.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why test neighboring order states after a fix?
-2. Why not drop reranking solely to improve P95?
+1. The five closing steps?
+2. What might a no-answer rate of zero mean?
+3. Four RAG-specific monitoring signals?
 
 </Note>
 
@@ -205,53 +342,71 @@ Change the diagnosed layer, add a regression case with expected evidence IDs and
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+- “答错了就换一个更强的模型。”
+- “调一下 prompt 应该就好了。”（没定位就修）
+- 没写下标准答案和依据就开始排查。
+- 从最终答案倒推一个根因，不看 trace。
 
 </Note>
 
 ## 连接
 
-上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
+```text
+Ingestion → Chunking → Filters → Embedding / Sparse → Hybrid → Reranking → Construction → 生成
+    ↑                                                                                      │
+    └──────────────── Failure Diagnosis（逐层定位）←──── RAG Eval（分层指标）←──────────────┘
+```
+
+- 本栏全部页面；指标见 [RAG Eval](/docs/evaluation/rag-eval)；trace 见 [Observability](/docs/production/observability)
 
 ## 面试问题
 
-1. 一个错误回答要先保存什么？（What do you preserve for one wrong answer?）
-2. 正确政策没进候选，应沿哪条链查？（How do you trace a missing policy before generation?）
-3. 正确段在 Top-K，答案为什么仍错？（Why can an answer be wrong when Top-K is right?）
-4. 怎么把一次故障变成可靠改进？（How does one failure become a reliable improvement?）
+1. RAG 答错了，你会怎么查？（The RAG answer is wrong — how do you investigate?）
+2. 排查前要准备什么？trace 记录什么？（What do you prepare, and what does the trace record?）
+3. 怎样快速判断是检索问题还是生成问题？（How do you quickly tell retrieval from generation problems?）
+4. 正确的块已经在 context 里，模型仍然答错，可能是什么原因？（The right chunk is in context but the answer is wrong — why?）
+5. 怎样让 RAG 在没有答案时不硬答？（How do you stop RAG from bluffing when there's no answer?）
+6. 线上要监控哪些 RAG 特有的指标？（Which RAG-specific signals do you monitor?）
 
 ## 资料来源
 
-- [原始研究或官方文档](https://learn.microsoft.com/azure/search/hybrid-search-ranking)
+- [Barnett et al., 2024：Seven Failure Points When Engineering a RAG System](https://arxiv.org/abs/2401.05856)
+- [Anthropic：Contextual Retrieval](https://www.anthropic.com/engineering/contextual-retrieval)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+- "Switch to a stronger model."
+- "Tweak the prompt." (Fixing before localizing.)
+- Debugging without a written expected answer and evidence.
+- Inferring a root cause from the final answer without traces.
 
 </Note>
 
 ## Connections
 
-Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+- Every page in this section; metrics in [RAG Eval](/docs/evaluation/rag-eval); traces in [Observability](/docs/production/observability)
 
 ## Interview questions
 
-1. What do you preserve for one wrong answer?
-2. How do you trace a missing policy before generation?
-3. Why can an answer be wrong when Top-K is right?
-4. How does one failure become a reliable improvement?
+1. The RAG answer is wrong — how do you investigate?
+2. What do you prepare, and what does the trace record?
+3. How do you quickly tell retrieval from generation problems?
+4. The right chunk is in context but the answer is wrong — why?
+5. How do you stop RAG from bluffing when there's no answer?
+6. Which RAG-specific signals do you monitor?
 
 ## Sources
 
-- [Primary research or official documentation](https://learn.microsoft.com/azure/search/hybrid-search-ranking)
+- [Barnett et al., 2024: Seven Failure Points](https://arxiv.org/abs/2401.05856)
+- [Anthropic: Contextual Retrieval](https://www.anthropic.com/engineering/contextual-retrieval)
 
 </Locale>
 

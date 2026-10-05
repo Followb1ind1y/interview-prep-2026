@@ -1,10 +1,10 @@
 ---
 title: Hybrid Search
 titleEn: Hybrid Search
-description: 组合语义与词法召回，手算 RRF 并诊断融合失效。
-descriptionEn: Combine semantic and lexical recall, calculate RRF, and debug fusion.
-date: 2026-09-24
-keywords: ['rag', 'hybrid search', 'rrf', 'bm25', 'dense']
+description: BM25 与向量检索为什么互补；RRF 用 k = 60 手算、k 的作用；分数归一化加权融合与它的校准问题；按查询类型分桶评估；融合后排错与延迟拆账。
+descriptionEn: "Why BM25 and dense retrieval complement each other; hand-computing RRF with k = 60 and what k does; normalized weighted fusion and calibration; evaluating by query type; debugging and latency after fusion."
+date: 2026-10-04
+keywords: ['hybrid search', 'rrf', 'reciprocal rank fusion', 'score fusion', 'normalization', 'bm25', 'dense retrieval', 'convex combination']
 tier: A
 status: todo
 cursor: ''
@@ -13,45 +13,55 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+混合检索是生产 RAG 的默认配置：BM25 负责精确匹配，向量负责语义匹配，再把两路结果融合。面试里几乎一定会让你手算 RRF，并追问“为什么不直接把两个分数相加”“k 是什么”“什么时候用加权融合”。
+
+贯穿例子：查询“`P-17` 运输中能退款吗”。向量检索擅长“运输中 ≈ 还在路上”，BM25 擅长“P-17”这个编号。
 
 ## 这一页怎么学
 
-| Level | 要回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 互补信号 | 为什么同时跑 BM25 和向量检索？ | 15–25 min |
-| 1 · RRF 手算 | RRF 如何避免直接相加不可比的分数？ | 15–25 min |
-| 2 · 融合取舍 | RRF 与原始分数加权各有什么代价？ | 15–25 min |
-| 3 · 上线排错 | 融合后的第一名仍答错，怎么定位？ | 15–25 min |
+| 0 · 为什么要两路 | BM25 和向量各自漏掉什么？ | 15 min |
+| 1 · RRF 手算 | RRF 怎么算？k = 60 是什么意思？ | 30 min |
+| 2 · 加权融合 | 分数归一化后加权和 RRF 怎么选？ | 25 min |
+| 3 · 评估与排错 | 怎么证明混合更好？融合后答错怎么查？ | 20 min |
+
+**Level 1 是重点**，必须能手算。全页约 1.5 小时。
 
 ## 需要掌握
 
-- 为什么同时跑 BM25 和向量检索？
-- RRF 如何避免直接相加不可比的分数？
-- RRF 与原始分数加权各有什么代价？
-- 融合后的第一名仍答错，怎么定位？
+- 两路检索的互补性；融合前统一 ID、统一过滤
+- RRF 公式、k 的作用（常用 60）、手算
+- 为什么原始分数不能直接相加；min-max / z-score 归一化与凸组合
+- RRF 丢失分数幅度信息；加权融合需要持续校准
+- 按查询类型分桶评估；融合后的逐层排错
 
 </Locale>
 
 <Locale lang="en">
 
-We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+Hybrid search is the production default: BM25 for exact matches, dense for semantics, fused. Expect to compute RRF by hand and explain why raw scores can't be added, what k is, and when to use weighted fusion.
 
-## How to study this page
+Running example: "`P-17` — can in-transit orders be refunded?"
 
-| Level | Question | Time |
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · Complementary signals | Why run BM25 and dense retrieval together? | 15–25 min |
-| 1 · RRF by hand | How does RRF avoid mixing incomparable raw scores? | 15–25 min |
-| 2 · Fusion choices | What are the tradeoffs between RRF and score fusion? | 15–25 min |
-| 3 · Production debugging | How do you debug a bad top hybrid result? | 15–25 min |
+| 0 · Why two branches | What does each miss? | 15 min |
+| 1 · RRF by hand | How is RRF computed, and what does k = 60 mean? | 30 min |
+| 2 · Weighted fusion | Normalized weighted sums vs RRF? | 25 min |
+| 3 · Evaluation and debugging | How do you prove hybrid helps? Debug a bad fused result? | 20 min |
+
+**Level 1 is the core.** About 1.5 hours.
 
 ## Must know
 
-- Why run BM25 and dense retrieval together?
-- How does RRF avoid mixing incomparable raw scores?
-- What are the tradeoffs between RRF and score fusion?
-- How do you debug a bad top hybrid result?
+- complementarity; unify IDs and filters before fusing
+- the RRF formula, k (commonly 60), hand calculation
+- why raw scores don't add; min-max / z-score normalization and convex combination
+- RRF drops magnitude; weighted fusion needs calibration
+- per-query-type evaluation; layered debugging
 
 </Locale>
 
@@ -59,18 +69,28 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="zh">
 
-## Level 0 · 互补信号
+## Level 0 · 为什么要两路
 
-### 为什么同时跑 BM25 和向量检索？
+### BM25 和向量各自漏掉什么？
 
-向量擅长“还在路上”对“运输中”的改写，BM25 擅长 `P-17`、订单型号和错误码。二者各自取一批候选，按 `chunk_id` 去重后融合；融合之前仍须应用租户、版本和权限约束。
+| 查询 | 向量检索 | BM25 |
+| --- | --- | --- |
+| “还在路上能退钱吗” | ✓ 能匹配“运输中”“退款” | ✗ 字面不重合 |
+| “P-17 第 4 条” | △ 编号被模糊化，可能召回 P-12、P-71 | ✓ 罕见词精确匹配 |
+| “错误码 E-1042” | ✗ | ✓ |
+| “我的东西一直没收到怎么办” | ✓ | △ 只匹配到常见词 |
 
-示意查询“`P-17` 运输中退款”：dense 找到语义相近的 `P-17 v3` 条款和通用售后 FAQ；BM25 找到精确编号条款和提过 `P-17` 的旧 FAQ。融合提高候选覆盖的机会，但不是自动质量保证。
+两路的错误**不相关**——一路漏掉的，另一路往往能找到。这就是融合有效的根本原因。
+
+融合前的两个工程前提：
+
+1. **统一 ID**：同一个块在两个索引里必须有相同的 `chunk_id`，才能识别“这是同一个候选”并合并。
+2. **统一过滤**：租户、版本、ACL 过滤要在**两路都**执行。只在向量检索里过滤、BM25 忘了过滤，旧版 `P-17 v2` 或别的租户数据就会从 BM25 那一路混进来。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 两个分支各擅长什么？
-2. 融合前为什么必须统一 ID 和过滤？
+1. 为什么两路检索融合能提升召回？
+2. 融合前必须做哪两件事？漏掉过滤会怎样？
 
 </Note>
 
@@ -78,16 +98,16 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="en">
 
-## Level 0 · Complementary signals
+## Level 0 · Why two branches
 
-### Why run BM25 and dense retrieval together?
+### What does each miss?
 
-Dense retrieval handles paraphrases; BM25 handles exact IDs and rare terms. Retrieve from both, deduplicate by stable chunk ID, and fuse eligible current results. For “`P-17` shipping refund,” each branch may bring useful and stale-looking candidates, so authorization and version filtering still matter.
+Dense handles paraphrase ("still on the way" ≈ "in transit") but blurs IDs; BM25 nails `P-17` and error codes but misses paraphrases. Their errors are uncorrelated — the reason fusion works. Prerequisites: shared `chunk_id`s across indexes, and tenant/version/ACL filters applied in **both** branches, or expired or foreign data leaks in through one.
 
 <Note title="Self-check: you should be able to answer">
 
-1. What does each branch contribute?
-2. Why align IDs and filters before fusion?
+1. Why does fusion raise recall?
+2. Two prerequisites, and what happens if a filter is missing?
 
 </Note>
 
@@ -97,15 +117,53 @@ Dense retrieval handles paraphrases; BM25 handles exact IDs and rare terms. Retr
 
 ## Level 1 · RRF 手算
 
-### RRF 如何避免直接相加不可比的分数？
+### 为什么不能把两个分数直接相加？
 
-RRF 对每个候选的各路名次求和：`score(d)=Σ 1/(k+rank_i(d))`，没出现的分支贡献 0。教学示意令平滑常数 `k=10`：A 在 dense 第 1、BM25 第 3，得 `1/11+1/13≈0.1678`；B 在 dense 第 2、BM25 第 1，得 `1/12+1/11≈0.1742`，所以 B 略胜。
+向量检索给的是 cosine 相似度（如 0.82），BM25 给的是无上限的分数（如 12.4）。两者**量纲和分布完全不同**：BM25 分数会随查询长度、词的罕见程度大幅变化，cosine 分数通常挤在一个很窄的区间里。直接相加，BM25 会压倒一切。
 
-这里的 `k=10` 是演算常数，**不是** Top-K 截断数。生产系统常用其他默认值，要查实现。RRF 只看排名，不用把 cosine 0.8 与 BM25 12.4 硬相加；若需强调某一路，可调分支权重并用评测确认。
+### RRF 怎么算？
+
+**RRF（Reciprocal Rank Fusion，倒数排名融合）**只用**排名**，不用分数：
+
+```text
+RRF(d) = Σ  1 / (k + rank_i(d))       对每一路检索 i 求和
+         没出现在某一路结果里，该路贡献 0
+k：平滑常数，最常用 k = 60（出自 2009 年提出 RRF 的论文）
+```
+
+手算（k = 60）：
+
+| 块 | 向量排名 | BM25 排名 | RRF 得分 |
+| --- | --- | --- | --- |
+| A：`P-17 v3` 第 4 条 | 1 | 3 | 1/61 + 1/63 = 0.01639 + 0.01587 = **0.03226** |
+| B：`P-17 v3` 第 2 条 | 2 | 1 | 1/62 + 1/61 = 0.01613 + 0.01639 = **0.03252** |
+| C：通用售后 FAQ | 3 | — | 1/63 = **0.01587** |
+| D：提到 P-17 的旧公告 | — | 2 | 1/62 = **0.01613** |
+
+融合排序：B > A > D > C。观察：
+
+- **同时出现在两路的候选**（A、B）得分几乎是只出现在一路的两倍——两路都认可的结果最可靠。
+- B 两路都很靠前，略胜 A。
+
+### k 起什么作用？
+
+k 控制“排名靠前”的优势有多大：
+
+```text
+k = 60：第 1 名 1/61 = 0.0164，第 10 名 1/70 = 0.0143   → 差距很小，名次间比较平滑
+k = 1： 第 1 名 1/2  = 0.50，  第 10 名 1/11 = 0.091   → 第 1 名优势极大
+```
+
+k 大，融合更看重“在几路里都出现”，更稳健；k 小，更看重某一路的第一名。**注意 k 和 Top-K 是两回事**：k 是公式里的常数，Top-K 是每一路取多少个候选。
+
+RRF 的优点：不需要调参（k = 60 通常就够）、不需要分数校准、对任何检索器都适用。很多搜索引擎和向量数据库（Elasticsearch、OpenSearch、Weaviate、Qdrant 等）都内置了 RRF。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 把 B 的两项手算出来；RRF 的 k 与 Top-K 有何区别？
+1. 为什么不能把 cosine 0.82 和 BM25 12.4 直接相加？
+2. 块 E 向量排名 1、BM25 排名 5，用 k = 60 算 RRF，和上表的 B 比谁高？
+3. k 从 60 改成 1，融合行为怎么变？
+4. RRF 的 k 和 Top-K 有什么区别？
 
 </Note>
 
@@ -115,14 +173,24 @@ RRF 对每个候选的各路名次求和：`score(d)=Σ 1/(k+rank_i(d))`，没�
 
 ## Level 1 · RRF by hand
 
-### How does RRF avoid mixing incomparable raw scores?
+### Why not add raw scores?
 
-RRF sums `1/(k+rank)` for each ranking list; an absent result contributes zero. With an illustrative smoothing constant `k=10`, A at dense rank 1 and BM25 rank 3 scores about 0.1678; B at dense rank 2 and BM25 rank 1 scores about 0.1742, so B wins. This `k` is not the number of retrieved neighbors. Check your engine’s defaults and tune branch weights against labeled cases.
+Cosine sits in a narrow range; BM25 is unbounded and varies with query length and term rarity. Summing lets BM25 dominate.
+
+### How does RRF work?
+
+`RRF(d) = Σ 1/(k + rank_i(d))`, absent branches contribute 0, k commonly 60 (from the 2009 RRF paper). With k = 60: A (dense 1, BM25 3) = 1/61 + 1/63 ≈ 0.03226; B (2, 1) ≈ 0.03252; C (dense 3 only) ≈ 0.01587; D (BM25 2 only) ≈ 0.01613 — order B > A > D > C. Candidates in both lists score roughly double.
+
+### What does k do?
+
+Large k flattens rank differences (rank 1 ≈ 0.0164 vs rank 10 ≈ 0.0143), favoring agreement; small k (k = 1: 0.50 vs 0.091) favors one branch's top hit. k isn't top-K. RRF needs no tuning or calibration and is built into Elasticsearch, OpenSearch, Weaviate, Qdrant, and others.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Calculate B’s two terms.
-2. How does RRF k differ from Top-K?
+1. Why not add cosine 0.82 and BM25 12.4?
+2. E is dense 1, BM25 5 — compare to B.
+3. How does k = 1 change behavior?
+4. k vs top-K?
 
 </Note>
 
@@ -130,18 +198,46 @@ RRF sums `1/(k+rank)` for each ranking list; an absent result contributes zero. 
 
 <Locale lang="zh">
 
-## Level 2 · 融合取舍
+## Level 2 · 加权融合
 
-### RRF 与原始分数加权各有什么代价？
+### 分数归一化加权是怎么做的？
 
-原始 cosine、BM25 分数的量纲和分布不同，直接相加通常不稳。分数归一化/校准后加权可以利用置信强弱，但要随索引、模型和查询分布变化持续校准；RRF 更简单稳健，却丢掉“第一名远高于第二名”的幅度信息。
+另一种做法是先把两路分数**归一化到同一区间**，再加权求和（凸组合）：
 
-用标注集按查询类型分桶：编号查询、语义改写、多语言、无答案。比较单路、RRF 与校准加权在相同候选预算下的 Recall@K、排序质量与延迟。若编号查询变差，先看各分支原始排名，再改权重。
+```text
+min-max 归一化：norm(s) = (s - min) / (max - min)     → 每一路的分数映射到 0–1
+融合分数 = α × norm(向量分) + (1 - α) × norm(BM25 分)    α 在 0–1 之间
+```
+
+例：α = 0.5。向量这一路 A = 0.82、B = 0.80、C = 0.71（min 0.71，max 0.82）；BM25 这一路 B = 15.0、D = 12.4、A = 9.0（min 9.0，max 15.0）：
+
+```text
+A：0.5 × 1.00 + 0.5 × 0.00 = 0.50
+B：0.5 × 0.82 + 0.5 × 1.00 = 0.91
+C：0.5 × 0.00 + 0.5 × 0    = 0.00      （没出现在 BM25 里按 0 计）
+D：0.5 × 0    + 0.5 × 0.57 = 0.28
+```
+
+还有 z-score 归一化（减均值除以标准差），对异常值更稳健。
+
+### RRF 和加权融合怎么选？
+
+| | RRF | 归一化加权 |
+| --- | --- | --- |
+| 用什么 | 只用排名 | 用分数大小 |
+| 优点 | 无需调参、无需校准、稳健 | 保留“第一名远远领先”的置信信息；可以用 α 偏向某一路 |
+| 缺点 | 丢掉分数幅度：第 1 名 0.95 和第 2 名 0.40，在 RRF 里只差一个名次 | min-max 对每个查询的极值敏感；α 要在评估集上调，换 embedding 模型或数据分布变了要重新调 |
+
+上例中 min-max 也暴露了一个问题：A 在 BM25 里排第 3，归一化后变成 0——**每个查询内的最低分永远被压成 0**，不管它绝对上其实还不错。
+
+经验：**默认用 RRF**；如果评估显示某类查询明显更依赖某一路（例如编号查询多的场景更依赖 BM25），再考虑加权融合，或给 RRF 的每一路加权重（加权 RRF）。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 为什么不能把 BM25 12.4 与 cosine 0.8 直接相加？
-2. RRF 损失了什么信息？
+1. 写出 min-max 归一化和凸组合的公式。
+2. RRF 丢掉了什么信息？举一个它会吃亏的例子。
+3. 为什么加权融合的 α 换了 embedding 模型后要重新调？
+4. min-max 归一化有什么副作用？
 
 </Note>
 
@@ -149,16 +245,22 @@ RRF sums `1/(k+rank)` for each ranking list; an absent result contributes zero. 
 
 <Locale lang="en">
 
-## Level 2 · Fusion choices
+## Level 2 · Weighted fusion
 
-### What are the tradeoffs between RRF and score fusion?
+### How does normalized weighted fusion work?
 
-Raw BM25 and cosine scores have different scales. Calibrated score fusion can use score margins but needs maintenance as models and corpora change. RRF is simpler and scale-independent, but loses the magnitude of rank differences. Compare lexical-only, dense-only, RRF, and calibrated fusion under the same candidate budget and query buckets.
+Normalize each branch to 0–1 (min-max, or z-score for robustness) and combine `α·dense + (1−α)·BM25`. With α = 0.5 and the example scores: A 0.50, B 0.91, C 0.00, D 0.28.
+
+### RRF or weighted?
+
+RRF: rank-only, no tuning, robust, but loses magnitude (0.95 vs 0.40 becomes one rank). Weighted: keeps confidence and lets you favor a branch, but min-max is sensitive to per-query extremes (the lowest score always becomes 0) and α must be re-tuned when models or data shift. Default to RRF; move to weighted or per-branch-weighted RRF when evaluation shows query types lean on one branch.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why not add BM25 12.4 to cosine 0.8?
-2. What information does RRF discard?
+1. Min-max and convex-combination formulas?
+2. What does RRF lose, with an example?
+3. Why re-tune α after changing embedding models?
+4. Side effect of min-max?
 
 </Note>
 
@@ -166,18 +268,57 @@ Raw BM25 and cosine scores have different scales. Calibrated score fusion can us
 
 <Locale lang="zh">
 
-## Level 3 · 上线排错
+## Level 3 · 评估与排错
 
-### 融合后的第一名仍答错，怎么定位？
+### 怎么证明混合检索真的更好？
 
-记录每段的原始 dense/BM25 名次、融合贡献、过滤原因和最终重排名次。先确认现行 `P-17 v3` 是否进入任一路候选；若没有，是前段召回问题；若有但融合后掉出预算，是融合或截断；若进了重排却丢掉，是重排；若进 prompt 仍答错，是生成或证据使用。
+按**查询类型分桶**评估，因为混合检索在不同类型上的收益差别很大：
 
-对延迟也拆账：两个检索分支能否并行、慢分支 P95、合并去重和后续重排的耗时。线上降级可以只留一支，但需知道会失去哪类查询。
+| 查询类型 | 只用向量 Recall@10 | 只用 BM25 | RRF 混合 |
+| --- | --- | --- | --- |
+| 口语改写（“还在路上”） | 0.86 | 0.41 | 0.88 |
+| 编号 / 型号（“P-17 第 4 条”） | 0.52 | 0.94 | 0.95 |
+| 混合（编号 + 语义） | 0.70 | 0.75 | 0.90 |
+| 无答案 | — | — | 检查是否错误召回高分噪声 |
+
+（数字为教学示意。）只看总体平均，可能看不出混合检索在“编号类”上避免了严重失败。
+
+### 融合后第一名仍然答错，怎么查？
+
+trace 里记录每个候选的：向量排名、BM25 排名、融合得分、过滤原因、重排后名次。然后逐层看：
+
+```text
+正确块 P-17 v3 第 4 条：
+  两路都没召回？        → 召回问题：embedding / 切分 / 分词 / 索引（见各自的页）
+  召回了但融合后掉出候选？ → 每路 Top-K 太小，或融合方式问题
+  进了候选但重排后掉出？  → 重排问题（见 Reranking）
+  进了 context 仍答错？  → 生成或证据利用问题（见 Failure Diagnosis）
+```
+
+### 延迟怎么算？
+
+两路检索要**并行**执行，关键路径取较慢的一路（见 [Latency](/docs/production/latency) Level 2）：
+
+```text
+向量检索 40 ms ∥ BM25 25 ms → 40 ms
++ 融合与去重 2 ms
++ 重排 120 ms
+≈ 162 ms
+```
+
+降级时可以只保留一路，但要清楚会伤害哪类查询：只留向量，编号查询会变差；只留 BM25，口语查询会变差。
+
+<Note type="tip" title="面试加分">
+
+“我会默认用 BM25 + 向量的 RRF，k = 60，两路都执行同样的权限和版本过滤。评估时按查询类型分桶，因为混合检索的收益主要来自避免某一路的严重失败，平均值会掩盖这一点。”
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 正确段在 BM25 第 2 但融合后没进候选，查什么？
-2. 降级到单路会伤到哪类问题？
+1. 为什么评估混合检索要按查询类型分桶？
+2. 正确块在 BM25 第 2 名但融合后没进候选，查什么？
+3. 两路检索的延迟怎么计算？降级到单路会伤害哪类查询？
 
 </Note>
 
@@ -185,16 +326,31 @@ Raw BM25 and cosine scores have different scales. Calibrated score fusion can us
 
 <Locale lang="en">
 
-## Level 3 · Production debugging
+## Level 3 · Evaluation and debugging
 
-### How do you debug a bad top hybrid result?
+### How do you prove hybrid helps?
 
-Log per-branch rank, fusion contribution, filter reason, and rerank position. If current `P-17 v3` is absent from both branches, fix recall; if fusion drops it, inspect fusion or cutoffs; if reranking drops it, inspect reranking; if it reaches the prompt, inspect evidence use. Track branch latency and the query types affected by a one-branch fallback.
+Bucket by query type — paraphrase, identifiers, mixed, unanswerable — because hybrid's value is avoiding one branch's severe failures, which averages hide.
+
+### Fused top result still wrong?
+
+Trace per-branch ranks, fused score, filter reasons, and rerank position, then walk the layers: neither branch recalled it (embedding/chunking/tokenization/index), recalled but dropped at fusion (top-K too small or fusion choice), dropped at rerank, or present in context but misused (generation).
+
+### Latency?
+
+Run branches in parallel; the critical path is the slower one plus fusion and reranking (≈ 40 + 2 + 120 ms). Degrading to one branch hurts IDs (dense only) or paraphrases (BM25 only).
+
+<Note type="tip" title="Interview move">
+
+"BM25 + dense with RRF at k = 60, identical filters in both, evaluated per query type."
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. What if the correct BM25 rank-2 result vanishes after fusion?
-2. Which query class suffers from one-branch fallback?
+1. Why bucket by query type?
+2. Correct chunk was BM25 #2 but missing after fusion — what do you check?
+3. Latency math and which queries suffer under single-branch degradation?
 
 </Note>
 
@@ -204,53 +360,69 @@ Log per-branch rank, fusion contribution, filter reason, and rerank position. If
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+- “把 BM25 分数和 cosine 分数加起来。”
+- “RRF 的 k 就是取 Top-K 的那个 K。”
+- 只在向量检索里做权限过滤。
+- 只看平均召回率证明混合检索有效。
 
 </Note>
 
 ## 连接
 
-上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
+- 上一站：[Sparse Retrieval](/docs/rag/sparse-retrieval)；下一站：[Reranking](/docs/rag/reranking)
+- 相关：[Vector Search](/docs/rag/vector-search)、[Failure Diagnosis](/docs/rag/debugging)、[RAG Eval](/docs/evaluation/rag-eval)
 
 ## 面试问题
 
-1. 为什么同时跑 BM25 和向量检索？（Why run BM25 and dense retrieval together?）
-2. RRF 如何避免直接相加不可比的分数？（How does RRF avoid mixing incomparable raw scores?）
-3. RRF 与原始分数加权各有什么代价？（What are the tradeoffs between RRF and score fusion?）
-4. 融合后的第一名仍答错，怎么定位？（How do you debug a bad top hybrid result?）
+1. 为什么要同时用 BM25 和向量检索？（Why combine BM25 and dense retrieval?）
+2. 手算 RRF，并解释 k 的作用。（Compute RRF by hand and explain k.）
+3. 为什么不能把原始分数直接相加？（Why not add raw scores?）
+4. RRF 和归一化加权融合怎么选？（RRF or normalized weighted fusion?）
+5. 怎样证明混合检索更好？（How do you show hybrid search is better?）
+6. 融合后第一名仍然答错，怎么定位？（How do you debug a bad top hybrid result?）
 
 ## 资料来源
 
-- [原始研究或官方文档](https://learn.microsoft.com/azure/search/hybrid-search-ranking)
+- [Cormack et al., 2009：Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning Methods](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf)
+- [Elasticsearch：Reciprocal rank fusion](https://www.elastic.co/guide/en/elasticsearch/reference/current/rrf.html)
+- [Azure AI Search：Hybrid search ranking](https://learn.microsoft.com/azure/search/hybrid-search-ranking)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+- "Add the BM25 and cosine scores."
+- "RRF's k is the top-K."
+- Filtering only the dense branch.
+- Proving hybrid with averages alone.
 
 </Note>
 
 ## Connections
 
-Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+- Previous: [Sparse Retrieval](/docs/rag/sparse-retrieval); next: [Reranking](/docs/rag/reranking)
+- Related: [Vector Search](/docs/rag/vector-search), [Failure Diagnosis](/docs/rag/debugging), [RAG Eval](/docs/evaluation/rag-eval)
 
 ## Interview questions
 
-1. Why run BM25 and dense retrieval together?
-2. How does RRF avoid mixing incomparable raw scores?
-3. What are the tradeoffs between RRF and score fusion?
-4. How do you debug a bad top hybrid result?
+1. Why combine BM25 and dense retrieval?
+2. Compute RRF by hand and explain k.
+3. Why not add raw scores?
+4. RRF or normalized weighted fusion?
+5. How do you show hybrid search is better?
+6. How do you debug a bad top hybrid result?
 
 ## Sources
 
-- [Primary research or official documentation](https://learn.microsoft.com/azure/search/hybrid-search-ranking)
+- [Cormack et al., 2009: Reciprocal Rank Fusion](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf)
+- [Elasticsearch: RRF](https://www.elastic.co/guide/en/elasticsearch/reference/current/rrf.html)
+- [Azure AI Search: Hybrid ranking](https://learn.microsoft.com/azure/search/hybrid-search-ranking)
 
 </Locale>
 

@@ -1,10 +1,10 @@
 ---
 title: Advanced RAG
 titleEn: Advanced RAG
-description: 用明确故障驱动查询改写、HyDE、父子检索、GraphRAG 与 agentic RAG。
-descriptionEn: Apply advanced retrieval methods only to diagnosed failures.
-date: 2026-09-24
-keywords: ['rag', 'query rewriting', 'hyde', 'graphrag', 'agentic rag']
+description: 高级技巧要由具体失败驱动：查询改写 / 多查询 / 分解 / HyDE、层级摘要（RAPTOR）、GraphRAG 的建图与全局问题、agentic RAG 与 Self-RAG / CRAG，以及每种技巧的成本。
+descriptionEn: "Advanced techniques should be failure-driven: query rewriting, multi-query, decomposition, HyDE; hierarchical summaries (RAPTOR); GraphRAG for global questions; agentic RAG with Self-RAG and CRAG; and the cost of each."
+date: 2026-10-04
+keywords: ['advanced rag', 'query rewriting', 'multi-query', 'query decomposition', 'hyde', 'raptor', 'graphrag', 'lightrag', 'agentic rag', 'self-rag', 'crag']
 tier: B
 status: todo
 cursor: ''
@@ -13,45 +13,59 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+面试官问“你知道哪些高级 RAG 技巧”时，列一串名词（HyDE、GraphRAG、Self-RAG……）是最弱的回答。好的回答是：“**我先看是哪类失败，再选对应的技巧，并说明代价**”。这一页按“失败类型 → 技巧”组织。
+
+贯穿例子：除了“运输中能退款吗”，再加三个更难的问题：
+
+- 口语模糊：“那个东西一直不来，钱能不能拿回来”
+- 多跳：“我在海外买的、已经签收 10 天的订单，运费谁出？”
+- 全局问题：“上个月客户投诉最多的是哪几类问题？”
 
 ## 这一页怎么学
 
-| Level | 要回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 先诊断 | 什么时候基础 RAG 已经不够？ | 15–25 min |
-| 1 · 查询改写与 HyDE | 如何让模糊问题更容易被检索？ | 15–25 min |
-| 2 · 父子与图 | 跨段关系什么时候需要 parent-child 或 GraphRAG？ | 15–25 min |
-| 3 · Agentic RAG | 让 agent 多轮检索时如何防止空转？ | 15–25 min |
+| 0 · 失败驱动 | 什么失败该用什么技巧？ | 15 min |
+| 1 · 查询侧 | 改写、多查询、分解、HyDE 各解决什么？ | 30 min |
+| 2 · 索引侧 | RAPTOR 和 GraphRAG 怎样回答“全局问题”？ | 30 min |
+| 3 · Agentic RAG | 让模型自己决定检索什么、何时检索，值不值？ | 25 min |
+
+**Level 0 和 Level 2 是重点**。全页约 1.5 小时。
 
 ## 需要掌握
 
-- 什么时候基础 RAG 已经不够？
-- 如何让模糊问题更容易被检索？
-- 跨段关系什么时候需要 parent-child 或 GraphRAG？
-- 让 agent 多轮检索时如何防止空转？
+- 失败类型与技巧的对应表
+- 查询改写、多查询 + 融合、问题分解、step-back、HyDE
+- RAPTOR 的层级摘要树；GraphRAG 的实体图、社区摘要、局部 / 全局搜索与建索引成本
+- agentic RAG、Self-RAG、CRAG；何时值得
+- 每种技巧的额外延迟和成本
 
 </Locale>
 
 <Locale lang="en">
 
-We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+Listing names (HyDE, GraphRAG, Self-RAG) is the weakest answer to "which advanced RAG techniques do you know?" Better: identify the failure, choose the technique, state the cost. This page is organized failure → technique.
 
-## How to study this page
+Running examples: vague phrasing ("that thing never came, can I get money back"), multi-hop ("overseas order, delivered 10 days ago — who pays return shipping?"), and global ("what were last month's top complaint categories?").
 
-| Level | Question | Time |
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · Diagnose first | When does the baseline RAG need help? | 15–25 min |
-| 1 · Rewriting and HyDE | How can vague queries become retrievable? | 15–25 min |
-| 2 · Parents and graphs | When do parent retrieval or GraphRAG help? | 15–25 min |
-| 3 · Agentic RAG | How do you keep iterative retrieval from looping? | 15–25 min |
+| 0 · Failure-driven | Which technique for which failure? | 15 min |
+| 1 · Query side | Rewriting, multi-query, decomposition, HyDE? | 30 min |
+| 2 · Index side | How do RAPTOR and GraphRAG answer global questions? | 30 min |
+| 3 · Agentic RAG | Should the model decide what and when to retrieve? | 25 min |
+
+**Levels 0 and 2 are the core.** About 1.5 hours.
 
 ## Must know
 
-- When does the baseline RAG need help?
-- How can vague queries become retrievable?
-- When do parent retrieval or GraphRAG help?
-- How do you keep iterative retrieval from looping?
+- the failure → technique map
+- rewriting, multi-query + fusion, decomposition, step-back, HyDE
+- RAPTOR trees; GraphRAG entity graphs, community summaries, local/global search, indexing cost
+- agentic RAG, Self-RAG, CRAG; when worth it
+- added latency and cost of each
 
 </Locale>
 
@@ -59,18 +73,27 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="zh">
 
-## Level 0 · 先诊断
+## Level 0 · 失败驱动
 
-### 什么时候基础 RAG 已经不够？
+### 什么失败该用什么技巧？
 
-先建立可靠的解析、chunk、混合检索、重排与分层评测基线。再用失败样本分类：用户问题省略关键实体、短 query 与文档措辞差很远、答案跨多段关系、需要跨系统查证。每一类故障只引入对应机制，避免把复杂流程当成绩效本身。
+先用 [Failure Diagnosis](/docs/rag/debugging) 和错误分析（见 [Fundamentals](/docs/evaluation/fundamentals) Level 4）找出主要失败类型，再对号入座：
 
-例如“这个订单还能退吗？”缺订单状态，先查订单工具；不是给 query 做十次改写。若用户问“过去一年全部政策变更的共同主题”，单段召回可能不足，才考虑跨文档聚合。
+| 失败表现 | 根因 | 技巧 | 代价 |
+| --- | --- | --- | --- |
+| 口语、模糊、缺关键词的问题召回差 | 查询和文档的表达方式不同 | 查询改写、HyDE | 多一次 LLM 调用 |
+| 一种表述召回不全 | 单一查询覆盖面窄 | 多查询 + RRF 融合 | 多次检索 |
+| 多条件 / 多跳问题答不全 | 一次检索拿不到所有需要的证据 | 问题分解、迭代检索 | 多轮，延迟成倍 |
+| 块缺上下文、指代不明 | 切分丢失上下文 | parent-child、contextual retrieval（见 [Chunking](/docs/rag/chunking)） | 索引成本 |
+| “总结全部 / 主要主题是什么”答不好 | 答案分散在大量文档中，Top-K 只看到一小部分 | RAPTOR、GraphRAG | 建索引很贵 |
+| 不同问题需要不同检索策略 | 一条固定流水线不够灵活 | agentic RAG | 延迟和成本最高、可控性最低 |
+
+**基线没做好之前，不要上高级技巧**：解析、切分、混合检索、重排、元数据过滤做扎实，通常能解决大部分问题。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 什么时候先查工具而非改写查询？
-2. 如何证明高级策略解决了特定失败？
+1. 为什么不应该一开始就上 GraphRAG？
+2. 口语问题召回差、多跳问题答不全，分别用什么技巧？
 
 </Note>
 
@@ -78,16 +101,16 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="en">
 
-## Level 0 · Diagnose first
+## Level 0 · Failure-driven
 
-### When does the baseline RAG need help?
+### Which technique for which failure?
 
-Start from a working baseline and classify misses: omitted entities, query-document wording gap, multi-passage relationships, or cross-system facts. Add one mechanism for one observed failure. A missing live order state calls for a tool, not ten rewrites. A global question across policy changes may need broader aggregation.
+Vague phrasing → rewriting or HyDE (+1 LLM call). Narrow single query → multi-query + RRF (more searches). Multi-hop → decomposition or iterative retrieval (multiple rounds). Context-poor chunks → parent-child or contextual retrieval. "Summarize everything" → RAPTOR or GraphRAG (expensive indexing). Varied strategies → agentic RAG (highest cost, least control). Get the baseline (parsing, chunking, hybrid, reranking, filters) right first.
 
 <Note title="Self-check: you should be able to answer">
 
-1. When should a tool precede query rewriting?
-2. How do you prove an advanced method fixes a diagnosed miss?
+1. Why not start with GraphRAG?
+2. Techniques for vague queries and multi-hop questions?
 
 </Note>
 
@@ -95,18 +118,42 @@ Start from a working baseline and classify misses: omitted entities, query-docum
 
 <Locale lang="zh">
 
-## Level 1 · 查询改写与 HyDE
+## Level 1 · 查询侧
 
-### 如何让模糊问题更容易被检索？
+### 查询改写、多查询、分解有什么区别？
 
-查询改写可保留原意，补上已知订单状态和同义表达，例如“货还在路上”→“运输中订单退款规则”，同时保留原 query 跑一支防止改写偏航。Multi-query 可覆盖不同措辞，但增加调用和噪声。HyDE 先生成一段**假想相关文档**，嵌入该文档来检索真实资料；它是召回桥梁，绝不可当回答证据。
+| 技巧 | 做法 | 例子 |
+| --- | --- | --- |
+| **查询改写** | 用 LLM 把口语、模糊问题改写成规范的检索查询；多轮对话中把指代补全 | “那个东西一直不来，钱能不能拿回来” → “订单未送达 运输中 退款政策” |
+| **多查询（multi-query）** | 生成 3–5 个不同表述的查询，分别检索，再用 RRF 融合 | “运输中退款”“物流途中能否退钱”“未签收订单退款条件” |
+| **问题分解** | 把多条件问题拆成子问题，分别检索，最后综合 | “海外 + 已签收 10 天 + 运费”→ ①海外订单退货政策 ②签收后退货期限 ③退货运费承担 |
+| **step-back** | 先问一个更抽象的问题，取回原理性资料 | “这单运费谁出”→ 先查“退货运费承担的一般规则” |
 
-若假想段编造“运输中可以立即退款”，只可用于候选搜索；最终必须用真实 `P-17 v3` 和订单状态核验。测试改写前后召回、错误引入率和延迟。
+多轮对话中的**指代补全**尤其重要：用户第二轮说“那签收以后呢？”，直接拿这句话检索什么也找不到，必须先改写成“运输中订单签收后能否退货”。
+
+### HyDE 是什么？
+
+**HyDE（Hypothetical Document Embeddings，2022）**：先让 LLM **假装回答**问题，生成一段“假想的答案文档”，再用这段假想文档的向量去检索，而不是用问题的向量。
+
+```text
+问题：“那个东西一直不来，钱能不能拿回来”
+LLM 生成假想答案：“对于已发货但尚未送达的订单，通常不适用未发货退款流程，
+                 客户可在签收后申请退货退款……”
+用这段的向量检索 → 和真实政策条款的表述方式接近，更容易命中
+```
+
+原理：问题和文档是“不对称”的（见 [Embedding](/docs/rag/embedding) Level 3），假想答案和真实文档的形式更像。风险：假想答案里的事实可能是错的——但它只用于检索，不会直接给用户；如果假想答案方向完全错了，会把检索带偏。
+
+### 代价是什么？
+
+每种查询侧技巧都至少多一次 LLM 调用（几百毫秒到一两秒），多查询还要多次检索。常用缓解：用小而快的模型做改写；只对“首次检索置信度低”的问题触发（例如重排最高分低于阈值时再改写重试）。
 
 <Note title="自测：到这里你应该能回答">
 
-1. HyDE 生成段能否引用？
-2. 多查询为什么可能降低精度？
+1. 多轮对话中为什么必须做指代补全？举例。
+2. 问题分解和多查询有什么区别？
+3. HyDE 的原理是什么？假想答案如果有错误事实会怎样？
+4. 怎样减少查询侧技巧带来的延迟？
 
 </Note>
 
@@ -114,16 +161,26 @@ Start from a working baseline and classify misses: omitted entities, query-docum
 
 <Locale lang="en">
 
-## Level 1 · Rewriting and HyDE
+## Level 1 · Query side
 
-### How can vague queries become retrievable?
+### Rewriting, multi-query, decomposition?
 
-Rewrite the query with known state and synonyms while retaining the original query to guard against drift. Multi-query adds coverage and noise. HyDE embeds a generated hypothetical document to retrieve real passages; the generated text is never evidence. If it invents a refund rule, only retrieved source passages can support the final answer. Measure recall gain, drift, and latency.
+Rewriting normalizes vague phrasing and resolves references in multi-turn chats ("what about after delivery?" → "can in-transit orders be returned after delivery?"). Multi-query issues 3–5 paraphrases and fuses with RRF. Decomposition splits multi-condition questions into sub-queries. Step-back retrieves general principles first.
+
+### HyDE?
+
+Hypothetical Document Embeddings (2022): have the LLM write a hypothetical answer and search with its embedding, which resembles real documents more than the question does. Its facts may be wrong — it's only used for search — but a misdirected draft steers retrieval astray.
+
+### Cost?
+
+At least one extra LLM call (and more searches for multi-query). Use small fast models and trigger only when first-pass confidence is low.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Can a HyDE passage be cited?
-2. Why can multiple queries reduce precision?
+1. Why resolve references in multi-turn chats?
+2. Decomposition vs multi-query?
+3. How does HyDE work, and what if the draft is wrong?
+4. How do you limit added latency?
 
 </Note>
 
@@ -131,18 +188,53 @@ Rewrite the query with known state and synonyms while retaining the original que
 
 <Locale lang="zh">
 
-## Level 2 · 父子与图
+## Level 2 · 索引侧
 
-### 跨段关系什么时候需要 parent-child 或 GraphRAG？
+### 为什么普通 RAG 答不好“全局问题”？
 
-Parent-child 先用短段找到相关位置，再回取较大的父段，适合条件和例外散落在同一章节。GraphRAG 把实体、关系和社区摘要组织成图与层级报告，适合跨文档实体关联或全局归纳类问题；构建、更新和核实成本更高。
+“上个月客户投诉最多的是哪几类问题？”的答案不在任何一个块里，而是**分散在几千条工单中**。普通 RAG 取 Top-10，只看到 10 条工单，无论检索多准都无法“总结全部”。这类问题叫**全局问题（global / sensemaking questions）**。
 
-“运输中条款旁边还有例外”通常先试父段；“哪些产品线在各地区的退货政策有共同变化”才可能用图式聚合。图中关系若来自自动抽取，仍要能回溯原始文本，不能把自动摘要当最终事实。
+### RAPTOR 怎么做？
+
+**RAPTOR（2024）**建一棵**层级摘要树**：
+
+```text
+第 0 层：原始块（几千个）
+第 1 层：把相似的块聚类，每类用 LLM 写一段摘要
+第 2 层：再把第 1 层的摘要聚类、摘要
+…… 直到顶层
+检索时：在所有层级上一起检索，既能找到细节（底层），也能找到概括（高层）
+```
+
+### GraphRAG 怎么做？
+
+**GraphRAG**（微软，2024）用 LLM 从文档中构建**知识图谱**，再在图上做摘要：
+
+```text
+建索引：
+  1. 用 LLM 从每个块中抽取实体和关系
+     “订单延误” —导致→ “退款投诉”；“物流商 X” —关联→ “订单延误”
+  2. 合并成一张图
+  3. 用社区检测算法（如 Leiden）把图分成若干“社区”（紧密相关的实体群）
+  4. 用 LLM 为每个社区写摘要（可分多个层级）
+
+查询：
+  局部搜索（local）：问题涉及具体实体 → 找到相关实体及其邻居、相关原文
+  全局搜索（global）：问题是全局性的 → 让 LLM 读各社区摘要，分别作答，再汇总（map-reduce）
+```
+
+对“投诉最多的几类问题”，全局搜索读的是社区摘要（“物流延误相关投诉”“退款流程相关投诉”……），能给出覆盖全部数据的回答。
+
+**代价**：建索引要对每个块调用 LLM 做实体抽取，再为每个社区写摘要——成本可能比普通 RAG 索引高出一到两个数量级；文档更新后图也要更新。LightRAG 等后续工作试图降低这个成本。
+
+**什么时候值得**：全局问题、需要跨大量文档总结关系的场景（调研、情报分析、大量工单分析）。对“运输中能不能退款”这种查具体条款的问题，GraphRAG 没有优势，普通 RAG 更便宜、更准。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 父子检索能解决哪种断裂？
-2. 图的自动抽取关系为何要保留来源？
+1. 什么是全局问题？为什么普通 RAG 答不好？
+2. RAPTOR 的层级摘要树怎么建、怎么用？
+3. GraphRAG 建索引的四个步骤是什么？局部搜索和全局搜索有什么区别？
+4. GraphRAG 的主要代价是什么？什么时候不值得用？
 
 </Note>
 
@@ -150,16 +242,26 @@ Parent-child 先用短段找到相关位置，再回取较大的父段，适合�
 
 <Locale lang="en">
 
-## Level 2 · Parents and graphs
+## Level 2 · Index side
 
-### When do parent retrieval or GraphRAG help?
+### Why does plain RAG fail global questions?
 
-Parent-child retrieval restores a larger section around a matched passage. GraphRAG builds entity relationships and community summaries to support cross-document and global questions, with substantial indexing and verification cost. A nearby exception usually calls for parent retrieval first; broad cross-region policy synthesis may justify graph-based aggregation. Keep provenance to source text.
+"Top complaint categories last month" lives across thousands of tickets; top-10 sees ten. These are global (sensemaking) questions.
+
+### RAPTOR?
+
+RAPTOR (2024) clusters chunks, summarizes each cluster with an LLM, repeats upward into a tree, and retrieves across all levels — details from leaves, overviews from upper nodes.
+
+### GraphRAG?
+
+Microsoft (2024): an LLM extracts entities and relations per chunk, builds a graph, detects communities (e.g. Leiden), and summarizes each community. Local search follows specific entities and their neighborhoods; global search map-reduces over community summaries. Indexing can cost one to two orders of magnitude more than standard RAG and must track updates (LightRAG aims cheaper). Worth it for global, cross-document questions; not for clause lookups.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Which break does parent retrieval fix?
-2. Why keep source provenance for extracted graph edges?
+1. What's a global question, and why does plain RAG fail?
+2. How is a RAPTOR tree built and used?
+3. GraphRAG's four indexing steps; local vs global search?
+4. GraphRAG's main cost, and when it's not worth it?
 
 </Note>
 
@@ -169,16 +271,47 @@ Parent-child retrieval restores a larger section around a matched passage. Graph
 
 ## Level 3 · Agentic RAG
 
-### 让 agent 多轮检索时如何防止空转？
+### 什么是 agentic RAG？
 
-Agentic RAG 让模型根据中间证据决定是否再次检索、换查询、调用工具或停止。适合多跳且下一步依赖上一步结果的问题；简单 FAQ 用固定流程通常更快、更可预测。
+普通 RAG 是固定流水线：每个问题都检索一次、检索固定数量、然后生成。**Agentic RAG** 把检索变成 agent 的**工具**，由模型决定：
 
-设置最大检索轮数、耗时和成本；每轮记 query、结果、证据缺口与停止理由。停止条件应是“所需主张已有可信来源或明确无证据”，不是模型说“我觉得够了”。比较固定 pipeline 与 agent 流程在同一 gold set 上的成功率、无依据答案、P95、成本。
+- **要不要检索**（“你好”不需要检索）
+- **检索什么、用哪个工具**（政策库、订单 API、工单库、网页搜索）
+- **结果够不够**，不够就换个查询再检索
+- **什么时候停止**并作答
+
+多跳问题“海外 + 已签收 10 天 + 运费”就很适合：模型先查海外退货政策，发现提到“适用国内退货期限”，再去查国内签收后退货期限，再查运费规则。这正是 [Agent Loop](/docs/agent/loop) 的循环，只是工具是检索。
+
+### Self-RAG 和 CRAG 是什么？
+
+| 方法 | 思路 |
+| --- | --- |
+| **Self-RAG（2023）** | 训练模型输出特殊的“反思标记”：判断是否需要检索、检索到的段落是否相关、自己的回答是否被证据支持，据此决定下一步 |
+| **CRAG（Corrective RAG，2024）** | 加一个轻量的检索质量评估器：检索结果“正确”就用；“错误”就丢弃并改用网页搜索；“不确定”就两者结合 |
+
+它们的共同思想：**对检索结果做质量判断，再决定用、不用还是重新检索**——而不是无条件地把 Top-K 塞给模型。在工程上，用重排分数阈值（见 [Reranking](/docs/rag/reranking) Level 3）+ 低置信度时触发改写重试，就是一个轻量版的 CRAG。
+
+### agentic RAG 值不值？
+
+| 优点 | 代价 |
+| --- | --- |
+| 处理多跳、需要多个数据源的问题 | 多轮 LLM 调用，延迟和成本成倍（见 [Cost](/docs/production/cost) Level 2） |
+| 能根据中间结果调整 | 行为不确定，难以评估和调试 |
+| 不需要检索时可以跳过 | 可能检索不足就作答，或者陷入反复检索 |
+
+经验：**大部分问题走固定的 RAG 流水线；只有被路由判定为复杂、多跳的问题才进入 agentic 模式**（见 [Workflow vs Agent](/docs/agent/workflow-vs-agent) 的 hybrid 思路和 [Model Routing](/docs/application/model-routing)）。
+
+<Note type="tip" title="面试加分">
+
+“我不会一开始就做 agentic RAG。先把固定流水线做扎实，用错误分析找出主要失败；多跳问题占比高时，再对路由判定为复杂的问题启用迭代检索，并设置最大检索轮数。”
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 简单 FAQ 为什么不一定需要 agent？
-2. agent 何时必须停止并承认缺证据？
+1. agentic RAG 中模型决定哪四件事？
+2. Self-RAG 和 CRAG 的共同思想是什么？怎样做一个轻量版 CRAG？
+3. 为什么建议只对部分问题启用 agentic RAG？
 
 </Note>
 
@@ -188,14 +321,29 @@ Agentic RAG 让模型根据中间证据决定是否再次检索、换查询、�
 
 ## Level 3 · Agentic RAG
 
-### How do you keep iterative retrieval from looping?
+### What is it?
 
-Agentic RAG lets the model choose follow-up searches or tools based on intermediate evidence. It is useful for multi-hop dependencies, but a fixed pipeline is usually simpler for FAQs. Bound search steps, time, and cost; trace each query, result, remaining evidence gap, and stop reason. Compare with the fixed baseline on quality, unsupported claims, tail latency, and cost.
+Retrieval becomes an agent tool: the model decides whether to retrieve, which source, whether results suffice (retrying with new queries), and when to stop — ideal for multi-hop questions like the overseas return case.
+
+### Self-RAG and CRAG?
+
+Self-RAG (2023) trains reflection tokens judging retrieval need, passage relevance, and support. CRAG (2024) grades retrieval quality — use, discard and web-search, or combine. Shared idea: judge retrieval before using it. A light CRAG: reranker thresholds plus rewrite-and-retry on low confidence.
+
+### Worth it?
+
+It handles multi-hop and multi-source questions and skips needless retrieval, but multiplies latency and cost, is harder to evaluate, and can under- or over-retrieve. Route only complex questions into agentic mode with a retrieval-round cap.
+
+<Note type="tip" title="Interview move">
+
+"Fixed pipeline first; enable iterative retrieval only for questions routed as complex, with a round limit."
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why may FAQs not need an agent?
-2. When should the agent stop and state an evidence gap?
+1. Four decisions the model makes in agentic RAG?
+2. Self-RAG and CRAG's shared idea, and a light CRAG?
+3. Why enable agentic RAG for only some questions?
 
 </Note>
 
@@ -205,55 +353,73 @@ Agentic RAG lets the model choose follow-up searches or tools based on intermedi
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+- 不说失败类型，直接列一串高级技巧名词。
+- “GraphRAG 比普通 RAG 更好。”（只对全局问题更好，且贵得多）
+- “HyDE 生成的假想答案可以直接给用户。”
 
 </Note>
 
 ## 连接
 
-上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
+- 前置：[Failure Diagnosis](/docs/rag/debugging)、[Hybrid Search](/docs/rag/hybrid-search)、[Reranking](/docs/rag/reranking)
+- Agent：[Agent Loop](/docs/agent/loop)、[Workflow vs Agent](/docs/agent/workflow-vs-agent)
+- 成本：[Cost](/docs/production/cost)、[Latency](/docs/production/latency)
 
 ## 面试问题
 
-1. 什么时候基础 RAG 已经不够？（When does the baseline RAG need help?）
-2. 如何让模糊问题更容易被检索？（How can vague queries become retrievable?）
-3. 跨段关系什么时候需要 parent-child 或 GraphRAG？（When do parent retrieval or GraphRAG help?）
-4. 让 agent 多轮检索时如何防止空转？（How do you keep iterative retrieval from looping?）
+1. 你会怎样选择高级 RAG 技巧？（How do you choose advanced RAG techniques?）
+2. 查询改写、多查询、问题分解各解决什么？（What do rewriting, multi-query, and decomposition each solve?）
+3. HyDE 是什么？有什么风险？（What is HyDE, and its risks?）
+4. GraphRAG 怎么工作？什么时候值得用？（How does GraphRAG work, and when is it worth it?）
+5. 什么是 agentic RAG？Self-RAG 和 CRAG 是什么？（What is agentic RAG? What are Self-RAG and CRAG?）
+6. 多轮对话中的 RAG 要注意什么？（What changes for RAG in multi-turn conversations?）
 
 ## 资料来源
 
-- [原始研究或官方文档](https://arxiv.org/abs/2212.10496)
-- [原始研究或官方文档](https://microsoft.github.io/graphrag/query/overview/)
+- [HyDE（Gao et al., 2022）](https://arxiv.org/abs/2212.10496)
+- [RAPTOR（Sarthi et al., 2024）](https://arxiv.org/abs/2401.18059)
+- [GraphRAG（Edge et al., 2024）](https://arxiv.org/abs/2404.16130)、[Microsoft GraphRAG](https://microsoft.github.io/graphrag/)
+- [Self-RAG（Asai et al., 2023）](https://arxiv.org/abs/2310.11511)
+- [CRAG（Yan et al., 2024）](https://arxiv.org/abs/2401.15884)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+- Listing technique names without failure types.
+- "GraphRAG beats plain RAG." (Only for global questions, at much higher cost.)
+- "Show users the HyDE draft."
 
 </Note>
 
 ## Connections
 
-Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+- Prereqs: [Failure Diagnosis](/docs/rag/debugging), [Hybrid Search](/docs/rag/hybrid-search), [Reranking](/docs/rag/reranking)
+- Agents: [Agent Loop](/docs/agent/loop), [Workflow vs Agent](/docs/agent/workflow-vs-agent)
+- Cost: [Cost](/docs/production/cost), [Latency](/docs/production/latency)
 
 ## Interview questions
 
-1. When does the baseline RAG need help?
-2. How can vague queries become retrievable?
-3. When do parent retrieval or GraphRAG help?
-4. How do you keep iterative retrieval from looping?
+1. How do you choose advanced RAG techniques?
+2. What do rewriting, multi-query, and decomposition each solve?
+3. What is HyDE, and its risks?
+4. How does GraphRAG work, and when is it worth it?
+5. What is agentic RAG? What are Self-RAG and CRAG?
+6. What changes for RAG in multi-turn conversations?
 
 ## Sources
 
-- [Primary research or official documentation](https://arxiv.org/abs/2212.10496)
-- [Primary research or official documentation](https://microsoft.github.io/graphrag/query/overview/)
+- [HyDE (Gao et al., 2022)](https://arxiv.org/abs/2212.10496)
+- [RAPTOR (Sarthi et al., 2024)](https://arxiv.org/abs/2401.18059)
+- [GraphRAG (Edge et al., 2024)](https://arxiv.org/abs/2404.16130), [Microsoft GraphRAG](https://microsoft.github.io/graphrag/)
+- [Self-RAG (Asai et al., 2023)](https://arxiv.org/abs/2310.11511)
+- [CRAG (Yan et al., 2024)](https://arxiv.org/abs/2401.15884)
 
 </Locale>
 

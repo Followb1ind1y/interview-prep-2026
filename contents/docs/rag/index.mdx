@@ -3,7 +3,7 @@ title: RAG / Retrieval
 titleEn: RAG / Retrieval
 description: 完整 pipeline + 失败诊断。评测指标写在 Evaluation 专栏。
 descriptionEn: Full pipeline plus failure diagnosis. Metrics live in the Evaluation column.
-date: 2026-09-24
+date: 2026-10-04
 keywords: ["rag", "chunking", "embedding", "hybrid search", "rerank", "graph rag"]
 ---
 
@@ -41,13 +41,28 @@ Documents → Parsing → Chunking → Embedding → Vector DB
   <Card title="Failure Diagnosis" description="是检索错了、排序错了、context 拼错了，还是生成没用上 context。" href="/docs/rag/debugging" />
 </CardGrid>
 
-## 建议学习顺序
+## 建议学习顺序与深度
 
-1. **先看全貌：** Architecture → Ingestion → Chunking。先把原文、解析、证据单元与版本弄清。
-2. **再学检索：** Embedding → Vector Search → Sparse Retrieval → Hybrid Search。先分别理解两路，再手算 RRF。
-3. **最后优化与排错：** Reranking → Failure Diagnosis → Advanced RAG。高级策略要由具体失败案例驱动。
+2026-10-04 本栏十页**整页重写**（原页是早期模板生成的薄页，没有你的高亮），请当作新内容完整学一遍。
 
-每页有 Level 0–3、贯穿的 `P-17 v3` 退款政策案例与逐级自测。学习后用 `/drill rag/<页面 slug>` 口头作答；课件生成不代表已经掌握。
+| 页面 | 深度 | 重点 |
+| --- | --- | --- |
+| [Architecture](/docs/rag/architecture) | 🔴 学透 | 两条流水线、四道关口、七个失败点、五分钟白板 |
+| [Ingestion](/docs/rag/ingestion) | 🔴 学透 | PDF / 表格解析、ColPali、版本与增量更新、删除 |
+| [Chunking](/docs/rag/chunking) | 🔴 学透 | 大小取舍、parent-child、late chunking、contextual retrieval、实验选择 |
+| [Embedding](/docs/rag/embedding) | 🔴 学透 | 双塔与对比学习、存储手算、Matryoshka 与量化、换模型 |
+| [Vector Search](/docs/rag/vector-search) | 🔴 学透 | HNSW 参数、IVF / PQ、元数据过滤陷阱、选型 |
+| [Hybrid Search](/docs/rag/hybrid-search) | 🔴 学透 | RRF（k = 60）手算、加权融合、按查询类型评估 |
+| [Failure Diagnosis](/docs/rag/debugging) | 🔴 学透 | 九层排查、六个典型案例、闭环与监控 |
+| [Sparse Retrieval](/docs/rag/sparse-retrieval) | 🟡 抓要点 | BM25 手算、中文分词、SPLADE |
+| [Reranking](/docs/rag/reranking) | 🟡 抓要点 | cross-encoder、ColBERT、LLM 重排、阈值 |
+| [Advanced RAG](/docs/rag/advanced) | 🟡 抓要点 | 失败驱动选技巧、HyDE、GraphRAG、agentic RAG |
+
+1. **先看全貌：** Architecture → Ingestion → Chunking。
+2. **再学检索：** Embedding → Vector Search → Sparse Retrieval → Hybrid Search。
+3. **最后优化与排错：** Reranking → Failure Diagnosis → Advanced RAG。高级技巧要由具体失败驱动。
+
+读完后用 `/drill rag/<页面 slug>` 练习；课件生成不计作掌握。
 
 </Locale>
 
@@ -68,12 +83,27 @@ Evaluation (Recall@K, faithfulness) lives in [Evaluation / RAG Eval](/docs/evalu
   <Card title="Failure Diagnosis" description="Bad retrieval, bad ranking, bad context — or generation that ignored the context." href="/docs/rag/debugging" />
 </CardGrid>
 
-## Suggested order
+## Suggested order and depth
 
-1. **Build the map:** Architecture → Ingestion → Chunking. Establish source truth, parsing, evidence units, and versions.
-2. **Learn retrieval:** Embedding → Vector Search → Sparse Retrieval → Hybrid Search. Understand each branch before calculating RRF.
-3. **Optimize and debug:** Reranking → Failure Diagnosis → Advanced RAG. Advanced methods should address observed failures.
+On 2026-10-04 all ten pages were **fully rewritten** (the originals were thin template pages with no highlights); study them as new material.
 
-Each page has Levels 0–3, one `P-17 v3` refund-policy example, and self-checks. Use `/drill rag/<page slug>` after reading; generated notes do not count as mastery.
+| Page | Depth | Focus |
+| --- | --- | --- |
+| [Architecture](/docs/rag/architecture) | 🔴 Master | pipelines, four gates, seven failure points, whiteboard |
+| [Ingestion](/docs/rag/ingestion) | 🔴 Master | PDF/table parsing, ColPali, versions, incremental updates, deletion |
+| [Chunking](/docs/rag/chunking) | 🔴 Master | size tradeoffs, parent-child, late chunking, contextual retrieval |
+| [Embedding](/docs/rag/embedding) | 🔴 Master | bi-encoders, contrastive training, storage, Matryoshka, quantization |
+| [Vector Search](/docs/rag/vector-search) | 🔴 Master | HNSW, IVF/PQ, filtering traps, selection |
+| [Hybrid Search](/docs/rag/hybrid-search) | 🔴 Master | RRF (k = 60), weighted fusion, per-type evaluation |
+| [Failure Diagnosis](/docs/rag/debugging) | 🔴 Master | nine layers, six cases, monitoring |
+| [Sparse Retrieval](/docs/rag/sparse-retrieval) | 🟡 Key points | BM25 math, Chinese tokenization, SPLADE |
+| [Reranking](/docs/rag/reranking) | 🟡 Key points | cross-encoders, ColBERT, LLM reranking, thresholds |
+| [Advanced RAG](/docs/rag/advanced) | 🟡 Key points | failure-driven choices, HyDE, GraphRAG, agentic RAG |
+
+1. **Build the map:** Architecture → Ingestion → Chunking.
+2. **Learn retrieval:** Embedding → Vector Search → Sparse Retrieval → Hybrid Search.
+3. **Optimize and debug:** Reranking → Failure Diagnosis → Advanced RAG.
+
+Practice with `/drill rag/<page slug>`; generated notes don't count as mastery.
 
 </Locale>

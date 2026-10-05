@@ -1,10 +1,10 @@
 ---
 title: Embedding
 titleEn: Embedding
-description: 理解文本向量、相似度及模型选择对检索的真实影响。
-descriptionEn: Understand text vectors, similarity, and the practical effect of embedding choice.
-date: 2026-09-24
-keywords: ['rag', 'embedding', 'cosine', 'normalization']
+description: 稠密向量怎样表示语义：双塔编码与对比学习训练、cosine 与点积、维度与存储手算、Matryoshka 与量化、查询与文档的不对称、MTEB 怎么看、换模型为什么要全量重建、什么时候微调。
+descriptionEn: "How dense vectors capture meaning: bi-encoders and contrastive training, cosine vs dot product, dimension and storage math, Matryoshka and quantization, query-document asymmetry, reading MTEB, why model swaps force reindexing, and when to fine-tune."
+date: 2026-10-04
+keywords: ['embedding', 'bi-encoder', 'contrastive learning', 'cosine similarity', 'matryoshka', 'quantization', 'mteb', 'bge-m3', 'colbert', 'fine-tuning embeddings']
 tier: A
 status: todo
 cursor: ''
@@ -13,45 +13,63 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+embedding 是向量检索的地基。面试里常见的追问：embedding 模型是怎么训练出来的？cosine 和点积有什么区别？1,000 万个块要多少存储？换一个更好的 embedding 模型需要做什么？为什么“还在路上”能检索到“运输中”，却检索不到订单号？
+
+贯穿例子：用户问“我的猫粮还在路上，能退钱吗？”，正确的块是 `P-17 v3` 第 4 条“已发货（含运输中）订单不适用未发货退款”。两句话几乎没有相同的词，但意思相关。
 
 ## 这一页怎么学
 
-| Level | 要回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 从词到向量 | embedding 是什么，为什么能找近义表达？ | 15–25 min |
-| 1 · 相似度手算 | cosine、dot product 与归一化有什么区别？ | 15–25 min |
-| 2 · 编码与批处理 | query 与 document 要怎样编码和更新？ | 15–25 min |
-| 3 · 模型选择 | 多语言和领域 embedding 如何评估？ | 15–25 min |
+| 0 · 向量表示语义 | embedding 是什么？相似度怎么算？ | 20 min |
+| 1 · 怎么训练出来的 | 双塔模型、对比学习、难负例是什么？ | 30 min |
+| 2 · 维度、存储与压缩 | 1,000 万个块要多少内存？Matryoshka 和量化怎么省？ | 30 min |
+| 3 · 选型与使用 | MTEB 怎么看？查询和文档为什么要区别对待？ | 25 min |
+| 4 · 运维与微调 | 换模型要做什么？什么时候值得微调？ | 20 min |
+
+**Level 1 和 Level 2 是重点**。全页约 2 小时。
 
 ## 需要掌握
 
-- embedding 是什么，为什么能找近义表达？
-- cosine、dot product 与归一化有什么区别？
-- query 与 document 要怎样编码和更新？
-- 多语言和领域 embedding 如何评估？
+- embedding 把文本映射到向量；语义相近 → 向量方向接近
+- cosine、点积、欧氏距离的关系：归一化后三者排序等价
+- 双塔（bi-encoder）与交叉编码器（cross-encoder）的区别
+- 对比学习（InfoNCE）、批内负例、难负例
+- 存储手算；Matryoshka 截断维度；int8 / 二值量化
+- dense 的弱点：精确编号、罕见词、领域外
+- 查询前缀 / 指令；MTEB 的用法与局限
+- 换模型必须全量重建；微调的数据与收益
 
 </Locale>
 
 <Locale lang="en">
 
-We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+Embeddings are the foundation of vector search. Typical follow-ups: how are they trained, cosine vs dot product, storage for 10M chunks, what changing models requires, why "still on the way" finds "in transit" but order numbers fail.
 
-## How to study this page
+Running example: "My cat food is still on the way — can I get my money back?" should match clause 4, "shipped (including in-transit) orders aren't eligible for the unshipped refund" — little word overlap, related meaning.
 
-| Level | Question | Time |
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · From text to vectors | What is an embedding and why can it match paraphrases? | 15–25 min |
-| 1 · Similarity by hand | How do cosine, dot product, and normalization differ? | 15–25 min |
-| 2 · Encoding and indexing | How should queries and documents be encoded and updated? | 15–25 min |
-| 3 · Model selection | How do you evaluate multilingual and domain embeddings? | 15–25 min |
+| 0 · Vectors for meaning | What is an embedding? How is similarity computed? | 20 min |
+| 1 · Training | Bi-encoders, contrastive learning, hard negatives? | 30 min |
+| 2 · Dimensions, storage, compression | Memory for 10M chunks? Matryoshka and quantization? | 30 min |
+| 3 · Selection and use | Reading MTEB; why treat queries and docs differently? | 25 min |
+| 4 · Operations and fine-tuning | What does a model swap require? When to fine-tune? | 20 min |
+
+**Levels 1 and 2 are the core.** About 2 hours.
 
 ## Must know
 
-- What is an embedding and why can it match paraphrases?
-- How do cosine, dot product, and normalization differ?
-- How should queries and documents be encoded and updated?
-- How do you evaluate multilingual and domain embeddings?
+- similar meaning → similar direction
+- cosine, dot product, Euclidean: equivalent ranking after normalization
+- bi-encoder vs cross-encoder
+- InfoNCE, in-batch and hard negatives
+- storage math, Matryoshka truncation, int8/binary quantization
+- dense weaknesses: IDs, rare terms, out-of-domain
+- query prefixes, MTEB and its limits
+- full reindex on model change; fine-tuning data and gains
 
 </Locale>
 
@@ -59,18 +77,43 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="zh">
 
-## Level 0 · 从词到向量
+## Level 0 · 向量表示语义
 
-### embedding 是什么，为什么能找近义表达？
+### embedding 是什么？
 
-Embedding 模型把一段文本映射为固定维度数值向量；训练目标让某些语义或检索相关的文本更接近。用户问“货还在路上能退吗”，政策写“运输中订单适用售后流程”，稠密检索可能相互匹配，即使没用同一措辞。
+embedding 模型把一段文本变成一个固定长度的向量（例如 1,024 个浮点数）。训练目标让**意思相近的文本向量方向接近**：
 
-它不是事实数据库：向量相近不证明条款适用，也不保证精确识别 `P-17`、SKU 或日期。因此用元数据过滤与词法检索补足，最终回看原文。维度是向量长度，不等于知识量或答案质量。
+```text
+“还在路上”        → [0.12, -0.33, 0.08, …]
+“运输中”          → [0.10, -0.31, 0.11, …]   ← 方向接近
+“已签收 7 日内退货” → [-0.25, 0.40, 0.02, …]  ← 方向较远
+```
+
+检索时，把问题也变成向量，找和它最相似的块向量。这就是为什么“还在路上”能找到“运输中”——它们字面不同，但向量接近。
+
+### 相似度怎么算？
+
+| 度量 | 公式（文字描述） | 含义 |
+| --- | --- | --- |
+| 点积 | 两个向量对应位置相乘再求和 | 同时受方向和长度影响 |
+| cosine 相似度 | 点积除以两个向量长度的乘积 | 只看方向，范围 -1 到 1 |
+| 欧氏距离 | 两点之间的直线距离 | 越小越相似 |
+
+关键事实：**如果向量都已归一化（长度为 1），三者给出的排序完全一样**——cosine 就等于点积，欧氏距离的平方等于 `2 - 2 × cosine`。很多 embedding 模型输出的向量已经归一化，此时用点积计算最快。如果模型没有归一化，要按模型文档推荐的度量来用，混用会让排序出错。
+
+### dense 检索的弱点是什么？
+
+- **精确标识**：订单号 `20240915`、条款编号 `P-17`、SKU、错误码——向量会把它们“模糊化”，相似编号的向量很接近，精确匹配反而做不好。
+- **罕见词和新词**：训练时没见过的产品名、内部缩写。
+- **领域外**：通用模型在法律、医疗、公司内部术语上表现下降。
+
+这些正是 BM25 擅长的，所以生产系统通常用混合检索（见 [Sparse Retrieval](/docs/rag/sparse-retrieval)、[Hybrid Search](/docs/rag/hybrid-search)）。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 为何向量相近不等于业务规则适用？
-2. 编号查询为何需要其他信号？
+1. 为什么“还在路上”能检索到“运输中”？
+2. 向量归一化后，cosine、点积、欧氏距离的排序有什么关系？
+3. dense 检索在哪三类查询上表现差？
 
 </Note>
 
@@ -78,16 +121,25 @@ Embedding 模型把一段文本映射为固定维度数值向量；训练目标�
 
 <Locale lang="en">
 
-## Level 0 · From text to vectors
+## Level 0 · Vectors for meaning
 
-### What is an embedding and why can it match paraphrases?
+### What is an embedding?
 
-An embedding model maps text to a fixed-length vector so related queries and passages can be near each other. It may match “still in transit” with “shipping-stage after-sales process.” Similarity does not prove policy applicability or exact ID/date matching. The vector dimension is a representation size, not a quality guarantee.
+A model maps text to a fixed-length vector so similar meanings point in similar directions; queries are embedded too and matched to the nearest chunk vectors — that's how "still on the way" finds "in transit."
+
+### How is similarity computed?
+
+Dot product (direction and length), cosine (direction only), Euclidean distance. With unit-normalized vectors all three rank identically (cosine = dot; squared distance = 2 − 2·cosine). Use the metric the model documents.
+
+### Dense weaknesses?
+
+Exact identifiers (order numbers, `P-17`, SKUs, error codes), rare or new terms, and out-of-domain jargon — BM25's strengths, hence hybrid search.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why is vector proximity not policy applicability?
-2. Why do IDs need another signal?
+1. Why does "on the way" match "in transit"?
+2. How do the metrics relate after normalization?
+3. Three query types dense retrieval handles poorly?
 
 </Note>
 
@@ -95,18 +147,50 @@ An embedding model maps text to a fixed-length vector so related queries and pas
 
 <Locale lang="zh">
 
-## Level 1 · 相似度手算
+## Level 1 · 怎么训练出来的
 
-### cosine、dot product 与归一化有什么区别？
+### 双塔模型是什么？为什么检索用它？
 
-示意二维向量：查询 `q=(1,0)`，候选 A=`(2,0)`，B=`(1,1)`。点积分别为 2 与 1；cosine 分别为 1 与约 0.707。点积受向量长度影响，cosine 只比方向；若先把所有向量单位化，点积才等于 cosine。L2 距离又是另一种排序依据。
+**双塔（bi-encoder）**：问题和文档**分别**经过编码器得到各自的向量，再算相似度。
 
-真实 embedding 维度高得多，但计算逻辑相同。选模型和索引时核对官方推荐的相似度、是否自动归一化以及 query/document 编码方式；别把不同模型输出混进同一索引。
+```text
+问题 ──编码器──► 问题向量 ┐
+                         ├─► 相似度
+文档 ──编码器──► 文档向量 ┘   （文档向量可以提前算好存起来）
+```
+
+关键优势：**文档向量可以离线预先计算**。在线时只需编码一次问题，然后在向量库里查找——百万级文档也能毫秒级返回。
+
+对比：**交叉编码器（cross-encoder）**把问题和文档**拼在一起**送进模型，直接输出相关性分数。它能让问题和文档的每个词互相“看到”，更准确；但每对（问题，文档）都要跑一次模型，无法预先计算，只能用于对少量候选重排（见 [Reranking](/docs/rag/reranking)）。
+
+### 对比学习是怎么训练 embedding 的？
+
+训练数据是大量（问题，相关文档）对。核心思想：**拉近相关对，推开不相关对**。
+
+```text
+一个 batch 里有 4 对：(q1,d1) (q2,d2) (q3,d3) (q4,d4)
+对 q1 来说：d1 是正例；d2、d3、d4 是负例（批内负例，in-batch negatives）
+训练目标（InfoNCE 损失）：让 sim(q1,d1) 远高于 sim(q1,d2)、sim(q1,d3)、sim(q1,d4)
+```
+
+两个影响效果的关键：
+
+- **batch 越大，负例越多**，模型学到的区分越精细——所以 embedding 模型常用很大的 batch 训练。
+- **难负例（hard negatives）**：和问题很像、但不是答案的文档。例如对“运输中能退款吗”，“未发货订单可全额退款”就是难负例——主题相同、条件相反。只用随机负例，模型学会的是“区分退款和配送”；加入难负例，才学会“区分运输中和未发货”。难负例通常用 BM25 或上一版模型检索出来再筛选。
+
+现代 embedding 模型一般先在海量弱监督数据（如网页标题和正文、问答社区）上预训练，再在高质量标注数据上微调，有些还用 LLM 生成训练数据。
+
+<Note type="tip" title="串联">
+
+对比学习的思想在多处出现：CLIP 把图片和文字对齐、ColPali 的页面检索（见 [Ingestion](/docs/rag/ingestion)）、[Reranking](/docs/rag/reranking) 模型的训练都用到类似目标。面试时能把这条线串起来很加分。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 把 A 与 B 单位化后点积排序如何？
-2. 更换 embedding 模型为何要重建索引？
+1. 双塔模型为什么适合大规模检索？它比交叉编码器少了什么？
+2. 什么是批内负例？为什么 batch 越大越好？
+3. 对“运输中能退款吗”，举一个难负例。为什么难负例重要？
 
 </Note>
 
@@ -114,16 +198,27 @@ An embedding model maps text to a fixed-length vector so related queries and pas
 
 <Locale lang="en">
 
-## Level 1 · Similarity by hand
+## Level 1 · Training
 
-### How do cosine, dot product, and normalization differ?
+### Why bi-encoders for retrieval?
 
-For a toy query `(1,0)`, candidate A `(2,0)` has dot product 2 and cosine 1; B `(1,1)` has dot product 1 and cosine about 0.707. Dot product is affected by magnitude; cosine compares direction. Unit-normalized vectors make dot product equal cosine. Check the chosen model’s recommended metric and whether query and document encoders or prefixes differ.
+Query and document are encoded separately, so document vectors are precomputed and search takes milliseconds. Cross-encoders read the pair jointly — more accurate, but one model run per pair, so they only rerank a few candidates.
+
+### How does contrastive learning work?
+
+Pull positives together, push negatives apart (InfoNCE). In a batch, other pairs' documents act as in-batch negatives, so larger batches help. **Hard negatives** — same topic, wrong answer ("unshipped orders get full refunds" for an in-transit question) — teach fine distinctions; they're mined with BM25 or a previous model. Modern models pretrain on huge weakly supervised pairs, then fine-tune on curated or LLM-generated data.
+
+<Note type="tip" title="Connection">
+
+The same contrastive idea underlies CLIP, ColPali, and reranker training.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. What happens after unit normalization?
-2. Why reindex after changing the embedding model?
+1. Why bi-encoders at scale, and what do they lose?
+2. What are in-batch negatives, and why big batches?
+3. A hard negative for the in-transit question, and why it matters?
 
 </Note>
 
@@ -131,18 +226,48 @@ For a toy query `(1,0)`, candidate A `(2,0)` has dot product 2 and cosine 1; B `
 
 <Locale lang="zh">
 
-## Level 2 · 编码与批处理
+## Level 2 · 维度、存储与压缩
 
-### query 与 document 要怎样编码和更新？
+### 1,000 万个块要多少内存？
 
-有些检索模型为 query 与 document 提供不同指令或前缀，有些使用相同调用。遵循该模型文档，离线统一编码文档，在线用对应 query 路径编码问题。记录模型 ID、版本、维度、归一化策略和文本预处理版本；改模型后建立新索引并做版本切换。
+```text
+存储 = 块数 × 维度 × 每个数的字节数
 
-批量嵌入时处理空文本、超长截断、重试与幂等。被截掉的政策例外不会出现在向量里；存一条“embedding 成功”的日志无法证明完整性，要记录输入 token 数和截断状态。
+1,000 万块 × 1,536 维 × 4 字节（float32）= 61.4 GB
+1,000 万块 × 1,024 维 × 4 字节           = 41.0 GB
+```
+
+这还只是向量本身，HNSW 等索引结构还要额外的内存（见 [Vector Search](/docs/rag/vector-search) Level 2）。向量库常把向量放在内存里以保证速度，所以这是实打实的成本。
+
+### Matryoshka 表示是什么？
+
+**Matryoshka Representation Learning（MRL，俄罗斯套娃表示学习，2022）**：训练时同时优化多个长度的前缀——让向量的**前 256 维、前 512 维、前 1,024 维**各自都是一个可用的 embedding。
+
+```text
+完整向量：[d1, d2, …, d256, …, d1024, …, d3072]
+截断使用：只取前 256 维 → 存储降为 1/12，质量损失有限
+```
+
+OpenAI 的 text-embedding-3 系列等模型支持这种截断（通过 `dimensions` 参数）。常见用法是**两阶段**：先用短向量在全库快速粗筛，再用完整向量对候选精排。
+
+### 量化能省多少？
+
+| 量化 | 每维字节 | 压缩比 | 质量影响 |
+| --- | --- | --- | --- |
+| float32 | 4 | 1× | 基准 |
+| float16 | 2 | 2× | 几乎无损 |
+| int8（标量量化） | 1 | 4× | 通常很小 |
+| 二值（binary，每维 1 bit） | 1/8 | 32× | 明显，通常配合用原始向量重排找回 |
+
+二值量化把每一维变成 0 或 1，相似度用汉明距离计算，极快。实践中常见的组合是：**二值向量粗筛 Top-1,000 → int8 或 float32 向量重新打分取 Top-50**。
+
+把 Matryoshka 和量化叠加：1,000 万块从 61.4 GB（1,536 维 float32）降到 512 维 int8 约 5 GB，可能放进一台机器的内存。代价要在评估集上测召回率。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 为什么 query 前缀不能凭习惯乱加？
-2. 长段被截断时哪项观测最有用？
+1. 算出 500 万块、1,024 维、float32 的存储。改成 int8 呢？
+2. Matryoshka 向量为什么可以截断？两阶段检索怎么用它？
+3. 二值量化压缩多少倍？为什么通常要配合重新打分？
 
 </Note>
 
@@ -150,16 +275,25 @@ For a toy query `(1,0)`, candidate A `(2,0)` has dot product 2 and cosine 1; B `
 
 <Locale lang="en">
 
-## Level 2 · Encoding and indexing
+## Level 2 · Dimensions, storage, compression
 
-### How should queries and documents be encoded and updated?
+### How much memory for 10M chunks?
 
-Some retrieval models require distinct query and document instructions; others do not. Follow the model contract. Version the model, dimensions, normalization, and preprocessing, and rebuild the index when changing them. Log truncation and empty inputs during batch embedding: a successful API response does not prove that the critical exception was encoded.
+`chunks × dims × bytes`: 10M × 1,536 × 4 B ≈ 61.4 GB; at 1,024 dims ≈ 41 GB — before index overhead, usually held in RAM.
+
+### Matryoshka embeddings?
+
+MRL (2022) trains nested prefixes so the first 256, 512, or 1,024 dims are each usable; OpenAI's text-embedding-3 models expose this via `dimensions`. Use short vectors to shortlist, full vectors to rescore.
+
+### Quantization?
+
+float16 2× (near lossless), int8 4× (small loss), binary 32× (noticeable; Hamming distance; rescore top candidates with full-precision vectors). Combining 512-dim MRL with int8 brings 61.4 GB to ~5 GB — measure recall.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why not invent query prefixes?
-2. What reveals truncation of a long passage?
+1. Storage for 5M × 1,024 float32, and in int8?
+2. Why can Matryoshka vectors be truncated, and how do two-stage searches use them?
+3. Binary compression ratio, and why rescore?
 
 </Note>
 
@@ -167,18 +301,48 @@ Some retrieval models require distinct query and document instructions; others d
 
 <Locale lang="zh">
 
-## Level 3 · 模型选择
+## Level 3 · 选型与使用
 
-### 多语言和领域 embedding 如何评估？
+### MTEB 排行榜怎么看？
 
-用真实中文、英文、混合编号、缩写与领域术语查询建小型 gold set；比较相同候选预算下的 Recall@K 与误召回，单独看稀有规则和跨语言匹配。再看延迟、吞吐、每次重建成本和数据驻留约束。大模型或高维向量未必胜出。
+**MTEB**（Massive Text Embedding Benchmark）是 embedding 模型最常用的排行榜，2025 年扩展为多语言版本 **MMTEB**。它覆盖检索、分类、聚类、语义相似度等多类任务。
 
-若 `P-17` 的准确条款仍找不到，先核对原始文本、chunk 边界和权限过滤；若只有同义改写差，再考虑 embedding。对照 [Sparse Retrieval](/docs/rag/sparse-retrieval) 与 [Hybrid Search](/docs/rag/hybrid-search)。
+看榜要注意：
+
+- **只看和你相关的任务列**：做 RAG 主要看 **Retrieval** 任务的分数，而不是总平均分。
+- **看语言**：中文场景看中文检索任务（如 C-MTEB 相关子集）。
+- **可能过拟合榜单**：部分模型在榜单相关数据上训练过，榜上分数高于真实表现。
+- **还要看**：最大输入长度、维度、是否支持 Matryoshka、推理成本、许可证、是否能自部署。
+
+最终仍要在**自己的数据**上测（见 [Model Selection](/docs/application/model-selection) 同样的原则）。
+
+### 常见的 embedding 模型有哪些？
+
+| 类型 | 例子 | 特点 |
+| --- | --- | --- |
+| 商业 API | OpenAI text-embedding-3、Cohere Embed、Voyage、Google Gemini embedding | 免运维；数据要发给供应商 |
+| 开源 | BGE 系列（含 **BGE-M3**）、E5、Qwen3-Embedding、Jina embeddings | 可自部署；中文和多语言选择多 |
+| 多向量 | **ColBERT** | 每个 token 一个向量，检索时做“后期交互”（MaxSim），精度高、存储大（见 [Reranking](/docs/rag/reranking)） |
+
+**BGE-M3** 值得一提：一个模型同时输出稠密向量、稀疏向量（类似学习型 BM25）和多向量，方便做混合检索，支持多语言和长输入。
+
+### 查询和文档为什么要区别对待？
+
+问题通常很短（“还在路上能退钱吗”），文档块较长且是陈述句——两者的分布不同（不对称检索）。很多模型因此要求加**前缀或指令**：
+
+```text
+E5 系列：     "query: 还在路上能退钱吗"   /  "passage: 已发货订单……"
+指令型模型：   "Instruct: 给定客户问题，检索相关的退款政策条款\nQuery: 还在路上能退钱吗"
+API 型：      input_type="search_query"  /  input_type="search_document"
+```
+
+**用错或漏加前缀会明显降低召回**，这是一个常见又隐蔽的 bug：代码不报错，只是检索变差。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 多语言评估为什么要分桶？
-2. Recall@K 提高但权限命中出错，能上线吗？
+1. 看 MTEB 做 RAG 选型，应该看哪一列？还要注意什么？
+2. BGE-M3 的特点是什么？
+3. 为什么查询和文档要加不同的前缀？漏加会怎样？
 
 </Note>
 
@@ -186,16 +350,90 @@ Some retrieval models require distinct query and document instructions; others d
 
 <Locale lang="en">
 
-## Level 3 · Model selection
+## Level 3 · Selection and use
 
-### How do you evaluate multilingual and domain embeddings?
+### Reading MTEB?
 
-Build a labeled set with Chinese, English, mixed IDs, abbreviations, and domain terms. Compare recall and false hits under the same candidate budget, then add latency, throughput, rebuild cost, and residency. A larger model or vector is not automatically better. Inspect parsing, chunking, and filters before blaming embeddings.
+MTEB (multilingual MMTEB since 2025) spans retrieval, classification, clustering, and similarity. For RAG read the Retrieval columns in your language, beware leaderboard overfitting, and weigh max input length, dimensions, Matryoshka support, cost, license, and self-hosting. Decide on your own data.
+
+### Common models?
+
+APIs (OpenAI text-embedding-3, Cohere, Voyage, Gemini), open models (BGE incl. BGE-M3, E5, Qwen3-Embedding, Jina), and multi-vector ColBERT. BGE-M3 emits dense, sparse, and multi-vector outputs from one model.
+
+### Why treat queries and documents differently?
+
+Asymmetric retrieval: short questions vs longer declarative chunks. Models expect prefixes (`query:` / `passage:`), task instructions, or `input_type` parameters; missing them silently lowers recall.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why segment multilingual evaluation?
-2. Can better recall excuse an authorization failure?
+1. Which MTEB columns matter, and what else?
+2. What's special about BGE-M3?
+3. Why prefixes, and what happens without them?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 运维与微调
+
+### 换一个更好的 embedding 模型需要做什么？
+
+**必须全量重建索引**。不同模型的向量空间完全不同——模型 A 的“运输中”向量和模型 B 的向量之间的相似度没有任何意义。不能新文档用新模型、旧文档保持旧向量。
+
+迁移流程：
+
+```text
+1. 在评估集上对比新旧模型（同样的切分和检索设置）
+2. 用新模型为全部块重新生成向量，建一个新索引（旧索引继续服务）
+3. 影子流量：同一查询在两个索引上跑，比较结果
+4. 切换流量；保留旧索引一段时间以便回滚
+5. 记录每个索引对应的 embedding 模型名与版本
+```
+
+成本估算：1,000 万块 × 平均 300 token = 30 亿 token，按 API 价格算出一次性费用，再加上计算时间。这是“换模型”在大规模系统中是个正式项目的原因。
+
+### 什么时候值得微调 embedding 模型？
+
+信号：通用模型在你的领域明显表现差——内部术语、产品名、行业缩写检索不到；或者“意思相近但业务含义相反”的内容总是混淆（“运输中”和“未发货”）。
+
+做法：
+
+1. 准备（问题，正确块）对：来自真实搜索日志、人工标注，或用 LLM 根据文档生成问题。
+2. 挖掘难负例：用当前模型检索，排名靠前但错误的块。
+3. 用对比学习微调开源模型，几千到几万对通常就有明显效果。
+4. 在留出的评估集上比较 Recall@K，确认没有在其他问题上退化。
+
+先试更便宜的方法：加查询前缀 / 指令、混合检索、重排、contextual retrieval。它们往往能解决大部分问题。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 为什么换 embedding 模型必须全量重建？写出迁移的五个步骤。
+2. 估算 2,000 万块、平均 250 token 重新 embedding 的 token 量。
+3. 什么信号说明该微调 embedding？微调前应先试哪些方法？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Operations and fine-tuning
+
+### What does swapping models require?
+
+A full reindex — vector spaces aren't comparable across models. Evaluate, build a new index alongside the old, shadow traffic, switch with rollback, and record the model version per index. 10M chunks × 300 tokens = 3B tokens of re-embedding cost.
+
+### When to fine-tune?
+
+When a general model misses domain terms or confuses business-opposite phrases. Build query–chunk pairs (logs, labels, LLM-generated questions), mine hard negatives with the current model, fine-tune contrastively (thousands to tens of thousands of pairs), and check held-out recall for regressions. Try prefixes, hybrid search, reranking, and contextual retrieval first.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why reindex fully, and the five migration steps?
+2. Tokens to re-embed 20M chunks at 250 tokens?
+3. Signals for fine-tuning, and what to try first?
 
 </Note>
 
@@ -205,53 +443,79 @@ Build a labeled set with Chinese, English, mixed IDs, abbreviations, and domain 
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+- “新文档用新模型，旧的不用动。”
+- “MTEB 总分最高的就是最好的。”
+- “向量检索能处理订单号查询。”
+- 忘了查询前缀，或混用模型推荐之外的相似度度量。
 
 </Note>
 
 ## 连接
 
-上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
+- 上一站：[Chunking](/docs/rag/chunking)；下一站：[Vector Search](/docs/rag/vector-search)
+- 机制：[Tokenization](/docs/llm/tokenization)、[Transformer](/docs/llm/transformer)
+- 相关：[Sparse Retrieval](/docs/rag/sparse-retrieval)、[Reranking](/docs/rag/reranking)
 
 ## 面试问题
 
-1. embedding 是什么，为什么能找近义表达？（What is an embedding and why can it match paraphrases?）
-2. cosine、dot product 与归一化有什么区别？（How do cosine, dot product, and normalization differ?）
-3. query 与 document 要怎样编码和更新？（How should queries and documents be encoded and updated?）
-4. 多语言和领域 embedding 如何评估？（How do you evaluate multilingual and domain embeddings?）
+1. 双塔模型和交叉编码器有什么区别？（Bi-encoder vs cross-encoder?）
+2. embedding 模型是怎么训练的？什么是难负例？（How are embedding models trained, and what are hard negatives?）
+3. cosine 和点积有什么区别？（Cosine vs dot product?）
+4. 1,000 万个块的向量要多少存储？怎么压缩？（How much storage for 10M vectors, and how do you compress it?）
+5. Matryoshka 表示是什么？（What are Matryoshka embeddings?）
+6. 为什么 dense 检索处理不好订单号？（Why does dense retrieval struggle with IDs?）
+7. 换 embedding 模型需要做什么？（What does changing embedding models require?）
+8. 什么时候值得微调 embedding 模型？（When should you fine-tune embeddings?）
 
 ## 资料来源
 
-- [原始研究或官方文档](https://developers.openai.com/api/docs/guides/embeddings)
+- [MTEB 排行榜](https://huggingface.co/spaces/mteb/leaderboard)
+- [Matryoshka Representation Learning（Kusupati et al., 2022）](https://arxiv.org/abs/2205.13147)
+- [BGE-M3（Chen et al., 2024）](https://arxiv.org/abs/2402.03216)
+- [ColBERT（Khattab & Zaharia, 2020）](https://arxiv.org/abs/2004.12832)
+- [Sentence Transformers 文档](https://www.sbert.net/)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+- "New docs get the new model; old vectors stay."
+- "Top MTEB average is best."
+- "Vector search handles order numbers."
+- Missing prefixes or mismatched metrics.
 
 </Note>
 
 ## Connections
 
-Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+- Previous: [Chunking](/docs/rag/chunking); next: [Vector Search](/docs/rag/vector-search)
+- Mechanics: [Tokenization](/docs/llm/tokenization), [Transformer](/docs/llm/transformer)
+- Related: [Sparse Retrieval](/docs/rag/sparse-retrieval), [Reranking](/docs/rag/reranking)
 
 ## Interview questions
 
-1. What is an embedding and why can it match paraphrases?
-2. How do cosine, dot product, and normalization differ?
-3. How should queries and documents be encoded and updated?
-4. How do you evaluate multilingual and domain embeddings?
+1. Bi-encoder vs cross-encoder?
+2. How are embedding models trained, and what are hard negatives?
+3. Cosine vs dot product?
+4. How much storage for 10M vectors, and how do you compress it?
+5. What are Matryoshka embeddings?
+6. Why does dense retrieval struggle with IDs?
+7. What does changing embedding models require?
+8. When should you fine-tune embeddings?
 
 ## Sources
 
-- [Primary research or official documentation](https://developers.openai.com/api/docs/guides/embeddings)
+- [MTEB leaderboard](https://huggingface.co/spaces/mteb/leaderboard)
+- [Matryoshka Representation Learning](https://arxiv.org/abs/2205.13147)
+- [BGE-M3](https://arxiv.org/abs/2402.03216)
+- [ColBERT](https://arxiv.org/abs/2004.12832)
+- [Sentence Transformers](https://www.sbert.net/)
 
 </Locale>
 

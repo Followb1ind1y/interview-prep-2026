@@ -1,10 +1,10 @@
 ---
 title: RAG Architecture
 titleEn: RAG Architecture
-description: 从离线索引到在线回答，设计可追溯、可授权的完整 RAG 系统。
-descriptionEn: Design a traceable, permission-aware RAG system from indexing to answers.
-date: 2026-09-24
-keywords: ['rag', 'architecture', 'pipeline', 'grounding']
+description: RAG 解决什么、不解决什么；离线索引与在线回答两条流水线；从证据到答案的四道关口与七个经典失败点；RAG / 长上下文 / 微调的取舍；五分钟白板设计企业级 RAG。
+descriptionEn: "What RAG solves and doesn't, the offline and online pipelines, four gates and seven classic failure points, RAG vs long context vs fine-tuning, and a five-minute enterprise whiteboard."
+date: 2026-10-04
+keywords: ['rag', 'architecture', 'pipeline', 'grounding', 'failure points', 'long context', 'fine-tuning', 'acl', 'citation']
 tier: A
 status: todo
 cursor: ''
@@ -13,45 +13,63 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+“设计一个企业知识库问答系统”是 AI 工程面试里出现频率最高的系统设计题之一。面试官要看的不是你能不能背出“检索 → 生成”，而是：你知道 RAG **在哪些地方会坏**、每个组件为什么存在、权限和版本怎么保证、怎样证明它答对了。
+
+这一页是 RAG 栏目的总图。后面每一页（解析、切分、embedding、检索、重排、高级技巧、排错）都是这张图里的一个方块。
+
+贯穿全栏的例子：“喵喵粮仓”客服收到“订单 20240915 还没到，能退款吗？”。政策库里有现行 `P-17 v3`、已过期的 `P-17 v2` 和不相关的 FAQ；订单状态（未发货 / 运输中 / 已签收）必须从订单 API 查询。“没到”不等于“未发货”。
 
 ## 这一页怎么学
 
-| Level | 要回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 问题与边界 | RAG 究竟解决什么，什么还得查实时系统？ | 15–25 min |
-| 1 · 两条流水线 | 离线建索引与在线回答分别做什么？ | 15–25 min |
-| 2 · 证据到答案 | 为什么“检索到了”仍然可能答错？ | 15–25 min |
-| 3 · 生产设计 | 面试中怎样给出可落地的 RAG 架构？ | 15–25 min |
+| 0 · RAG 解决什么 | 为什么不直接问模型？RAG 不能解决什么？ | 20 min |
+| 1 · 两条流水线 | 离线建索引、在线回答分别做什么？每段数据要带哪些字段？ | 30 min |
+| 2 · 从证据到答案 | 为什么“检索到了”仍然会答错？经典的七个失败点是什么？ | 30 min |
+| 3 · 方案取舍 | RAG、长上下文、微调怎么选？ | 25 min |
+| 4 · 白板设计 | 五分钟内怎样画出一个企业级 RAG？ | 25 min |
+
+**Level 2 和 Level 4 是重点**。全页约 2 小时。
 
 ## 需要掌握
 
-- RAG 究竟解决什么，什么还得查实时系统？
-- 离线建索引与在线回答分别做什么？
-- 为什么“检索到了”仍然可能答错？
-- 面试中怎样给出可落地的 RAG 架构？
+- RAG 的价值：知识可更新、可追溯、可授权；它的局限：检索错了一切都错
+- 离线流水线（解析 → 清洗 → 切分 → 索引 → 发布）与在线流水线（鉴权 → 改写 → 检索 → 重排 → 组装 → 生成 → 引用）
+- 每个块的元数据：`doc_id`、版本、生效日期、章节、来源、租户、ACL
+- 四道关口：召回、选入、利用、业务正确；七个经典失败点
+- RAG / 长上下文 / 微调的决策维度
+- 企业级白板：先问约束，再画基线，最后讲评估与运维
 
 </Locale>
 
 <Locale lang="en">
 
-We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+"Design an enterprise knowledge-base Q&A system" is one of the most common AI system design questions. Interviewers want to see where RAG breaks, why each component exists, how permissions and versions are enforced, and how you prove answers are right.
 
-## How to study this page
+This page is the map for the RAG section; every later page is one box on it.
 
-| Level | Question | Time |
+Running example: "Order 20240915 hasn't arrived — can I get a refund?" The policy store has current `P-17 v3`, expired `P-17 v2`, and unrelated FAQs; order status comes from the order API. "Not arrived" isn't "not shipped."
+
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · The problem and boundaries | What does RAG solve, and what still needs a live system? | 15–25 min |
-| 1 · Two pipelines | What happens offline and online? | 15–25 min |
-| 2 · From evidence to answer | Why can an answer fail after retrieval succeeds? | 15–25 min |
-| 3 · Production design | How do you whiteboard a production RAG system? | 15–25 min |
+| 0 · What RAG solves | Why not just ask the model? What can't RAG fix? | 20 min |
+| 1 · Two pipelines | What happens offline and online? Which fields does each chunk carry? | 30 min |
+| 2 · Evidence to answer | Why can answers fail after retrieval succeeds? What are the seven failure points? | 30 min |
+| 3 · Tradeoffs | RAG vs long context vs fine-tuning? | 25 min |
+| 4 · Whiteboard | How do you draw enterprise RAG in five minutes? | 25 min |
+
+**Levels 2 and 4 are the core.** About 2 hours.
 
 ## Must know
 
-- What does RAG solve, and what still needs a live system?
-- What happens offline and online?
-- Why can an answer fail after retrieval succeeds?
-- How do you whiteboard a production RAG system?
+- RAG's value (updatable, traceable, permissioned knowledge) and limit (bad retrieval breaks everything)
+- the offline and online pipelines
+- chunk metadata: `doc_id`, version, effective date, section, source, tenant, ACL
+- four gates and seven classic failure points
+- the RAG / long-context / fine-tuning decision
+- the whiteboard: constraints, baseline, evaluation and operations
 
 </Locale>
 
@@ -59,18 +77,33 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="zh">
 
-## Level 0 · 问题与边界
+## Level 0 · RAG 解决什么
 
-### RAG 究竟解决什么，什么还得查实时系统？
+### 为什么不直接问模型？
 
-RAG（retrieval-augmented generation）在生成前从外部资料取证。模型参数里的知识难更新、难追溯；把当前政策 `P-17 v3` 找出来，再让模型依据它回答，能把知识更新与模型训练分开。它仍可能找错或读错，因此“有 RAG”不等于事实正确。
+模型参数里的知识有三个问题：
 
-贯穿全栏的**教学案例**：猫粮客服收到“订单 20240915 还没到，能退款吗？”。政策库有现行 `P-17 v3`、过期 `P-17 v2` 和无关 FAQ。订单的“未发货/运输中/已签收”要从订单 API 查；“没到”不能推断“未发货”。政策检索与实时业务查询是两条不同证据链。
+| 问题 | 例子 |
+| --- | --- |
+| **过时** | 训练截止后更新的退款政策 `P-17 v3`，模型不知道 |
+| **私有** | 公司内部政策从来不在训练数据里 |
+| **不可追溯** | 模型说“运输中订单可以退款”，你无法知道它依据哪条规定 |
+
+**RAG（Retrieval-Augmented Generation，检索增强生成）**：回答前先从外部资料库检索相关内容，把它放进模型输入，让模型**依据这些资料**回答。这个名字来自 2020 年 Meta 的论文（Lewis 等）。它把“知识更新”和“模型训练”分开：改政策只需要重新索引文档，不需要重新训练模型。
+
+### RAG 不能解决什么？
+
+- **实时业务状态**：订单是不是在运输中，要调订单 API，而不是检索文档。政策检索和业务查询是**两条不同的证据链**（见 [Tool Calling](/docs/agent/tool-calling)）。
+- **检索错误**：检索到过期的 `P-17 v2`，模型会非常自信地依据它作答——RAG 把“模型幻觉”的一部分变成了“检索错误”。
+- **推理错误**：资料都对，模型仍可能理解错条件（把“没到”当成“未发货”）。
+
+所以“我们用了 RAG”不等于“回答是对的”。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 为什么政策适合检索而订单状态适合工具？
-2. 为什么 RAG 不能保证正确？
+1. 模型参数里的知识有哪三个问题？RAG 怎么解决？
+2. 为什么订单状态不适合用检索，而要调 API？
+3. 用了 RAG 之后，还有哪两类错误？
 
 </Note>
 
@@ -78,18 +111,21 @@ RAG（retrieval-augmented generation）在生成前从外部资料取证。模�
 
 <Locale lang="en">
 
-## Level 0 · The problem and boundaries
+## Level 0 · What RAG solves
 
-### What does RAG solve, and what still needs a live system?
+### Why not just ask the model?
 
-RAG retrieves external evidence before generation. It makes current policy easier to update and cite than relying on parametric memory, but retrieval and evidence use can still fail.
+Parametric knowledge is stale, lacks private data, and isn't traceable. RAG (Lewis et al., 2020) retrieves relevant material before generation and asks the model to answer from it, decoupling knowledge updates from training.
 
-Our running teaching case is a pet-food support question: “Order 20240915 has not arrived. Can I get a refund?” The corpus contains current policy `P-17 v3`, stale `P-17 v2`, and irrelevant FAQs. A live order API supplies shipment state; “not arrived” does not imply “not shipped.”
+### What can't RAG fix?
+
+Live business state (query the order API — a separate evidence chain), retrieval errors (an expired `P-17 v2` gets cited confidently), and reasoning errors over correct evidence.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why retrieve policy but call a tool for order status?
-2. Why does RAG not guarantee correctness?
+1. Three problems with parametric knowledge?
+2. Why is order status an API call, not retrieval?
+3. Which two error types remain with RAG?
 
 </Note>
 
@@ -101,14 +137,56 @@ Our running teaching case is a pet-food support question: “Order 20240915 has 
 
 ### 离线建索引与在线回答分别做什么？
 
-离线：来源发现 → 解析 PDF/HTML/表格 → 清洗与版本判定 → 切分 → embedding 与词法索引 → 发布。每段至少保留 `doc_id, version, section, source_url, updated_at, tenant, acl`。在线：鉴权 → 查订单 → 生成检索查询 → 按权限与生效版本取候选 → 重排 → 组装证据 → 生成带引用的答复 → 记录轨迹。
+```text
+离线（文档更新时运行）
+  来源发现 → 解析（PDF/HTML/表格/OCR）→ 清洗、去重、版本判定
+  → 切分（chunking）→ 生成 embedding + 建词法索引 → 校验后发布
 
-例如 `P-17 v3` 的“运输中订单走售后流程”被切成 `P-17#shipping`。在线拿到订单状态为运输中后，只允许当前租户和当前版本的段进入候选。即使 `v2` 与用户措辞更像，也不得作为生效规则。
+在线（每个问题运行）
+  鉴权 → 查询理解 / 改写 → 按租户、权限、生效版本过滤
+  → 召回（向量 + BM25 并行）→ 融合 → 重排 → 组装 context
+  → 生成带引用的回答 → 记录 trace
+```
+
+每一步对应后面一页：[Ingestion](/docs/rag/ingestion)、[Chunking](/docs/rag/chunking)、[Embedding](/docs/rag/embedding)、[Vector Search](/docs/rag/vector-search)、[Sparse Retrieval](/docs/rag/sparse-retrieval)、[Hybrid Search](/docs/rag/hybrid-search)、[Reranking](/docs/rag/reranking)。
+
+### 每个块要带哪些字段？
+
+```json
+{
+  "chunk_id": "P-17-v3#sec4-0",
+  "doc_id": "P-17",
+  "version": "v3",
+  "effective_from": "2026-07-01",
+  "effective_to": null,
+  "section": "第 4 条 已发货订单",
+  "source_url": "https://kb.internal/policies/P-17",
+  "tenant": "miaomiao",
+  "acl": ["support_agent", "customer_visible"],
+  "content_hash": "…",
+  "text": "已发货（含运输中）订单不适用未发货退款……"
+}
+```
+
+| 字段 | 用途 |
+| --- | --- |
+| `version`、`effective_from/to` | 在线过滤掉过期政策——即使 `v2` 和问题更相似，也不能进入候选 |
+| `tenant`、`acl` | 权限过滤**在检索时**就执行，而不是检索后再让模型“忽略” |
+| `section`、`source_url` | 引用与人工核对 |
+| `content_hash` | 增量更新：内容没变就不重新 embedding |
+| `chunk_id` | 融合去重、trace、评估标注的主键 |
+
+<Note type="warning" title="权限过滤不能靠 prompt">
+
+“请忽略用户无权查看的资料”写在 prompt 里没有用——资料一旦进了模型输入，就可能被说出来。权限必须在检索层用元数据过滤强制执行（见 [Isolation](/docs/context/isolation)）。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 如果旧政策排名第一，哪一步必须拦住它？
-2. 哪些字段支持审计与删除？
+1. 分别列出离线和在线流水线的步骤。
+2. 如果过期的 `P-17 v2` 排名第一，哪一步应该拦住它？
+3. `content_hash` 有什么用？
 
 </Note>
 
@@ -120,14 +198,23 @@ Our running teaching case is a pet-food support question: “Order 20240915 has 
 
 ### What happens offline and online?
 
-Offline: discover sources, parse, clean and version them, chunk, build dense and lexical indexes, then publish. Preserve document ID, version, section, source, update time, tenant, and ACL. Online: authorize, read live order state, retrieve eligible current evidence, rerank, assemble, answer with citations, and trace each step.
+Offline: discover → parse → clean, dedupe, version → chunk → embed and build lexical index → validate and publish. Online: authenticate → understand/rewrite query → filter by tenant, ACL, effective version → retrieve dense and BM25 in parallel → fuse → rerank → assemble context → generate with citations → trace.
 
-For `P-17#shipping`, a stale `v2` passage must not become policy just because its wording matches the user better.
+### Which fields does each chunk carry?
+
+`chunk_id`, `doc_id`, `version`, `effective_from/to`, `section`, `source_url`, `tenant`, `acl`, `content_hash`, `text`. Version and dates filter expired policy even when it's more similar; tenant and ACL filter at retrieval time; section and URL support citations; the hash drives incremental updates; the chunk ID keys fusion, traces, and labels.
+
+<Note type="warning" title="Permissions can't live in the prompt">
+
+Once text enters the model input it can leak. Filter at retrieval.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Where must a stale top-ranked policy be stopped?
-2. Which fields enable audits and deletion?
+1. List both pipelines.
+2. Which step stops `P-17 v2` ranked first?
+3. What is `content_hash` for?
 
 </Note>
 
@@ -135,18 +222,47 @@ For `P-17#shipping`, a stale `v2` passage must not become policy just because it
 
 <Locale lang="zh">
 
-## Level 2 · 证据到答案
+## Level 2 · 从证据到答案
 
 ### 为什么“检索到了”仍然可能答错？
 
-至少分四关：正确段是否在候选 Top-K；是否被选入最终 context；模型是否正确引用并解释；业务结论是否符合实时订单状态。假设 `P-17 v3` 进入 Top-10，却因 token 预算被裁掉，属于 context construction 故障；若已进入 context，模型仍说“未发货”，属于证据利用或推理故障。
+正确答案要过四道关口，每一道都可能失败：
 
-回答应把主张绑定到具体段落，并在证据不足时说清需要查什么。引用一个文档名但文档并不支持该句，不算 grounded。分层测量见 [RAG Evaluation](/docs/evaluation/rag-eval)。
+```text
+① 召回：正确的块在候选 Top-K 里吗？         → 检索 / 索引问题
+② 选入：它被选进最终 context 了吗？           → 重排 / 截断 / 预算问题
+③ 利用：模型正确理解并引用它了吗？            → 生成 / 推理问题
+④ 业务：结论和实时订单状态一致吗？            → 证据链整合问题
+```
+
+例：`P-17 v3` 第 4 条在 Top-10 里，但因为 token 预算被裁掉了——这是第 ② 关；它进了 context，模型仍然说“未发货可以退款”——这是第 ③ 关。分层排查见 [Failure Diagnosis](/docs/rag/debugging)，分层指标见 [RAG Eval](/docs/evaluation/rag-eval)。
+
+### 经典的七个失败点是什么？
+
+2024 年的论文 *Seven Failure Points When Engineering a Retrieval Augmented Generation System*（Barnett 等）根据三个真实项目总结了七个失败点，面试中引用很有说服力：
+
+| # | 失败点 | 客服例子 | 对应关口 |
+| --- | --- | --- | --- |
+| 1 | **内容缺失**：资料库里根本没有答案 | 海外订单的退款政策从未入库 | 入库 |
+| 2 | **排名不够靠前**：答案在库里，但没进 Top-K | `P-17 v3` 排在第 15 | ① |
+| 3 | **未进入上下文**：检索到了，但整合时被丢掉 | 被 token 预算截掉 | ② |
+| 4 | **未被抽取**：在上下文里，但模型没用上 | 噪声段落太多，模型抓错重点 | ③ |
+| 5 | **格式错误**：要求表格 / 列表，模型没遵守 | 要求“结论 + 条款号”，只给了一段话 | ③ |
+| 6 | **具体程度不对**：答得太笼统或太细 | 只说“请联系客服”，没给条件 | ③ |
+| 7 | **不完整**：答案只覆盖了一部分 | 只说不能退款，没说签收后可退货 | ③ |
+
+第 1 点尤其重要：**RAG 系统要能识别“资料库里没有答案”，并说“不知道”**，而不是用最相似的无关段落凑一个答案。
+
+### 什么叫有依据（grounded）？
+
+回答中的每个关键主张，都能对应到某个具体块，且那个块确实支持它。“引用了一个文档名”不算——文档存在不代表它支持这句话。实践中要求模型按 `chunk_id` 引用，并抽查引用是否真的支持主张（faithfulness，见 [RAG Eval](/docs/evaluation/rag-eval) Level 4）。
 
 <Note title="自测：到这里你应该能回答">
 
-1. Top-K 有正确段但答案错，你先记录哪四种证据？
-2. 引用存在就能判正确吗？
+1. 四道关口分别是什么？举一个第 ② 关失败的例子。
+2. 说出七个失败点中至少五个。
+3. 为什么“内容缺失”时系统应该说“不知道”？
+4. 引用了文档名为什么不等于有依据？
 
 </Note>
 
@@ -154,16 +270,26 @@ For `P-17#shipping`, a stale `v2` passage must not become policy just because it
 
 <Locale lang="en">
 
-## Level 2 · From evidence to answer
+## Level 2 · Evidence to answer
 
-### Why can an answer fail after retrieval succeeds?
+### Why can answers fail after retrieval?
 
-Track four gates: relevant passage in candidate Top-K, selected into the prompt, used correctly by the model, and consistent with live business state. A passage dropped by the token budget is an assembly failure; an included passage that the model contradicts is a generation failure. A citation only helps if it supports the exact claim. See [RAG Evaluation](/docs/evaluation/rag-eval).
+Four gates: ① recall (is the right chunk in top-K?), ② selection (did it reach the final context?), ③ use (did the model read and cite it correctly?), ④ business (does the conclusion match live order state?).
+
+### The seven failure points?
+
+From Barnett et al. (2024), based on three real projects: missing content, missed top-ranked documents, not in context, not extracted, wrong format, incorrect specificity, incomplete. Missing content matters most: the system must say "I don't know" instead of answering from the nearest irrelevant chunk.
+
+### What is grounded?
+
+Every key claim maps to a specific chunk that supports it — citing a document name isn't enough. Cite by `chunk_id` and audit support (faithfulness).
 
 <Note title="Self-check: you should be able to answer">
 
-1. What four artifacts do you inspect when Top-K contains the right passage?
-2. Does a citation prove correctness?
+1. The four gates, with a gate-② example?
+2. Five of the seven failure points?
+3. Why answer "I don't know" for missing content?
+4. Why isn't a document citation grounding?
 
 </Note>
 
@@ -171,18 +297,28 @@ Track four gates: relevant passage in candidate Top-K, selected into the prompt,
 
 <Locale lang="zh">
 
-## Level 3 · 生产设计
+## Level 3 · 方案取舍
 
-### 面试中怎样给出可落地的 RAG 架构？
+### RAG、长上下文、微调怎么选？
 
-先界定资料规模、更新频率、权限、延迟和错误代价；再给最小基线：可靠解析、版本与 ACL、BM25/向量候选、有限重排、带来源的 context、无法回答时的升级路径。最后说明离线评测与线上 trace、P95 延迟、索引新鲜度、权限负例。
+| 维度 | RAG | 长上下文（全文放进去） | 微调 |
+| --- | --- | --- | --- |
+| 资料规模 | 任意大 | 受窗口限制（且有效长度更短，见 [Context Window](/docs/context/window) Level 4） | 不适合注入大量事实 |
+| 更新频率 | 高：重新索引即可 | 高：每次请求都放最新的 | 低：每次更新要重新训练 |
+| 可追溯 | 强：能引用具体块 | 中：能引用，但定位难 | 弱：知识混进参数 |
+| 权限控制 | 强：检索时按用户过滤 | 需要按用户组装不同全文 | 几乎不可能按用户隔离 |
+| 每次请求成本 | 低（只放相关块） | 高（大量输入 token，可用缓存缓解） | 低 |
+| 适合 | 大知识库、频繁更新、需要引用 | 少量文档、需要通读全文（一份合同） | 稳定的**格式、风格、任务行为**，而不是事实 |
 
-RAG 与 fine-tuning 不是互斥：需要频繁更新、引用具体政策，先用检索；需要稳定输出格式、特定任务行为，可考虑提示、约束输出或微调。小且稳定的资料在预算允许时也可直接放入长 context，再以质量、延迟和成本与 RAG 对比。
+常见误解：“用微调把公司知识教给模型”。微调擅长改变模型**怎么做**（输出格式、语气、特定任务的能力），不擅长可靠地记住**大量事实**，而且无法更新、无法引用、无法按权限隔离。知识问答首选 RAG。
+
+三者可以组合：RAG 召回 → 把召回的几份完整文档放进长上下文；微调一个小模型专门做查询改写或重排。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 五分钟白板先问哪五类约束？
-2. 什么情况下直接长 context 也值得测？
+1. 什么情况下长上下文比 RAG 更合适？
+2. 为什么不建议用微调注入公司知识？
+3. 举一个 RAG 与长上下文组合的例子。
 
 </Note>
 
@@ -190,16 +326,96 @@ RAG 与 fine-tuning 不是互斥：需要频繁更新、引用具体政策，先
 
 <Locale lang="en">
 
-## Level 3 · Production design
+## Level 3 · Tradeoffs
 
-### How do you whiteboard a production RAG system?
+### RAG, long context, or fine-tuning?
 
-Start with corpus size, update cadence, access scope, latency, and failure cost. Propose a baseline with reliable parsing, version and ACL controls, lexical/dense candidates, bounded reranking, cited context, and abstention or escalation. Measure offline quality and production traces, tail latency, freshness, and authorization negatives. RAG and fine-tuning can coexist; compare long-context inclusion when the corpus is small enough.
+RAG: any scale, cheap updates, strong citations and per-user filtering, low per-request cost. Long context: few documents that need reading in full (one contract), costly per request, effective length shorter than claimed. Fine-tuning: stable format, style, and task behavior — not facts; it can't update, cite, or isolate per user. Combine them: retrieve, then place a few full documents in context; fine-tune a small model for query rewriting or reranking.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Which five constraints come first in a whiteboard design?
-2. When should you benchmark full-context inclusion?
+1. When is long context better?
+2. Why not fine-tune company knowledge in?
+3. A RAG + long-context combination?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 白板设计
+
+### 五分钟内怎样画出一个企业级 RAG？
+
+**第 1 分钟：先问约束**（不要一上来就画）
+
+| 约束 | 为什么影响设计 |
+| --- | --- |
+| 资料规模与类型 | 1 万份还是 1,000 万份？PDF、表格、扫描件？决定解析和索引选型 |
+| 更新频率 | 每天变还是每年变？决定增量更新和新鲜度监控 |
+| 权限 | 是否多租户、按角色可见？决定 ACL 元数据和过滤方式 |
+| 延迟与成本 | 实时对话还是后台报告？决定是否能用重排、查询改写、大模型 |
+| 错误代价 | 说错退款政策的后果？决定引用、拒答、人工兜底的要求 |
+
+**第 2–3 分钟：画基线**
+
+```text
+           ┌────────── 离线 ──────────┐
+文档源 → 解析 → 清洗/版本 → 切分 → Embedding ─→ 向量索引
+                                └→ 词法索引（BM25）
+                       （每块带 doc_id/version/tenant/acl）
+
+           ┌────────── 在线 ──────────┐
+用户 → 鉴权 → 查询改写 ─┬→ 向量检索（带 ACL/版本过滤）─┐
+                      └→ BM25 检索（同样过滤）  ──────┴→ RRF 融合 → 重排 Top-5
+     → 组装 context（带 chunk_id）→ LLM 生成（引用 + 证据不足时拒答）→ 回答
+     → trace（查询、候选、名次、选入块、引用、延迟、成本）
+```
+
+**第 4–5 分钟：讲评估与运维**
+
+- 离线评估：带标注的问题集，分层看 Recall@K、上下文覆盖、faithfulness、答案正确率（见 [RAG Eval](/docs/evaluation/rag-eval)）。
+- 线上：抽样 judge 评分、用户反馈、“无答案”比例、索引新鲜度（文档更新到可检索的延迟）、权限负例测试。
+- 延迟预算：检索与 BM25 并行（几十到一两百毫秒）、重排（约一两百毫秒）、生成占大头（见 [Latency](/docs/production/latency)）。
+
+然后**按面试官的追问深入某一块**：解析质量、切分策略、混合检索、重排、权限、评估——这就是后面几页的内容。
+
+<Note type="tip" title="面试加分">
+
+画完基线后主动说：“这是基线。上线后我会先用错误分析找出主要失败类型，再决定加不加查询改写、GraphRAG 这类高级技巧——高级技巧要由具体失败驱动，而不是一开始就全加上。”
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 白板前先问哪五类约束？
+2. 不看笔记，画出离线和在线流水线。
+3. 线上要监控哪些 RAG 特有的指标？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Whiteboard
+
+### How do you draw enterprise RAG in five minutes?
+
+Minute 1, ask constraints: corpus size and types, update frequency, permissions, latency and cost, cost of errors. Minutes 2–3, draw the baseline: parse → clean/version → chunk → embed + BM25 index with metadata offline; authenticate → rewrite → filtered dense and BM25 in parallel → RRF → rerank top-5 → cited context → generation with abstention → trace online. Minutes 4–5, evaluation and operations: layered offline metrics, online judged samples, feedback, no-answer rate, index freshness, permission negative tests, and a latency budget dominated by generation. Then go deep where the interviewer probes.
+
+<Note type="tip" title="Interview move">
+
+"That's the baseline. Advanced techniques come after error analysis shows which failures dominate."
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. The five constraint questions?
+2. Draw both pipelines from memory.
+3. RAG-specific production metrics?
 
 </Note>
 
@@ -209,53 +425,86 @@ Start with corpus size, update cadence, access scope, latency, and failure cost.
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+- “用了 RAG 就不会幻觉。”
+- “用微调把公司知识教给模型。”
+- “在 prompt 里让模型忽略无权限的资料。”
+- “窗口够大了，不需要 RAG。”
+
+</Note>
+
+<Note type="warning" title="容易被追问">
+
+- 资料库里没有答案时系统怎么表现？
+- 过期政策怎么防？
+- 检索到了却答错，你怎么定位是哪一关？
 
 </Note>
 
 ## 连接
 
-上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
+```text
+Architecture（总图）
+  ├─ 离线：Ingestion → Chunking → Embedding → Vector Search / Sparse Retrieval
+  ├─ 在线：Hybrid Search → Reranking → Context Construction → 生成
+  └─ 质量：Failure Diagnosis ↔ RAG Eval；Advanced RAG 由失败驱动
+```
+
+- 本栏：[Ingestion](/docs/rag/ingestion)、[Chunking](/docs/rag/chunking)、[Hybrid Search](/docs/rag/hybrid-search)、[Failure Diagnosis](/docs/rag/debugging)
+- 相关：[Context Construction](/docs/context/construction)、[RAG Eval](/docs/evaluation/rag-eval)、[Context Window](/docs/context/window)
 
 ## 面试问题
 
-1. RAG 究竟解决什么，什么还得查实时系统？（What does RAG solve, and what still needs a live system?）
-2. 离线建索引与在线回答分别做什么？（What happens offline and online?）
-3. 为什么“检索到了”仍然可能答错？（Why can an answer fail after retrieval succeeds?）
-4. 面试中怎样给出可落地的 RAG 架构？（How do you whiteboard a production RAG system?）
+1. RAG 解决什么问题，不能解决什么？（What does RAG solve, and what can't it?）
+2. 离线和在线流水线各包括哪些步骤？（What are the offline and online pipeline steps?）
+3. 每个块应该带哪些元数据？为什么？（Which metadata should each chunk carry, and why?）
+4. 为什么检索到了仍然会答错？（Why can answers fail after retrieval succeeds?）
+5. RAG 系统的经典失败点有哪些？（What are the classic RAG failure points?）
+6. RAG、长上下文、微调怎么选？（RAG vs long context vs fine-tuning?）
+7. 设计一个企业级知识库问答系统。（Design an enterprise knowledge-base Q&A system.）
 
 ## 资料来源
 
-- [原始研究或官方文档](https://arxiv.org/abs/2005.11401)
+- [Lewis et al., 2020：Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401)
+- [Barnett et al., 2024：Seven Failure Points When Engineering a RAG System](https://arxiv.org/abs/2401.05856)
+- [Anthropic：Contextual Retrieval](https://www.anthropic.com/engineering/contextual-retrieval)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+- "RAG eliminates hallucination."
+- "Fine-tune company knowledge into the model."
+- "Tell the model to ignore unauthorized documents."
+- "The window is big enough; no RAG needed."
 
 </Note>
 
 ## Connections
 
-Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+- This section: [Ingestion](/docs/rag/ingestion), [Chunking](/docs/rag/chunking), [Hybrid Search](/docs/rag/hybrid-search), [Failure Diagnosis](/docs/rag/debugging)
+- Related: [Context Construction](/docs/context/construction), [RAG Eval](/docs/evaluation/rag-eval), [Context Window](/docs/context/window)
 
 ## Interview questions
 
-1. What does RAG solve, and what still needs a live system?
-2. What happens offline and online?
-3. Why can an answer fail after retrieval succeeds?
-4. How do you whiteboard a production RAG system?
+1. What does RAG solve, and what can't it?
+2. What are the offline and online pipeline steps?
+3. Which metadata should each chunk carry, and why?
+4. Why can answers fail after retrieval succeeds?
+5. What are the classic RAG failure points?
+6. RAG vs long context vs fine-tuning?
+7. Design an enterprise knowledge-base Q&A system.
 
 ## Sources
 
-- [Primary research or official documentation](https://arxiv.org/abs/2005.11401)
+- [Lewis et al., 2020](https://arxiv.org/abs/2005.11401)
+- [Barnett et al., 2024: Seven Failure Points](https://arxiv.org/abs/2401.05856)
+- [Anthropic: Contextual Retrieval](https://www.anthropic.com/engineering/contextual-retrieval)
 
 </Locale>
 

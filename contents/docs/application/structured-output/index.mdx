@@ -3,7 +3,7 @@ title: Structured Output
 titleEn: Structured Output
 description: 为什么应用层需要结构化输出、JSON Schema 与 Pydantic、三种让模型输出 JSON 的方式、约束解码的原理、校验重试与修复，以及 schema 设计和评估。
 descriptionEn: "Why applications need structured output, JSON Schema and Pydantic, three ways to get JSON from a model, how constrained decoding works, validation, retries, and repair, plus schema design and evaluation."
-date: 2026-09-19
+date: 2026-10-04
 keywords: ["structured output", "json", "json schema", "pydantic", "json mode", "constrained decoding", "grammar", "logits mask", "validation", "retry", "function calling", "schema design"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 这一页假设你已经学过 [Attention & Transformer](/docs/llm/transformer) Level 6（logits 怎么变成下一个 token）和 [Prompt Engineering](/docs/application/prompt-engineering)。[Fine-tuning](/docs/llm/fine-tuning) 和 [Inference](/docs/llm/inference) 两页都提到过「约束解码能保证格式」，这一页把它的原理讲清楚。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 6**：2026 年各家结构化输出能力对比、开源约束解码引擎（Outlines、XGrammar、llguidance）、“格式约束会不会伤推理”（*Let Me Speak Freely?*）及应对、字段顺序的影响、流式部分 JSON。
+
+🔁 **建议复习**：Level 3（约束解码原理）和你的 MyQuestion（要不要自己实现 token mask）——Level 6 列出了现成的引擎；Level 2（三种方式）——补上各家 API 的现状。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -27,6 +37,7 @@ mastery: { talk: 0, probe: 0 }
 | 3 · 约束解码的原理（Optional） | 模型怎么做到「一定不输出 schema 之外的东西」？它有什么副作用？字段顺序为什么重要？ | 45 min |
 | 4 · 出错了怎么办 | 校验失败时怎么重试、修复、兜底？重试对成功率和延迟有什么影响？ | 40 min |
 | 5 · Schema 设计与评估 | 什么样的 schema 模型更容易填对？怎么衡量结构化输出的质量？什么时候该微调？ | 30 min |
+| Level 6 · 深入（2026-10 新增） | 各家怎么支持？格式约束会不会让答案变差？ | 30 min |
 
 每个 Level 末尾有几道自测题，**答不上来就先别往下读**。全页约 3.5 小时，分几次学完；`/drill` 会记住你上次学到哪。
 
@@ -49,6 +60,16 @@ A model outputs text, but your code needs data: what the customer wants, what th
 
 This page assumes you've studied [Attention & Transformer](/docs/llm/transformer) Level 6 (how logits become the next token) and [Prompt Engineering](/docs/application/prompt-engineering). Both [Fine-tuning](/docs/llm/fine-tuning) and [Inference](/docs/llm/inference) mentioned that constrained decoding guarantees format; this page explains how it works.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 6**: provider structured-output support in 2026, open-source constrained-decoding engines, whether format constraints hurt reasoning, field order, streaming partial JSON.
+
+🔁 **Review**: Level 3 and your MyQuestion on token masks; Level 2.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question it answers | Time |
@@ -59,6 +80,7 @@ This page assumes you've studied [Attention & Transformer](/docs/llm/transformer
 | 3 · How constrained decoding works (Optional) | How does a model guarantee it never outputs anything outside the schema? What are the side effects, and why does field order matter? | 45 min |
 | 4 · When things go wrong | When validation fails, how do you retry, repair, and fall back? How do retries affect success rate and latency? | 40 min |
 | 5 · Schema design and evaluation | What kind of schema is easier for a model to fill correctly? How do you measure structured-output quality, and when should you fine-tune? | 30 min |
+| Level 6 · Deep dive (added 2026-10) | What do providers support? Do format constraints hurt answers? | 30 min |
 
 Each Level ends with a few self-check questions — **if you can't answer them, don't move on yet**. The page takes about 3.5 hours over several sessions; `/drill` remembers where you stopped.
 
@@ -1789,6 +1811,67 @@ Takeaways:
 
 <Locale lang="zh">
 
+## Level 6 · 深入：各家能力、开源引擎与质量影响
+
+### 2026 年各家怎么支持结构化输出？
+
+| 方式 | 代表 | 保证程度 |
+| --- | --- | --- |
+| 原生 Structured Outputs（严格 schema） | OpenAI（2024 年推出 `strict: true` 的 Structured Outputs）；Anthropic、Gemini 也提供按 JSON Schema 约束输出的能力 | 基于约束解码，**结构上保证**符合 schema（支持的 schema 子集内） |
+| 强制工具调用 | 定义一个工具，参数就是你要的 schema，用 `tool_choice` 强制调用（见 [Tool Calling](/docs/agent/tool-calling) Level 5） | 开启 strict 时同样有保证；否则只是“大概率”符合 |
+| JSON mode | 只保证输出是合法 JSON，不保证字段 | 弱 |
+| 纯 prompt + 校验重试 | 任何模型 | 无保证，靠 Level 4 的校验与重试 |
+
+实践中再配合 **Pydantic / Zod** 这类库：用代码定义 schema，自动生成 JSON Schema 传给 API，并在返回后做类型校验——**schema 只写一份**。Instructor 等库把“定义 → 调用 → 校验 → 失败重试”封装好了。
+
+### 自部署时用什么约束解码引擎？
+
+不用自己实现 token mask（呼应你的 MyQuestion）。常用开源引擎：
+
+| 引擎 | 特点 |
+| --- | --- |
+| **Outlines** | 把 JSON Schema / 正则编译成有限状态机，在每步屏蔽非法 token；最早普及的方案之一 |
+| **XGrammar** | 针对上下文无关文法优化，预计算大部分 token 的合法性，开销很低；被 vLLM、SGLang 等推理框架集成 |
+| **llguidance** | 微软出品，高性能的文法约束库，也被多个推理框架采用 |
+
+vLLM、SGLang 等推理服务都内置了“guided decoding”接口，直接传 JSON Schema 即可。
+
+### 格式约束会不会让答案变差？
+
+会有影响，这是面试中能体现深度的一点。2024 年的论文 *Let Me Speak Freely?* 发现：在一些推理任务上，**强制模型直接以严格格式输出**，正确率低于让它自由回答。原因直观：模型没有空间“边想边写”，或者被迫在想清楚之前就填答案字段。
+
+应对方法：
+
+1. **字段顺序：先推理，后结论**。生成是从左到右的，把 `reasoning` 字段放在 `answer` 前面，模型填答案时已经“想过了”：
+
+```json
+{
+  "evidence": "P-17 v3 第 4 条：运输中订单不适用未发货退款……",
+  "reasoning": "订单状态为 in_transit，属于已发货……",
+  "decision": "not_eligible_for_unshipped_refund",
+  "next_step": "签收后可申请退货"
+}
+```
+
+   如果把 `decision` 放在第一个字段，模型会先“拍板”，再为它找理由。
+
+2. **两步法**：第一步自由推理（或使用 reasoning 模型的内部思考），第二步只负责把结论填进 schema。reasoning 模型天然就是这样：思考不受格式约束，最终输出才受约束。
+3. **评估对比**：同一评估集上比较“约束输出”和“自由输出 + 解析”的正确率，用数据决定。
+
+### 流式输出时怎么处理 JSON？
+
+JSON 只有完整时才能解析，但用户希望看到逐步出现的内容。做法是用**部分 JSON 解析**（partial JSON parsing）：容忍未闭合的括号和字符串，随着 token 到来逐步解析出已完成的字段，前端先展示 `decision`、再补 `next_step`。很多 SDK 和 Instructor 等库都支持流式的部分对象。注意：部分对象**还没经过完整校验**，不能基于它执行副作用。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 原生 Structured Outputs、强制工具调用、JSON mode 的保证程度有什么不同？
+2. 自部署时有哪些约束解码引擎？为什么不用自己实现？
+3. 为什么格式约束可能降低正确率？给出两种应对方法。
+4. 为什么 `reasoning` 字段要放在 `decision` 前面？
+5. 流式部分 JSON 能不能用来触发退款？为什么？
+
+</Note>
+
 ## 陷阱
 
 <Note title="别说「用了结构化输出，模型输出就一定是对的」" type="danger">
@@ -1836,6 +1919,34 @@ JSON mode 只保证语法合法。字段名写错、类型不对、枚举值越�
 </Locale>
 
 <Locale lang="en">
+
+## Level 6 · Deep dive: providers, engines, quality effects
+
+### What do providers support in 2026?
+
+Native strict structured outputs (OpenAI's `strict: true` since 2024; Anthropic and Gemini also constrain to JSON Schema) structurally guarantee compliance within the supported subset; forced tool calls are equivalent with strict on; JSON mode guarantees only valid JSON; prompt-plus-validation guarantees nothing. Define schemas once with Pydantic or Zod; libraries like Instructor wrap define → call → validate → retry.
+
+### Self-hosted engines?
+
+Outlines (schemas/regex compiled to state machines), XGrammar (low-overhead grammar constraints, integrated into vLLM and SGLang), and Microsoft's llguidance; inference servers expose guided decoding directly.
+
+### Do format constraints hurt answers?
+
+*Let Me Speak Freely?* (2024) found strict formats can lower accuracy on some reasoning tasks. Fixes: put `evidence` and `reasoning` before `decision` (generation is left to right); reason freely first, then fill the schema (reasoning models do this natively); and measure both ways on your eval set.
+
+### Streaming JSON?
+
+Use partial JSON parsing to surface completed fields early, but never trigger side effects on unvalidated partial objects.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Guarantees of native structured outputs vs forced tools vs JSON mode?
+2. Which engines when self-hosting?
+3. Why can constraints lower accuracy, and two fixes?
+4. Why does `reasoning` precede `decision`?
+5. Can a partial object trigger a refund?
+
+</Note>
 
 ## Traps
 
@@ -1962,6 +2073,12 @@ schema design · versioning · field-level accuracy · fine-tune + constrain · 
 19. 约束解码和微调怎么选？（How do you choose between constrained decoding and fine-tuning?）
 20. 设计一个系统：从客服消息里抽取工单，必要时发起退款审核。怎么保证它可靠？（Design a system that extracts tickets from support messages and starts refund reviews when needed. How do you make it reliable?）
 
+### 2026-10 新增
+
+1. 各家结构化输出能力的保证程度有什么不同？（How do structured-output guarantees differ across approaches?）
+2. 格式约束会不会降低回答质量？怎么应对？（Can format constraints hurt answer quality, and what do you do?）
+3. 为什么 schema 字段顺序会影响结果？（Why does field order in a schema matter?）
+
 </Locale>
 
 <Locale lang="en">
@@ -2012,6 +2129,12 @@ Answer out loud first, then check against the matching Level.
 18. How do you evaluate structured-output quality?
 19. How do you choose between constrained decoding and fine-tuning?
 20. Design a system that extracts tickets from support messages and starts refund reviews when needed. How do you make it reliable?
+
+### Added 2026-10
+
+1. How do structured-output guarantees differ across approaches?
+2. Can format constraints hurt answer quality, and what do you do?
+3. Why does field order in a schema matter?
 
 </Locale>
 

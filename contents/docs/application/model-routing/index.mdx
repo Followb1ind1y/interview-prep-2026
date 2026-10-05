@@ -3,7 +3,7 @@ title: Model Routing
 titleEn: Model Routing
 description: 为什么不该让所有请求都走最贵的模型：静态路由、用分类器动态路由、级联、降级兜底和 A/B 测试，以及每种方式的成本、质量和延迟怎么算。
 descriptionEn: "Why not every request should hit the most expensive model: static routing, classifier-based dynamic routing, cascades, fallback, and A/B testing — plus how to compute the cost, quality, and latency of each."
-date: 2026-09-14
+date: 2026-10-04
 keywords: ["model routing", "router", "classifier", "cascade", "escalation", "fallback", "circuit breaker", "graceful degradation", "a/b testing", "shadow mode", "cost optimization"]
 tier: B
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 这一页假设你已经学过 [Model Selection](/docs/application/model-selection)（模型分档、成本计算、评测集）和 [Structured Output](/docs/application/structured-output) Level 4（校验失败怎么处理）。重试、超时、熔断的通用做法在 [Production Reliability](/docs/production/reliability) 里，这一页只讲和「选哪个模型」直接相关的部分。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 5**：路由的研究与产品进展——FrugalGPT（级联 + 打分器）、RouteLLM（用偏好数据训练路由器）、模型内部的“自动路由”（如 GPT-5 在快速与推理模式间切换）、LLM 网关（LiteLLM、OpenRouter）。
+
+🔁 **建议复习**：Level 3（级联）——[Cost](/docs/production/cost) 新增了级联期望成本公式和“升级率过高反而更贵”的算例，建议对照；Level 4（降级兜底）——和重写后的 [Reliability](/docs/production/reliability) Level 3 对照。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -26,6 +36,7 @@ mastery: { talk: 0, probe: 0 }
 | 2 · 动态路由 | 怎么用分类器判断一个请求难不难？分错了会损失多少质量、浪费多少钱？ | 40 min |
 | 3 · 级联 | 先让便宜模型试、不行再升级，成本和延迟怎么算？怎么判断「不行」？ | 35 min |
 | 4 · 降级兜底与 A/B 测试 | 模型或服务出故障时怎么切换？怎么证明新的路由策略真的更好？ | 35 min |
+| Level 5 · 深入（2026-10 新增） | 学术界和产品里的路由怎么做？网关解决什么？ | 25 min |
 
 每个 Level 末尾有几道自测题，**答不上来就先别往下读**。全页约 2.5 小时，分几次学完；`/drill` 会记住你上次学到哪。
 
@@ -48,6 +59,16 @@ mastery: { talk: 0, probe: 0 }
 
 This page assumes you've studied [Model Selection](/docs/application/model-selection) (model tiers, cost math, evaluation sets) and [Structured Output](/docs/application/structured-output) Level 4 (handling validation failures). General practices for retries, timeouts, and circuit breakers live in [Production Reliability](/docs/production/reliability); this page covers only what's directly tied to choosing which model.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 5**: FrugalGPT, RouteLLM, in-model automatic routing, LLM gateways.
+
+🔁 **Review**: Level 3 with the cascade math in [Cost](/docs/production/cost); Level 4 with [Reliability](/docs/production/reliability) Level 3.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question it answers | Time |
@@ -57,6 +78,7 @@ This page assumes you've studied [Model Selection](/docs/application/model-selec
 | 2 · Dynamic routing | How does a classifier decide whether a request is hard? How much quality and money does misrouting cost? | 40 min |
 | 3 · Cascades | Try a cheap model first and escalate if it fails — how do you compute cost and latency, and how do you decide it failed? | 35 min |
 | 4 · Fallback and A/B testing | How do you switch when a model or service fails? How do you prove a new routing policy is actually better? | 35 min |
+| Level 5 · Deep dive (added 2026-10) | How do research and products route? What do gateways solve? | 25 min |
 
 Each Level ends with a few self-check questions — **if you can't answer them, don't move on yet**. The page takes about 2.5 hours over several sessions; `/drill` remembers where you stopped.
 
@@ -1037,6 +1059,51 @@ General logging and monitoring practices are in [Observability](/docs/production
 
 <Locale lang="zh">
 
+## Level 5 · 深入：研究进展、模型内路由与网关
+
+### 有哪些代表性的路由研究？
+
+| 方法 | 思路 | 报告的效果（以论文为准） |
+| --- | --- | --- |
+| **FrugalGPT**（Stanford，2023） | 级联：按成本从低到高依次调用模型，用一个训练好的**打分器**判断当前答案是否可靠，可靠就停止 | 论文报告能在匹配最强单模型表现的同时，大幅降低成本 |
+| **RouteLLM**（LMSYS，2024） | 用 Chatbot Arena 的人类偏好数据训练路由器（矩阵分解、BERT 分类器等），预测“这个问题弱模型能否答好”，在强弱两个模型间二选一 | 论文报告在保持接近强模型质量的同时显著减少强模型调用 |
+
+两者的共同点：**路由器本身是一个需要训练和评估的模型**。它的错误（把难题发给弱模型）就是 Level 2 讲的质量损失来源。
+
+### “模型内部自动路由”是什么？
+
+2025 年起，路由的一部分被模型厂商做进了产品：
+
+- **自动切换模式**：例如 GPT-5 在 ChatGPT 中由一个路由器根据问题复杂度，在快速模型和深度推理模型之间自动选择。
+- **推理强度参数**：同一个模型按任务调高或调低思考预算，相当于在一个模型内部做“路由”（见 [Model Selection](/docs/application/model-selection) Level 5）。
+
+对应用开发者的意义：有些场景不需要自己实现路由，**用推理强度分档**就能达到类似效果；但你仍要在自己的评估集上验证——厂商的路由针对的是通用聊天，不一定适合你的业务。
+
+### LLM 网关解决什么问题？
+
+| 网关 | 类型 | 提供 |
+| --- | --- | --- |
+| **LiteLLM** | 开源，可自部署 | 统一不同供应商的 API 格式；fallback 和重试；按团队 / 项目的预算与限流；成本统计 |
+| **OpenRouter** | 托管服务 | 一个 API 访问众多模型；自动在多个供应商之间做可用性 fallback |
+| 云厂商网关 | 如各大云平台的 AI 网关 | 与云上鉴权、日志、配额集成 |
+
+网关把 Level 4 的降级兜底、[API Engineering](/docs/production/api-engineering) 的重试限流、[Cost](/docs/production/cost) Level 5 的成本归因集中到一层。代价：多一跳延迟、多一个依赖（网关本身也要高可用）；而且网关的 fallback 只解决“可用”，**不保证备用模型的质量**——评估对等仍要自己做。
+
+<Note type="tip" title="面试加分">
+
+“路由我分三层考虑：最便宜的是用推理强度分档；其次是意图分类或级联路由，路由器要有自己的评估；基础设施层用 LiteLLM 这类网关统一做 fallback、限流和成本归因。”
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. FrugalGPT 和 RouteLLM 的路由思路有什么不同？
+2. 为什么说路由器本身也需要评估？
+3. 模型内部的自动路由对应用开发者意味着什么？
+4. LLM 网关解决哪三类问题？它不能保证什么？
+
+</Note>
+
 ## 陷阱
 
 <Note title="别说「路由之后质量和全用强模型一样，成本还低很多」" type="danger">
@@ -1084,6 +1151,35 @@ prompt 不适配、结构化输出参数不兼容、合规没审批、限流额�
 </Locale>
 
 <Locale lang="en">
+
+## Level 5 · Deep dive: research, in-model routing, gateways
+
+### Representative research?
+
+FrugalGPT (Stanford, 2023): cascade from cheap to expensive models with a trained scorer that stops when an answer is reliable. RouteLLM (LMSYS, 2024): routers trained on Chatbot Arena preference data predict whether the weak model suffices. Both report large savings at near-strong-model quality; both show the router is itself a model to train and evaluate.
+
+### In-model routing?
+
+Products now route internally — e.g. GPT-5 in ChatGPT switching between fast and deep-reasoning models — and reasoning-effort settings act as routing inside one model. Effort tiers can replace custom routing in some cases, but verify on your eval.
+
+### What do gateways solve?
+
+LiteLLM (open source: unified API, fallbacks, retries, budgets, rate limits, cost tracking), OpenRouter (hosted multi-provider access and availability fallback), cloud gateways. They centralize fallback, retry, and attribution at the cost of an extra hop and dependency — and fallback availability isn't quality parity.
+
+<Note type="tip" title="Interview move">
+
+"Three layers: effort tiers first, then intent or cascade routing with its own eval, and a gateway like LiteLLM for fallback, limits, and attribution."
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. FrugalGPT vs RouteLLM?
+2. Why evaluate the router itself?
+3. What does in-model routing mean for you?
+4. What do gateways solve, and what can't they guarantee?
+
+</Note>
 
 ## Traps
 
@@ -1198,6 +1294,11 @@ offline eval → shadow mode → A/B test (per user, z-test) · routing logs
 12. A/B 测试的结果怎么判断是不是显著？（How do you tell whether an A/B test result is significant?）
 13. 设计一个客服系统的模型路由方案，要求成本降低一半以上，质量不明显下降。（Design model routing for a support system that cuts cost by more than half without a noticeable quality drop.）
 
+### 2026-10 新增
+
+1. FrugalGPT 和 RouteLLM 是怎么做路由的？（How do FrugalGPT and RouteLLM route?）
+2. LLM 网关解决什么问题？有什么代价？（What do LLM gateways solve, and at what cost?）
+
 </Locale>
 
 <Locale lang="en">
@@ -1237,6 +1338,11 @@ Answer out loud first, then check against the matching Level.
 11. How do you verify a new routing policy beats the old one?
 12. How do you tell whether an A/B test result is significant?
 13. Design model routing for a support system that cuts cost by more than half without a noticeable quality drop.
+
+### Added 2026-10
+
+1. How do FrugalGPT and RouteLLM route?
+2. What do LLM gateways solve, and at what cost?
 
 </Locale>
 

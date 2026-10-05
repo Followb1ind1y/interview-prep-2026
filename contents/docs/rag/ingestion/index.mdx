@@ -1,10 +1,10 @@
 ---
 title: Document Ingestion
 titleEn: Document Ingestion
-description: 把真实企业资料转成有版本、来源和权限的可检索证据。
-descriptionEn: Turn messy enterprise content into versioned, attributable, permissioned evidence.
-date: 2026-09-24
-keywords: ['rag', 'ingestion', 'parsing', 'ocr', 'versioning']
+description: RAG 的质量上限由入库决定：PDF / 扫描件 / 表格的解析难点与工具选择、视觉检索（ColPali）、元数据与版本、去重、增量更新与删除、入库质量检查。
+descriptionEn: "Ingestion caps RAG quality: parsing PDFs, scans, and tables, visual retrieval (ColPali), metadata and versions, dedup, incremental updates and deletion, quality checks."
+date: 2026-10-04
+keywords: ['ingestion', 'parsing', 'pdf', 'ocr', 'table', 'docling', 'colpali', 'metadata', 'versioning', 'deduplication', 'incremental index']
 tier: A
 status: todo
 cursor: ''
@@ -13,45 +13,65 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+“垃圾进，垃圾出”在 RAG 里最真实：PDF 的两栏排版被解析成交错的句子、表格变成一串没有行列关系的数字、页眉页脚混进正文——后面的检索和模型再强也救不回来。很多真实 RAG 项目的大部分工作量其实在入库。
+
+面试中这部分常被问成：“PDF 里有表格怎么办？”“扫描件呢？”“政策更新了，旧版本怎么处理？”“用户要求删除数据，向量库里怎么删？”
+
+贯穿例子：政策库里的 `P-17` 退款政策有 PDF 版（含一张“订单状态 × 可选操作”的表格）、HTML 帮助中心版和一份扫描的旧版合同附件。
 
 ## 这一页怎么学
 
-| Level | 要回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 原始资料 | 为什么把 PDF 直接塞进向量库会出错？ | 15–25 min |
-| 1 · 证据单位 | 一段入库记录应该带什么元数据？ | 15–25 min |
-| 2 · 增量更新 | 文档改版后怎样避免新旧政策混用？ | 15–25 min |
-| 3 · 摄入验收 | 如何证明索引中的证据可信？ | 15–25 min |
+| 0 · 为什么入库决定上限 | 解析出错会怎样传导到最终答案？ | 15 min |
+| 1 · 解析 | PDF、扫描件、表格分别难在哪？用什么工具？ | 35 min |
+| 2 · 元数据与版本 | 每份文档要记录什么？新旧版本怎么共存？ | 25 min |
+| 3 · 增量更新与删除 | 文档改了、删了，索引怎么跟上？ | 25 min |
+| 4 · 质量检查 | 怎么知道入库是对的？ | 15 min |
+
+**Level 1 和 Level 3 是重点**。全页约 2 小时。
 
 ## 需要掌握
 
-- 为什么把 PDF 直接塞进向量库会出错？
-- 一段入库记录应该带什么元数据？
-- 文档改版后怎样避免新旧政策混用？
-- 如何证明索引中的证据可信？
+- 解析错误是 RAG 七个失败点中“内容缺失”的主要来源之一
+- PDF 的三种难点：多栏布局、页眉页脚、表格；扫描件需要 OCR
+- 工具谱系：规则解析库 → 版面分析模型（Docling 等）→ 用视觉语言模型解析 → 直接对页面图像做检索（ColPali）
+- 表格的处理：转 Markdown / HTML、按行切、为表格生成描述
+- 元数据：版本、生效日期、ACL、来源；版本冲突的处理
+- 增量更新：内容哈希、变更检测、删除（tombstone）与权限同步
+- 入库质量检查清单
 
 </Locale>
 
 <Locale lang="en">
 
-We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+Garbage in, garbage out is literal in RAG: two-column PDFs parsed into interleaved sentences, tables flattened into rows of numbers, headers mixed into body text — nothing downstream recovers. Much of the real work in RAG projects is ingestion.
 
-## How to study this page
+Typical questions: tables in PDFs? Scans? Policy updates? Deleting user data from a vector index?
 
-| Level | Question | Time |
+Running example: `P-17` exists as a PDF (with an order-status × action table), an HTML help page, and a scanned legacy attachment.
+
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · Source material | Why does directly embedding a PDF fail? | 15–25 min |
-| 1 · Evidence units | What metadata belongs on each indexed passage? | 15–25 min |
-| 2 · Incremental updates | How do you avoid mixing old and new policy versions? | 15–25 min |
-| 3 · Ingestion acceptance | How do you validate indexed evidence? | 15–25 min |
+| 0 · Why ingestion caps quality | How do parsing errors reach the answer? | 15 min |
+| 1 · Parsing | What's hard about PDFs, scans, tables? Which tools? | 35 min |
+| 2 · Metadata and versions | What do you record? How do versions coexist? | 25 min |
+| 3 · Updates and deletion | How does the index keep up with edits and deletes? | 25 min |
+| 4 · Quality checks | How do you know ingestion is right? | 15 min |
+
+**Levels 1 and 3 are the core.** About 2 hours.
 
 ## Must know
 
-- Why does directly embedding a PDF fail?
-- What metadata belongs on each indexed passage?
-- How do you avoid mixing old and new policy versions?
-- How do you validate indexed evidence?
+- parsing errors are a major source of "missing content"
+- PDF pain points (columns, headers/footers, tables) and OCR for scans
+- the tool spectrum: rule-based → layout models (Docling) → VLM parsing → page-image retrieval (ColPali)
+- table handling
+- metadata, versions, conflicts
+- content hashes, change detection, tombstones, ACL sync
+- an ingestion QA checklist
 
 </Locale>
 
@@ -59,18 +79,26 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="zh">
 
-## Level 0 · 原始资料
+## Level 0 · 为什么入库决定上限
 
-### 为什么把 PDF 直接塞进向量库会出错？
+### 解析出错会怎样传导到最终答案？
 
-检索系统看到的是解析后的文本，不是人眼看到的页面。PDF 可能双栏串行、页眉重复、表格行列丢失；扫描件需 OCR；HTML 的导航与广告会混入正文。若 `P-17 v3` 的“运输中”与“退货流程”落在不同栏，解析错了，后续再强的 embedding 也救不了。
+`P-17` 的 PDF 是两栏排版。简单的文本抽取按行从左到右读，结果把两栏交错拼在一起：
 
-先抽样对照原件：标题、段落、表格、脚注、链接、页码是否对应；记录 OCR 置信度与解析失败样本。把解析产物当成需要验收的数据集。
+```text
+原文左栏：已发货（含运输中）订单不适用         原文右栏：签收后 7 日内可申请退货，
+          未发货退款流程。                              运费由买家承担。
+抽取结果：已发货（含运输中）订单不适用签收后 7 日内可申请退货，未发货退款流程。运费由买家承担。
+```
+
+这句话现在的意思是错的。它会被切分、被 embedding、被检索到、被模型忠实地引用——每一步都“正确”，答案却是错的。而且这种错误在下游**几乎查不出来**：faithfulness 评分很高（模型确实忠实于检索内容），只有回到原文才能发现。
+
+所以 RAG 排错的第一步永远是：**正确的原文在索引里是什么样子？**（见 [Failure Diagnosis](/docs/rag/debugging)）
 
 <Note title="自测：到这里你应该能回答">
 
-1. 一条政策在扫描 PDF 中，哪些解析错误会改变结论？
-2. 为何先检查文本再换 embedding？
+1. 为什么解析错误在下游很难被发现？
+2. 为什么 faithfulness 高也可能是解析错误导致的错答？
 
 </Note>
 
@@ -78,16 +106,16 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="en">
 
-## Level 0 · Source material
+## Level 0 · Why ingestion caps quality
 
-### Why does directly embedding a PDF fail?
+### How do parsing errors propagate?
 
-Retrieval sees parsed text, not the page humans see. PDFs can scramble columns, repeat headers, or flatten tables; scans need OCR; HTML can include navigation and ads. If the shipping condition and refund action are separated during parsing, better embeddings cannot recover the missing relationship. Sample-check parsed text against originals and record OCR uncertainty.
+Naive extraction of a two-column PDF interleaves the columns into a sentence with the wrong meaning. It is then chunked, embedded, retrieved, and faithfully quoted — every downstream step "correct," the answer wrong, and faithfulness scores high. Debugging always starts with what the indexed text actually looks like.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Which PDF parsing errors can change the policy meaning?
-2. Why inspect extracted text before changing embeddings?
+1. Why are parsing errors hard to detect downstream?
+2. How can high faithfulness coexist with a parsing-caused error?
 
 </Note>
 
@@ -95,18 +123,57 @@ Retrieval sees parsed text, not the page humans see. PDFs can scramble columns, 
 
 <Locale lang="zh">
 
-## Level 1 · 证据单位
+## Level 1 · 解析
 
-### 一段入库记录应该带什么元数据？
+### PDF、扫描件、表格分别难在哪？
 
-稳定的 `doc_id` 表示源文档，`chunk_id` 表示段；另存 `version, section_path, page, source_url, effective_at, expires_at, tenant_id, acl`。检索命中后可回到原页，回答引用具体位置；删除或更新文档时可按 `doc_id` 清走全部旧段。
+| 文档类型 | 难点 | 处理 |
+| --- | --- | --- |
+| 数字 PDF（有文字层） | PDF 存的是“在某坐标画某字符”，没有段落、标题、阅读顺序的概念；多栏、页眉页脚、脚注、跨页段落 | 版面分析：识别区块类型和阅读顺序，去掉页眉页脚 |
+| 扫描件（只有图片） | 没有文字层 | OCR；注意识别错误（“7 日”识别成“1 日”） |
+| 表格 | 抽取后变成一串数字，丢失行列关系 | 识别表格结构，转成 Markdown / HTML 保留行列 |
+| HTML | 导航栏、广告、页脚等噪声 | 提取正文区域；利用 `h1–h6` 标题结构 |
+| Word / PPT | 相对规整，但有文本框、批注、修订记录 | 用专门的解析库，注意是否包含未接受的修订 |
 
-表格别简单逐格拼成一句：保留列名、行键和单位。比如“未发货 7 天”与“已发货 30 天”若丢掉状态列，答案会反转。把版本与权限字段当过滤条件，而非给模型读了后自行判断。
+### 有哪些解析工具？
+
+工具大致分四代，能力递增、成本也递增：
+
+| 类别 | 代表 | 特点 |
+| --- | --- | --- |
+| 规则 / 文本层抽取 | PyMuPDF、pdfplumber | 快、便宜；对复杂版面和表格效果差 |
+| 版面分析模型 | **Docling**（IBM 开源）、Unstructured、Azure Document Intelligence、Amazon Textract | 识别标题、段落、表格、阅读顺序，输出结构化结果；多数场景的主力方案 |
+| 视觉语言模型（VLM）解析 | 用多模态大模型把每页图片转成 Markdown（LlamaParse 等也提供这类模式） | 对复杂版面、图表、手写效果好；贵、慢，偶尔会“补全”原文没有的内容 |
+| 直接对页面图像检索 | **ColPali**（2024） | 不做文字解析，把每页**截图**直接编码成多向量，用查询直接检索页面图像 |
+
+**ColPali** 值得单独理解：它用视觉语言模型把页面图像切成小块，每块一个向量（类似 ColBERT 的“多向量 + 后期交互”，见 [Reranking](/docs/rag/reranking)）。好处是绕开了整条解析流水线，图表、版面信息天然保留；代价是存储大（每页上千个向量）、检索后仍需要把页面图像交给多模态模型读。适合版面复杂、图表多的文档（财报、产品手册）。
+
+### 表格怎么处理？
+
+`P-17` 的表格：
+
+```markdown
+| 订单状态 | 未发货退款 | 签收后退货 | 运费承担 |
+| --- | --- | --- | --- |
+| 未发货 | 可以 | 不适用 | 无 |
+| 运输中 | 不可以 | 签收后可以 | 买家 |
+| 已签收 | 不可以 | 7 日内可以 | 买家 |
+```
+
+几种做法：
+
+1. **整表转 Markdown**，作为一个块（表格不大时）。
+2. **按行切**，每行都带上表头：“订单状态：运输中；未发货退款：不可以；签收后退货：签收后可以；运费：买家”——每行能独立被检索、独立被理解。
+3. **生成表格描述**：用模型写一段“本表说明不同订单状态下的退款与退货规则”，和表格一起索引，提高语义检索命中率。
+
+关键原则：**不能让任何一个块脱离表头**——单独一行“运输中 | 不可以 | 签收后可以”，没人知道每列是什么意思。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 更新 `P-17` 时如何找到所有旧段？
-2. 表格哪类结构丢失最危险？
+1. 为什么 PDF 天然缺少阅读顺序？版面分析解决什么？
+2. 四类解析工具各适合什么场景？
+3. ColPali 的思路是什么？它的代价是什么？
+4. 表格按行切分时，为什么每行要带表头？
 
 </Note>
 
@@ -114,16 +181,26 @@ Retrieval sees parsed text, not the page humans see. PDFs can scramble columns, 
 
 <Locale lang="en">
 
-## Level 1 · Evidence units
+## Level 1 · Parsing
 
-### What metadata belongs on each indexed passage?
+### What's hard about each format?
 
-Store stable document and chunk IDs plus version, section path, page, source URL, effective dates, tenant, and ACL. These fields enable citations, version removal, and access filters. Preserve table headers, row keys, and units: dropping the shipment-state column can reverse a refund rule. Filter versions and permissions before the model sees candidates.
+Digital PDFs store glyphs at coordinates — no paragraphs, headings, or reading order — so you need layout analysis to order blocks and drop headers and footers. Scans need OCR (watch digit errors). Tables lose row/column structure unless detected and converted to Markdown or HTML. HTML needs main-content extraction and heading structure. Office files have text boxes, comments, and tracked changes.
+
+### Which tools?
+
+Text-layer extraction (PyMuPDF, pdfplumber: fast, weak on layout); layout models (Docling, Unstructured, Azure Document Intelligence, Textract: the workhorse); VLM parsing of page images into Markdown (great on complex layouts and charts, expensive, occasionally invents text); and **ColPali** (2024), which skips parsing entirely and embeds page screenshots as multi-vectors for late-interaction retrieval — layout preserved, but heavy storage and a multimodal reader still needed.
+
+### Tables?
+
+Small tables as one Markdown chunk; otherwise row-wise chunks that repeat the header; optionally a generated table description. Never let a chunk lose its header.
 
 <Note title="Self-check: you should be able to answer">
 
-1. How do you find every old `P-17` chunk?
-2. Which lost table structure is dangerous?
+1. Why do PDFs lack reading order, and what does layout analysis add?
+2. When does each tool class fit?
+3. ColPali's idea and cost?
+4. Why repeat headers in row chunks?
 
 </Note>
 
@@ -131,18 +208,44 @@ Store stable document and chunk IDs plus version, section path, page, source URL
 
 <Locale lang="zh">
 
-## Level 2 · 增量更新
+## Level 2 · 元数据与版本
 
-### 文档改版后怎样避免新旧政策混用？
+### 每份文档要记录什么？
 
-每次摄入可计算内容 hash，发现变更后重解析、重切分、重索引。发布时用版本指针或原子别名切换，之后清理旧版本；线上读请求只见一组一致版本。来源删除、权限收紧也要传播到稀疏索引、向量索引和缓存。
+| 字段 | 例子 | 用于 |
+| --- | --- | --- |
+| `doc_id`、`version` | `P-17`、`v3` | 版本过滤、引用 |
+| `effective_from` / `effective_to` | 2026-07-01 / 空 | 只检索当前生效的版本 |
+| `source_url`、`source_system` | 帮助中心、合同库 | 引用、回溯 |
+| `tenant`、`acl` | 租户、可见角色 | 检索时的权限过滤 |
+| `doc_type`、`language`、`region` | 政策、中文、国内 | 过滤与路由 |
+| `content_hash` | 内容哈希 | 增量更新、去重 |
+| `parser`、`parsed_at` | 解析器名与版本、时间 | 解析器升级后知道哪些要重新处理 |
 
-示例：`P-17 v3` 生效前，先在候选索引校验段数、权限和关键查询；切换后用“未发货/运输中”两类固定测试查排名和引用。衡量 source-to-search 延迟，别把“抓取成功”当“可搜且正确”。
+### 新旧版本怎么共存？
+
+政策从 `v2` 更新到 `v3` 时，有两种选择：
+
+| 做法 | 优点 | 缺点 |
+| --- | --- | --- |
+| 删除旧版本，只保留最新 | 简单，不会检索到旧版 | 无法回答“我下单时适用哪个版本？”；审计困难 |
+| 保留所有版本，用生效日期过滤 | 能按时间点回答；可审计 | 必须保证在线过滤**一定**生效，否则旧版会被检索到 |
+
+客服场景常需要后者：退款政策以**下单时**生效的版本为准。此时查询要带上“适用日期”，过滤条件是 `effective_from ≤ 适用日期 < effective_to`。
+
+### 同一内容有多个来源怎么办？
+
+`P-17` 同时存在 PDF 版和 HTML 版，内容几乎一样。都入库会导致检索结果里出现两段重复内容，浪费 Top-K 名额。做法：
+
+- **精确去重**：规范化后（去空格、统一标点）算哈希，相同就只留一份。
+- **近似去重**：用 MinHash 等方法找相似度很高的块，合并或只保留权威来源。
+- 指定**权威来源**：两个版本冲突时以哪个为准，要写进元数据。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 双索引更新若一边先完成会有什么症状？
-2. 上线前固定查询应覆盖哪些状态？
+1. 为什么要记录 `parser` 和 `parsed_at`？
+2. 保留所有版本时，在线过滤条件怎么写？
+3. 重复内容对检索有什么危害？怎么去重？
 
 </Note>
 
@@ -150,16 +253,25 @@ Store stable document and chunk IDs plus version, section path, page, source URL
 
 <Locale lang="en">
 
-## Level 2 · Incremental updates
+## Level 2 · Metadata and versions
 
-### How do you avoid mixing old and new policy versions?
+### What do you record?
 
-Hash source content, reparse and reindex changes, validate a candidate index, then switch a version pointer or alias atomically. Propagate deletions and access changes to lexical, vector, and cache layers. Track source-to-search lag rather than equating a successful crawl with searchable current evidence.
+`doc_id`, `version`, effective dates, source URL/system, tenant and ACL, type/language/region, `content_hash`, and parser name/version with timestamp (so parser upgrades know what to reprocess).
+
+### How do versions coexist?
+
+Delete old versions (simple, but can't answer "which policy applied when I ordered?") or keep all with effective-date filtering (auditable, but filtering must never fail). Support refunds usually need the latter: filter `effective_from ≤ applicable date < effective_to`.
+
+### Duplicate sources?
+
+Duplicates waste top-K slots. Exact dedup via normalized hashes, near-dup via MinHash, and a recorded authoritative source for conflicts.
 
 <Note title="Self-check: you should be able to answer">
 
-1. What happens if lexical and vector updates are out of sync?
-2. Which states should fixed release queries cover?
+1. Why record parser and parse time?
+2. The filter when all versions are kept?
+3. Why do duplicates hurt, and how do you dedupe?
 
 </Note>
 
@@ -167,18 +279,44 @@ Hash source content, reparse and reindex changes, validate a candidate index, th
 
 <Locale lang="zh">
 
-## Level 3 · 摄入验收
+## Level 3 · 增量更新与删除
 
-### 如何证明索引中的证据可信？
+### 文档改了，索引怎么跟上？
 
-抽取文档、段落与关键业务字段做源文对照；统计解析空白率、OCR 低置信段、孤儿 chunk、重复段、过期命中率和权限负例。质量门槛要按文档类型分层：扫描合同和结构化 FAQ 的失败模式不同。
+全量重建索引在资料多时很贵（每个块都要重新 embedding）。增量更新流程：
 
-面试时讲清故障回放：失败回答 → 取回引用的 chunk → 对照原文页面 → 查解析版本和索引发布时间。若原始规则本身错，进入内容治理而不是调检索参数。
+```text
+1. 变更检测：定时扫描或接收文档系统的变更事件（CDC / webhook）
+2. 对变化的文档重新解析、切分
+3. 按块计算 content_hash：
+   - 哈希没变的块 → 跳过（不重新 embedding）
+   - 新块 → embedding 后插入
+   - 消失的块 → 删除
+4. 原子发布：新版本的块全部就绪后再切换可见，避免检索到“一半新一半旧”
+5. 记录索引新鲜度：文档更新时间 → 可被检索时间
+```
+
+**索引新鲜度**是 RAG 特有的运维指标：政策 9 点更新，如果 15 点才能被检索到，这 6 小时里系统都在依据旧政策回答。
+
+### 用户要求删除数据，向量库里怎么删？
+
+这在合规上是硬要求（例如用户行使删除权），也是面试常被追问的点：
+
+- 每个块必须能追溯到来源文档（`doc_id`），才能找到所有相关块。
+- 向量库的删除很多是**标记删除（tombstone）**，数据在后台合并时才真正清除；要确认它满足合规时限。
+- **派生数据也要删**：缓存的答案、日志里的原文、评估集中的样本、基于该文档生成的摘要。
+- 删除后做负例测试：用原文中的独特词语检索，确认查不到。
+
+### 权限变了怎么办？
+
+文档的可见范围变了（某政策从“全员可见”改成“仅主管可见”），但已入库的块还带着旧的 ACL。权限变更要像内容变更一样触发更新，而且**优先级更高**——内容过时是质量问题，权限过时是安全问题。
 
 <Note title="自测：到这里你应该能回答">
 
-1. OCR 置信度低的关键条款应怎样处理？
-2. 原文错与检索错如何分开？
+1. 描述增量更新的五个步骤。`content_hash` 在哪一步起作用？
+2. 什么是索引新鲜度？为什么要监控它？
+3. 用户要求删除数据时，除了向量库还要删哪些地方？
+4. 为什么权限变更比内容变更优先级更高？
 
 </Note>
 
@@ -186,16 +324,71 @@ Hash source content, reparse and reindex changes, validate a candidate index, th
 
 <Locale lang="en">
 
-## Level 3 · Ingestion acceptance
+## Level 3 · Updates and deletion
 
-### How do you validate indexed evidence?
+### How does the index keep up with edits?
 
-Validate sampled passages against source pages and track empty extraction, low-confidence OCR, orphan chunks, duplication, stale hits, and unauthorized hits. Segment acceptance by document type. On a bad answer, trace the cited chunk back to its source and indexing time; fix wrong source content through content governance, not search tuning.
+Detect changes (scans or CDC/webhooks), reparse and rechunk changed documents, compare per-chunk hashes (skip unchanged, embed new, delete vanished), publish atomically so queries never see half-old/half-new versions, and track **index freshness** — the delay from document update to retrievability.
+
+### Deleting user data?
+
+Every chunk must trace to its `doc_id`; many vector stores tombstone and purge later, so check compliance timelines; delete derived data too (cached answers, logs, eval samples, summaries); verify with negative searches on distinctive phrases.
+
+### Permission changes?
+
+Stale ACLs are a security issue, not a quality issue — propagate them with higher priority than content changes.
 
 <Note title="Self-check: you should be able to answer">
 
-1. How should a low-confidence critical clause be handled?
-2. How do you separate wrong source content from bad retrieval?
+1. The five incremental-update steps?
+2. What is index freshness and why monitor it?
+3. What besides the vector store must be deleted?
+4. Why prioritize ACL changes?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 质量检查
+
+### 怎么知道入库是对的？
+
+入库流水线也要有测试，常见检查：
+
+| 检查 | 方法 |
+| --- | --- |
+| 抽样人工对比 | 每次解析器或配置变化后，抽 20–50 页，原文和解析结果并排看 |
+| 结构完整性 | 每份文档的标题数、表格数、页数是否合理；有没有空文档、超短文档 |
+| OCR 置信度 | 低置信度的页面标记出来人工复核 |
+| 关键事实探针 | 维护一组“原文中一定存在的关键句”（如“运输中订单不适用未发货退款”），入库后检索确认能找到 |
+| 元数据完整率 | 缺版本、缺 ACL 的块不允许发布 |
+| 重复率 | 去重后仍然重复的比例 |
+
+**关键事实探针**最实用：它把“入库对不对”变成可以自动跑的回归测试，每次更换解析工具都能立刻发现问题。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 列出四种入库质量检查。
+2. 关键事实探针是什么？为什么它特别实用？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Quality checks
+
+### How do you know ingestion is right?
+
+Side-by-side human review of 20–50 pages after parser changes; structural sanity (headings, tables, pages, empty docs); OCR confidence flags; **key-fact probes** (sentences that must exist, retrieved after every ingestion — an automatic regression test); metadata completeness gates; duplicate rates.
+
+<Note title="Self-check: you should be able to answer">
+
+1. Four ingestion checks?
+2. What are key-fact probes and why are they so useful?
 
 </Note>
 
@@ -205,53 +398,71 @@ Validate sampled passages against source pages and track empty extraction, low-c
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+- “用 PyPDF 把文字抽出来就行。”（多栏、表格、页眉页脚都会出错）
+- “政策更新了，重新跑一遍全量入库。”（成本、新鲜度、半新半旧问题）
+- “从向量库删掉向量就算删除了用户数据。”
 
 </Note>
 
 ## 连接
 
-上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
+- 上一站：[Architecture](/docs/rag/architecture)；下一站：[Chunking](/docs/rag/chunking)
+- 排错：[Failure Diagnosis](/docs/rag/debugging)（第一步就是看入库结果）
+- 安全：[Isolation](/docs/context/isolation)（ACL 与租户）
 
 ## 面试问题
 
-1. 为什么把 PDF 直接塞进向量库会出错？（Why does directly embedding a PDF fail?）
-2. 一段入库记录应该带什么元数据？（What metadata belongs on each indexed passage?）
-3. 文档改版后怎样避免新旧政策混用？（How do you avoid mixing old and new policy versions?）
-4. 如何证明索引中的证据可信？（How do you validate indexed evidence?）
+1. 为什么说入库决定了 RAG 的质量上限？（Why does ingestion cap RAG quality?）
+2. PDF 里有多栏排版和表格，你怎么处理？（How do you handle multi-column PDFs and tables?）
+3. 有哪些文档解析工具？ColPali 是什么思路？（Which parsing tools exist, and what is ColPali?）
+4. 政策有多个版本，怎么保证只检索到正确的版本？（How do you retrieve only the right policy version?）
+5. 文档更新时怎样增量更新索引？（How do you update the index incrementally?）
+6. 用户要求删除数据，RAG 系统要删哪些地方？（What must be deleted when a user requests erasure?）
 
 ## 资料来源
 
-- [原始研究或官方文档](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-solution-design-and-evaluation-guide)
+- [Docling（GitHub）](https://github.com/docling-project/docling)
+- [ColPali：Efficient Document Retrieval with Vision Language Models（Faysse et al., 2024）](https://arxiv.org/abs/2407.01449)
+- [Unstructured 文档](https://docs.unstructured.io/)
+- [Barnett et al., 2024：Seven Failure Points](https://arxiv.org/abs/2401.05856)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+- "Just extract text with a PDF library."
+- "Rerun full ingestion when policy changes."
+- "Deleting vectors deletes the user's data."
 
 </Note>
 
 ## Connections
 
-Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+- Previous: [Architecture](/docs/rag/architecture); next: [Chunking](/docs/rag/chunking)
+- Debugging: [Failure Diagnosis](/docs/rag/debugging)
+- Security: [Isolation](/docs/context/isolation)
 
 ## Interview questions
 
-1. Why does directly embedding a PDF fail?
-2. What metadata belongs on each indexed passage?
-3. How do you avoid mixing old and new policy versions?
-4. How do you validate indexed evidence?
+1. Why does ingestion cap RAG quality?
+2. How do you handle multi-column PDFs and tables?
+3. Which parsing tools exist, and what is ColPali?
+4. How do you retrieve only the right policy version?
+5. How do you update the index incrementally?
+6. What must be deleted when a user requests erasure?
 
 ## Sources
 
-- [Primary research or official documentation](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/rag/rag-solution-design-and-evaluation-guide)
+- [Docling](https://github.com/docling-project/docling)
+- [ColPali (Faysse et al., 2024)](https://arxiv.org/abs/2407.01449)
+- [Unstructured docs](https://docs.unstructured.io/)
+- [Barnett et al., 2024](https://arxiv.org/abs/2401.05856)
 
 </Locale>
 

@@ -1,10 +1,10 @@
 ---
 title: Reranking
 titleEn: Reranking
-description: 用两阶段检索在召回、精度、成本和延迟之间做决策。
-descriptionEn: Use two-stage retrieval to balance recall, precision, cost, and latency.
-date: 2026-09-24
-keywords: ['rag', 'reranking', 'cross encoder', 'latency']
+description: 为什么检索与重排分两阶段：双塔 vs 交叉编码器、ColBERT 的后期交互折中、LLM 当重排器、重排的延迟与成本手算、候选数量与阈值怎么定。
+descriptionEn: "Why retrieval and reranking are two stages: bi-encoders vs cross-encoders, ColBERT's late-interaction middle ground, LLMs as rerankers, latency and cost math, and choosing candidate counts and thresholds."
+date: 2026-10-04
+keywords: ['reranking', 'cross-encoder', 'bi-encoder', 'colbert', 'late interaction', 'llm reranker', 'rankgpt', 'cohere rerank', 'bge-reranker']
 tier: B
 status: todo
 cursor: ''
@@ -13,45 +13,55 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+混合检索召回了 100 个候选，但只能把 5 个放进 context。哪 5 个？靠召回阶段的分数排序不够准——这就是重排（reranking）存在的原因。面试常问：为什么要分两阶段？cross-encoder 为什么更准却不能直接用来检索？重排加多少延迟？取多少候选重排？
+
+贯穿例子：查询“运输中能退款吗”，召回 100 个候选，其中“未发货订单可全额退款”（主题相同、条件相反）在召回阶段排第 2，正确的 `P-17 v3` 第 4 条排第 7。
 
 ## 这一页怎么学
 
-| Level | 要回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 两阶段 | 为什么先召回一批，再精排少数？ | 15–25 min |
-| 1 · 交互式相关性 | bi-encoder 与 cross-encoder 的判断方式有什么差异？ | 15–25 min |
-| 2 · 多样性与上下文 | Top-N 都是同一条款的重复段怎么办？ | 15–25 min |
-| 3 · 预算与验收 | 怎样判断重排值不值得加？ | 15–25 min |
+| 0 · 为什么分两阶段 | 召回和重排各优化什么？ | 15 min |
+| 1 · 交叉编码器 | 为什么它更准？为什么不能用它检索全库？ | 25 min |
+| 2 · 其他重排方式 | ColBERT 和 LLM 重排是什么？ | 25 min |
+| 3 · 成本与参数 | 重排多少个候选？延迟多少？要不要设阈值？ | 20 min |
+
+**Level 1 是重点**。全页约 1.5 小时。
 
 ## 需要掌握
 
-- 为什么先召回一批，再精排少数？
-- bi-encoder 与 cross-encoder 的判断方式有什么差异？
-- Top-N 都是同一条款的重复段怎么办？
-- 怎样判断重排值不值得加？
+- 两阶段的分工：召回要“全”，重排要“准”
+- cross-encoder 联合编码的优势与 O(K) 推理成本
+- ColBERT 的多向量 + MaxSim 后期交互
+- LLM 重排（pointwise / listwise）及其成本
+- 候选数量、延迟、相关性阈值的权衡
 
 </Locale>
 
 <Locale lang="en">
 
-We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+Hybrid retrieval returns 100 candidates; only 5 fit in context. Retrieval scores aren't precise enough to pick them — hence reranking. Common questions: why two stages, why cross-encoders can't search the whole corpus, latency, candidate counts.
 
-## How to study this page
+Running example: for "can in-transit orders be refunded?", "unshipped orders get full refunds" (same topic, opposite condition) ranks #2 at retrieval while the correct clause ranks #7.
 
-| Level | Question | Time |
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · Two stages | Why retrieve broadly and rerank a smaller set? | 15–25 min |
-| 1 · Joint relevance | How do bi-encoders and cross-encoders differ? | 15–25 min |
-| 2 · Diversity and context | What if top results duplicate one clause? | 15–25 min |
-| 3 · Budget and acceptance | How do you decide whether reranking pays off? | 15–25 min |
+| 0 · Why two stages | What does each stage optimize? | 15 min |
+| 1 · Cross-encoders | Why more accurate? Why not search with them? | 25 min |
+| 2 · Other rerankers | ColBERT and LLM reranking? | 25 min |
+| 3 · Cost and parameters | How many candidates, how much latency, thresholds? | 20 min |
+
+**Level 1 is the core.** About 1.5 hours.
 
 ## Must know
 
-- Why retrieve broadly and rerank a smaller set?
-- How do bi-encoders and cross-encoders differ?
-- What if top results duplicate one clause?
-- How do you decide whether reranking pays off?
+- recall-oriented retrieval vs precision-oriented reranking
+- cross-encoder joint encoding and O(K) cost
+- ColBERT multi-vector MaxSim
+- LLM reranking (pointwise/listwise) and cost
+- candidate count, latency, relevance thresholds
 
 </Locale>
 
@@ -59,18 +69,25 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="zh">
 
-## Level 0 · 两阶段
+## Level 0 · 为什么分两阶段
 
-### 为什么先召回一批，再精排少数？
+### 召回和重排各优化什么？
 
-第一阶段用 BM25/向量快速取例如 30 个候选，目标是别漏掉 `P-17 v3`；第二阶段对问题与每段一起打相关性分，挑出最适合回答的少数段。这个 30 只是示意预算，按延迟和标注集调。
+```text
+召回（retrieval）：1,000 万 → 100   目标：别漏掉正确答案（高召回），必须极快
+重排（reranking）：100 → 5         目标：把最相关的排到最前（高精度），可以慢一点
+```
 
-重排器不能找回第一阶段没有召回的条款。如果当前政策不在候选，增加重排模型能力也没用；先看候选 Recall@K。第二阶段通常比单次索引查找贵，所以只喂有限候选。
+召回阶段要在全库里毫秒级完成，只能用双塔向量和 BM25 这类“粗”方法（见 [Embedding](/docs/rag/embedding) Level 1）。它们擅长找到“相关的那一片”，但区分不了细微差别——“未发货可以退款”和“运输中不适用未发货退款”在向量空间里非常接近，都排在前面。
+
+重排只处理 100 个候选，可以用更贵、更准的模型仔细比较每个候选和问题的关系，把条件相反的那个排下去。
+
+这是信息检索里经典的“漏斗”设计：**前面的阶段便宜、广撒网；后面的阶段贵、精挑细选**。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 第一阶段漏掉 `P-17 v3` 时重排能补救吗？
-2. 为何不对全库逐段重排？
+1. 召回和重排各优化什么指标？
+2. 为什么召回阶段区分不了“未发货可以退款”和“运输中不适用未发货退款”？
 
 </Note>
 
@@ -78,16 +95,16 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="en">
 
-## Level 0 · Two stages
+## Level 0 · Why two stages
 
-### Why retrieve broadly and rerank a smaller set?
+### What does each stage optimize?
 
-First-stage lexical/dense retrieval gets a broad, cheap candidate set; a reranker scores the query with each candidate to choose a small set for the prompt. A candidate count of 30 is illustrative. Reranking cannot recover a passage that first-stage retrieval never found. Measure candidate recall before upgrading the reranker.
+Retrieval (10M → 100) must be fast and not miss the answer (recall), so it uses coarse bi-encoders and BM25 that can't separate near-opposites like "unshipped: refundable" vs "in transit: not eligible." Reranking (100 → 5) can afford a slower, sharper model to push the wrong one down — the classic cheap-wide-then-expensive-precise funnel.
 
 <Note title="Self-check: you should be able to answer">
 
-1. Can reranking recover an absent passage?
-2. Why not rerank the whole corpus?
+1. Which metric does each stage optimize?
+2. Why can't retrieval separate the two refund clauses?
 
 </Note>
 
@@ -95,18 +112,39 @@ First-stage lexical/dense retrieval gets a broad, cheap candidate set; a reranke
 
 <Locale lang="zh">
 
-## Level 1 · 交互式相关性
+## Level 1 · 交叉编码器
 
-### bi-encoder 与 cross-encoder 的判断方式有什么差异？
+### cross-encoder 为什么更准？
 
-Embedding 检索通常分别编码 query 与段，再比向量；文档向量可预计算，速度快。Cross-encoder 类重排器把 query 与候选段一起输入，让模型看见词间交互，可能更准确地区分“运输中”与“未发货”，但每个候选都要计算。LLM 重排也是一种选择，成本和稳定性需单独测。
+```text
+双塔（召回用）：
+  问题 → 编码器 → 向量 ┐
+  文档 → 编码器 → 向量 ┴→ 点积     问题和文档在编码时互相“看不见”
 
-相关性不是业务真值：若旧 `P-17 v2` 措辞更贴近问题，重排器可能把它放第一。权限、版本和生效日期应在重排前被约束。
+交叉编码器（重排用）：
+  [问题] [分隔符] [文档] → 一个 Transformer → 相关性分数
+                         问题的每个词都能和文档的每个词做 attention
+```
+
+在交叉编码器里，“运输中”这个词可以直接 attention 到文档里的“不适用”和“未发货”，模型能理解“文档说的是运输中订单**不能**走未发货退款”。双塔模型则必须把整段文档提前压缩成一个向量，这种细粒度的对应关系在压缩时丢失了。
+
+### 为什么不能直接用交叉编码器检索全库？
+
+因为**每一对（问题，文档）都要跑一次完整的模型**，文档向量无法提前算好：
+
+```text
+全库 1,000 万个块 × 每对约 10 ms（GPU 上，批处理后更快）= 10 万秒 / 每个查询  → 不可能
+只重排 100 个候选：100 次推理，批处理后约 100–200 ms               → 可以接受
+```
+
+所以交叉编码器只能用在召回之后的小候选集上。
+
+常见的重排模型：Cohere Rerank、Voyage rerank、Jina reranker（API）；BGE-reranker 系列、mxbai-rerank（开源，可自部署）。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 为什么 cross-encoder 成本随候选数上升？
-2. 它为何可能仍偏爱旧政策？
+1. 用 attention 解释为什么交叉编码器能区分条件相反的两段话。
+2. 为什么交叉编码器不能用来检索全库？算一下量级。
 
 </Note>
 
@@ -114,16 +152,20 @@ Embedding 检索通常分别编码 query 与段，再比向量；文档向量可
 
 <Locale lang="en">
 
-## Level 1 · Joint relevance
+## Level 1 · Cross-encoders
 
-### How do bi-encoders and cross-encoders differ?
+### Why are they more accurate?
 
-A bi-encoder typically encodes query and document separately, enabling precomputed document vectors. A cross-encoder reads the pair jointly and can distinguish subtle conditions, but runs per candidate. LLM reranking is another option with different cost and consistency. Relevance scoring does not replace freshness or ACL filters.
+A cross-encoder reads `[query] [sep] [document]` in one transformer, so "in transit" attends directly to "not eligible" and "unshipped." A bi-encoder must compress each document into one vector beforehand, losing those fine correspondences.
+
+### Why not search the corpus with them?
+
+Every pair needs a full model run and nothing can be precomputed: 10M pairs × ~10 ms is ~100,000 seconds per query, versus 100–200 ms for 100 batched candidates. Examples: Cohere Rerank, Voyage, Jina (APIs); BGE-reranker, mxbai-rerank (open).
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why does cross-encoder cost grow with candidates?
-2. Why might it still favor stale policy?
+1. Explain the accuracy gain via attention.
+2. Why not use them for full search? Show the order of magnitude.
 
 </Note>
 
@@ -131,18 +173,49 @@ A bi-encoder typically encodes query and document separately, enabling precomput
 
 <Locale lang="zh">
 
-## Level 2 · 多样性与上下文
+## Level 2 · 其他重排方式
 
-### Top-N 都是同一条款的重复段怎么办？
+### ColBERT 是什么？
 
-重排高分不表示答案证据完整。三个相邻 chunk 都讲“运输中”，却没有“退货例外”，最终 context 会缺关键条件。先按源段去重或限制同文档重复，再看是否覆盖所需子问题；必要时补取父段。
+**ColBERT**（2020）是双塔和交叉编码器之间的折中，叫“**后期交互（late interaction）**”：
 
-示意预算可放 4 段：当前政策适用条件、例外、流程、订单状态摘要。把最终入 prompt 的 ID 与排序一并记录。别用“多样性”强制混入不相关内容；仍以任务相关性和来源真实性为先。
+```text
+编码：问题和文档仍然分别编码（文档可以提前算好），
+      但不压成一个向量，而是每个 token 保留一个向量
+打分：对问题的每个 token 向量，找它在文档所有 token 向量中最相似的那个（MaxSim），
+      把这些最大相似度加起来
+
+问题 token：运输中、能、退款
+  “运输中” 在文档里最相似的是 “运输中” → 0.95
+  “退款”   在文档里最相似的是 “退款”   → 0.93
+  ……求和
+```
+
+| | 双塔 | ColBERT | 交叉编码器 |
+| --- | --- | --- | --- |
+| 文档能否预计算 | 能 | 能 | 不能 |
+| 精度 | 较低 | 中高 | 最高 |
+| 存储 | 每块 1 个向量 | 每块几百个向量（大） | 无需存向量 |
+| 用途 | 召回 | 召回或重排 | 重排 |
+
+ColBERTv2 用压缩技术把存储降了很多。[Ingestion](/docs/rag/ingestion) 里提到的 ColPali 就是把同样的思想用在页面图像上。
+
+### LLM 可以当重排器吗？
+
+可以，常见两种方式：
+
+| 方式 | 做法 | 特点 |
+| --- | --- | --- |
+| 逐个打分（pointwise） | 对每个候选问 LLM：“这段对回答问题有多相关？0–10 分” | 简单，可并行；分数校准不稳定 |
+| 列表排序（listwise） | 把 20 个候选一起给 LLM，让它直接输出排序（如 RankGPT 的方法，用滑动窗口处理更多候选） | 能比较候选之间的关系；输出长、位置偏差 |
+
+LLM 重排的优势是能理解复杂的业务条件（“运输中”“签收后 7 日内”），也能按你的自定义标准排序；缺点是**慢和贵**：重排 20 个候选、每个 300 token，就是一次 6,000+ token 的调用，延迟以秒计。常见折中：交叉编码器把 100 个压到 20 个，LLM 只处理最后 20 个；或者干脆把 20 个都放进 context，让生成模型自己挑。
 
 <Note title="自测：到这里你应该能回答">
 
-1. 三个重复高分段会造成什么答案风险？
-2. 最终 prompt 的段 ID 为什么必须记录？
+1. ColBERT 的 MaxSim 是怎么算的？它为什么比双塔准、比交叉编码器快？
+2. ColBERT 的主要代价是什么？
+3. LLM 重排的 pointwise 和 listwise 有什么区别？什么时候值得用 LLM 重排？
 
 </Note>
 
@@ -150,16 +223,21 @@ A bi-encoder typically encodes query and document separately, enabling precomput
 
 <Locale lang="en">
 
-## Level 2 · Diversity and context
+## Level 2 · Other rerankers
 
-### What if top results duplicate one clause?
+### ColBERT?
 
-High rerank scores can all belong to near-duplicate chunks. Deduplicate by source span or limit redundant passages, then check whether conditions, exceptions, and process are covered. Parent retrieval can restore context. Log the exact passages placed in the prompt; diversity is useful only when it preserves relevance.
+Late interaction (2020): encode query and document separately (documents precomputable) but keep one vector per token; score by summing, over query tokens, the maximum similarity to any document token (MaxSim). More accurate than bi-encoders, faster than cross-encoders, but stores hundreds of vectors per chunk (ColBERTv2 compresses them). ColPali applies the same idea to page images.
+
+### LLMs as rerankers?
+
+Pointwise (score each candidate; simple, parallel, poorly calibrated) or listwise (rank a set at once, as in RankGPT with sliding windows; captures relations, long outputs, position bias). They understand complex business conditions and custom criteria but are slow and costly — 20 candidates × 300 tokens is a 6K-token call. Common compromise: cross-encoder 100 → 20, then LLM or the generator itself picks.
 
 <Note title="Self-check: you should be able to answer">
 
-1. What risk comes from three duplicate high scorers?
-2. Why log final prompt passage IDs?
+1. How is MaxSim computed, and why the accuracy/speed middle ground?
+2. ColBERT's main cost?
+3. Pointwise vs listwise LLM reranking, and when is it worth it?
 
 </Note>
 
@@ -167,18 +245,45 @@ High rerank scores can all belong to near-duplicate chunks. Deduplicate by sourc
 
 <Locale lang="zh">
 
-## Level 3 · 预算与验收
+## Level 3 · 成本与参数
 
-### 怎样判断重排值不值得加？
+### 重排多少个候选？
 
-固定同一候选集，对比无重排、轻量重排和更贵方案的 nDCG/Recall@prompt、最终任务正确性、P95 和单位请求成本。分桶看编号、跨语言、长问题与无答案；若质量收益只出现在少数类型，可按查询路由重排。
+| 参数 | 太小 | 太大 |
+| --- | --- | --- |
+| 召回候选数（送进重排的） | 正确块没进候选，重排无从救起 | 重排延迟线性增长 |
+| 重排后保留数（送进 context 的） | 漏掉需要组合的多段证据 | token 成本高、噪声多 |
 
-还要检查数据泄漏：训练/调参集与最终评测集分离。上线 trace 保留第一阶段与重排前后顺序，才能解释“检索对了但答案错”的责任边界。
+常见起点：召回 50–100 → 重排保留 3–10。确定方法和 [Chunking](/docs/rag/chunking) Level 4 一样，用评估集做实验：看“召回候选数”增加时 Recall@K 是否还在上升——不再上升，就没必要再加。
+
+### 延迟和成本怎么算？
+
+```text
+自部署交叉编码器（GPU）：100 个候选 × 每个约 300 token
+  批处理后约 50–200 ms（取决于模型大小与 GPU）
+重排 API：通常按“搜索次数”或 token 计费
+LLM listwise 重排 20 个：一次 6,000+ token 输入的调用，约 1–3 s
+```
+
+把重排放进 [Latency](/docs/production/latency) 的预算里：它在关键路径上，处于检索之后、生成之前，直接影响首 token 时间。
+
+### 要不要设相关性阈值？
+
+重排模型给出相关性分数，可以设一个阈值：**低于阈值的候选不进 context**，所有候选都低于阈值时，告诉用户“没有找到相关政策”或转人工。这是处理 [Architecture](/docs/rag/architecture) Level 2 中“内容缺失”的重要手段——否则系统会拿最相似但不相关的块硬凑答案。
+
+注意：不同模型的分数尺度不同，阈值必须在你的数据上用“有答案 / 无答案”两类问题来校准。
+
+<Note type="tip" title="面试加分">
+
+“重排是性价比最高的 RAG 优化之一：召回 100、交叉编码器重排保留 5，通常能明显提升最终答案正确率，代价约一两百毫秒。我还会用重排分数设一个校准过的阈值，让系统在没有相关内容时说‘不知道’，而不是硬答。”
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 为什么比较重排器要固定候选集？
-2. 收益局限在长问题时可做什么？
+1. 召回候选数太小和太大各有什么问题？怎么确定？
+2. 重排在延迟预算中的位置是什么？
+3. 相关性阈值解决什么问题？为什么要在自己的数据上校准？
 
 </Note>
 
@@ -186,16 +291,31 @@ High rerank scores can all belong to near-duplicate chunks. Deduplicate by sourc
 
 <Locale lang="en">
 
-## Level 3 · Budget and acceptance
+## Level 3 · Cost and parameters
 
-### How do you decide whether reranking pays off?
+### How many candidates?
 
-Hold candidate sets fixed when comparing no rerank, a lightweight reranker, and a stronger option. Measure ranking, final-context coverage, task quality, P95, and cost by query bucket. Consider selective reranking when gains are concentrated. Preserve before/after rankings in traces.
+Too few retrieved and reranking can't recover the answer; too many and latency grows linearly. Too few kept loses multi-part evidence; too many adds cost and noise. Start around 50–100 → 3–10 and increase retrieval depth until recall stops improving on your eval set.
+
+### Latency and cost?
+
+A GPU cross-encoder over 100 × 300-token candidates takes roughly 50–200 ms batched; APIs bill per search or token; listwise LLM reranking of 20 is a 6K-token call at 1–3 s. It sits on the critical path before generation.
+
+### Relevance thresholds?
+
+Drop candidates below a calibrated score and, when nothing passes, say no policy was found or escalate — a key defense against the "missing content" failure. Calibrate on answerable and unanswerable questions; scales differ by model.
+
+<Note type="tip" title="Interview move">
+
+"Reranking is one of the best-value RAG upgrades: retrieve 100, keep 5, ~100–200 ms; plus a calibrated threshold so the system can say 'I don't know.'"
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why hold candidates fixed in a reranker comparison?
-2. What if gains occur only for long questions?
+1. Problems with too few and too many candidates, and how to choose?
+2. Where does reranking sit in the latency budget?
+3. What do thresholds solve, and why calibrate locally?
 
 </Note>
 
@@ -205,53 +325,69 @@ Hold candidate sets fixed when comparing no rerank, a lightweight reranker, and 
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+- “用 cross-encoder 直接检索全库更准。”
+- “重排能救回没召回的文档。”
+- 不设阈值，任何问题都硬塞 Top-5。
 
 </Note>
 
 ## 连接
 
-上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
+- 上一站：[Hybrid Search](/docs/rag/hybrid-search)；下一站：[Failure Diagnosis](/docs/rag/debugging)
+- 相关：[Embedding](/docs/rag/embedding)（双塔）、[Latency](/docs/production/latency)、[Context Construction](/docs/context/construction)
 
 ## 面试问题
 
-1. 为什么先召回一批，再精排少数？（Why retrieve broadly and rerank a smaller set?）
-2. bi-encoder 与 cross-encoder 的判断方式有什么差异？（How do bi-encoders and cross-encoders differ?）
-3. Top-N 都是同一条款的重复段怎么办？（What if top results duplicate one clause?）
-4. 怎样判断重排值不值得加？（How do you decide whether reranking pays off?）
+1. 为什么检索和重排要分两个阶段？（Why separate retrieval and reranking?）
+2. 交叉编码器为什么比双塔更准？为什么不能用来检索全库？（Why are cross-encoders more accurate, and why not search with them?）
+3. ColBERT 是什么？（What is ColBERT?）
+4. LLM 可以当重排器吗？代价是什么？（Can LLMs rerank, and at what cost?）
+5. 重排多少个候选？怎么确定？（How many candidates do you rerank?）
+6. 怎样让 RAG 在没有相关内容时说“不知道”？（How do you make RAG say "I don't know"?）
 
 ## 资料来源
 
-- [原始研究或官方文档](https://www.anthropic.com/engineering/contextual-retrieval)
+- [Nogueira & Cho, 2019：Passage Re-ranking with BERT](https://arxiv.org/abs/1901.04085)
+- [ColBERT（Khattab & Zaharia, 2020）](https://arxiv.org/abs/2004.12832)
+- [RankGPT（Sun et al., 2023）](https://arxiv.org/abs/2304.09542)
+- [Sentence Transformers：Cross-Encoders](https://www.sbert.net/examples/applications/cross-encoder/README.html)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+- "Use a cross-encoder to search the whole corpus."
+- "Reranking recovers documents retrieval missed."
+- No threshold — always stuffing the top 5.
 
 </Note>
 
 ## Connections
 
-Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+- Previous: [Hybrid Search](/docs/rag/hybrid-search); next: [Failure Diagnosis](/docs/rag/debugging)
+- Related: [Embedding](/docs/rag/embedding), [Latency](/docs/production/latency), [Context Construction](/docs/context/construction)
 
 ## Interview questions
 
-1. Why retrieve broadly and rerank a smaller set?
-2. How do bi-encoders and cross-encoders differ?
-3. What if top results duplicate one clause?
-4. How do you decide whether reranking pays off?
+1. Why separate retrieval and reranking?
+2. Why are cross-encoders more accurate, and why not search with them?
+3. What is ColBERT?
+4. Can LLMs rerank, and at what cost?
+5. How many candidates do you rerank?
+6. How do you make RAG say "I don't know"?
 
 ## Sources
 
-- [Primary research or official documentation](https://www.anthropic.com/engineering/contextual-retrieval)
+- [Nogueira & Cho, 2019](https://arxiv.org/abs/1901.04085)
+- [ColBERT](https://arxiv.org/abs/2004.12832)
+- [RankGPT (Sun et al., 2023)](https://arxiv.org/abs/2304.09542)
+- [Sentence Transformers: Cross-Encoders](https://www.sbert.net/examples/applications/cross-encoder/README.html)
 
 </Locale>
 

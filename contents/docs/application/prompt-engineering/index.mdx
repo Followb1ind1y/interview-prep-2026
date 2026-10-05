@@ -3,7 +3,7 @@ title: Prompt Engineering
 titleEn: Prompt Engineering
 description: prompt 到底是什么、好 prompt 由哪些部分组成、示例怎么选、怎么让模型想清楚、指令优先级与注入，以及怎么像管理代码一样评估和迭代 prompt。
 descriptionEn: "What a prompt really is, what a good prompt is made of, how to choose examples, how to get the model to think things through, instruction hierarchy and injection, and how to evaluate and iterate on prompts like code."
-date: 2026-09-19
+date: 2026-10-04
 keywords: ["prompt engineering", "system prompt", "few-shot", "zero-shot", "delimiters", "xml tags", "chain of thought", "prompt chaining", "instruction hierarchy", "prompt injection", "prompt template", "prompt evaluation"]
 tier: A
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 这一页假设你已经学过 [Post-training](/docs/llm/post-training)（为什么模型会听 system prompt、chat template 是什么）和 [Attention & Transformer](/docs/llm/transformer) Level 6（temperature 这些采样参数）。之后的 [Context Engineering](/docs/context) 专栏讨论「哪些信息应该放进上下文」，这一页先把「怎么写清楚指令」讲透。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 6**：reasoning 模型时代 prompt 写法的变化（不再要求“一步步想”、给目标而不是步骤）、agent 的 system prompt 应该写在什么“高度”、自动化 prompt 优化（DSPy、GEPA、厂商的 prompt 优化器），以及缓存友好的 prompt 结构。
+
+🔁 **建议复习**：Level 3（推理与分解）和你的 MyQuestion（普通模型与推理模型的区别）——Level 6 把它推进到“对推理模型该怎么写”；Level 5（prompt 当代码管理）——自动优化是它的延伸。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -27,6 +37,7 @@ mastery: { talk: 0, probe: 0 }
 | 3 · 让模型想清楚 | 为什么「一步步想」能提高准确率？什么时候该把任务拆成多步？什么时候不需要？ | 40 min |
 | 4 · 指令优先级与注入 | 用户的话和系统指令冲突时听谁的？prompt 注入是什么？prompt 层面能防到什么程度？ | 35 min |
 | 5 · 把 prompt 当代码管理 | 怎么做模板和版本？怎么证明新 prompt 更好？怎么排 prompt 结构才省钱？ | 35 min |
+| Level 6 · 深入（2026-10 新增） | 对 reasoning 模型怎么写 prompt？prompt 能自动优化吗？ | 35 min |
 
 每个 Level 末尾有几道自测题，**答不上来就先别往下读**。全页约 3.5 小时，分几次学完；`/drill` 会记住你上次学到哪。
 
@@ -49,6 +60,16 @@ mastery: { talk: 0, probe: 0 }
 
 This page assumes you've studied [Post-training](/docs/llm/post-training) (why models follow system prompts, what a chat template is) and [Attention & Transformer](/docs/llm/transformer) Level 6 (sampling parameters like temperature). The later [Context Engineering](/docs/context) column is about which information should go into the context; this page first nails down how to write instructions clearly.
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 6**: prompting reasoning models, the right altitude for agent system prompts, automated prompt optimization (DSPy, GEPA, vendor optimizers), cache-friendly structure.
+
+🔁 **Review**: Level 3 and your MyQuestion on reasoning models; Level 5.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question it answers | Time |
@@ -59,6 +80,7 @@ This page assumes you've studied [Post-training](/docs/llm/post-training) (why m
 | 3 · Getting the model to think it through | Why does "think step by step" improve accuracy? When should a task be split into steps, and when is that unnecessary? | 40 min |
 | 4 · Instruction hierarchy and injection | When a user's words conflict with system instructions, which wins? What is prompt injection, and how far can prompts alone defend against it? | 35 min |
 | 5 · Managing prompts like code | How do you template and version prompts? How do you prove a new prompt is better? How should prompts be structured to save money? | 35 min |
+| Level 6 · Deep dive (added 2026-10) | How do you prompt reasoning models? Can prompts be optimized automatically? | 35 min |
 
 Each Level ends with a few self-check questions — **if you can't answer them, don't move on yet**. The page takes about 3.5 hours over several sessions; `/drill` remembers where you stopped.
 
@@ -1414,6 +1436,63 @@ Models change and prompts change with them, but a labeled evaluation set coverin
 
 <Locale lang="zh">
 
+## Level 6 · 深入：reasoning 模型、agent prompt 与自动优化
+
+### 对 reasoning 模型，prompt 写法有什么变化？
+
+Level 3 讲的“让模型一步步想”（chain-of-thought）是为普通模型设计的。reasoning 模型（OpenAI o 系列与 GPT-5 的推理模式、Claude 的 extended thinking、Gemini thinking）**自带内部推理**，写法要相应调整：
+
+| 对普通模型 | 对 reasoning 模型 |
+| --- | --- |
+| “请一步步思考”能显著提升推理题表现 | 通常不需要，甚至可能干扰；厂商指南建议避免强行要求 CoT |
+| 把解题步骤写进 prompt（先做 A 再做 B） | 给清楚的**目标、约束和验收标准**，让模型自己规划步骤 |
+| 多放 few-shot 示例引导推理 | 示例仍有用于**格式和风格**，但不必示范推理过程 |
+| 用 prompt 长度换质量 | 用**推理强度参数**（effort / thinking budget）换质量，按任务难度分档 |
+
+客服例子：对普通模型你可能写“第一步判断订单状态，第二步查找对应政策，第三步……”；对 reasoning 模型更好的写法是“目标：判断订单能否退款并给出依据。约束：只依据提供的政策 P-17 v3 和订单 API 结果；证据不足时说明缺什么。输出：结论 + 引用条款 + 下一步”。
+
+### agent 的 system prompt 应该写在什么“高度”？
+
+Anthropic 的 context engineering 文章提出一个好用的框架：system prompt 要在两个失败极端之间找到**合适的高度（right altitude）**：
+
+| 太低（过于具体） | 合适 | 太高（过于空泛） |
+| --- | --- | --- |
+| 把 if-else 逻辑硬写进 prompt：“如果用户说 A 就回答 B，如果……” | 讲清**原则、目标和判断依据**，配几个典型示例 | “你是一个有帮助的客服” |
+| 脆弱，遇到没写到的情况就出错；难维护 | 模型能把原则泛化到新情况 | 模型缺少做判断所需的信息 |
+
+经验：用 XML 标签或 Markdown 标题把 prompt 分区（背景、规则、工具使用指南、输出格式），从**最小可用**的版本开始，根据失败案例逐步补充，而不是一开始写满所有边界情况。
+
+### prompt 能自动优化吗？
+
+可以。2024–2026 年出现了把 prompt 当“可训练参数”的方法：
+
+| 方法 | 思路 |
+| --- | --- |
+| **DSPy**（Stanford） | 你用代码声明“输入是什么、输出是什么”（signature）和流程（module），由**优化器**根据评估集自动生成指令和挑选 few-shot 示例；换模型后重新编译即可 |
+| **GEPA**（2025） | 让 LLM 读失败案例的执行轨迹，用自然语言反思“哪里出了问题”，据此改写 prompt，并通过进化搜索保留更好的版本；论文报告在多项任务上优于强化学习式优化，且所需尝试次数少得多 |
+| 厂商工具 | OpenAI、Anthropic 等在控制台提供 prompt 生成器 / 优化器，根据描述或已有 prompt 生成改进版 |
+
+共同前提：**必须先有评估集和评估指标**（见 [Evaluation](/docs/evaluation)）。没有评估集，自动优化无从谈起——这也是 Level 5 “prompt 当代码管理”的自然延伸。
+
+### 缓存友好的 prompt 结构是什么样？
+
+把**稳定内容放前面、变化内容放后面**：工具定义 → system 规则 → 固定的政策与示例 → 对话历史 → 本轮输入。不要在开头放时间戳、请求 ID 或用户名。这样每次请求的前缀相同，可以命中 prompt 缓存，省钱也降延迟（见 [Caching](/docs/context/caching) Level 4）。
+
+<Note type="tip" title="面试加分">
+
+“对 reasoning 模型我不写步骤，而是写目标、约束和验收标准，用 effort 参数控制推理深度；system prompt 写原则不写 if-else；有了评估集之后，可以用 DSPy 或 GEPA 这类方法自动优化 prompt。”
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 对 reasoning 模型，为什么不建议再写“请一步步思考”？应该写什么？
+2. system prompt “太低”和“太高”分别是什么样？各有什么问题？
+3. DSPy 和 GEPA 分别怎样优化 prompt？它们的共同前提是什么？
+4. 写出一个缓存友好的 prompt 结构顺序。
+
+</Note>
+
 ## 陷阱
 
 <Note title="别说「prompt 写得越长越详细越好」" type="danger">
@@ -1461,6 +1540,39 @@ prompt 往往针对某个模型的习惯调过。换模型或升级版本前，�
 </Locale>
 
 <Locale lang="en">
+
+## Level 6 · Deep dive: reasoning models, agent prompts, automated optimization
+
+### How does prompting change for reasoning models?
+
+They reason internally, so "think step by step" is usually unnecessary or counterproductive per vendor guidance. Give goals, constraints, and acceptance criteria instead of steps; keep examples for format and style; trade quality via effort or thinking-budget parameters rather than prompt length.
+
+### What altitude should an agent system prompt have?
+
+Anthropic's framing: too low is hardcoded if-else logic (brittle); too high is "be a helpful assistant" (no basis for judgment); the right altitude states principles, goals, and decision criteria with a few canonical examples, organized in tagged sections, starting minimal and growing from observed failures.
+
+### Can prompts be optimized automatically?
+
+DSPy (Stanford): declare signatures and modules, and optimizers generate instructions and pick few-shot examples against an eval set. GEPA (2025): an LLM reflects on failed traces in natural language and evolves the prompt, reported to beat RL-style optimization with far fewer rollouts. Vendors offer prompt generators and optimizers. All need an eval set first.
+
+### Cache-friendly structure?
+
+Stable first, variable last: tools → system rules → fixed policies and examples → history → current input; no timestamps or IDs up front.
+
+<Note type="tip" title="Interview move">
+
+"For reasoning models I specify goals, constraints, and acceptance criteria and tune effort; system prompts state principles, not if-else; with an eval set, DSPy or GEPA can optimize prompts."
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. Why drop "think step by step" for reasoning models, and what replaces it?
+2. Too-low vs too-high system prompts?
+3. How do DSPy and GEPA optimize, and what do they need?
+4. A cache-friendly ordering?
+
+</Note>
 
 ## Traps
 
@@ -1589,6 +1701,12 @@ Structured Output · Model Selection · Model Routing
 21. 从一个模型迁移到另一个模型时，prompt 要注意什么？（What should you watch for with prompts when migrating to a different model?）
 22. 线上客服机器人开始给客户乱承诺退款，你会怎么排查和修复？（Your production support bot starts promising customers refunds it shouldn't — how do you investigate and fix it?）
 
+### 2026-10 新增
+
+1. 对 reasoning 模型和普通模型，prompt 写法有什么不同？（How does prompting differ for reasoning models?）
+2. agent 的 system prompt 应该写得多具体？（How specific should an agent's system prompt be?）
+3. prompt 能自动优化吗？DSPy 怎么做？（Can prompts be optimized automatically, and how does DSPy do it?）
+
 </Locale>
 
 <Locale lang="en">
@@ -1641,6 +1759,12 @@ Answer out loud first, then check against the matching Level.
 20. How would you structure a prompt to reduce cost and latency?
 21. What should you watch for with prompts when migrating to a different model?
 22. Your production support bot starts promising customers refunds it shouldn't — how do you investigate and fix it?
+
+### Added 2026-10
+
+1. How does prompting differ for reasoning models?
+2. How specific should an agent's system prompt be?
+3. Can prompts be optimized automatically, and how does DSPy do it?
 
 </Locale>
 

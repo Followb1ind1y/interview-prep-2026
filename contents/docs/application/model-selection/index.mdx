@@ -3,7 +3,7 @@ title: Model Selection
 titleEn: Model Selection
 description: 没有「最强模型」：按质量、延迟、成本、上下文、能力和部署约束比较模型，读懂价格表和公开榜单的局限，用自己的评测集做决定，并管理版本和供应商风险。
 descriptionEn: "There's no single best model: compare models on quality, latency, cost, context, capabilities, and deployment constraints, read price sheets and understand leaderboard limits, decide with your own evaluation set, and manage versions and vendor risk."
-date: 2026-09-14
+date: 2026-10-04
 keywords: ["model selection", "llm comparison", "pricing", "cost per request", "benchmark", "leaderboard", "evaluation set", "latency", "open weights", "vendor lock-in", "model versioning"]
 tier: B
 status: todo
@@ -17,6 +17,16 @@ mastery: { talk: 0, probe: 0 }
 
 这一页假设你已经学过 [Tokenization](/docs/llm/tokenization)（按 token 计费）、[Inference](/docs/llm/inference) Level 1（TTFT、TPOT、P99）和 [Prompt Engineering](/docs/application/prompt-engineering)。选好模型之后，怎么让不同请求用不同的模型，是下一页 [Model Routing](/docs/application/model-routing) 的内容。
 
+<Note type="tip" title="2026-10-04 更新：复习指引">
+
+🆕 **新学 Level 5**：2026 年选型的信息来源（Artificial Analysis、LMArena 风格控制、厂商 system card）、开源权重模型版图、“推理强度”作为新的选型维度、模型下线节奏与迁移评估。
+
+🔁 **建议复习**：Level 2（公开榜单的局限）——[LLM Eval](/docs/evaluation/llm-eval) 新增的 Level 4 讲了 LMArena 的争议和 2026 年的基准版图，建议对照；Level 4（部署方式与长期风险）——Level 5 补上模型下线与迁移。
+
+✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
+
+</Note>
+
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -26,6 +36,7 @@ mastery: { talk: 0, probe: 0 }
 | 2 · 公开榜单的用处和局限 | MMLU、SWE-bench、Chatbot Arena 这些分数能告诉你什么、不能告诉你什么？ | 25 min |
 | 3 · 用自己的评测集选模型 | 评测集怎么建？质量、延迟、成本怎么一起比较？最后怎么拍板？ | 40 min |
 | 4 · 部署方式与长期风险 | 用 API 还是开源模型？怎么应对供应商锁定、模型下线和版本升级？ | 30 min |
+| Level 5 · 深入（2026-10 新增） | 2026 年选型看哪些信息源？开源模型有哪些？模型下线怎么办？ | 30 min |
 
 每个 Level 末尾有几道自测题，**答不上来就先别往下读**。全页约 2.5 小时，分几次学完；`/drill` 会记住你上次学到哪。
 
@@ -53,6 +64,16 @@ mastery: { talk: 0, probe: 0 }
 
 This page assumes you've studied [Tokenization](/docs/llm/tokenization) (billing per token), [Inference](/docs/llm/inference) Level 1 (TTFT, TPOT, P99), and [Prompt Engineering](/docs/application/prompt-engineering). Once models are chosen, sending different requests to different models is the subject of the next page, [Model Routing](/docs/application/model-routing).
 
+<Note type="tip" title="2026-10-04 update: what to review">
+
+🆕 **New Level 5**: 2026 information sources, the open-weight landscape, reasoning effort as a selection dimension, deprecation cadence and migration evals.
+
+🔁 **Review**: Level 2 with [LLM Eval](/docs/evaluation/llm-eval) Level 4; Level 4.
+
+✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
+
+</Note>
+
 ## How to work through this page
 
 | Level | Question it answers | Time |
@@ -62,6 +83,7 @@ This page assumes you've studied [Tokenization](/docs/llm/tokenization) (billing
 | 2 · What leaderboards are and aren't good for | What can scores like MMLU, SWE-bench, and Chatbot Arena tell you, and what can't they? | 25 min |
 | 3 · Choosing with your own evaluation set | How do you build an evaluation set, compare quality, latency, and cost together, and make the final call? | 40 min |
 | 4 · Deployment and long-term risk | API or open model? How do you handle vendor lock-in, model deprecation, and version upgrades? | 30 min |
+| Level 5 · Deep dive (added 2026-10) | Which sources in 2026? Which open-weight models? What about deprecations? | 30 min |
 
 Each Level ends with a few self-check questions — **if you can't answer them, don't move on yet**. The page takes about 2.5 hours over several sessions; `/drill` remembers where you stopped.
 
@@ -951,6 +973,62 @@ When a provider says a new version is "stronger overall", they mean on the bench
 
 <Locale lang="zh">
 
+## Level 5 · 深入：2026 年的信息源、开源版图与迁移
+
+### 选型时看哪些外部信息源？
+
+| 来源 | 看什么 | 注意 |
+| --- | --- | --- |
+| **Artificial Analysis** | 独立测量的综合智能指数、各供应商的**输出速度、TTFT、价格**对比 | 速度和价格数据对选型最直接；智能指数是多个基准的汇总，仍需自测 |
+| **LMArena** | 用户盲测偏好排名（有“风格控制”版本） | 反映开放聊天偏好，不等于业务正确率（见 [LLM Eval](/docs/evaluation/llm-eval) Level 4） |
+| 厂商 **system card / 模型卡** | 能力评测、安全评测、已知局限、上下文与输出上限 | 厂商自测，选择性报告的可能 |
+| 专项基准 | SWE-bench、τ-bench、GPQA 等（按你的任务类型挑） | 饱和与污染问题 |
+
+结论不变：外部信息只用来**缩小候选**，最终用 Level 3 的私有评估集决定。
+
+### 开源权重模型有哪些选择？
+
+2025–2026 年开源权重模型与闭源前沿模型的差距明显缩小，主要家族：
+
+| 家族 | 说明 |
+| --- | --- |
+| Llama（Meta） | 最早普及的开源权重家族之一，生态成熟 |
+| Qwen（阿里） | 尺寸覆盖全面，中文能力强，常见于自部署 |
+| DeepSeek | V3 系列和推理模型 R1（2025 年初）以较低训练成本达到接近前沿的表现，影响很大 |
+| gpt-oss（OpenAI，2025） | OpenAI 发布的开源权重推理模型 |
+| Mistral、Gemma（Google）等 | 中小尺寸选择 |
+
+选开源的理由通常是：数据不出域、可微调、成本可控（高利用率时）、不受供应商下线影响。代价是自己负责部署、扩容和安全（见 [Cost](/docs/production/cost) Level 4、[Scaling](/docs/production/scaling) Level 4）。还要看**许可证**：不同模型对商用、规模、用途的限制不同。
+
+### “推理强度”为什么是新的选型维度？
+
+2025 年后，同一个模型往往可以设置不同的推理强度（effort / thinking budget）。于是选型不只是“选哪个模型”，而是“**模型 × 推理强度**”的组合：
+
+```text
+候选：A-高推理、A-低推理、B-无推理、C-小模型
+在同一评估集上测：正确率、P95 延迟、每任务成本
+```
+
+常见结论是：一个中档模型配低推理强度，可能比顶级模型关掉推理更划算；而简单意图根本不需要推理。这和 [Model Routing](/docs/application/model-routing) 是同一个思路。
+
+### 模型下线了怎么办？
+
+闭源模型的生命周期通常只有一到两年，厂商会提前公布下线日期。应对：
+
+1. **锁定快照版本**（带日期的模型 ID），升级是主动决策（见 [Reliability](/docs/production/reliability) Level 4）。
+2. **迁移评估**：新模型在同一评估集上跑一遍，按切片比较——整体分数持平不代表每个场景都持平。
+3. **prompt 可能要重调**：不同模型（甚至同一家的新版本）对同一 prompt 的反应不同，新模型往往更“听话”，旧 prompt 中为了纠正老模型而写的强调语句可能导致过度执行。
+4. **保留替代方案**：至少一个经过评估的备选模型（见 [Model Routing](/docs/application/model-routing) Level 4）。
+
+<Note title="自测：到这里你应该能回答">
+
+1. 选型时 Artificial Analysis 和 LMArena 各提供什么信息？
+2. 选开源权重模型的理由和代价各是什么？
+3. 为什么说选型对象是“模型 × 推理强度”？
+4. 模型下线前的迁移要做哪四件事？
+
+</Note>
+
 ## 陷阱
 
 <Note title="别说「我们选了最强的模型 / 榜单第一的模型」" type="danger">
@@ -998,6 +1076,33 @@ When a provider says a new version is "stronger overall", they mean on the bench
 </Locale>
 
 <Locale lang="en">
+
+## Level 5 · Deep dive: 2026 sources, open weights, migration
+
+### Which external sources?
+
+Artificial Analysis (independent intelligence index plus measured speed, TTFT, and price per provider), LMArena (preference rankings, with style control), vendor system cards, and task-specific benchmarks. They shortlist; your private eval decides.
+
+### Open-weight options?
+
+Llama, Qwen, DeepSeek (V3 and the R1 reasoning model in early 2025, near-frontier at low training cost), OpenAI's gpt-oss (2025), Mistral, Gemma. Reasons: data residency, fine-tuning, cost at high utilization, no forced deprecation; costs: you own serving, scaling, safety — and check licenses.
+
+### Why is reasoning effort a selection dimension?
+
+Choose model × effort: a mid-tier model at low effort can beat a top model with reasoning off on cost-quality; simple intents need none. Same idea as [Model Routing](/docs/application/model-routing).
+
+### What about deprecations?
+
+Pin dated snapshots, rerun the eval set by slice before migrating, expect to retune prompts (newer models follow instructions more literally, so old emphasis can overcorrect), and keep an evaluated fallback.
+
+<Note title="Self-check: you should be able to answer">
+
+1. What do Artificial Analysis and LMArena each give you?
+2. Reasons and costs of open weights?
+3. Why model × effort?
+4. Four migration steps?
+
+</Note>
 
 ## Traps
 
@@ -1115,6 +1220,12 @@ Model Routing: send each request to its model at runtime
 13. 怎么降低对单一模型服务商的依赖？（How do you reduce dependence on a single model provider?）
 14. 服务商发布了新版本模型，你们怎么决定要不要升级？（A provider releases a new model version — how do you decide whether to upgrade?）
 
+### 2026-10 新增
+
+1. 2026 年选型你会看哪些外部信息源？（Which external sources do you consult when choosing a model?）
+2. 什么时候选开源权重模型？（When do you choose open-weight models?）
+3. 模型要下线了，怎么迁移？（How do you migrate when a model is deprecated?）
+
 </Locale>
 
 <Locale lang="en">
@@ -1156,6 +1267,12 @@ Answer out loud first, then check against the matching Level.
 12. When should you self-host an open model instead of calling an API?
 13. How do you reduce dependence on a single model provider?
 14. A provider releases a new model version — how do you decide whether to upgrade?
+
+### Added 2026-10
+
+1. Which external sources do you consult when choosing a model?
+2. When do you choose open-weight models?
+3. How do you migrate when a model is deprecated?
 
 </Locale>
 

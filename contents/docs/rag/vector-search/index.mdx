@@ -1,10 +1,10 @@
 ---
 title: Vector Search
 titleEn: Vector Search
-description: 从精确搜索到 HNSW、IVF、PQ，理解性能、召回与过滤的取舍。
-descriptionEn: Understand exact search, HNSW, IVF, PQ, and filtered-search tradeoffs.
-date: 2026-09-24
-keywords: ['rag', 'vector search', 'ann', 'hnsw', 'ivf', 'pq']
+description: 从暴力搜索到近似最近邻：HNSW 的分层图与三个参数、IVF 的聚类与 nprobe、PQ 压缩手算、DiskANN；元数据过滤的三种方式与陷阱；召回率与延迟的权衡；向量数据库怎么选。
+descriptionEn: "From brute force to approximate nearest neighbors: HNSW's layered graph and parameters, IVF clusters and nprobe, PQ compression math, DiskANN; three filtering approaches and their traps; recall vs latency; choosing a vector database."
+date: 2026-10-04
+keywords: ['vector search', 'ann', 'hnsw', 'ivf', 'product quantization', 'diskann', 'metadata filtering', 'recall', 'pgvector', 'vector database']
 tier: A
 status: todo
 cursor: ''
@@ -13,45 +13,60 @@ mastery: { talk: 0, probe: 0 }
 
 <Locale lang="zh">
 
-本页继续“喵喵粮仓”客服的教学案例：用户问订单 `20240915` 没到能否退款。现行政策为 `P-17 v3`，旧版为 `v2`；实时订单状态必须由订单工具查。以下编号、排名和预算均为演示数据，不是实际业务记录。
+有了向量，下一步是“在 1,000 万个向量里，几毫秒内找到和问题最相似的 10 个”。面试里这部分常问：HNSW 是怎么工作的？`efSearch` 调大会怎样？IVF 和 HNSW 怎么选？加了租户过滤后为什么结果变少了？pgvector 和专用向量库怎么选？
+
+贯穿例子：政策库和 FAQ 共 1,000 万个块（多租户），查询“运输中能退款吗”，只能在租户 `miaomiao` 且版本有效的块中查找。
 
 ## 这一页怎么学
 
-| Level | 要回答的问题 | 建议时间 |
+| Level | 回答的问题 | 时长 |
 | --- | --- | --- |
-| 0 · 最近邻基础 | 向量库到底在查什么？ | 15–25 min |
-| 1 · ANN 与 HNSW | 什么时候需要近似搜索，HNSW 如何提速？ | 15–25 min |
-| 2 · IVF 与 PQ | IVF 和 PQ 分别压缩了什么工作？ | 15–25 min |
-| 3 · 过滤与上线 | ACL 与元数据过滤会怎样影响 ANN？ | 15–25 min |
+| 0 · 为什么要近似 | 暴力搜索有多慢？“近似”牺牲了什么？ | 15 min |
+| 1 · HNSW | 分层图怎么搜索？M、efConstruction、efSearch 各控制什么？ | 35 min |
+| 2 · IVF 与 PQ | 聚类索引怎么搜？PQ 怎么把 6 KB 压到 96 字节？ | 30 min |
+| 3 · 元数据过滤 | 前过滤、后过滤、过滤感知搜索有什么区别？ | 25 min |
+| 4 · 选型与调优 | 向量数据库怎么选？怎么测召回率？ | 20 min |
+
+**Level 1 和 Level 3 是重点**。全页约 2 小时。
 
 ## 需要掌握
 
-- 向量库到底在查什么？
-- 什么时候需要近似搜索，HNSW 如何提速？
-- IVF 和 PQ 分别压缩了什么工作？
-- ACL 与元数据过滤会怎样影响 ANN？
+- 暴力搜索复杂度与量级；ANN 用召回率换速度
+- HNSW：分层小世界图、贪心搜索、三个参数与内存开销
+- IVF：k-means 聚类、`nlist`、`nprobe`；PQ：子空间量化与压缩比
+- DiskANN：把图放在 SSD 上
+- 过滤的三种方式；严格过滤下后过滤“结果不够”的问题
+- 召回率要对照精确搜索来测；参数与延迟的权衡
+- pgvector、Elasticsearch / OpenSearch、专用向量库的取舍；多租户隔离方式
 
 </Locale>
 
 <Locale lang="en">
 
-We use a running teaching case: a pet-food customer asks whether order `20240915`, which has not arrived, can be refunded. `P-17 v3` is current policy; `v2` is stale. Live order state comes from an order tool. IDs, rankings, and budgets below are illustrative.
+Next: find the 10 most similar of 10M vectors in milliseconds. Common questions: how HNSW works, what raising `efSearch` does, IVF vs HNSW, why tenant filtering shrinks results, pgvector vs a dedicated vector DB.
 
-## How to study this page
+Running example: 10M multi-tenant chunks; "can in-transit orders be refunded?" may only search tenant `miaomiao`'s valid versions.
 
-| Level | Question | Time |
+## How to work through this page
+
+| Level | Question it answers | Time |
 | --- | --- | --- |
-| 0 · Nearest-neighbor basics | What is the vector index searching for? | 15–25 min |
-| 1 · ANN and HNSW | When is approximate search useful and how does HNSW work? | 15–25 min |
-| 2 · IVF and PQ | What work do IVF and PQ reduce? | 15–25 min |
-| 3 · Filtering and rollout | How do ACL and metadata filters affect ANN? | 15–25 min |
+| 0 · Why approximate | How slow is brute force? What does approximation cost? | 15 min |
+| 1 · HNSW | How does the layered graph search? What do M, efConstruction, efSearch control? | 35 min |
+| 2 · IVF and PQ | How do cluster indexes search? How does PQ shrink 6 KB to 96 bytes? | 30 min |
+| 3 · Metadata filtering | Pre-, post-, and filter-aware search? | 25 min |
+| 4 · Selection and tuning | Which vector DB? How do you measure recall? | 20 min |
+
+**Levels 1 and 3 are the core.** About 2 hours.
 
 ## Must know
 
-- What is the vector index searching for?
-- When is approximate search useful and how does HNSW work?
-- What work do IVF and PQ reduce?
-- How do ACL and metadata filters affect ANN?
+- brute-force cost; ANN trades recall for speed
+- HNSW structure, greedy search, parameters, memory
+- IVF (`nlist`, `nprobe`), PQ compression, DiskANN
+- three filtering approaches and the post-filter shortfall
+- recall measured against exact search; parameter vs latency tradeoffs
+- pgvector vs search engines vs dedicated stores; multi-tenant isolation
 
 </Locale>
 
@@ -59,18 +74,31 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="zh">
 
-## Level 0 · 最近邻基础
+## Level 0 · 为什么要近似
 
-### 向量库到底在查什么？
+### 暴力搜索有多慢？
 
-给查询向量 `q`，最近邻搜索按指定距离或相似度返回若干文档向量及 ID。它不会验证答案正确、文档生效或用户有权访问。最简单的 Flat 索引比较所有向量，是**精确**基线；中小语料或硬件够用时完全可用。
+精确的 k 近邻（kNN）要把问题向量和**每一个**向量算一次相似度：
 
-先把 `P-17 v3`、`v2` 与 FAQ 编码，记录它们的向量 ID 到 chunk 元数据映射；查询后的第一步是检查返回 ID 与权限/版本，而不是直接交给模型。
+```text
+计算量 ≈ N × d 次乘加
+1,000 万 × 1,024 维 ≈ 100 亿次乘加 / 每个查询
+```
+
+单核 CPU 每秒大约几十亿次乘加（用 SIMD 指令），一次查询就要几秒；QPS 一高根本扛不住。GPU 能快很多，但成本高。
+
+**近似最近邻（ANN，Approximate Nearest Neighbor）**用索引结构只检查一小部分向量，换来毫秒级延迟，代价是**可能漏掉一些真正最近的向量**。衡量这个代价的指标是**召回率**：
+
+```text
+Recall@10 = ANN 返回的 10 个结果中，属于精确 Top-10 的个数 / 10
+```
+
+生产系统常见目标是 Recall@10 在 0.95 以上。注意这个召回率是“ANN 相对于精确搜索”，和 RAG 评估中“正确块是否被召回”的 Recall@K 是**两个不同的概念**（见 [RAG Eval](/docs/evaluation/rag-eval)）。
 
 <Note title="自测：到这里你应该能回答">
 
-1. Flat 为什么适合作为 ANN 召回的参照？
-2. 向量 ID 怎样追到政策原文？
+1. 估算 500 万 × 768 维的暴力搜索计算量。
+2. ANN 的召回率怎么定义？它和 RAG 评估里的 Recall@K 有什么区别？
 
 </Note>
 
@@ -78,16 +106,16 @@ We use a running teaching case: a pet-food customer asks whether order `20240915
 
 <Locale lang="en">
 
-## Level 0 · Nearest-neighbor basics
+## Level 0 · Why approximate
 
-### What is the vector index searching for?
+### How slow is brute force?
 
-Nearest-neighbor search ranks indexed vectors by a chosen metric and returns IDs. It does not validate policy freshness or access rights. An exact Flat index scans all vectors and is a valid baseline, sometimes sufficient at small scale. Map every vector ID to its chunk and metadata.
+Exact kNN costs about N × d multiply-adds: 10M × 1,024 ≈ 10 billion per query — seconds on a CPU core. ANN indexes inspect a fraction of vectors for millisecond latency at the risk of missing true neighbors, measured as recall against exact search (production often targets Recall@10 ≥ 0.95) — not the same as RAG's "was the right chunk retrieved."
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why is Flat a useful ANN recall baseline?
-2. How does a vector ID lead back to source policy?
+1. Brute-force cost for 5M × 768?
+2. ANN recall vs RAG Recall@K?
 
 </Note>
 
@@ -95,18 +123,43 @@ Nearest-neighbor search ranks indexed vectors by a chosen metric and returns IDs
 
 <Locale lang="zh">
 
-## Level 1 · ANN 与 HNSW
+## Level 1 · HNSW
 
-### 什么时候需要近似搜索，HNSW 如何提速？
+### HNSW 是怎么搜索的？
 
-数据量或 P95 延迟让全量比较过贵时，用 ANN（approximate nearest neighbor）减少搜索范围，代价是可能漏掉真正最近的段。HNSW 建多层邻接图，从较稀疏层找方向，再在底层细找。`efSearch` 增大通常提高召回也增加查询工作量；建图参数也影响内存和构建时间。
+**HNSW（Hierarchical Navigable Small World，分层可导航小世界图）**是目前最常用的 ANN 索引。直觉来自“高速公路 + 城市道路”：
 
-用同一查询集把 HNSW Top-10 与 Flat Top-10 对比，测 ANN recall、P95 和内存。若政策关键段被 ANN 漏掉，调 `efSearch` 或考虑 Flat；不要把 ANN recall 与“答案正确率”混为一谈。
+```text
+第 2 层（最稀疏）： A ─────────────── K              ← 少量节点，长距离连接（高速公路）
+第 1 层：          A ──── E ──── K ──── P
+第 0 层（全部节点）：A─B─C─D─E─F─G─H─I─J─K─L─M─N─O─P   ← 所有向量，短距离连接（城市道路）
+```
+
+- 每个向量都在第 0 层；随机地，少部分向量也出现在更高层（层数越高越稀疏）。
+- **搜索**：从最高层的入口点开始，**贪心地**走向离查询更近的邻居，直到这一层找不到更近的；然后下降一层继续，最后在第 0 层做更细的搜索。
+- 高层快速跨越大距离，低层精细定位——总共只访问几百到几千个节点，而不是 1,000 万个。
+
+### 三个参数各控制什么？
+
+| 参数 | 含义 | 调大的效果 | 代价 |
+| --- | --- | --- | --- |
+| `M` | 每个节点保留的邻居数 | 图连接更丰富，召回率更高 | 内存更大，建索引更慢 |
+| `efConstruction` | 建图时为每个新节点搜索候选邻居的范围 | 图质量更好 | 建索引更慢（不影响查询内存） |
+| `efSearch`（或 `ef`） | 查询时维护的候选列表大小 | 召回率更高 | 查询延迟更高 |
+
+`efSearch` 是唯一能在**查询时**调整的参数——这是线上调“召回率 vs 延迟”的主要旋钮。典型值：`M` 16–64，`efConstruction` 100–500，`efSearch` 至少要大于 k，常见 50–500。
+
+### HNSW 的缺点是什么？
+
+- **内存大**：除了向量本身，每个节点在第 0 层要存约 `2 × M` 个邻居 ID。`M = 32` 时每个节点约多 256 字节，1,000 万节点约多 2.5 GB——而且整个图通常要放在内存里。
+- **删除麻烦**：删除节点会破坏图的连通性，很多实现只做标记删除，需要定期重建。
+- **建索引慢**：插入每个节点都要做一次搜索。
 
 <Note title="自测：到这里你应该能回答">
 
-1. ANN recall 与业务相关性 recall 有何区别？
-2. `efSearch` 增大通常换来什么？
+1. 用“高速公路 + 城市道路”解释 HNSW 的搜索过程。
+2. 线上发现召回率不够，最先调哪个参数？代价是什么？
+3. `M = 16`、1,000 万节点，第 0 层邻居表大约多少内存（每个 ID 4 字节）？
 
 </Note>
 
@@ -114,16 +167,25 @@ Nearest-neighbor search ranks indexed vectors by a chosen metric and returns IDs
 
 <Locale lang="en">
 
-## Level 1 · ANN and HNSW
+## Level 1 · HNSW
 
-### When is approximate search useful and how does HNSW work?
+### How does HNSW search?
 
-ANN reduces comparisons when full scans miss latency or scale targets, at the cost of possible missed neighbors. HNSW traverses a layered proximity graph; increasing `efSearch` generally searches more broadly and costs more latency. Compare HNSW results with exact Flat results on the same vectors and filters, alongside P95 and memory.
+A layered proximity graph: every vector is in layer 0; a random few also appear in sparser upper layers (highways). Search greedily from the top entry point toward closer neighbors, descend a layer when stuck, and refine at layer 0 — visiting hundreds to thousands of nodes instead of millions.
+
+### What do the parameters control?
+
+`M` (neighbors per node: recall up, memory and build time up), `efConstruction` (candidate breadth at build: better graph, slower build), `efSearch` (candidate list at query: recall up, latency up — the only query-time knob). Typical: M 16–64, efConstruction 100–500, efSearch 50–500 and above k.
+
+### Drawbacks?
+
+Memory (≈ 2M neighbor IDs per node at layer 0 — M = 32 adds ~2.5 GB for 10M nodes, all in RAM), awkward deletes (tombstones, periodic rebuilds), slow builds.
 
 <Note title="Self-check: you should be able to answer">
 
-1. How does ANN recall differ from relevance recall?
-2. What does a larger `efSearch` usually trade?
+1. Explain HNSW search with the highway analogy.
+2. Which knob first for low recall, and its cost?
+3. Layer-0 neighbor memory for M = 16, 10M nodes, 4-byte IDs?
 
 </Note>
 
@@ -133,16 +195,48 @@ ANN reduces comparisons when full scans miss latency or scale targets, at the co
 
 ## Level 2 · IVF 与 PQ
 
-### IVF 和 PQ 分别压缩了什么工作？
+### IVF 是怎么搜索的？
 
-IVF 先把空间分成若干簇，查询只探查 `nprobe` 个近邻簇；增大 `nprobe` 往往改善召回但变慢。PQ（product quantization）把向量分块并用码本压缩，降低内存与带宽，可能改变近邻排序；可对候选再用原始向量精排。HNSW、IVF、PQ 是可组合的设计点，不是一条必须依次经过的流水线。
+**IVF（Inverted File，倒排文件索引）**先把向量**聚类**：
 
-若完整精确索引已满足 80 ms 的示意性预算，没有理由仅因“生产级”而加复杂 ANN。预算数字只是演示，实际用自身负载压测。
+```text
+建索引：用 k-means 把 1,000 万个向量分成 nlist = 4,096 个簇，每个簇有一个中心
+       每个向量归到最近的簇（平均每簇约 2,400 个向量）
+查询：  1. 先算查询和 4,096 个中心的距离
+       2. 只在最近的 nprobe = 16 个簇里做精确搜索（约 3.9 万个向量）
+       → 只检查了 0.4% 的数据
+```
+
+`nprobe` 是查询时的召回旋钮：调大召回率上升、延迟上升。问题在于**边界**：真正最近的向量可能在相邻的簇里，`nprobe` 太小就会漏掉。
+
+和 HNSW 相比：IVF 内存开销小、建索引快、容易配合压缩；HNSW 在相同召回率下通常更快。
+
+### PQ 是怎么压缩向量的？
+
+**PQ（Product Quantization，乘积量化）**把一个长向量切成多段，每段用一个“码本编号”代替：
+
+```text
+原向量：1,536 维 float32 = 6,144 字节
+切成 m = 96 段，每段 16 维
+对每一段：用 k-means 在训练数据上学出 256 个“代表向量”（码本）
+存储时：每段只存最接近的代表向量的编号（0–255，1 字节）
+压缩后：96 字节   → 压缩比 64 倍
+```
+
+查询时，先算查询的每一段和对应码本中 256 个代表向量的距离（查表），然后每个候选的距离就是 96 次查表相加——非常快。代价是**距离是近似的**，排序会有误差，通常需要用原始向量对 Top 候选重新打分。
+
+**IVF-PQ** 把两者组合：IVF 决定搜哪几个簇，PQ 让每个簇里的向量又小又快。这是超大规模（十亿级）检索的经典方案（Faiss 库提供了实现）。
+
+### 数据放不进内存怎么办？
+
+**DiskANN**（微软）把图索引放在 SSD 上，内存里只放压缩后的向量用于导航；用 SSD 的随机读取完成搜索。它让单机能处理十亿级向量，代价是延迟比纯内存高一些。很多向量数据库提供了基于磁盘的索引选项。
 
 <Note title="自测：到这里你应该能回答">
 
-1. IVF 的 `nprobe` 控制什么？
-2. PQ 为什么可能降低排序精度？
+1. IVF 中 `nlist` 和 `nprobe` 分别是什么？为什么 `nprobe` 太小会漏结果？
+2. 1,024 维 float32 向量，切成 64 段、每段 1 字节编码，压缩比是多少？
+3. 为什么 PQ 之后常常要用原始向量重新打分？
+4. 什么情况下考虑 DiskANN？
 
 </Note>
 
@@ -152,14 +246,24 @@ IVF 先把空间分成若干簇，查询只探查 `nprobe` 个近邻簇；增大
 
 ## Level 2 · IVF and PQ
 
-### What work do IVF and PQ reduce?
+### How does IVF search?
 
-IVF probes a subset of coarse clusters; `nprobe` trades speed for recall. PQ compresses vector representations into codes, saving memory and bandwidth but potentially changing rankings; exact vectors can refine candidates. These are alternative or composable design choices, not mandatory pipeline stages. Use workload measurements, not a blanket “production requires ANN” rule.
+k-means into `nlist` clusters (e.g. 4,096); at query time compare against centroids and search only the nearest `nprobe` clusters (e.g. 16 → ~0.4% of data). `nprobe` is the recall knob; true neighbors across cluster boundaries are missed when it's too small. IVF uses less memory and builds faster; HNSW is usually faster at equal recall.
+
+### How does PQ compress?
+
+Split a 1,536-dim float32 vector (6,144 B) into 96 sub-vectors, learn 256 centroids per subspace, store one byte per subspace: 96 B (64×). Distances become table lookups — fast but approximate, so rescore top candidates with full vectors. IVF-PQ (e.g. Faiss) is the classic billion-scale combo.
+
+### Data larger than RAM?
+
+DiskANN keeps the graph on SSD with compressed vectors in memory — billion-scale on one machine at somewhat higher latency.
 
 <Note title="Self-check: you should be able to answer">
 
-1. What does IVF `nprobe` control?
-2. Why can PQ hurt ranking fidelity?
+1. `nlist` vs `nprobe`, and why small `nprobe` misses results?
+2. Compression ratio for 1,024-dim float32 into 64 one-byte codes?
+3. Why rescore after PQ?
+4. When DiskANN?
 
 </Note>
 
@@ -167,18 +271,37 @@ IVF probes a subset of coarse clusters; `nprobe` trades speed for recall. PQ com
 
 <Locale lang="zh">
 
-## Level 3 · 过滤与上线
+## Level 3 · 元数据过滤
 
-### ACL 与元数据过滤会怎样影响 ANN？
+### 前过滤、后过滤、过滤感知搜索有什么区别？
 
-企业检索必须在返回给用户前执行服务端授权。若先取全库 Top-10 再过滤，某租户可能只剩 1 条，甚至漏掉该租户本应排名第一的段；若先过滤，索引算法和过滤选择率又影响延迟。需要按引擎实际能力比较 pre-filter、post-filter、分区索引与补召回策略。
+查询必须同时满足“和问题相似”和“租户 = miaomiao、版本有效、ACL 允许”。三种实现：
 
-上线固定测试：无权文档永不出现在候选或日志外显；旧版被排除；高选择性过滤下与精确过滤基线比较召回。索引大小、更新成本、P95、授权准确性一起决策。
+| 方式 | 做法 | 问题 |
+| --- | --- | --- |
+| **后过滤** | 先做 ANN 取 Top-K，再去掉不满足条件的 | 过滤严格时，Top-K 里可能大部分被去掉，**最后只剩很少甚至 0 个结果** |
+| **前过滤** | 先按条件筛出允许的向量集合，再在里面暴力搜索 | 集合大时暴力搜索很慢 |
+| **过滤感知搜索** | 在 ANN 搜索过程中就跳过不满足条件的节点（如带过滤的 HNSW） | 实现复杂；过滤非常严格时图会变得“不连通”，召回率下降，需要特殊处理 |
+
+后过滤的“结果不够”问题用数字看：租户 `miaomiao` 只占全库 1%。ANN 取 Top-10，期望只有 0.1 个属于该租户——几乎总是返回空结果。即使取 Top-1,000 再过滤，也只剩约 10 个，而且它们未必是该租户内最相似的。
+
+### 实践中怎么做？
+
+- **多租户**：租户数少、每个租户数据大时，**每个租户一个独立索引（或分区 / namespace）**，查询时直接选索引，根本不需要过滤，隔离也最彻底。租户很多很小时，用共享索引 + 过滤感知搜索。
+- **主流向量数据库**（Qdrant、Weaviate、Milvus、Pinecone、Elasticsearch / OpenSearch 等）都提供了过滤感知的 ANN，并会在过滤很严格时自动切换成前过滤 + 暴力搜索。要了解你用的库在哪种情况下用哪种策略。
+- **过滤字段要建索引**（像数据库索引一样），否则过滤本身就慢。
+
+<Note type="warning" title="过滤是安全边界">
+
+租户和 ACL 过滤是**安全要求**，不是质量优化。不能因为“过滤后结果太少”就放宽过滤或改成后过滤再补齐——那会把别的租户的数据放进来。结果不够时应该调整检索参数，而不是放松权限。
+
+</Note>
 
 <Note title="自测：到这里你应该能回答">
 
-1. 先全库 Top-10 后过滤为何可能漏掉租户最佳段？
-2. 如何验证过滤后的召回？
+1. 用数字解释后过滤为什么会“结果不够”。
+2. 多租户场景，什么时候用独立索引，什么时候用共享索引 + 过滤？
+3. 过滤后结果太少，为什么不能放宽 ACL 过滤？
 
 </Note>
 
@@ -186,16 +309,104 @@ IVF probes a subset of coarse clusters; `nprobe` trades speed for recall. PQ com
 
 <Locale lang="en">
 
-## Level 3 · Filtering and rollout
+## Level 3 · Metadata filtering
 
-### How do ACL and metadata filters affect ANN?
+### Pre-, post-, or filter-aware?
 
-Server-side authorization is mandatory. Fetching global Top-10 and filtering afterward can leave too few tenant results or miss a tenant’s true best match. Pre-filtering has different index and latency costs. Benchmark the engine’s real filter semantics against an exact filtered baseline, including access-denied negatives and stale-version exclusion.
+Post-filtering (ANN then drop) can return almost nothing under strict filters — a tenant with 1% of data leaves ~0.1 of the top-10, and even top-1,000 leaves ~10 that may not be the tenant's best. Pre-filtering (filter, then brute force) is slow for large sets. Filter-aware ANN skips disallowed nodes during search but loses recall when the filter is extremely selective.
+
+### In practice?
+
+Few large tenants: one index or namespace per tenant — no filter, strongest isolation. Many small tenants: shared index with filter-aware ANN; most vector DBs switch to pre-filter + brute force for very selective filters. Index the filter fields.
+
+<Note type="warning" title="Filters are a security boundary">
+
+Never relax tenant or ACL filters to get more results; tune retrieval instead.
+
+</Note>
 
 <Note title="Self-check: you should be able to answer">
 
-1. Why can global Top-10 then filter miss a tenant’s best passage?
-2. How do you test filtered recall?
+1. Show the post-filter shortfall numerically.
+2. Per-tenant index vs shared index with filters?
+3. Why not relax ACL filters when results are sparse?
+
+</Note>
+
+</Locale>
+
+<Locale lang="zh">
+
+## Level 4 · 选型与调优
+
+### 向量数据库怎么选？
+
+| 类型 | 例子 | 适合 |
+| --- | --- | --- |
+| 关系数据库扩展 | **pgvector**（PostgreSQL） | 数据量在百万到千万级、已经在用 Postgres、需要和业务数据做事务和 JOIN；运维最简单 |
+| 搜索引擎 | Elasticsearch、OpenSearch | 已有全文检索；需要 BM25 + 向量**混合检索**和复杂过滤 |
+| 专用向量库 | Qdrant、Milvus、Weaviate、Pinecone（托管） | 大规模、高 QPS、需要量化 / 磁盘索引 / 多租户等高级功能 |
+| 嵌入式 / 轻量 | LanceDB、Chroma、Faiss（库） | 原型、离线批处理、单机应用 |
+
+面试中的成熟回答：**先问规模和现有基础设施**。“几百万个块、团队已经在用 Postgres”时，pgvector 往往是最好的选择——少一个系统要运维。只有当规模、QPS 或功能需求超出时才引入专用向量库。
+
+### 怎么测召回率、怎么调参？
+
+```text
+1. 取一批真实查询（如 1,000 个）
+2. 用暴力搜索得到每个查询的精确 Top-10（作为标准答案）
+3. 用 ANN 索引在不同参数下搜索，计算 Recall@10 和 P95 延迟
+4. 画出“召回率 vs 延迟”曲线，选满足召回目标的最低延迟配置
+```
+
+| 参数变化 | 召回率 | 延迟 | 内存 |
+| --- | --- | --- | --- |
+| `efSearch` ↑ | ↑ | ↑ | 不变 |
+| `M` ↑ | ↑ | 略 ↑ | ↑ |
+| `nprobe` ↑ | ↑ | ↑ | 不变 |
+| 量化更狠（float32 → int8 → 二值） | ↓（重新打分可找回） | ↓ | ↓↓ |
+
+公开的 **ANN-Benchmarks** 网站对比了各种算法在标准数据集上的召回率–吞吐曲线，可作参考。
+
+<Note type="tip" title="面试加分">
+
+“向量检索的召回率是相对于精确搜索测的，我会用真实查询做暴力搜索得到标准答案，然后在召回率–延迟曲线上选参数。但要记住，ANN 召回率 99% 不代表 RAG 找到了正确答案——那是 embedding 和切分的问题，要用 RAG 评估集另外测。”
+
+</Note>
+
+<Note title="自测：到这里你应该能回答">
+
+1. 什么情况下 pgvector 是最好的选择？
+2. 描述测 ANN 召回率的四个步骤。
+3. ANN 召回率 99% 但 RAG 仍找不到正确块，问题可能在哪？
+
+</Note>
+
+</Locale>
+
+<Locale lang="en">
+
+## Level 4 · Selection and tuning
+
+### Which vector database?
+
+pgvector for millions to tens of millions of chunks when you already run Postgres and want joins and transactions; Elasticsearch/OpenSearch when you need BM25 + vector hybrid and rich filters; Qdrant, Milvus, Weaviate, Pinecone for scale, QPS, quantization, disk indexes, multi-tenancy; LanceDB, Chroma, Faiss for prototypes and offline work. Start from scale and existing infrastructure.
+
+### How do you measure recall and tune?
+
+Take ~1,000 real queries, compute exact top-10 by brute force, sweep ANN parameters, plot recall vs P95 latency, and choose the cheapest config meeting the target. `efSearch`/`nprobe` raise recall and latency; `M` raises recall and memory; heavier quantization cuts memory and latency at some recall (recoverable by rescoring). ANN-Benchmarks offers reference curves.
+
+<Note type="tip" title="Interview move">
+
+"ANN recall is relative to exact search; 99% there doesn't mean RAG found the right chunk — that's embeddings and chunking, measured separately."
+
+</Note>
+
+<Note title="Self-check: you should be able to answer">
+
+1. When is pgvector the best choice?
+2. Four steps to measure ANN recall?
+3. 99% ANN recall but RAG still misses — where's the problem?
 
 </Note>
 
@@ -205,53 +416,75 @@ Server-side authorization is mandatory. Fetching global Top-10 and filtering aft
 
 ## 陷阱
 
-<Note type="warning" title="面试容易踩的坑">
+<Note type="danger" title="面试里说出来就扣分">
 
-不要从最终答案倒推唯一根因。先确认原文、权限与版本，再沿候选、重排、context 和生成逐层定位；示意参数不能当线上通用阈值。
+- “向量检索返回的就是最相似的结果。”（ANN 是近似的）
+- “过滤后结果不够，就先不过滤再补。”
+- “肯定要上专用向量库。”
+- 把 ANN 召回率和 RAG 召回率混为一谈。
 
 </Note>
 
 ## 连接
 
-上一站：[RAG 总览](/docs/rag)；分层测量：[RAG Evaluation](/docs/evaluation/rag-eval)。本页之后继续按总览顺序阅读。
+- 上一站：[Embedding](/docs/rag/embedding)；下一站：[Sparse Retrieval](/docs/rag/sparse-retrieval)
+- 相关：[Hybrid Search](/docs/rag/hybrid-search)、[Isolation](/docs/context/isolation)（租户隔离）、[Scaling](/docs/production/scaling)
 
 ## 面试问题
 
-1. 向量库到底在查什么？（What is the vector index searching for?）
-2. 什么时候需要近似搜索，HNSW 如何提速？（When is approximate search useful and how does HNSW work?）
-3. IVF 和 PQ 分别压缩了什么工作？（What work do IVF and PQ reduce?）
-4. ACL 与元数据过滤会怎样影响 ANN？（How do ACL and metadata filters affect ANN?）
+1. 为什么需要近似最近邻？它牺牲了什么？（Why approximate nearest neighbors, and what's sacrificed?）
+2. HNSW 是怎么工作的？`M`、`efConstruction`、`efSearch` 各控制什么？（How does HNSW work, and what do its parameters control?）
+3. IVF 和 HNSW 怎么选？（IVF or HNSW?）
+4. PQ 怎么压缩向量？（How does product quantization compress vectors?）
+5. 元数据过滤有哪几种方式？后过滤有什么问题？（How do you filter by metadata, and what's wrong with post-filtering?）
+6. 多租户向量检索怎么设计？（How do you design multi-tenant vector search?）
+7. pgvector 和专用向量库怎么选？（pgvector or a dedicated vector database?）
 
 ## 资料来源
 
-- [原始研究或官方文档](https://github.com/facebookresearch/faiss/wiki/Guidelines-to-choose-an-index)
+- [HNSW（Malkov & Yashunin, 2016）](https://arxiv.org/abs/1603.09320)
+- [Product Quantization（Jégou et al., 2011）](https://ieeexplore.ieee.org/document/5432202)
+- [DiskANN（微软，NeurIPS 2019）](https://github.com/microsoft/DiskANN)
+- [Faiss 文档](https://faiss.ai/)、[ANN-Benchmarks](https://ann-benchmarks.com/)
+- [pgvector](https://github.com/pgvector/pgvector)
 
 </Locale>
 
 <Locale lang="en">
 
-## Pitfall
+## Pitfalls
 
-<Note type="warning" title="Interview pitfall">
+<Note type="danger" title="Claims that cost points">
 
-Do not infer one root cause from the final answer alone. Trace source, access, version, candidates, reranking, context, and generation; illustrative parameters are not universal production defaults.
+- "Vector search returns the most similar results." (It's approximate.)
+- "Skip the filter and backfill when results are sparse."
+- "You obviously need a dedicated vector DB."
+- Conflating ANN recall with RAG recall.
 
 </Note>
 
 ## Connections
 
-Start from [RAG overview](/docs/rag) and measure each layer with [RAG Evaluation](/docs/evaluation/rag-eval).
+- Previous: [Embedding](/docs/rag/embedding); next: [Sparse Retrieval](/docs/rag/sparse-retrieval)
+- Related: [Hybrid Search](/docs/rag/hybrid-search), [Isolation](/docs/context/isolation), [Scaling](/docs/production/scaling)
 
 ## Interview questions
 
-1. What is the vector index searching for?
-2. When is approximate search useful and how does HNSW work?
-3. What work do IVF and PQ reduce?
-4. How do ACL and metadata filters affect ANN?
+1. Why approximate nearest neighbors, and what's sacrificed?
+2. How does HNSW work, and what do its parameters control?
+3. IVF or HNSW?
+4. How does product quantization compress vectors?
+5. How do you filter by metadata, and what's wrong with post-filtering?
+6. How do you design multi-tenant vector search?
+7. pgvector or a dedicated vector database?
 
 ## Sources
 
-- [Primary research or official documentation](https://github.com/facebookresearch/faiss/wiki/Guidelines-to-choose-an-index)
+- [HNSW (Malkov & Yashunin)](https://arxiv.org/abs/1603.09320)
+- [Product Quantization (Jégou et al., 2011)](https://ieeexplore.ieee.org/document/5432202)
+- [DiskANN (Microsoft, NeurIPS 2019)](https://github.com/microsoft/DiskANN)
+- [Faiss](https://faiss.ai/), [ANN-Benchmarks](https://ann-benchmarks.com/)
+- [pgvector](https://github.com/pgvector/pgvector)
 
 </Locale>
 
