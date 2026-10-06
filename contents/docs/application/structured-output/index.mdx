@@ -17,16 +17,6 @@ mastery: { talk: 0, probe: 0 }
 
 这一页假设你已经学过 [Attention & Transformer](/docs/llm/transformer) Level 6（logits 怎么变成下一个 token）和 [Prompt Engineering](/docs/application/prompt-engineering)。[Fine-tuning](/docs/llm/fine-tuning) 和 [Inference](/docs/llm/inference) 两页都提到过「约束解码能保证格式」，这一页把它的原理讲清楚。
 
-<Note type="tip" title="2026-10-04 更新：复习指引">
-
-🆕 **新学 Level 6**：2026 年各家结构化输出能力对比、开源约束解码引擎（Outlines、XGrammar、llguidance）、“格式约束会不会伤推理”（*Let Me Speak Freely?*）及应对、字段顺序的影响、流式部分 JSON。
-
-🔁 **建议复习**：Level 3（约束解码原理）和你的 MyQuestion（要不要自己实现 token mask）——Level 6 列出了现成的引擎；Level 2（三种方式）——补上各家 API 的现状。
-
-✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
-
-</Note>
-
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -59,16 +49,6 @@ mastery: { talk: 0, probe: 0 }
 A model outputs text, but your code needs data: what the customer wants, what the order number is, whether to call the refund API. **The moment a model's output feeds into more code, "is the format right" stops being a UX issue and becomes a production-incident issue.** One extra "Sure, here's the result" and JSON parsing throws.
 
 This page assumes you've studied [Attention & Transformer](/docs/llm/transformer) Level 6 (how logits become the next token) and [Prompt Engineering](/docs/application/prompt-engineering). Both [Fine-tuning](/docs/llm/fine-tuning) and [Inference](/docs/llm/inference) mentioned that constrained decoding guarantees format; this page explains how it works.
-
-<Note type="tip" title="2026-10-04 update: what to review">
-
-🆕 **New Level 6**: provider structured-output support in 2026, open-source constrained-decoding engines, whether format constraints hurt reasoning, field order, streaming partial JSON.
-
-🔁 **Review**: Level 3 and your MyQuestion on token masks; Level 2.
-
-✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
-
-</Note>
 
 ## How to work through this page
 

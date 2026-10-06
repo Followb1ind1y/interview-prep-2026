@@ -17,16 +17,6 @@ mastery: { talk: 0, probe: 0 }
 
 本页围绕猫粮客服，讲建集、标注、配对比较、发布门槛和评测集泄漏。线上真实随机分流属于 [Production Evaluation](/docs/evaluation/production-eval)；离线 A/B 指的是在**相同样本与环境**上对比两个版本，不等同于线上 A/B 实验。
 
-<Note type="tip" title="2026-10-04 更新：复习指引">
-
-🆕 **新学 Level 4**：配对比较的显著性检验（McNemar 检验手算、bootstrap 置信区间）、合成评估数据的构造与验证、评估集的维护（防止对 holdout 过拟合）。面试官问“新版本更好，你怎么证明不是噪声”时要用到。
-
-🔁 **建议复习**：Level 2（同题配对比较）——Level 4 在同一个配对表上做显著性检验；也建议先读 [Fundamentals](/docs/evaluation/fundamentals) 新增的 Level 4（置信区间）。
-
-✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
-
-</Note>
-
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -51,16 +41,6 @@ mastery: { talk: 0, probe: 0 }
 [Fundamentals](/docs/evaluation/fundamentals) defined one scoreable support case. Now turn cases into an **offline dataset** that compares system versions repeatedly. If you collect only easy “unshipped order, clear policy” examples, a new model can improve aggregate score while failing shipped-order exceptions, tenant boundaries, or tool timeouts.
 
 This page covers dataset construction, labels, paired comparisons, release gates, and leakage for the same support case. Real randomized traffic splitting belongs in [Production Evaluation](/docs/evaluation/production-eval). Offline A/B means two versions on the **same cases and environment**, not an online experiment.
-
-<Note type="tip" title="2026-10-04 update: what to review">
-
-🆕 **New Level 4**: significance for paired comparisons (McNemar, bootstrap), synthetic eval data, keeping eval sets healthy.
-
-🔁 **Review**: Level 2 (paired comparison) and [Fundamentals](/docs/evaluation/fundamentals) Level 4 first.
-
-✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
-
-</Note>
 
 ## How to work through this page
 

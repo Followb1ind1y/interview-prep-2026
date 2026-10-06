@@ -17,16 +17,6 @@ mastery: { talk: 0, probe: 0 }
 
 本页串起前五页，用同一个猫粮客服案例走完发布到回归：记录 trace、在线采样与分母、shadow/canary/A/B 的区别，以及一条“错误承诺退款”事故如何进入离线集。
 
-<Note type="tip" title="2026-10-04 更新：复习指引">
-
-🆕 **新学 Level 4**：线上 A/B 的样本量手算、护栏指标与主指标、样本比例失衡检查（SRM）、新奇效应，以及同步护栏和异步线上评估的分工。
-
-🔁 **建议复习**：Level 2（shadow、canary、A/B）和你的两个 MyQuestion（A/B 在流程中的位置）——Level 4 补上“A/B 要跑多久、多少流量才能下结论”。另外重写后的 [Observability](/docs/production/observability) 和 [Reliability](/docs/production/reliability) Level 4 讲了 trace 字段和灰度回滚，建议对照。
-
-✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
-
-</Note>
-
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -51,16 +41,6 @@ mastery: { talk: 0, probe: 0 }
 An offline golden set blocks known failures, but production brings new policies, real user wording, tool faults, and delayed outcomes. Mature evaluation means **knowing which online behavior is verified, which still awaits truth, and how to turn new failures into reproducible tests**.
 
 This page connects the previous five through the same cat-food support case: traces, online sampling and denominators, shadow/canary/A/B, and an incident in which the assistant falsely promises a refund.
-
-<Note type="tip" title="2026-10-04 update: what to review">
-
-🆕 **New Level 4**: A/B sample sizes, guardrail vs primary metrics, SRM checks, novelty effects, sync guardrails vs async online evals.
-
-🔁 **Review**: Level 2 and your two MyQuestion answers; see also rewritten [Observability](/docs/production/observability) and [Reliability](/docs/production/reliability) Level 4.
-
-✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
-
-</Note>
 
 ## How to work through this page
 

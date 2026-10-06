@@ -17,16 +17,6 @@ mastery: { talk: 0, probe: 0 }
 
 继续订单 20240915：订单状态由工具给出，政策资料由检索系统给出。为了能手算，假设政策库里有两段对这道题真正相关的当前条款。下面所有排序与分数是教学示意，不是线上实测。
 
-<Note type="tip" title="2026-10-04 更新：复习指引">
-
-🆕 **新学 Level 4**：RAGAS 四个核心指标各自怎么算（不只是名字）、需要参考答案与不需要参考答案的评估、合成 RAG 测试集的构造、检索评测中“没有标注”时怎么办。
-
-🔁 **建议复习**：Level 1（四个检索指标手算）和 Level 2（Faithfulness 高也可能错）——Level 4 解释 RAGAS 里这些指标的具体计算方式；Level 3 的排错动作建议结合 [Construction](/docs/context/construction) 新增的 Level 4 一起看。
-
-✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
-
-</Note>
-
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -51,16 +41,6 @@ mastery: { talk: 0, probe: 0 }
 A wrong refund answer can come from missing current policy in retrieval, failing to select a retrieved clause into context, ignoring an exception during generation, or using stale evidence. “Was the answer good?” cannot localize the fault. [RAG](/docs/rag) explains the pipeline; this page explains **how to grade each layer**.
 
 We continue with order 20240915. An order tool supplies live state; retrieval supplies policy. For hand calculations, assume exactly two current policy passages are relevant to this question. Rankings and numbers are teaching examples, not production measurements.
-
-<Note type="tip" title="2026-10-04 update: what to review">
-
-🆕 **New Level 4**: how the four RAGAS metrics are computed, reference-based vs reference-free evaluation, synthetic RAG test sets, retrieval eval without labels.
-
-🔁 **Review**: Levels 1 and 2; read Level 3 alongside [Construction](/docs/context/construction) Level 4.
-
-✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
-
-</Note>
 
 ## How to work through this page
 

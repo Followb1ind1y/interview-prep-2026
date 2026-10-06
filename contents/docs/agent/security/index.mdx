@@ -29,16 +29,6 @@ Agent security 的核心不是让模型永远不被 prompt injection 欺骗—�
 
 答错任何一题，执行器就应拒绝。把这三道门记住，比先记 SSRF、TOCTOU 这些术语更重要。
 
-<Note type="tip" title="2026-10-04 更新：复习指引">
-
-🆕 **新学 Level 6**：2025 年的安全框架与防御设计——OWASP LLM Top 10（2025 版）、“致命三要素”、六种抗注入的设计模式、Google DeepMind 的 CaMeL、用 AgentDojo 评测。面试官问“prompt injection 怎么根治”时，这一级给出业界目前最好的答案。
-
-🔁 **建议复习**：Level 1（为什么 prompt 层过滤不足）和 Level 4（MCP、TOCTOU、confused deputy）——重写后的 [MCP](/docs/ai-native/mcp) Level 3–4 和 [Sandbox](/docs/ai-native/sandbox) Level 2 对这两级有大量补充（token 透传、工具投毒、出口代理），建议对照读。
-
-✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
-
-</Note>
-
 ## 这一页怎么学
 
 | 部分 | 回答的问题 | 时长 |
@@ -81,16 +71,6 @@ Similarly, an email, webpage, or PDF that tells an agent to upload every quote d
 3. Are the destination and data scope safe?
 
 If any answer is no, the executor denies the action. Remembering these three gates matters more than memorizing terms such as SSRF and TOCTOU first.
-
-<Note type="tip" title="2026-10-04 update: what to review">
-
-🆕 **New Level 6**: OWASP LLM Top 10 (2025), the lethal trifecta, six injection-resistant design patterns, DeepMind's CaMeL, AgentDojo.
-
-🔁 **Review**: Levels 1 and 4 with the rewritten [MCP](/docs/ai-native/mcp) Levels 3–4 and [Sandbox](/docs/ai-native/sandbox) Level 2.
-
-✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
-
-</Note>
 
 ## How to work through this page
 

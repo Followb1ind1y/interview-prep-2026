@@ -17,16 +17,6 @@ mastery: { talk: 0, probe: 0 }
 
 这一页假设你已经学过 [Model Selection](/docs/application/model-selection)（模型分档、成本计算、评测集）和 [Structured Output](/docs/application/structured-output) Level 4（校验失败怎么处理）。重试、超时、熔断的通用做法在 [Production Reliability](/docs/production/reliability) 里，这一页只讲和「选哪个模型」直接相关的部分。
 
-<Note type="tip" title="2026-10-04 更新：复习指引">
-
-🆕 **新学 Level 5**：路由的研究与产品进展——FrugalGPT（级联 + 打分器）、RouteLLM（用偏好数据训练路由器）、模型内部的“自动路由”（如 GPT-5 在快速与推理模式间切换）、LLM 网关（LiteLLM、OpenRouter）。
-
-🔁 **建议复习**：Level 3（级联）——[Cost](/docs/production/cost) 新增了级联期望成本公式和“升级率过高反而更贵”的算例，建议对照；Level 4（降级兜底）——和重写后的 [Reliability](/docs/production/reliability) Level 3 对照。
-
-✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
-
-</Note>
-
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -58,16 +48,6 @@ mastery: { talk: 0, probe: 0 }
 [Model Selection](/docs/application/model-selection) concluded that different tasks and difficulty levels suit different models. So a production system shouldn't be wired to just one model; it should **send each request to the model it belongs with**: simple questions to a cheap, fast small model, hard ones to a strong model, and an automatic switch to a backup when the primary fails. That's model routing, one of the most direct levers on an LLM application's cost and reliability.
 
 This page assumes you've studied [Model Selection](/docs/application/model-selection) (model tiers, cost math, evaluation sets) and [Structured Output](/docs/application/structured-output) Level 4 (handling validation failures). General practices for retries, timeouts, and circuit breakers live in [Production Reliability](/docs/production/reliability); this page covers only what's directly tied to choosing which model.
-
-<Note type="tip" title="2026-10-04 update: what to review">
-
-🆕 **New Level 5**: FrugalGPT, RouteLLM, in-model automatic routing, LLM gateways.
-
-🔁 **Review**: Level 3 with the cascade math in [Cost](/docs/production/cost); Level 4 with [Reliability](/docs/production/reliability) Level 3.
-
-✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
-
-</Note>
 
 ## How to work through this page
 

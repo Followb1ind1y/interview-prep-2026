@@ -17,16 +17,6 @@ mastery: { talk: 0, probe: 0 }
 
 本页接 [Fundamentals](/docs/evaluation/fundamentals) 和 [Offline](/docs/evaluation/offline)：从确定性检查开始，理解语义相似的边界，再用有锚点的 LLM judge 分项评价多轮对话、做成对比较，最后用人工标注校准。贯穿案例仍是订单 20240915 的客服回复。
 
-<Note type="tip" title="2026-10-04 更新：复习指引">
-
-🆕 **新学 Level 4**：用 Cohen's kappa 修正 Judge 一致率（就用 Level 3 的那张表手算）、Judge 偏差的具体缓解手段、LMArena 的成对比较与 Bradley-Terry 评分及其争议、2026 年公共基准版图（哪些已饱和、现在看什么）。
-
-🔁 **建议复习**：Level 3（用人工标签校准 Judge）——Level 4 直接在它的数字上算 kappa；Level 2（成对比较与偏差）。
-
-✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
-
-</Note>
-
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -52,16 +42,6 @@ mastery: { talk: 0, probe: 0 }
 Many phrasings can correctly explain one refund decision. Exact string matching rejects good answers, but asking a judge model whether a response “looks good” may let a false promise through. **Choose a grader for the property being tested.**
 
 Following [Fundamentals](/docs/evaluation/fundamentals) and [Offline](/docs/evaluation/offline), start with deterministic checks, understand semantic measures, use an anchored LLM judge to score multi-turn dialogue by dimension, compare pairs, then calibrate against human labels. The running case is the reply for order 20240915.
-
-<Note type="tip" title="2026-10-04 update: what to review">
-
-🆕 **New Level 4**: Cohen's kappa on Level 3's table, judge-bias mitigations, LMArena and Bradley-Terry ratings, the 2026 benchmark landscape.
-
-🔁 **Review**: Level 3 (calibration) and Level 2 (pairwise bias).
-
-✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
-
-</Note>
 
 ## How to work through this page
 

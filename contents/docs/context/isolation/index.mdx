@@ -17,16 +17,6 @@ mastery: { talk: 0, probe: 0 }
 
 本页按“要完成哪一步 → 哪些数据与能力必须可见 → 谁在模型外强制边界”来学。它衔接 [Agent Security](/docs/agent/security) 和 [MCP](/docs/ai-native/mcp)，但不要求先背协议细节。
 
-<Note type="tip" title="2026-10-04 更新：复习指引">
-
-🆕 **新学 Level 4**：子 agent 隔离的实测收益与代价（Anthropic 多 agent 研究系统 vs Cognition 的反对意见）、何时隔离有害、MCP 2026-07-28 无状态版本对隔离的影响。
-
-🔁 **建议复习**：Level 1（Host 与 MCP 的责任边界）——MCP 规范在 2026-07 有大改，Level 1 的结论仍成立，但请连着读重写后的 [MCP](/docs/ai-native/mcp) Level 2–3；Level 2（注入与多租户）。
-
-✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
-
-</Note>
-
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -51,16 +41,6 @@ mastery: { talk: 0, probe: 0 }
 Previous pages selected, compressed, and cached information. Now ask: **may this model step, tool, or tenant receive it at all?** The cat-food assistant may access orders, policy, and email. Answering customer A's refund question does not justify sending customer B's order, an internal token, or the entire chat to every component.
 
 Study this as “what is this step doing → which data and capabilities must it receive → what enforces the boundary outside the model?” It connects to [Agent Security](/docs/agent/security) and [MCP](/docs/ai-native/mcp), but does not require protocol memorization first.
-
-<Note type="tip" title="2026-10-04 update: what to review">
-
-🆕 **New Level 4**: measured benefits and costs of sub-agent isolation (Anthropic's research system vs Cognition's critique), when isolation hurts, MCP 2026-07-28 implications.
-
-🔁 **Review**: Level 1 with the rewritten [MCP](/docs/ai-native/mcp) Levels 2–3, and Level 2.
-
-✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
-
-</Note>
 
 ## How to work through this page
 

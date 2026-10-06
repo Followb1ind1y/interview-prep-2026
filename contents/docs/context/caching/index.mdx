@@ -17,16 +17,6 @@ mastery: { talk: 0, probe: 0 }
 
 本页沿用订单 20240915，先给一张分层图，再讲 prompt 前缀复用、KV cache、应用层精确/语义缓存，最后算命中率与失效。先读过 [Context Window](/docs/context/window) 和 [Attention & Transformer](/docs/llm/transformer) 的 KV 直觉会更顺。
 
-<Note type="tip" title="2026-10-04 更新：复习指引">
-
-🆕 **新学 Level 4**：Anthropic / OpenAI / Gemini 三家 prompt caching 的具体机制（断点、最小长度、TTL、价格倍数）、自部署的前缀缓存（vLLM、SGLang）、“缓存不命中”排查清单。
-
-🔁 **建议复习**：Level 1（前缀可复用）——Level 4 的排查清单直接对应它；你的两个 MyQuestion（隐式缓存为什么安全、缓存会不会给一样的答案）仍然成立，可顺带回看。另外 [Cost](/docs/production/cost) 新增了缓存盈亏点和 agent 缓存的算例。
-
-✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
-
-</Note>
-
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -51,16 +41,6 @@ mastery: { talk: 0, probe: 0 }
 The support assistant repeatedly receives shared instructions and policy background while handling different orders. An interviewer hears “we added caching” and asks: **did you reuse model computation, decoding state, or the final refund answer?** Each has different freshness and risk requirements.
 
 We continue with order 20240915. First distinguish the layers, then prompt-prefix reuse, decoding KV state, application-level exact or semantic caches, and finally hit rate and invalidation. [Context Window](/docs/context/window) and the KV intuition in [Attention & Transformer](/docs/llm/transformer) are useful prerequisites.
-
-<Note type="tip" title="2026-10-04 update: what to review">
-
-🆕 **New Level 4**: provider mechanics (breakpoints, minimums, TTLs, price multipliers), self-hosted prefix caching, a zero-hit debugging checklist.
-
-🔁 **Review**: Level 1 and your two MyQuestion answers; see also the caching math in [Cost](/docs/production/cost).
-
-✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
-
-</Note>
 
 ## How to work through this page
 

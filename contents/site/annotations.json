@@ -2786,6 +2786,78 @@
       },
       "createdAt": 1790216147846,
       "updatedAt": 1790216147846
+    },
+    {
+      "id": "96e19a81-a6ae-4a7c-a92f-bc5e9f408b17",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "auto",
+        "prefix": "控制模型这一轮是否必须调用工具：取值（各家命名略有不同）含义用途",
+        "suffix": "模型自己决定默认any / required必须调用某个工具确定"
+      },
+      "createdAt": 1791248184526,
+      "updatedAt": 1791248184526
+    },
+    {
+      "id": "f80523bd-baf9-4ee0-a38e-d745adfdfed1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "any / required",
+        "prefix": "用工具：取值（各家命名略有不同）含义用途auto模型自己决定默认",
+        "suffix": "必须调用某个工具确定这一步必须查数据时指定某个工具必须调用这个工"
+      },
+      "createdAt": 1791248187489,
+      "updatedAt": 1791248187489
+    },
+    {
+      "id": "068a353e-b724-4fb1-bf1f-5af8abee9dc4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "按步骤筛选",
+        "prefix": "上百个工具可能占掉几万 token，还会让模型选错。两种做法：\n",
+        "suffix": "：只暴露当前步骤需要的工具（见 Construction Lev"
+      },
+      "createdAt": 1791248203143,
+      "updatedAt": 1791248203143
+    },
+    {
+      "id": "58036e42-ba54-42e9-a1a5-0d071d2c4f26",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "按需加载（tool search）：只给模型工具名或一个“搜索工具”的工具，需要时再加载完整定义",
+        "prefix": "骤需要的工具（见 Construction Level 4）。\n",
+        "suffix": "。Claude Code 对 MCP 工具就采用延迟加载，Ant"
+      },
+      "createdAt": 1791248213535,
+      "updatedAt": 1791248213535
+    },
+    {
+      "id": "ef436b2e-d438-473e-8cbc-a2e704fc1e61",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "程序化工具调用：让模型写一段代码，在沙箱里调用工具、处理数据，只把最终结果交回上下文",
+        "prefix": "0 条报价、筛出前 10 条，1,000 条数据全要经过上下文。",
+        "suffix": "：quotes = [get_quote(s) for s in"
+      },
+      "createdAt": 1791248260537,
+      "updatedAt": 1791248260537
+    },
+    {
+      "id": "421889d4-c98a-43dd-80c3-3c147bec9701",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "只有这 10 条进入上下文",
+        "prefix": "                              # ",
+        "suffix": "\nAnthropic 2025 年的文章（code execut"
+      },
+      "createdAt": 1791248268573,
+      "updatedAt": 1791248268573
     }
   ],
   "/docs/agent/workflow-vs-agent": [
@@ -2992,6 +3064,54 @@
       },
       "createdAt": 1790364309245,
       "updatedAt": 1790364309245
+    },
+    {
+      "id": "2fff2a48-c694-4bfe-86ea-280fb434e586",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Prompt chaining",
+        "prefix": "ow 模式。这套词汇在面试中被广泛使用：模式结构适用采购谈判例子",
+        "suffix": "任务拆成固定的顺序步骤，每步的输出是下一步的输入，步骤间可加程序"
+      },
+      "createdAt": 1791248308785,
+      "updatedAt": 1791248308785
+    },
+    {
+      "id": "82d7854b-f0ee-4378-80e8-b5ee69fb5dd4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Orchestrator-workers",
+        "prefix": "检查价格、交期、条款三个维度；三次独立判断“是否有风险条款”投票",
+        "suffix": "中心 LLM 动态拆分任务、分派给 worker、汇总结果子任务"
+      },
+      "createdAt": 1791248321151,
+      "updatedAt": 1791248321151
+    },
+    {
+      "id": "d813f44b-511f-4c26-8630-11890eb52bd2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "多个 LLM 调用同时进行",
+        "prefix": "，分别走不同流程；简单问题走小模型Parallelization",
+        "suffix": "：分段（各做一部分）或投票（同一任务做多次取共识）子任务独立可并"
+      },
+      "createdAt": 1791248331671,
+      "updatedAt": 1791248331671
+    },
+    {
+      "id": "ccb4eaf7-cbef-4a8b-87c0-d1c50d033c3e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "先用最简单的方案，只在能证明收益时增加复杂度",
+        "prefix": "一步内嵌一个受限 agent”。同一篇文章的核心建议也值得记住：",
+        "suffix": "；很多场景下，优化单次 LLM 调用（加检索、加示例）就够了。面"
+      },
+      "createdAt": 1791248371810,
+      "updatedAt": 1791248371810
     }
   ],
   "/docs/application/model-routing": [
@@ -3313,6 +3433,66 @@
       },
       "createdAt": 1789937907193,
       "updatedAt": 1789937907193
+    },
+    {
+      "id": "c375dd6b-6707-4df2-9627-ffeae84102aa",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "级联：按成本从低到高依次调用模型，用一个训练好的打分器判断当前答案是否可靠，可靠就停止",
+        "prefix": "果（以论文为准）FrugalGPT（Stanford，2023）",
+        "suffix": "论文报告能在匹配最强单模型表现的同时，大幅降低成本RouteLL"
+      },
+      "createdAt": 1791247797073,
+      "updatedAt": 1791247797073
+    },
+    {
+      "id": "f7c98e67-900d-415c-bc16-98356e3e569e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "同一个模型按任务调高或调低思考预算，相当于在一个模型内部做“路由”",
+        "prefix": "题复杂度，在快速模型和深度推理模型之间自动选择。\n推理强度参数：",
+        "suffix": "（见 Model Selection Level 5）。\n对应用"
+      },
+      "createdAt": 1791247951279,
+      "updatedAt": 1791247951279
+    },
+    {
+      "id": "cf1e98b8-2aaf-4afa-8c4f-1fa456b76413",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "ChatGPT 中由一个路由器根据问题复杂度，在快速模型和深度推理模型之间自动选择",
+        "prefix": "部分被模型厂商做进了产品：\n自动切换模式：例如 GPT-5 在 ",
+        "suffix": "。\n推理强度参数：同一个模型按任务调高或调低思考预算，相当于在一"
+      },
+      "createdAt": 1791247958994,
+      "updatedAt": 1791247958994
+    },
+    {
+      "id": "aeb4b4dc-8ff7-4a29-8edc-b206806f3746",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "用推理强度分档就能达到类似效果",
+        "prefix": "vel 5）。\n对应用开发者的意义：有些场景不需要自己实现路由，",
+        "suffix": "；但你仍要在自己的评估集上验证——厂商的路由针对的是通用聊天，不"
+      },
+      "createdAt": 1791247967711,
+      "updatedAt": 1791247967711
+    },
+    {
+      "id": "776758e5-9168-406f-859e-174633c1e659",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "统一不同供应商的 API 格式；fallback 和重试；按团队 / 项目的预算与限流；成本统计",
+        "prefix": "LM 网关解决什么问题？网关类型提供LiteLLM开源，可自部署",
+        "suffix": "OpenRouter托管服务一个 API 访问众多模型；自动在多"
+      },
+      "createdAt": 1791247996149,
+      "updatedAt": 1791247996149
     }
   ],
   "/docs/application/model-selection": [
@@ -3658,6 +3838,102 @@
       },
       "createdAt": 1789934350303,
       "updatedAt": 1789934350303
+    },
+    {
+      "id": "cfc35a5e-39e3-4b73-89ea-4ff6c4ad418d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "外部信息只用来缩小候选",
+        "prefix": "nch、GPQA 等（按你的任务类型挑）饱和与污染问题结论不变：",
+        "suffix": "，最终用 Level 3 的私有评估集决定。开源权重模型有哪些选"
+      },
+      "createdAt": 1791247524280,
+      "updatedAt": 1791247524280
+    },
+    {
+      "id": "0d931c2d-c4cd-4d8e-96b0-6cca7f664c41",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "数据不出域、可微调、成本可控（高利用率时）、不受供应商下线影响",
+        "prefix": "l、Gemma（Google）等中小尺寸选择选开源的理由通常是：",
+        "suffix": "。代价是自己负责部署、扩容和安全（见 Cost Level 4、"
+      },
+      "createdAt": 1791247548565,
+      "updatedAt": 1791247548565
+    },
+    {
+      "id": "b0810324-e829-4474-add0-3445bc8443db",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "“模型 × 推理强度”的组合",
+        "prefix": "inking budget）。于是选型不只是“选哪个模型”，而是",
+        "suffix": "：候选：A-高推理、A-低推理、B-无推理、C-小模型\n在同一评"
+      },
+      "createdAt": 1791247570174,
+      "updatedAt": 1791247570174
+    },
+    {
+      "id": "659cc662-69db-4690-bc29-20bd318f4e95",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "锁定快照版本（带日期的模型 ID）",
+        "prefix": "模型的生命周期通常只有一到两年，厂商会提前公布下线日期。应对：\n",
+        "suffix": "，升级是主动决策（见 Reliability Level 4）。"
+      },
+      "createdAt": 1791247592124,
+      "updatedAt": 1791247592124
+    },
+    {
+      "id": "78168567-6066-480c-8e7b-2e8a5e925052",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "迁移评估",
+        "prefix": "升级是主动决策（见 Reliability Level 4）。\n",
+        "suffix": "：新模型在同一评估集上跑一遍，按切片比较——整体分数持平不代表每"
+      },
+      "createdAt": 1791247695685,
+      "updatedAt": 1791247695685
+    },
+    {
+      "id": "29d858c9-c44b-4847-9f7e-4da782286ff1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "prompt 可能要重调",
+        "prefix": "估集上跑一遍，按切片比较——整体分数持平不代表每个场景都持平。\n",
+        "suffix": "：不同模型（甚至同一家的新版本）对同一 prompt 的反应不同"
+      },
+      "createdAt": 1791247698534,
+      "updatedAt": 1791247698534
+    },
+    {
+      "id": "3bc87bea-dbf6-4e6d-ba2a-841e27a363f2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "生产环境要固定具体版本",
+        "prefix": "名，自动享受升级」:别名指向的模型会被悄悄换掉，输出行为跟着变。",
+        "suffix": "，升级前跑回归评测。只比较价格表上的单价:不同模型的 token"
+      },
+      "createdAt": 1791247716498,
+      "updatedAt": 1791247716498
+    },
+    {
+      "id": "59e94378-70c2-4db2-a685-2ed4e2d17c10",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "新旧 embedding 模型的向量不在同一个空间里，不能混用。换模型就要重新计算所有文档的向量",
+        "prefix": "要扩大评测集再下结论。换 embedding 模型却不重建索引:",
+        "suffix": "。忘了限流和数据合规:模型评测效果再好，高峰期超过每分钟 tok"
+      },
+      "createdAt": 1791247761380,
+      "updatedAt": 1791247761380
     }
   ],
   "/docs/application/prompt-engineering": [
@@ -4513,6 +4789,102 @@
       },
       "createdAt": 1789694563899,
       "updatedAt": 1789694563899
+    },
+    {
+      "id": "e532570b-265a-4243-a474-6839dbd927b1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "自带内部推理，写法要相应调整",
+        "prefix": "tended thinking、Gemini thinking）",
+        "suffix": "：对普通模型对 reasoning 模型“请一步步思考”能显著提"
+      },
+      "createdAt": 1791247020103,
+      "updatedAt": 1791247020103
+    },
+    {
+      "id": "993544d0-5efb-441d-8831-4c55badd5213",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "通常不需要，甚至可能干扰",
+        "prefix": "对 reasoning 模型“请一步步思考”能显著提升推理题表现",
+        "suffix": "；厂商指南建议避免强行要求 CoT把解题步骤写进 prompt（"
+      },
+      "createdAt": 1791247028024,
+      "updatedAt": 1791247028024
+    },
+    {
+      "id": "1ef72dfd-1564-4b48-9e6c-f3cdf0744929",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "给清楚的目标、约束和验收标准",
+        "prefix": "行要求 CoT把解题步骤写进 prompt（先做 A 再做 B）",
+        "suffix": "，让模型自己规划步骤多放 few-shot 示例引导推理示例仍有"
+      },
+      "createdAt": 1791247041766,
+      "updatedAt": 1791247041766
+    },
+    {
+      "id": "2a445db7-ae79-4155-8aba-f9ec77aac0b6",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "用推理强度参数（effort / thinking budget）换质量",
+        "prefix": "有用于格式和风格，但不必示范推理过程用 prompt 长度换质量",
+        "suffix": "，按任务难度分档客服例子：对普通模型你可能写“第一步判断订单状态"
+      },
+      "createdAt": 1791247056048,
+      "updatedAt": 1791247056048
+    },
+    {
+      "id": "0b6b38cf-0882-484b-b7c1-b5d4d576d9fa",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "讲清原则、目标和判断依据，配几个典型示例",
+        "prefix": "辑硬写进 prompt：“如果用户说 A 就回答 B，如果……”",
+        "suffix": "“你是一个有帮助的客服”脆弱，遇到没写到的情况就出错；难维护模型"
+      },
+      "createdAt": 1791247072164,
+      "updatedAt": 1791247072164
+    },
+    {
+      "id": "4efb3e3e-5641-4ca3-86e2-df674620002f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型能把原则泛化到新情况",
+        "prefix": "示例“你是一个有帮助的客服”脆弱，遇到没写到的情况就出错；难维护",
+        "suffix": "模型缺少做判断所需的信息经验：用 XML 标签或 Markdow"
+      },
+      "createdAt": 1791247079342,
+      "updatedAt": 1791247079342
+    },
+    {
+      "id": "e9dc77c3-3322-4b21-9da0-6ff92542bf9e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "共同前提：必须先有评估集和评估指标",
+        "prefix": "t 生成器 / 优化器，根据描述或已有 prompt 生成改进版",
+        "suffix": "（见 Evaluation）。没有评估集，自动优化无从谈起——这"
+      },
+      "createdAt": 1791247118201,
+      "updatedAt": 1791247118201
+    },
+    {
+      "id": "8a264295-1aba-4eb3-98f5-2bc7e28cdd90",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "稳定内容放前面、变化内容放后面",
+        "prefix": "代码管理”的自然延伸。缓存友好的 prompt 结构是什么样？把",
+        "suffix": "：工具定义 → system 规则 → 固定的政策与示例 → 对"
+      },
+      "createdAt": 1791247144792,
+      "updatedAt": 1791247144792
     }
   ],
   "/docs/application/structured-output": [
@@ -5047,6 +5419,66 @@
       },
       "createdAt": 1789875341525,
       "updatedAt": 1789875341525
+    },
+    {
+      "id": "dd19559e-d0c9-4843-b3fc-beec37d64cfb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "推理服务都内置了“guided decoding”接口，直接传 JSON Schema 即可",
+        "prefix": "性能的文法约束库，也被多个推理框架采用vLLM、SGLang 等",
+        "suffix": "。格式约束会不会让答案变差？会有影响，这是面试中能体现深度的一点"
+      },
+      "createdAt": 1791247302598,
+      "updatedAt": 1791247302598
+    },
+    {
+      "id": "edf3df08-0d33-4890-b2f7-50499b3bb3cf",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "在一些推理任务上，强制模型直接以严格格式输出，正确率低于让它自由回答。原因直观：模型没有空间“边想边写”，或者被迫在想清楚之前就填答案字段",
+        "prefix": "24 年的论文 Let Me Speak Freely? 发现：",
+        "suffix": "。应对方法：\n字段顺序：先推理，后结论。生成是从左到右的，把 r"
+      },
+      "createdAt": 1791247317171,
+      "updatedAt": 1791247317171
+    },
+    {
+      "id": "03775754-755f-42b3-a614-c1c8343fc340",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "如果把 decision 放在第一个字段，模型会先“拍板”，再为它找理由",
+        "prefix": "d\",\n  \"next_step\": \"签收后可申请退货\"\n}\n",
+        "suffix": "。\n两步法：第一步自由推理（或使用 reasoning 模型的内"
+      },
+      "createdAt": 1791247354154,
+      "updatedAt": 1791247354154
+    },
+    {
+      "id": "021c8f53-adb3-4340-ae75-8bf68df05720",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "流式输出时怎么处理 JSON？",
+        "prefix": "比较“约束输出”和“自由输出 + 解析”的正确率，用数据决定。\n",
+        "suffix": "JSON 只有完整时才能解析，但用户希望看到逐步出现的内容。做法"
+      },
+      "createdAt": 1791247378762,
+      "updatedAt": 1791247378762
+    },
+    {
+      "id": "d488ed1e-9085-4051-9e55-b336a15a466e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "部分 JSON 解析（partial JSON parsing）",
+        "prefix": "ON 只有完整时才能解析，但用户希望看到逐步出现的内容。做法是用",
+        "suffix": "：容忍未闭合的括号和字符串，随着 token 到来逐步解析出已完"
+      },
+      "createdAt": 1791247382565,
+      "updatedAt": 1791247382565
     }
   ],
   "/docs/context/caching": [

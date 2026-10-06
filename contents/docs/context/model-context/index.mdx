@@ -17,16 +17,6 @@ mastery: { talk: 0, probe: 0 }
 
 本页沿用 [LLM Application](/docs/application) 的猫粮客服，接上 [Tokenization](/docs/llm/tokenization) 的 input token 和 [Attention & Transformer](/docs/llm/transformer) 的「根据当前输入生成」直觉。按你的 Production LLM / AI Engineer 定位，重点练能在面试里画出来的输入边界与责任分工；容量、压缩、缓存留到后续页面。
 
-<Note type="tip" title="2026-10-04 更新：复习指引">
-
-🆕 **新学 Level 3**：消息怎样经 chat template 变成 token、指令层级（instruction hierarchy）、reasoning 模型在工具循环中必须回传思考内容、有状态 vs 无状态 API。这是 2025–2026 年接 reasoning 模型时最常踩的坑。
-
-🔁 **建议复习**：Level 2（两轮调用怎样改变 context）——Level 3 在同一张两轮图上加了“思考块”这一层。
-
-✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
-
-</Note>
-
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -52,16 +42,6 @@ mastery: { talk: 0, probe: 0 }
 A customer asks a cat-food support assistant: “Order 20240915 from last week hasn't arrived. Can I get a refund?” The model may answer fluently while knowing neither the shipment status nor the refund policy. The missing piece is **the evidence available for this call**.
 
 This page continues the [LLM Application](/docs/application) example. It builds on input tokens from [Tokenization](/docs/llm/tokenization) and generation from current input in [Attention & Transformer](/docs/llm/transformer). For a Production LLM / AI Engineer interview, focus on the input boundary and who owns each step. Window sizing, compression, and caching come later.
-
-<Note type="tip" title="2026-10-04 update: what to review">
-
-🆕 **New Level 3**: chat templates, the instruction hierarchy, passing reasoning back in tool loops, stateful vs stateless APIs.
-
-🔁 **Review**: Level 2 (how two calls change context) — Level 3 adds thinking blocks to the same picture.
-
-✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
-
-</Note>
 
 ## How to work through this page
 

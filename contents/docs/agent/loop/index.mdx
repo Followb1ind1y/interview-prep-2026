@@ -28,16 +28,6 @@ Agent 不是“更长的 prompt”，也不是某个框架的名字。它是一�
 
 所以，这个 agent 的工作不是“替人拍板”。它每次只做一个小决定：先查真实报价、再查规则、最后最多创建草稿。后面看到 Acme、Q-817 或 Net 30 时，都把它们当作这个具体故事里的公司名、报价编号和付款期限；数字只是教学用，不需要有采购背景。
 
-<Note type="tip" title="2026-10-04 更新：复习指引">
-
-🆕 **新学 Level 3**：2025–2026 年真实 API 里的循环细节——stop_reason 的全部取值、并行工具调用、交错思考（interleaved thinking）、供应商托管的服务端工具、现成的 agent SDK，以及“每步 95% 成功、20 步只剩 36%”的复合错误算术。
-
-🔁 **建议复习**：Level 1（最小 loop 伪代码）——Level 3 在它上面补真实细节；Level 2（停止条件）——和新增的复合错误算术直接相关。也可连着读重写后的 [Agent Harness](/docs/ai-native/harness) Level 1。
-
-✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
-
-</Note>
-
 ## 这一页怎么学
 
 全页用一个采购谈判助手贯穿：用户说“查 Acme 的最新报价；若单价不高于 10.20 且付款条款为 Net 30，就准备下一轮报价，否则说明卡点。”助手可以读取报价、读取谈判政策、创建草稿；它不能直接发出承诺。
@@ -79,16 +69,6 @@ Imagine a small helper in the negotiation-practice product. A learner says: “C
 - A **draft** is saved for a person to inspect; it has **not** been sent.
 
 The agent is therefore not allowed to make the deal. It makes one small decision at a time: look up the real offer, check the rule, then at most create a draft. Treat Acme, Q-817, and Net 30 later in this page as a company name, an offer ID, and a payment period in this story. The numbers are teaching data; procurement background is not required.
-
-<Note type="tip" title="2026-10-04 update: what to review">
-
-🆕 **New Level 3**: real-API loop details — all stop reasons, parallel calls, interleaved thinking, server-side tools, agent SDKs, compounding-error math.
-
-🔁 **Review**: Level 1 (minimal loop) and Level 2 (stopping), plus [Agent Harness](/docs/ai-native/harness) Level 1.
-
-✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
-
-</Note>
 
 ## How to work through this page
 

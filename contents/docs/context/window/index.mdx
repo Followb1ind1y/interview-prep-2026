@@ -17,16 +17,6 @@ mastery: { talk: 0, probe: 0 }
 
 本页先用 [Tokenization](/docs/llm/tokenization) 的 token 概念做预算，再用 [Attention & Transformer](/docs/llm/transformer) 的 attention / KV cache 解释成本，最后看证据位置与长上下文评测。面试重点是会算、会诊断，不背某款模型今天的窗口数字。
 
-<Note type="tip" title="2026-10-04 更新：复习指引">
-
-🆕 **新学 Level 4**：声称窗口 ≠ 有效长度（RULER、NoLiMa、Context Rot）、KV cache 显存手算、长上下文分档定价。面试官追问“1M 窗口为什么还会答错”时要用到。
-
-🔁 **建议复习**：Level 1（prefill / decode 与 KV cache）——Level 4 的显存计算建立在它上面；Level 2（lost in the middle）——Level 4 把它扩展到 2025 年的新研究。
-
-✏️ **原文未改**：原有内容未发现事实错误，你的高亮都保留。
-
-</Note>
-
 ## 这一页怎么学
 
 | Level | 回答的问题 | 时长 |
@@ -53,16 +43,6 @@ mastery: { talk: 0, probe: 0 }
 In [Model Context](/docs/context/model-context), the support assistant found an order and a refund policy. Now ask: **as chat history, tool results, and policy documents grow, how much can the model fit and how well can it use them?** An accepted request only shows it stayed within an API limit; it does not prove the answer is reliable.
 
 This page starts with token budgeting from [Tokenization](/docs/llm/tokenization), connects cost to attention and the KV cache from [Attention & Transformer](/docs/llm/transformer), then examines evidence position and evaluation. In interviews, calculate and diagnose rather than memorize today's model limits.
-
-<Note type="tip" title="2026-10-04 update: what to review">
-
-🆕 **New Level 4**: claimed vs effective length (RULER, NoLiMa, Context Rot), KV-cache memory math, long-context pricing tiers.
-
-🔁 **Review**: Level 1 (prefill/decode, KV cache) and Level 2 (lost in the middle) — Level 4 builds on both.
-
-✏️ **Original text unchanged**: no factual errors found; your highlights are intact.
-
-</Note>
 
 ## How to work through this page
 
