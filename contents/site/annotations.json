@@ -5697,6 +5697,42 @@
       },
       "createdAt": 1790708280102,
       "updatedAt": 1790708280102
+    },
+    {
+      "id": "f0911cd8-ad34-4be1-a359-bc44f6e73e30",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "显式",
+        "prefix": "官方文档为准：AnthropicOpenAIGemini开启方式",
+        "suffix": "：在请求里用 cache_control 标记缓存断点（最多 4"
+      },
+      "createdAt": 1791424264047,
+      "updatedAt": 1791424264047
+    },
+    {
+      "id": "fc6e0dba-0610-44dd-afb2-03444c823e30",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "自动",
+        "prefix": "求里用 cache_control 标记缓存断点（最多 4 个）",
+        "suffix": "：足够长的前缀自动缓存隐式（自动）+ 显式（创建缓存对象）最小长"
+      },
+      "createdAt": 1791424270686,
+      "updatedAt": 1791424270686
+    },
+    {
+      "id": "c4fadb33-a378-4d0c-a373-e8bd86da7002",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "vLLM 的自动前缀缓存（Automatic Prefix Caching",
+        "prefix": " 2 里 agent 成本能降 5 倍的原因。自部署时怎么做？\n",
+        "suffix": "）：把 KV cache 按块做哈希，不同请求的相同前缀块直接复"
+      },
+      "createdAt": 1791424283251,
+      "updatedAt": 1791424283251
     }
   ],
   "/docs/context/compression": [
@@ -5879,6 +5915,78 @@
       },
       "createdAt": 1790706565410,
       "updatedAt": 1790706565410
+    },
+    {
+      "id": "39bb6c64-b901-427c-be48-ba4a65e45dd5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "从原文选出相关句子、字段，原样保留",
+        "prefix": "压缩技术谱系与供应商能力压缩技术有哪几类？类别做法适合风险抽取式",
+        "suffix": "工具结果、政策条款——需要精确措辞的内容选漏生成式（摘要）用模型"
+      },
+      "createdAt": 1791424106614,
+      "updatedAt": 1791424106614
+    },
+    {
+      "id": "a1eff30a-5a1c-4be8-abd2-ab726ec67382",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型改写成更短的叙述",
+        "prefix": "保留工具结果、政策条款——需要精确措辞的内容选漏生成式（摘要）用",
+        "suffix": "冗长对话、探索过程改写失真、否定词丢失、滚动漂移token 级压"
+      },
+      "createdAt": 1791424109188,
+      "updatedAt": 1791424109188
+    },
+    {
+      "id": "381192bc-969d-4e2b-811f-c7f51034fde1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "删掉低信息 token",
+        "prefix": "软）：用一个小语言模型估计每个 token 的信息量（困惑度），",
+        "suffix": "长检索资料、长示例删出来的文本人读不通；论文报告最高约 20 倍"
+      },
+      "createdAt": 1791424115848,
+      "updatedAt": 1791424115848
+    },
+    {
+      "id": "cc89b062-7935-4c7b-a530-3e09d408277a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "越需要精确的内容，越该用抽取式或结构化；越是过程性的叙述，越适合生成式摘要。",
+        "prefix": "，需要时重取大块原始数据、可能被追问的证据依赖重取工具经验法则：",
+        "suffix": "供应商提供了哪些压缩能力？2025 年起，部分 API 和 ag"
+      },
+      "createdAt": 1791424138572,
+      "updatedAt": 1791424138572
+    },
+    {
+      "id": "c63d8442-0866-461a-b764-50fa2b8ac53f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "而是到阈值才压缩一次",
+        "prefix": "次，前缀就变了，之后的缓存要重新建立。实践中：\n不要每轮都压缩，",
+        "suffix": "（例如上下文到 80%）。\n把稳定内容（system、工具定义、"
+      },
+      "createdAt": 1791424189579,
+      "updatedAt": 1791424189579
+    },
+    {
+      "id": "2a3021cb-f104-4813-b704-ec17b71f2e69",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Caching 依赖“前缀逐 token 不变”；压缩恰恰是改写或删除前面的内容",
+        "prefix": "压缩之后关键事实还在吗？内置不等于验证过。压缩和缓存为什么冲突？",
+        "suffix": "。每压缩一次，前缀就变了，之后的缓存要重新建立。实践中：\n不要每"
+      },
+      "createdAt": 1791424192311,
+      "updatedAt": 1791424192311
     }
   ],
   "/docs/context/construction": [
@@ -6049,6 +6157,90 @@
       },
       "createdAt": 1790706014829,
       "updatedAt": 1790706014829
+    },
+    {
+      "id": "ba3de75e-8501-4d5f-ad41-6e235eccc6a7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "长资料在前，问题在后",
+        "prefix": "然成立；但厂商给过可操作的经验规则，面试时可以引用：规则做法依据",
+        "suffix": "几万 token 的文档放在输入上部，用户问题和指令放在最后An"
+      },
+      "createdAt": 1791423904242,
+      "updatedAt": 1791423904242
+    },
+    {
+      "id": "5f882303-a59f-46a4-9887-21490a158321",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "加结构化标签",
+        "prefix": "，在其测试中把问题放在末尾可使回答质量提升最多约 30%每份资料",
+        "suffix": "用 XML 风格标签包住每份文档，附 doc_id、版本、生效日"
+      },
+      "createdAt": 1791423916700,
+      "updatedAt": 1791423916700
+    },
+    {
+      "id": "aac2e7c3-e898-4f32-902f-e227963e3326",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "先引用，再回答",
+        "prefix": "doc_id、版本、生效日期让模型能区分来源，也能按 ID 引用",
+        "suffix": "要求模型先摘出相关原文片段，再基于这些片段作答迫使模型先“找到”"
+      },
+      "createdAt": 1791423923327,
+      "updatedAt": 1791423923327
+    },
+    {
+      "id": "0aa81fd4-92e6-49c5-85ac-b34c669620f7",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "低信任资料单独标注",
+        "prefix": "于这些片段作答迫使模型先“找到”证据，减少凭印象作答；也便于评估",
+        "suffix": "检索文档、工具结果明确标为“数据”配合指令层级降低注入风险（见 "
+      },
+      "createdAt": 1791423941892,
+      "updatedAt": 1791423941892
+    },
+    {
+      "id": "a5d2b158-70a7-4dd1-8871-abddba496a70",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "只给模型轻量的标识（文件路径、文档 ID、查询工具），模型需要时自己去取",
+        "prefix": "-time）做法调用模型前，系统先检索好资料放进 context",
+        "suffix": "优点快，一次调用；结果可控只取真正需要的；能根据中间发现调整查询"
+      },
+      "createdAt": 1791423989900,
+      "updatedAt": 1791423989900
+    },
+    {
+      "id": "c027fd07-81c8-4993-bb63-a5a175ae855b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "多轮调用，延迟和成本更高；依赖模型会用工具",
+        "prefix": "；context 更干净代价可能取多、取错；无法根据推理过程补查",
+        "suffix": "典型客服 RAG 问答coding agent 用 grep /"
+      },
+      "createdAt": 1791423998303,
+      "updatedAt": 1791423998303
+    },
+    {
+      "id": "0995559e-1f8b-4faf-b2f8-5e63d618f868",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "工具很多时用按需加载",
+        "prefix": "token、都会分散模型的选择注意力。只暴露当前步骤需要的工具；",
+        "suffix": "（tool search，见 Agent Harness Lev"
+      },
+      "createdAt": 1791424085885,
+      "updatedAt": 1791424085885
     }
   ],
   "/docs/context/isolation": [
@@ -6231,6 +6423,66 @@
       },
       "createdAt": 1790708751566,
       "updatedAt": 1790708751566
+    },
+    {
+      "id": "db901f62-9d05-4a09-a220-7bb2f73a5e3e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "一个主 agent 规划，派出多个子 agent 各自在独立的上下文窗口里并行搜索，只把压缩后的发现交回主 agent",
+        "prefix": "gent 研究系统（Claude 的 Research 功能）：",
+        "suffix": "。他们报告：\n在内部研究类评测上，这种多 agent 系统比单 "
+      },
+      "createdAt": 1791424363984,
+      "updatedAt": 1791424363984
+    },
+    {
+      "id": "885015f8-328e-4bd8-bb00-975cdb6a6639",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "让总体能用更多 token 去探索，而每个上下文仍保持干净",
+        "prefix": "en 用量本身解释了表现差异的大部分——隔离的价值很大程度在于“",
+        "suffix": "”。\n所以隔离的收益是：每个子任务的上下文更小、更聚焦（减少 C"
+      },
+      "createdAt": 1791424372676,
+      "updatedAt": 1791424372676
+    },
+    {
+      "id": "bb0baa35-dd3b-4b86-8cf1-6a25c4f04a33",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每个子任务的上下文更小、更聚焦",
+        "prefix": "oken 去探索，而每个上下文仍保持干净”。\n所以隔离的收益是：",
+        "suffix": "（减少 Context Window Level 4 讲的 co"
+      },
+      "createdAt": 1791424382032,
+      "updatedAt": 1791424382032
+    },
+    {
+      "id": "5f7e117b-1e6e-4dda-83c2-7e5691b401f3",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "可以并行",
+        "prefix": "indow Level 4 讲的 context rot），并且",
+        "suffix": "。什么时候隔离反而有害？同年 Cognition（Devin 团"
+      },
+      "createdAt": 1791424387313,
+      "updatedAt": 1791424387313
+    },
+    {
+      "id": "1b2b3a2f-fc39-4883-a072-c115212af789",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "子 agent 看不到彼此的决策，做出互相冲突的假设",
+        "prefix": "表 Don't Build Multi-Agents，观点相反：",
+        "suffix": "。例子：让一个子 agent 做游戏背景、另一个做角色，结果风格"
+      },
+      "createdAt": 1791424396088,
+      "updatedAt": 1791424396088
     }
   ],
   "/docs/context/model-context": [
@@ -6389,6 +6641,138 @@
       },
       "createdAt": 1790696294919,
       "updatedAt": 1790696294919
+    },
+    {
+      "id": "5672371e-787c-4702-ab07-3ceebaeb9847",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "用特殊 token 标出每段的角色和边界",
+        "prefix": " template（对话模板）把它们拼成一条 token 序列，",
+        "suffix": "。示意（不同模型的特殊 token 不同）：[系统开始] 你是猫"
+      },
+      "createdAt": 1791423589333,
+      "updatedAt": 1791423589333
+    },
+    {
+      "id": "ad0b43cc-e547-4767-95bf-8b03084d8ea3",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "角色是训练出来的约定，不是硬隔离",
+        "prefix": "化进模板，每轮都计费、占窗口（见 Cost Level 0）。\n",
+        "suffix": "：模型被训练成更服从 system 段，但文档里写的“忽略以上指"
+      },
+      "createdAt": 1791423604602,
+      "updatedAt": 1791423604602
+    },
+    {
+      "id": "c88c730d-9c34-42d3-8b45-38620e20e307",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "平台 / system（或 developer）> 用户 > 工具结果与检索文档",
+        "prefix": " Hierarchy 中提出：训练模型按来源的可信度排序指令——",
+        "suffix": "。低优先级来源与高优先级冲突时，模型应服从高优先级；工具结果里的"
+      },
+      "createdAt": 1791423635549,
+      "updatedAt": 1791423635549
+    },
+    {
+      "id": "1868743f-aab7-4f1e-9e45-6c69531c69ec",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "指令层级降低了注入成功率，但不是安全边界",
+        "prefix": " user 角色；其他厂商也用类似训练提升抗注入能力。面试要点：",
+        "suffix": "——它是模型的倾向，不是系统强制。权限仍要在服务端检查（见 Ag"
+      },
+      "createdAt": 1791423677027,
+      "updatedAt": 1791423677027
+    },
+    {
+      "id": "46b734ee-408f-41e9-8118-ac4ac4c9a6f9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Chat Completions",
+        "prefix": " API 怎么选？无状态（Anthropic Messages、",
+        "suffix": "）有状态（OpenAI Responses 的 previous"
+      },
+      "createdAt": 1791423729653,
+      "updatedAt": 1791423729653
+    },
+    {
+      "id": "2319489b-e04f-4d09-9c09-0124f68d2a49",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "无状态",
+        "prefix": "不知道来龙去脉的任务。有状态 API 和无状态 API 怎么选？",
+        "suffix": "（Anthropic Messages、Chat Complet"
+      },
+      "createdAt": 1791423731954,
+      "updatedAt": 1791423731954
+    },
+    {
+      "id": "95140274-2a3f-4692-9c39-d4ee27ea7f6b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "你每次把完整历史发过去",
+        "prefix": "response_id / conversations）历史在哪",
+        "suffix": "服务端保存，你只发新内容优点完全可控：你决定选入、压缩、删除什么"
+      },
+      "createdAt": 1791423734355,
+      "updatedAt": 1791423734355
+    },
+    {
+      "id": "ecb8c72f-ed04-4cb1-9b68-e019082442bd",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "自己管理历史、缓存、推理块",
+        "prefix": "决定选入、压缩、删除什么；方便审计代码简单；推理内容自动衔接代价",
+        "suffix": "要理解服务端的保留规则（例如顶层 instructions 不继"
+      },
+      "createdAt": 1791423740941,
+      "updatedAt": 1791423740941
+    },
+    {
+      "id": "8b17627f-dee9-4084-9669-b0bfb30b418b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "完全可控",
+        "prefix": "ns）历史在哪你每次把完整历史发过去服务端保存，你只发新内容优点",
+        "suffix": "：你决定选入、压缩、删除什么；方便审计代码简单；推理内容自动衔接"
+      },
+      "createdAt": 1791423742912,
+      "updatedAt": 1791423742912
+    },
+    {
+      "id": "4dcacf02-e393-45e0-9545-25252bd05f9d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "OpenAI Responses",
+        "prefix": "c Messages、Chat Completions）有状态（",
+        "suffix": " 的 previous_response_id / conver"
+      },
+      "createdAt": 1791423758557,
+      "updatedAt": 1791423758557
+    },
+    {
+      "id": "c4e2e13f-bec7-43ef-9b20-d7920336eaad",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "要理解服务端的保留规则",
+        "prefix": "方便审计代码简单；推理内容自动衔接代价自己管理历史、缓存、推理块",
+        "suffix": "（例如顶层 instructions 不继承）；数据保留与合规要"
+      },
+      "createdAt": 1791423764868,
+      "updatedAt": 1791423764868
     }
   ],
   "/docs/context/window": [
@@ -6547,6 +6931,42 @@
       },
       "createdAt": 1790696684391,
       "updatedAt": 1790696684391
+    },
+    {
+      "id": "4479b4b6-a1e2-4385-ba7b-a7162fe55454",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "只说明请求不会被拒绝",
+        "prefix": "文定价为什么“声称 1M 窗口”不等于“能用好 1M”？窗口上限",
+        "suffix": "。模型在这个长度上还能不能找到、组合、推理证据，要靠专门的长上下"
+      },
+      "createdAt": 1791423803395,
+      "updatedAt": 1791423803395
+    },
+    {
+      "id": "904627f1-c548-464a-8e8f-b63e3b1aed6d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "有效长度通常明显小于声称长度",
+        "prefix": "合、推理证据，要靠专门的长上下文评测，而这些评测的结论一致指向：",
+        "suffix": "。评测测什么主要发现Needle in a Haystack在长"
+      },
+      "createdAt": 1791423810369,
+      "updatedAt": 1791423810369
+    },
+    {
+      "id": "8ea50087-7b65-46fd-9ae3-01915c5b8d04",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "除了按 token 线性计费，一些供应商对超过某个长度阈值（例如 200K）的请求使用更高的单价档位",
+        "prefix": "Inference Level 3）。\n长上下文为什么可能更贵？",
+        "suffix": "——因为长请求占用的显存和算力不成比例地多。具体阈值和价格按官方"
+      },
+      "createdAt": 1791423874375,
+      "updatedAt": 1791423874375
     }
   ],
   "/docs/evaluation/agent-eval": [
