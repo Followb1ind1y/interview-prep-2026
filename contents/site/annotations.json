@@ -11342,5 +11342,278 @@
       "createdAt": 1789329805071,
       "updatedAt": 1789329805071
     }
+  ],
+  "/docs/rag/architecture": [
+    {
+      "id": "5caa651d-3bb0-404c-9f42-438ed3fade87",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "知识更新”和“模型训练”分开",
+        "prefix": "字来自 2020 年 Meta 的论文（Lewis 等）。它把“",
+        "suffix": "：改政策只需要重新索引文档，不需要重新训练模型。RAG 不能解决"
+      },
+      "createdAt": 1791661988742,
+      "updatedAt": 1791661988742
+    },
+    {
+      "id": "b14adf24-c386-4d3a-9d64-0cf754bce74a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "实时业务状态",
+        "prefix": "只需要重新索引文档，不需要重新训练模型。RAG 不能解决什么？\n",
+        "suffix": "：订单是不是在运输中，要调订单 API，而不是检索文档。政策检索"
+      },
+      "createdAt": 1791662046770,
+      "updatedAt": 1791662046770
+    },
+    {
+      "id": "68e250b0-4f63-4ed2-94dd-b953632f1c55",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "检索错误",
+        "prefix": "和业务查询是两条不同的证据链（见 Tool Calling）。\n",
+        "suffix": "：检索到过期的 P-17 v2，模型会非常自信地依据它作答——R"
+      },
+      "createdAt": 1791662053880,
+      "updatedAt": 1791662053880
+    },
+    {
+      "id": "a5770619-1aa5-4a04-abc9-5e4d7b29dae0",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "推理错误",
+        "prefix": "据它作答——RAG 把“模型幻觉”的一部分变成了“检索错误”。\n",
+        "suffix": "：资料都对，模型仍可能理解错条件（把“没到”当成“未发货”）。\n"
+      },
+      "createdAt": 1791662056977,
+      "updatedAt": 1791662056977
+    },
+    {
+      "id": "15784460-8975-46d0-aa4f-21bfea3e65b0",
+      "kind": "note",
+      "locale": "en",
+      "quote": {
+        "exact": "fuse",
+        "prefix": "ve dense and BM25 in parallel → ",
+        "suffix": " → rerank → assemble context → g"
+      },
+      "note": "",
+      "translation": {
+        "direction": "en2zh",
+        "primary": "将从不同检索路径（dense和BM25）得到的结果合并成单一的候选集合",
+        "pos": "v.",
+        "note": "在RAG中特指融合多个检索器（多路召回）的结果，通常使用分数归一化或加权组合等方法"
+      },
+      "createdAt": 1791662216446,
+      "updatedAt": 1791662216446
+    },
+    {
+      "id": "08d0372c-083d-4b05-8414-331b050bc618",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "离线（文档更新时运行）",
+        "prefix": "\nLevel 1 · 两条流水线离线建索引与在线回答分别做什么？",
+        "suffix": "\n  来源发现 → 解析（PDF/HTML/表格/OCR）→ 清"
+      },
+      "createdAt": 1791662255173,
+      "updatedAt": 1791662255173
+    },
+    {
+      "id": "d982cb1e-769d-4c37-b175-ddeb1f870138",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "在线（每个问题运行）",
+        "prefix": "→ 生成 embedding + 建词法索引 → 校验后发布\n\n",
+        "suffix": "\n  鉴权 → 查询理解 / 改写 → 按租户、权限、生效版本过"
+      },
+      "createdAt": 1791662259004,
+      "updatedAt": 1791662259004
+    },
+    {
+      "id": "e7dcbcd1-eee8-4ee8-86db-81f1622cd14a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "内容缺失：资料库里根本没有答案",
+        "prefix": "结了七个失败点，面试中引用很有说服力：#失败点客服例子对应关口1",
+        "suffix": "海外订单的退款政策从未入库入库2排名不够靠前：答案在库里，但没进"
+      },
+      "createdAt": 1791662407808,
+      "updatedAt": 1791662407808
+    },
+    {
+      "id": "f122af1e-3f14-4f3c-b8fb-5285c7f18fc8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "排名不够靠前",
+        "prefix": "1内容缺失：资料库里根本没有答案海外订单的退款政策从未入库入库2",
+        "suffix": "：答案在库里，但没进 Top-KP-17 v3 排在第 15①3"
+      },
+      "createdAt": 1791662412921,
+      "updatedAt": 1791662412921
+    },
+    {
+      "id": "71095980-add8-40cb-8393-1e78ca62298d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "未被抽取",
+        "prefix": "进入上下文：检索到了，但整合时被丢掉被 token 预算截掉②4",
+        "suffix": "：在上下文里，但模型没用上噪声段落太多，模型抓错重点③5格式错误"
+      },
+      "createdAt": 1791662423658,
+      "updatedAt": 1791662423658
+    },
+    {
+      "id": "2be7cffe-0a96-4a83-8b63-92a64c60a861",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "噪声段落太多，模型抓错重点",
+        "prefix": "掉被 token 预算截掉②4未被抽取：在上下文里，但模型没用上",
+        "suffix": "③5格式错误：要求表格 / 列表，模型没遵守要求“结论 + 条款"
+      },
+      "createdAt": 1791662427674,
+      "updatedAt": 1791662427674
+    },
+    {
+      "id": "6d6b5691-5c08-43e0-9153-d0eb222aa603",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "格式错误",
+        "prefix": "未被抽取：在上下文里，但模型没用上噪声段落太多，模型抓错重点③5",
+        "suffix": "：要求表格 / 列表，模型没遵守要求“结论 + 条款号”，只给了"
+      },
+      "createdAt": 1791662432638,
+      "updatedAt": 1791662432638
+    },
+    {
+      "id": "6f7b4d37-39ce-4f07-a352-770834ded45f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "具体程度不对",
+        "prefix": " / 列表，模型没遵守要求“结论 + 条款号”，只给了一段话③6",
+        "suffix": "：答得太笼统或太细只说“请联系客服”，没给条件③7不完整：答案只"
+      },
+      "createdAt": 1791662440305,
+      "updatedAt": 1791662440305
+    },
+    {
+      "id": "abc08d45-9c4f-4c2b-8393-0e267d9c158d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不完整",
+        "prefix": "6具体程度不对：答得太笼统或太细只说“请联系客服”，没给条件③7",
+        "suffix": "：答案只覆盖了一部分只说不能退款，没说签收后可退货③第 1 点尤"
+      },
+      "createdAt": 1791662442385,
+      "updatedAt": 1791662442385
+    },
+    {
+      "id": "248f47b5-4329-49a3-8a1d-de98442e3278",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "RAG 系统要能识别“资料库里没有答案”，并说“不知道”，而不是用最相似的无关段落凑一个答案。",
+        "prefix": "覆盖了一部分只说不能退款，没说签收后可退货③第 1 点尤其重要：",
+        "suffix": "什么叫有依据（grounded）？回答中的每个关键主张，都能对应"
+      },
+      "createdAt": 1791662455224,
+      "updatedAt": 1791662455224
+    },
+    {
+      "id": "f8f36108-be50-4d4b-bf40-ae9a05028ff9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不适合注入大量事实",
+        "prefix": "有效长度更短，见 Context Window Level 4）",
+        "suffix": "更新频率高：重新索引即可高：每次请求都放最新的低：每次更新要重新"
+      },
+      "createdAt": 1791662554487,
+      "updatedAt": 1791662554487
+    },
+    {
+      "id": "38805a78-3339-4559-908d-5ef2d3ed6cec",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "稳定的格式、风格、任务行为",
+        "prefix": "合大知识库、频繁更新、需要引用少量文档、需要通读全文（一份合同）",
+        "suffix": "，而不是事实常见误解：“用微调把公司知识教给模型”。微调擅长改变"
+      },
+      "createdAt": 1791662583226,
+      "updatedAt": 1791662583226
+    },
+    {
+      "id": "0af2ae58-6f97-40c6-9dcf-b2cc379f8acb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "微调擅长改变模型怎么做（输出格式、语气、特定任务的能力），不擅长可靠地记住大量事实",
+        "prefix": "格、任务行为，而不是事实常见误解：“用微调把公司知识教给模型”。",
+        "suffix": "，而且无法更新、无法引用、无法按权限隔离。知识问答首选 RAG。"
+      },
+      "createdAt": 1791662782623,
+      "updatedAt": 1791662782623
+    },
+    {
+      "id": "cdc25e2c-0c5d-4f13-9640-a27e9a357c85",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "画出一个企业级 RAG",
+        "prefix": "上下文组合的例子。\n\n\nLevel 4 · 白板设计五分钟内怎样",
+        "suffix": "？第 1 分钟：先问约束（不要一上来就画）约束为什么影响设计资料"
+      },
+      "createdAt": 1791662869597,
+      "updatedAt": 1791662869597
+    },
+    {
+      "id": "88678a29-1359-44b3-ae40-9f3e619d4b59",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "带标注的问题集，分层看 Recall@K",
+        "prefix": "、引用、延迟、成本）\n第 4–5 分钟：讲评估与运维\n离线评估：",
+        "suffix": "、上下文覆盖、faithfulness、答案正确率（见 RAG "
+      },
+      "createdAt": 1791663596314,
+      "updatedAt": 1791663596314
+    },
+    {
+      "id": "44d78cea-0d85-4a07-97c3-5c9941bb6a0d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "线上",
+        "prefix": "faithfulness、答案正确率（见 RAG Eval）。\n",
+        "suffix": "：抽样 judge 评分、用户反馈、“无答案”比例、索引新鲜度（"
+      },
+      "createdAt": 1791663603409,
+      "updatedAt": 1791663603409
+    },
+    {
+      "id": "ba741381-0c91-4c9d-9334-0a757deb91fb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "延迟预算",
+        "prefix": "案”比例、索引新鲜度（文档更新到可检索的延迟）、权限负例测试。\n",
+        "suffix": "：检索与 BM25 并行（几十到一两百毫秒）、重排（约一两百毫秒"
+      },
+      "createdAt": 1791663692877,
+      "updatedAt": 1791663692877
+    }
   ]
 }
