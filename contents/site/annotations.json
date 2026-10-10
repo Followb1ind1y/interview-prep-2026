@@ -347,6 +347,54 @@
       },
       "createdAt": 1790041253765,
       "updatedAt": 1790041253765
+    },
+    {
+      "id": "dc74cade-c9c3-4d6f-bd91-af87de79028c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "长任务却大概率失败——错误会复合",
+        "prefix": "20  → 36%\nn = 50  → 8%\n单步看起来很可靠，",
+        "suffix": "。这解释了 agent 工程里很多做法：\n缩短路径：能用 wor"
+      },
+      "createdAt": 1791657610304,
+      "updatedAt": 1791657610304
+    },
+    {
+      "id": "220be898-9627-4f75-9891-c68cda8e9334",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "缩短路径",
+        "prefix": "概率失败——错误会复合。这解释了 agent 工程里很多做法：\n",
+        "suffix": "：能用 workflow 固定的步骤就别让模型决定（见 Work"
+      },
+      "createdAt": 1791657614886,
+      "updatedAt": 1791657614886
+    },
+    {
+      "id": "5b5153da-5838-4bc2-9812-63bb4c55b5f1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每步验证",
+        "prefix": "步骤就别让模型决定（见 Workflow vs Agent）。\n",
+        "suffix": "：工具层校验参数、检查结果，把单步成功率从 95% 提到 99%"
+      },
+      "createdAt": 1791657617157,
+      "updatedAt": 1791657617157
+    },
+    {
+      "id": "99ff6f89-bff8-4407-b83b-477ca9d86d72",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "可恢复",
+        "prefix": " 95% 提到 99%：0.99^20 ≈ 82%，提升巨大。\n",
+        "suffix": "：错了能发现并回退，而不是一路错下去（见 Reliability"
+      },
+      "createdAt": 1791657622766,
+      "updatedAt": 1791657622766
     }
   ],
   "/docs/agent/memory": [
@@ -692,6 +740,114 @@
       },
       "createdAt": 1790454257721,
       "updatedAt": 1790454257721
+    },
+    {
+      "id": "f6dc1a53-ffb1-4c23-92d7-863588a436d9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "核心记忆：一直放在 context 里的少量关键信息（用户档案、agent 人设）",
+        "prefix": "系统的虚拟内存做类比：操作系统MemGPT内存（RAM）：快但小",
+        "suffix": "磁盘：大但慢外部记忆：对话全文（recall）、长期资料（arc"
+      },
+      "createdAt": 1791658080508,
+      "updatedAt": 1791658080508
+    },
+    {
+      "id": "87bdbbaa-1e32-4a15-85d8-9befc1d2396f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "外部记忆",
+        "prefix": "xt 里的少量关键信息（用户档案、agent 人设）磁盘：大但慢",
+        "suffix": "：对话全文（recall）、长期资料（archival），存在数"
+      },
+      "createdAt": 1791658085096,
+      "updatedAt": 1791658085096
+    },
+    {
+      "id": "b553f8fd-73d3-4c68-aef5-5f59e875d86c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "让模型自己管理记忆——决定什么该写进核心记忆、什么时候去外部搜索",
+        "prefix": "ce、archival_memory_search 等关键思想：",
+        "suffix": "。优点是灵活；风险是模型可能写错、写入不该记的内容（这正是 Le"
+      },
+      "createdAt": 1791658094756,
+      "updatedAt": 1791658094756
+    },
+    {
+      "id": "3925d54b-7af5-4449-b812-a19975234f89",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "解决记忆的冲突与过期",
+        "prefix": "   NOOP    已存在或不值得记，什么都不做\n这一步就是在",
+        "suffix": "——不做的话，记忆库里会同时存在“喜欢三段”和“喜欢两段”。产品"
+      },
+      "createdAt": 1791658137605,
+      "updatedAt": 1791658137605
+    },
+    {
+      "id": "f23b4780-47d7-43fc-a92c-cded26109621",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "读写一个由你的应用托管",
+        "prefix": "sodicAnthropic memory tool模型通过工具",
+        "suffix": "的记忆文件目录external，可由你控制存储和权限CLAUDE"
+      },
+      "createdAt": 1791658149095,
+      "updatedAt": 1791658149095
+    },
+    {
+      "id": "109a221d-7380-4997-a538-1b90d9ce8190",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "记忆投毒（memory poisoning",
+        "prefix": "ory 的持久化（见 Agent State）记忆会被怎样攻击？",
+        "suffix": "）：攻击者让 agent 把恶意内容写进长期记忆。和普通 pro"
+      },
+      "createdAt": 1791658187023,
+      "updatedAt": 1791658187023
+    },
+    {
+      "id": "de61a5ec-fe0e-44d2-9e59-1af6996b5ff0",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把恶意内容写进长期记忆",
+        "prefix": "投毒（memory poisoning）：攻击者让 agent ",
+        "suffix": "。和普通 prompt injection 的区别是持久——一次"
+      },
+      "createdAt": 1791658190868,
+      "updatedAt": 1791658190868
+    },
+    {
+      "id": "4a055459-62ae-4fba-a5e7-d928f593e0c3",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "写入记忆的内容要标注来源",
+        "prefix": "发到某地址”之类的内容存进记忆。防御（呼应 Level 5）：\n",
+        "suffix": "；来自不可信内容（网页、邮件、工具结果）的候选记忆，默认不写入或"
+      },
+      "createdAt": 1791658203146,
+      "updatedAt": 1791658203146
+    },
+    {
+      "id": "27ff0272-81d7-4bee-9b19-f6f6828a7827",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "用户能查看、编辑、删除自己的记忆",
+        "prefix": "（网页、邮件、工具结果）的候选记忆，默认不写入或需要用户确认。\n",
+        "suffix": "。\n记忆读取时同样当作低信任数据，不赋予指令权。\n记忆系统怎么评"
+      },
+      "createdAt": 1791658207753,
+      "updatedAt": 1791658207753
     }
   ],
   "/docs/agent/multi-agent": [
@@ -1073,6 +1229,114 @@
       },
       "createdAt": 1790538622622,
       "updatedAt": 1790538622622
+    },
+    {
+      "id": "a16056c3-b5d2-416c-bfb1-0e4ee74e1c5b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "主 agent + 并行子 agent",
+        "prefix": "试怎么用Anthropic 多 agent 研究系统（2025）",
+        "suffix": "，在内部研究类评测上比单 agent 好 90.2%；token"
+      },
+      "createdAt": 1791658226457,
+      "updatedAt": 1791658226457
+    },
+    {
+      "id": "5b47a24f-c975-41d2-ada5-df09bd0ae800",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "子 agent 看不到彼此的决策，会做出冲突的假设",
+        "prefix": "n Don't Build Multi-Agents（2025）",
+        "suffix": "；主张共享完整上下文，紧耦合任务用单线程证明“紧耦合任务”拆分有"
+      },
+      "createdAt": 1791658232292,
+      "updatedAt": 1791658232292
+    },
+    {
+      "id": "1ede62fc-f821-4b81-95d7-71b670aacdd8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "多 agent 的价值来自并行和上下文隔离",
+        "prefix": "nt 会怎样失败”的结构化答案把它们和 Level 0 连起来：",
+        "suffix": "，代价是token、协调失败和一致性。Level 3 的公平比较"
+      },
+      "createdAt": 1791658247119,
+      "updatedAt": 1791658247119
+    },
+    {
+      "id": "57194a60-a228-4a45-b76a-625ac99fbb0f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "代价是token、协调失败和一致性",
+        "prefix": "vel 0 连起来：多 agent 的价值来自并行和上下文隔离，",
+        "suffix": "。Level 3 的公平比较就是在量化这笔账。面试加分：一句话立"
+      },
+      "createdAt": 1791658250743,
+      "updatedAt": 1791658250743
+    },
+    {
+      "id": "ec43ec30-5967-438e-8e6c-4bbbc449b001",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "没讲清每个 worker 的职责边界",
+        "prefix": " 的三类失败分别长什么样？类别例子（采购谈判场景）规格与系统设计",
+        "suffix": "，两个 worker 都去改报价；没有终止条件agent 间不对"
+      },
+      "createdAt": 1791658274474,
+      "updatedAt": 1791658274474
+    },
+    {
+      "id": "75d2dd72-5179-486c-804b-923769e7cadf",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "A2A（Agent2Agent）",
+        "prefix": "了为什么这些不是可选项。A2A 是什么？和 MCP 有什么区别？",
+        "suffix": " 是 Google 在 2025 年 4 月发布的开放协议，同年"
+      },
+      "createdAt": 1791658367731,
+      "updatedAt": 1791658367731
+    },
+    {
+      "id": "36032e8b-e9e1-4765-b97a-3c1c2593e27f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不同团队、不同框架构建的 agent 之间互相发现和协作",
+        "prefix": "年 4 月发布的开放协议，同年交给 Linux 基金会治理，用于",
+        "suffix": "。MCPA2A连接的是agent ↔ 工具 / 数据agent "
+      },
+      "createdAt": 1791658375924,
+      "updatedAt": 1791658375924
+    },
+    {
+      "id": "741c0c33-3895-4b35-b3cd-911ab3855417",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Agent Card",
+        "prefix": "么做不透明核心概念Tools、Resources、Prompts",
+        "suffix": "（描述 agent 的能力、端点、认证方式）、Task（有生命周"
+      },
+      "createdAt": 1791658384574,
+      "updatedAt": 1791658384574
+    },
+    {
+      "id": "cad7eea3-20db-491f-bca9-3d3653d3ee15",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Task",
+        "prefix": "gent Card（描述 agent 的能力、端点、认证方式）、",
+        "suffix": "（有生命周期的任务，可长时间运行、流式更新）类比给 agent "
+      },
+      "createdAt": 1791658391475,
+      "updatedAt": 1791658391475
     }
   ],
   "/docs/agent/planning": [
@@ -1423,6 +1687,90 @@
       },
       "createdAt": 1790451688720,
       "updatedAt": 1790451688720
+    },
+    {
+      "id": "5c47241f-e321-44de-8c37-08053d4d43c9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "reasoning 模型（OpenAI o 系列、Claude 的 extended thinking、Gemini thinking 等）在回答前会先生成一段思考，这段思考里本身就包含拆解和规划",
+        "prefix": "ng 模型还需要显式的 planning 吗？2024 年底起，",
+        "suffix": "。对短任务，这让很多显式 planner 变得多余：以前要“先让"
+      },
+      "createdAt": 1791657952151,
+      "updatedAt": 1791657952151
+    },
+    {
+      "id": "5771e183-8dd9-4c83-a850-a41c1dbe1b04",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "对长任务，显式计划仍然必要",
+        "prefix": "“先让模型写计划 → 再逐步执行”，现在模型在思考里就完成了。但",
+        "suffix": "，原因不是模型不会想，而是：理由说明思考不持久思考内容只存在于那"
+      },
+      "createdAt": 1791657964871,
+      "updatedAt": 1791657964871
+    },
+    {
+      "id": "17d11ac8-a3b2-4af8-9ea2-ec4b96153cd2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "思考内容只存在于那一次调用；上下文压缩或会话重启后就没了。显式计划可以存到外部",
+        "prefix": "，显式计划仍然必要，原因不是模型不会想，而是：理由说明思考不持久",
+        "suffix": "（Level 5）人要审阅高风险任务需要人在执行前确认路径（如 "
+      },
+      "createdAt": 1791657972262,
+      "updatedAt": 1791657972262
+    },
+    {
+      "id": "dee0269c-6f02-4686-be58-5050a3e695a9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "高风险任务需要人在执行前确认路径",
+        "prefix": "会话重启后就没了。显式计划可以存到外部（Level 5）人要审阅",
+        "suffix": "（如 Plan mode）。隐藏的思考无法审阅可验证显式步骤可以"
+      },
+      "createdAt": 1791657979379,
+      "updatedAt": 1791657979379
+    },
+    {
+      "id": "6870f58f-bbdc-4f7c-9316-0a45cda60a3b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "可验证",
+        "prefix": "人在执行前确认路径（如 Plan mode）。隐藏的思考无法审阅",
+        "suffix": "显式步骤可以逐一打勾验收（Level 4）；思考里的计划无法检查"
+      },
+      "createdAt": 1791657987252,
+      "updatedAt": 1791657987252
+    },
+    {
+      "id": "efe8900e-9817-44c3-bf21-5a8128ef100f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "长任务中模型容易忘掉早期计划的后几步",
+        "prefix": "打勾验收（Level 4）；思考里的计划无法检查是否被执行防遗漏",
+        "suffix": "待办清单工具有什么用？coding agent 普遍提供一个待办"
+      },
+      "createdAt": 1791657990129,
+      "updatedAt": 1791657990129
+    },
+    {
+      "id": "a37616ac-73fd-4d5f-afc5-e680582948f3",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "提供一个待办清单工具",
+        "prefix": "计划的后几步待办清单工具有什么用？coding agent 普遍",
+        "suffix": "（例如 Claude Code 的 todo list）：模型把"
+      },
+      "createdAt": 1791658004777,
+      "updatedAt": 1791658004777
     }
   ],
   "/docs/agent/react": [
@@ -1689,6 +2037,90 @@
       },
       "createdAt": 1790300257114,
       "updatedAt": 1790300257114
+    },
+    {
+      "id": "5eee0cfd-d7b9-4a1b-a900-0c5c5111b0b9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "思想还在，形式变了",
+        "prefix": " · 深入：ReAct 之后发生了什么ReAct 现在还有用吗？",
+        "suffix": "。 2022 年的 ReAct 让模型用纯文本写出 Though"
+      },
+      "createdAt": 1791657808516,
+      "updatedAt": 1791657808516
+    },
+    {
+      "id": "085d560a-e3ef-493e-8475-7273d644d95d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "思考在模型内部（或单独的思考块）进行",
+        "prefix": " 交错思考（2024–2025 起）显式写出的 Thought:",
+        "suffix": "，并且在工具调用之间继续思考（见 Agent Loop Leve"
+      },
+      "createdAt": 1791657819274,
+      "updatedAt": 1791657819274
+    },
+    {
+      "id": "018929b4-8909-4ea1-b0c2-4aae48612190",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "模型直接输出结构化的工具调用（JSON + call ID）",
+        "prefix": "子原生工具调用（2023 起）用正则解析文本里的 Action:",
+        "suffix": "，由 API 保证格式（见 Tool Calling）reaso"
+      },
+      "createdAt": 1791657834496,
+      "updatedAt": 1791657834496
+    },
+    {
+      "id": "f1fdf269-e1b3-4cbf-8ec6-97e15e9b1ffd",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "今天的 agent 循环就是“内化了的 ReAct”：思考 → 工具调用 → 观察 → 再思考",
+        "prefix": "调用之间继续思考（见 Agent Loop Level 3）所以",
+        "suffix": "。面试中被问到时可以说：“ReAct 的核心——让观察结果改变下"
+      },
+      "createdAt": 1791657842067,
+      "updatedAt": 1791657842067
+    },
+    {
+      "id": "5568c686-eb77-47cc-a6a9-c2a85dd774a1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "ReAct 每一步都要调一次模型",
+        "prefix": "划好所有工具调用（用占位符引用前面的结果），再统一执行，最后汇总",
+        "suffix": "，token 和延迟成本高树搜索（如 Tree of Thoug"
+      },
+      "createdAt": 1791657863237,
+      "updatedAt": 1791657863237
+    },
+    {
+      "id": "4d45a4fc-1218-4e20-8696-c5e3251b8e8e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "ReAct 不会从失败中学习",
+        "prefix": "型用文字写出“哪里错了、下次怎么做”，存进记忆，下一次尝试时读取",
+        "suffix": "；同样的错误会在下一次尝试中重复ReWOO（2023）先一次性规"
+      },
+      "createdAt": 1791657867446,
+      "updatedAt": 1791657867446
+    },
+    {
+      "id": "0169a1d3-3848-496b-a012-0ada23fb953c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "ReAct 是单条路径",
+        "prefix": "ughts、LATS）在每一步探索多个候选动作，评估后选择或回溯",
+        "suffix": "，一步走错就回不来它们和 Planning 的关系：ReWOO "
+      },
+      "createdAt": 1791657872538,
+      "updatedAt": 1791657872538
     }
   ],
   "/docs/agent/reliability": [
@@ -2113,6 +2545,66 @@
       },
       "createdAt": 1790541345547,
       "updatedAt": 1790541345547
+    },
+    {
+      "id": "6e38a9de-12c5-42f7-b36d-291639eb657b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "同一个任务跑多次，agent 不一定每次都成功（模型输出有随机性、环境有变化）",
+        "prefix": "数学为什么“平均成功率 80%”不能描述 agent 的可靠性？",
+        "suffix": "。用户关心的不是“平均成功率”，而是“我每次用它，它是不是都能做"
+      },
+      "createdAt": 1791658570743,
+      "updatedAt": 1791658570743
+    },
+    {
+      "id": "970882d3-25a6-436b-8b1e-aa9945101bdb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "同一个客户问 8 次，几乎肯定会遇到至少一次失败",
+        "prefix": "景里 pass^1 还算可以，但 pass^8 低于 25%——",
+        "suffix": "。这是“demo 很好、上线翻车”的数学解释。面试加分:“评估面"
+      },
+      "createdAt": 1791658609138,
+      "updatedAt": 1791658609138
+    },
+    {
+      "id": "f11d7bc7-121a-4571-9952-88f5dcd523ca",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "确定性校验",
+        "prefix": "3 算过：单步 95%、20 步只剩 36%。如果在每一步加一个",
+        "suffix": "（参数合法？结果符合预期？），把发现的错误拦下来让 agent "
+      },
+      "createdAt": 1791658649673,
+      "updatedAt": 1791658649673
+    },
+    {
+      "id": "0b048a54-01dc-4a96-b6a9-6f16a6b733c6",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "把发现的错误拦下来让 agent 重试这一步",
+        "prefix": "6%。如果在每一步加一个确定性校验（参数合法？结果符合预期？），",
+        "suffix": "：单步成功率 95%，校验能发现其中 80% 的错误并成功重试\n"
+      },
+      "createdAt": 1791658652530,
+      "updatedAt": 1791658652530
+    },
+    {
+      "id": "c4e9d312-d1c4-4f14-bb1d-602182dd0a6e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "它们提高的是每一步的有效成功率，而整体成功率对单步成功率是指数级敏感的",
+        "prefix": "展可观测”和 Level 2 的“失败分类恢复”在数学上的价值：",
+        "suffix": "。这一页和 Production Reliability 怎么分"
+      },
+      "createdAt": 1791658664543,
+      "updatedAt": 1791658664543
     }
   ],
   "/docs/agent/security": [
@@ -2520,6 +3012,42 @@
       },
       "createdAt": 1790543597434,
       "updatedAt": 1790543597434
+    },
+    {
+      "id": "a1286b16-3a7d-471a-a813-eab14a6bdf7e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "任何一个任务里，至少去掉其中一个要素",
+        "prefix": "防住。Level 4 的外泄轨迹就是三要素齐全的例子。设计原则：",
+        "suffix": "（详见 MCP Level 4）。有没有“从架构上”防注入的办法"
+      },
+      "createdAt": 1791660028648,
+      "updatedAt": 1791660028648
+    },
+    {
+      "id": "1cdcc18a-1a36-4190-bc1a-28ec74176ca8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "①访问私有数据、②接触不可信内容、③对外通信能力",
+        "prefix": "on Willison 2025 年提出：agent 同时具备 ",
+        "suffix": " 时，数据泄露几乎无法靠模型自身防住。Level 4 的外泄轨迹"
+      },
+      "createdAt": 1791660034078,
+      "updatedAt": 1791660034078
+    },
+    {
+      "id": "34257e41-6716-4d3f-8c3b-763bd5566c35",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "一旦 agent 读了不可信内容，就限制它之后能做的事",
+        "prefix": "ctions（多家机构研究者合作）总结了六种模式。核心思想一致：",
+        "suffix": "。模式做法采购谈判例子Action-Selector模型只能从固"
+      },
+      "createdAt": 1791660052485,
+      "updatedAt": 1791660052485
     }
   ],
   "/docs/agent/tool-calling": [
@@ -2858,6 +3386,30 @@
       },
       "createdAt": 1791248268573,
       "updatedAt": 1791248268573
+    },
+    {
+      "id": "6b1ceb22-22ce-4d37-83ad-ad90daf0fbaf",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "约束解码（constrained decoding）",
+        "prefix": "t 配置能“大幅减少不符合 schema 的调用”。背后的机制是",
+        "suffix": "：模型每生成一个 token，服务端都根据 JSON Schem"
+      },
+      "createdAt": 1791657762335,
+      "updatedAt": 1791657762335
+    },
+    {
+      "id": "d12439dd-1cfe-4e3a-8875-90948674fc29",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "语义和业务正确性仍由应用校验",
+        "prefix": "型正确）。但它仍然不知道 Q-817 是否存在、折扣是否越权——",
+        "suffix": "，Level 0 的结论不变。代价：不是所有 JSON Sche"
+      },
+      "createdAt": 1791657785857,
+      "updatedAt": 1791657785857
     }
   ],
   "/docs/agent/workflow-vs-agent": [
@@ -3112,6 +3664,18 @@
       },
       "createdAt": 1791248371810,
       "updatedAt": 1791248371810
+    },
+    {
+      "id": "e439eab0-2a0d-4bde-8542-ac907433a032",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "workflow（LLM 和工具按预定代码路径编排）和 agent（LLM 动态决定自己的流程和工具使用）",
+        "prefix": "ing effective agents》把 LLM 系统分为 ",
+        "suffix": "，并总结了五种 workflow 模式。这套词汇在面试中被广泛使"
+      },
+      "createdAt": 1791657894896,
+      "updatedAt": 1791657894896
     }
   ],
   "/docs/application/model-routing": [
