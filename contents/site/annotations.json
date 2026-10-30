@@ -7605,6 +7605,54 @@
       },
       "createdAt": 1791052666700,
       "updatedAt": 1791052666700
+    },
+    {
+      "id": "b99b5a2b-c088-4e91-9166-47b88b54ab08",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "多 agent 系统额外看交接质量",
+        "prefix": " 20 步”本身定义为失败，除非明确违反任务预算或带来实际风险。",
+        "suffix": "：政策 specialist 的输入是否有足够地区/版本；回传条"
+      },
+      "createdAt": 1793319076225,
+      "updatedAt": 1793319076225
+    },
+    {
+      "id": "7a51dd28-4bf7-4014-ab22-bfbe8584e996",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "agent 的每一步都有随机性",
+        "prefix": "致性、状态评分、环境与公开基准为什么同一个 case 要跑多次？",
+        "suffix": "，同一个退款 case 跑 5 次可能 4 次对、1 次错。只跑"
+      },
+      "createdAt": 1793319180105,
+      "updatedAt": 1793319180105
+    },
+    {
+      "id": "060ef3f1-40d5-4233-8e02-480e31a248c1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "同一个 case 要跑多次",
+        "prefix": "Level 4 · 深入：一致性、状态评分、环境与公开基准为什么",
+        "suffix": "？agent 的每一步都有随机性，同一个退款 case 跑 5 "
+      },
+      "createdAt": 1793319200404,
+      "updatedAt": 1793319200404
+    },
+    {
+      "id": "eda89b3e-e7a0-416b-8e0d-3d9f1f48becb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "pass^k（k 次全部成功的概率）",
+        "prefix": " 跑 5 次可能 4 次对、1 次错。只跑一次，你测到的是运气。",
+        "suffix": "衡量一致性：单次成功率 0.8 时，pass^4 只有 0.41"
+      },
+      "createdAt": 1793319204985,
+      "updatedAt": 1793319204985
     }
   ],
   "/docs/evaluation/fundamentals": [
@@ -7955,6 +8003,66 @@
       },
       "createdAt": 1790819943007,
       "updatedAt": 1790819943007
+    },
+    {
+      "id": "3939c4fa-6fcd-4fd9-811d-87cbbad38680",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "LLM 输出有随机性，同一条样本跑两次结果可能不同",
+        "prefix": "见 Offline Level 4）。同一个样本为什么要跑多次？",
+        "suffix": "。所以：\n关键评估每条样本跑 3–5 次，报告均值和波动范围；\n"
+      },
+      "createdAt": 1793316533903,
+      "updatedAt": 1793316533903
+    },
+    {
+      "id": "0dd47f71-39b9-4e4c-999b-c162a5c8e1bb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "直接对应你产品的真实失败",
+        "prefix": "\n6. 循环   修复后重新抽样，看分布怎么变\n这样得到的评估器",
+        "suffix": "，而不是通用指标。Level 0 的 eval case 结构、"
+      },
+      "createdAt": 1793316562785,
+      "updatedAt": 1793316562785
+    },
+    {
+      "id": "8ae2d015-775c-4de4-ad02-aa02201eb5fa",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "能规则化的",
+        "prefix": "，都应该从这个分析里来。三类评估器怎么选？评估器适合成本代码断言",
+        "suffix": "：格式、是否调用了查订单工具、金额是否 ≤ 订单金额几乎为零，确"
+      },
+      "createdAt": 1793316642650,
+      "updatedAt": 1793316642650
+    },
+    {
+      "id": "230ae8fc-9ccb-4a24-bef3-55238e6f1301",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "语义判断",
+        "prefix": "订单工具、金额是否 ≤ 订单金额几乎为零，确定LLM judge",
+        "suffix": "：是否有证据支持、语气是否得当（见 LLM Eval）中等，需要"
+      },
+      "createdAt": 1793316649048,
+      "updatedAt": 1793316649048
+    },
+    {
+      "id": "73f16adf-1ebf-44e3-b474-ffc59049c128",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "校准 judge",
+        "prefix": "证据支持、语气是否得当（见 LLM Eval）中等，需要校准人工",
+        "suffix": "、高风险抽检、新失败类别发现高原则：能用代码断言的不用 judg"
+      },
+      "createdAt": 1793316653257,
+      "updatedAt": 1793316653257
     }
   ],
   "/docs/evaluation/llm-eval": [
@@ -8185,6 +8293,30 @@
       },
       "createdAt": 1790979807511,
       "updatedAt": 1790979807511
+    },
+    {
+      "id": "f4837a6a-c814-4dbc-8a7d-84256609b442",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每对比较两次，交换位置",
+        "prefix": "缓解？偏差表现缓解位置偏差成对比较时偏好放在前面（或后面）的答案",
+        "suffix": "；两次结论不一致记为平局或复核冗长偏差偏好更长的回答rubric"
+      },
+      "createdAt": 1793317839545,
+      "updatedAt": 1793317839545
+    },
+    {
+      "id": "7066fad6-eab3-4a3b-8877-2bc25e3e0f5d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "用不同家族的模型做 Judge",
+        "prefix": "”；对比时控制长度或单独评“简洁”自我偏好偏好同一家族模型的输出",
+        "suffix": "，或多 Judge 投票被自信语气带偏语气笃定的错误答案得分更高"
+      },
+      "createdAt": 1793317845299,
+      "updatedAt": 1793317845299
     }
   ],
   "/docs/evaluation/offline": [
@@ -8405,6 +8537,18 @@
       },
       "createdAt": 1790818471547,
       "updatedAt": 1790818471547
+    },
+    {
+      "id": "ea978a9c-2843-4528-b7f3-145713fa40c4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "真实数据不够、或缺少边界情况时，用 LLM 生成测试样本。关键是有结构地生成",
+        "prefix": "ootstrap 给差值算置信区间”就够了。合成评估数据怎么造？",
+        "suffix": "，而不是让模型“随便出 100 道题”（会高度重复、偏简单）：1"
+      },
+      "createdAt": 1793316990254,
+      "updatedAt": 1793316990254
     }
   ],
   "/docs/evaluation/production-eval": [
@@ -8534,6 +8678,176 @@
       },
       "createdAt": 1791053933212,
       "updatedAt": 1791053933212
+    },
+    {
+      "id": "d09f4b27-7856-4906-bde3-31f8c2d668c3",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "小流量产品很难靠 A/B 发现小改进",
+        "prefix": "天。要检测 1 个百分点的差异，样本量变成 4 倍。这就是为什么",
+        "suffix": "——这时更依赖离线评估（见 Offline Level 4）。A"
+      },
+      "createdAt": 1793319504090,
+      "updatedAt": 1793319504090
+    }
+  ],
+  "/docs/evaluation/rag-eval": [
+    {
+      "id": "038f8770-9cd6-41b8-a9d2-5a9505cb7e27",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "检索成功但组装失败",
+        "prefix": "P-17 在检索 Top-5 中；若上下文预算只选了旧 FAQ，",
+        "suffix": "。若 P-17 已送入，却回答“运输中可以走未发货退款”，是证据"
+      },
+      "createdAt": 1793317900055,
+      "updatedAt": 1793317900055
+    },
+    {
+      "id": "9f8232e5-7e1e-4f52-97ce-e9c644e00561",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "证据利用/生成失败",
+        "prefix": "失败。若 P-17 已送入，却回答“运输中可以走未发货退款”，是",
+        "suffix": "。若答案引用 P-17 却订单系统实际状态已变化，是动态状态或版"
+      },
+      "createdAt": 1793317904455,
+      "updatedAt": 1793317904455
+    },
+    {
+      "id": "925bd070-d879-4452-8c20-9d97be898efa",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Recall@5 = 找到的 gold 数 / gold 总数 = 2/2 = 1.0",
+        "prefix": "前条款 A是3商品宣传 Y否4当前条款 B是5退货常见问题 Z否",
+        "suffix": "。Precision@5 = Top-5 中相关段落数 / 5 "
+      },
+      "createdAt": 1793318189323,
+      "updatedAt": 1793318189323
+    },
+    {
+      "id": "77e7cf8d-1f20-4414-af8c-40488ebf3555",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Precision@5 = Top-5 中相关段落数 / 5 = 2/5 = 0.4",
+        "prefix": "到的 gold 数 / gold 总数 = 2/2 = 1.0。",
+        "suffix": "。Reciprocal rank 看第一个相关结果的位置：1/2"
+      },
+      "createdAt": 1793318192764,
+      "updatedAt": 1793318192764
+    },
+    {
+      "id": "191a5540-68c9-4544-8175-ea09de80bdd5",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Faithfulness / groundedness 通常关心回答的具体主张是否被提供给模型的证据支持",
+        "prefix": " 生成指标各问什么Faithfulness 高，答案也可能错吗？",
+        "suffix": "；answer relevance 关心是否答到用户的问题；an"
+      },
+      "createdAt": 1793318210753,
+      "updatedAt": 1793318210753
+    },
+    {
+      "id": "70818f6f-cdfb-4dfb-b469-888da161e390",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "answer relevance 关心是否答到用户的问题",
+        "prefix": "edness 通常关心回答的具体主张是否被提供给模型的证据支持；",
+        "suffix": "；answer correctness 关心是否符合权威真相；c"
+      },
+      "createdAt": 1793318227118,
+      "updatedAt": 1793318227118
+    },
+    {
+      "id": "3ff8711d-e774-4605-8678-e7ea3b9ab76e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "answer correctness 关心是否符合权威真相",
+        "prefix": "支持；answer relevance 关心是否答到用户的问题；",
+        "suffix": "；completeness 关心必需条件是否说全；context"
+      },
+      "createdAt": 1793318230627,
+      "updatedAt": 1793318230627
+    },
+    {
+      "id": "8e4f3dc1-4a82-4256-94b0-9a9269171b71",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "completeness 关心必需条件是否说全",
+        "prefix": "题；answer correctness 关心是否符合权威真相；",
+        "suffix": "；context relevance 关心选入资料有多少真正相关"
+      },
+      "createdAt": 1793318234105,
+      "updatedAt": 1793318234105
+    },
+    {
+      "id": "d003526d-5261-444c-aedb-fced1d001490",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "context relevance 关心选入资料有多少真正相关",
+        "prefix": "否符合权威真相；completeness 关心必需条件是否说全；",
+        "suffix": "。不同评测库给这些词的具体定义、方向和公式可能不同，面试时应说明"
+      },
+      "createdAt": 1793318238277,
+      "updatedAt": 1793318238277
+    },
+    {
+      "id": "2aac4742-5d08-429b-a649-cbc58a0b733b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Recall@K 高而答案准确率低",
+        "prefix": "查它支持哪条主张？\n\n\n\nLevel 3 · 把分数变成排错动作",
+        "suffix": "，先改哪里？把每个失败 case 的 trace 依次查：gol"
+      },
+      "createdAt": 1793318410799,
+      "updatedAt": 1793318410799
+    },
+    {
+      "id": "4d525b5c-1e9e-4995-8376-9689bf369f2b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "gold 在不在检索候选 → 在不在最终 context → 回答是否正确引用 → 真实订单/政策是否一致",
+        "prefix": "确率低，先改哪里？把每个失败 case 的 trace 依次查：",
+        "suffix": "。若检索过关但选入失败，去改 Context Construct"
+      },
+      "createdAt": 1793318502029,
+      "updatedAt": 1793318502029
+    },
+    {
+      "id": "5f719dd4-ae76-4447-bf54-cc632c553472",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "回答里的说法有没有被检索内容支持？",
+        "prefix": "计算方式（简化）需要参考答案吗Faithfulness（忠实度）",
+        "suffix": "① 用 LLM 把回答拆成若干条独立陈述；② 逐条判断能否从检索"
+      },
+      "createdAt": 1793318594544,
+      "updatedAt": 1793318594544
+    },
+    {
+      "id": "ebb51bcd-2bba-4ca9-9744-cb9fb29c278d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "LLM 判断相关性",
+        "prefix": "模糊问法不同，所以要和真实查询混用。检索没有人工标注时怎么评？\n",
+        "suffix": "：对 top-k 每个块问 LLM“这段能否帮助回答这个问题”，"
+      },
+      "createdAt": 1793318618484,
+      "updatedAt": 1793318618484
     }
   ],
   "/docs/llm": [
