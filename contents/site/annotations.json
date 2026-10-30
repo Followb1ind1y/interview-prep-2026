@@ -11657,6 +11657,116 @@
       "updatedAt": 1789329805071
     }
   ],
+  "/docs/rag/advanced": [
+    {
+      "id": "e66014a3-02a8-48e6-87e2-774914bf5010",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Agentic RAG",
+        "prefix": " 的主要代价是什么？什么时候不值得用？\n\n\nLevel 3 · ",
+        "suffix": "什么是 agentic RAG？普通 RAG 是固定流水线：每个"
+      },
+      "createdAt": 1793323007788,
+      "updatedAt": 1793323007788
+    },
+    {
+      "id": "09ca0a4b-d219-4257-a087-1c69dadfbf58",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "普通 RAG 是固定流水线",
+        "prefix": " 3 · Agentic RAG什么是 agentic RAG？",
+        "suffix": "：每个问题都检索一次、检索固定数量、然后生成。Agentic R"
+      },
+      "createdAt": 1793323016457,
+      "updatedAt": 1793323016457
+    },
+    {
+      "id": "17ad3be5-05d9-44d9-8a46-3bf86a654cfb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每个问题都检索一次、检索固定数量、然后生成",
+        "prefix": "AG什么是 agentic RAG？普通 RAG 是固定流水线：",
+        "suffix": "。Agentic RAG 把检索变成 agent 的工具，由模型"
+      },
+      "createdAt": 1793323020099,
+      "updatedAt": 1793323020099
+    },
+    {
+      "id": "4fe2f823-9913-4497-b88a-eccfd706cc44",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "要不要检索",
+        "prefix": "ntic RAG 把检索变成 agent 的工具，由模型决定：\n",
+        "suffix": "（“你好”不需要检索）\n检索什么、用哪个工具（政策库、订单 AP"
+      },
+      "createdAt": 1793323023220,
+      "updatedAt": 1793323023220
+    },
+    {
+      "id": "3cd0881d-6e39-4fcb-9e0a-9ac4b9a07865",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "检索什么、用哪个工具",
+        "prefix": "ent 的工具，由模型决定：\n要不要检索（“你好”不需要检索）\n",
+        "suffix": "（政策库、订单 API、工单库、网页搜索）\n结果够不够，不够就换"
+      },
+      "createdAt": 1793323026644,
+      "updatedAt": 1793323026644
+    },
+    {
+      "id": "0e53fcbc-bc9e-462b-b99e-4a05c74e6930",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "结果够不够",
+        "prefix": "检索什么、用哪个工具（政策库、订单 API、工单库、网页搜索）\n",
+        "suffix": "，不够就换个查询再检索\n什么时候停止并作答\n多跳问题“海外 + "
+      },
+      "createdAt": 1793323029254,
+      "updatedAt": 1793323029254
+    },
+    {
+      "id": "bada8e9b-74df-4d74-859f-126304fd1068",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "什么时候停止并作答",
+        "prefix": " API、工单库、网页搜索）\n结果够不够，不够就换个查询再检索\n",
+        "suffix": "\n多跳问题“海外 + 已签收 10 天 + 运费”就很适合：模型"
+      },
+      "createdAt": 1793323033920,
+      "updatedAt": 1793323033920
+    },
+    {
+      "id": "de368d67-4784-457b-b263-7465b8adc5bb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "能根据中间结果调整",
+        "prefix": "轮 LLM 调用，延迟和成本成倍（见 Cost Level 2）",
+        "suffix": "行为不确定，难以评估和调试不需要检索时可以跳过可能检索不足就作答"
+      },
+      "createdAt": 1793323146716,
+      "updatedAt": 1793323146716
+    },
+    {
+      "id": "259481a1-62ec-4720-8662-3928d918b700",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "不需要检索时可以跳过",
+        "prefix": "t Level 2）能根据中间结果调整行为不确定，难以评估和调试",
+        "suffix": "可能检索不足就作答，或者陷入反复检索经验：大部分问题走固定的 R"
+      },
+      "createdAt": 1793323148535,
+      "updatedAt": 1793323148535
+    }
+  ],
   "/docs/rag/architecture": [
     {
       "id": "5caa651d-3bb0-404c-9f42-438ed3fade87",
@@ -11928,6 +12038,574 @@
       },
       "createdAt": 1791663692877,
       "updatedAt": 1791663692877
+    }
+  ],
+  "/docs/rag/chunking": [
+    {
+      "id": "3fb2d84e-a806-4c0d-828e-e72588355ad8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "chunk 的本质是证据单元",
+        "prefix": "15,000 token便宜，但可能要 Top-30 才凑齐信息",
+        "suffix": "：小到能被准确定位，大到能被独立理解。对政策文档，理想的块是“一"
+      },
+      "createdAt": 1793322122152,
+      "updatedAt": 1793322122152
+    },
+    {
+      "id": "88872bfc-7d85-49de-91aa-2775ff4703b1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "固定长度每 N 个 token 切一刀",
+        "prefix": "1 · 基础策略固定长度、递归和结构切分怎么选？策略做法优点缺点",
+        "suffix": "最简单会把句子、条款、表格从中间切断递归切分按分隔符层级尝试：先"
+      },
+      "createdAt": 1793322140377,
+      "updatedAt": 1793322140377
+    },
+    {
+      "id": "25f721e3-d43e-4129-888f-e2679ef5652b",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Markdown 标题",
+        "prefix": "；通用、常用作默认方案不理解文档的语义结构结构切分利用文档结构：",
+        "suffix": "、HTML section、PDF 目录、表格行、代码的函数 /"
+      },
+      "createdAt": 1793322148301,
+      "updatedAt": 1793322148301
+    },
+    {
+      "id": "883c1ff9-05dc-4749-a2c6-0a00f9fb27ab",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "按章节 / 条款",
+        "prefix": "切成 3 块。不同类型的内容要用不同策略：内容切分方式政策、手册",
+        "suffix": "表格按行，每行带表头（见 Ingestion Level 1）代"
+      },
+      "createdAt": 1793322159126,
+      "updatedAt": 1793322159126
+    },
+    {
+      "id": "9198a19a-4a30-44ce-9072-3bd06e32c849",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "重叠（overlap）",
+        "prefix": "\n\n\nLevel 2 · 重叠与父子段重叠解决什么？代价是什么？",
+        "suffix": "：相邻块共享一段内容。例如块大小 600、重叠 100，步长就是"
+      },
+      "createdAt": 1793322165843,
+      "updatedAt": 1793322165843
+    },
+    {
+      "id": "e293fe87-90e4-4e52-8f0f-48ed4ca3a031",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "边界截断",
+        "prefix": "。例如块大小 600、重叠 100，步长就是 500。它解决的是",
+        "suffix": "：一个关键句正好被切在两块之间时，重叠让它至少完整出现在一块里。"
+      },
+      "createdAt": 1793322171951,
+      "updatedAt": 1793322171951
+    },
+    {
+      "id": "c550595f-77d4-4461-9b54-3394ee1a164c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "语义切分（semantic chunking）",
+        "prefix": "？要注意什么？\n\n\nLevel 3 · 进阶方法语义切分值不值？",
+        "suffix": "：逐句计算 embedding，相邻句子相似度突然下降的地方视为"
+      },
+      "createdAt": 1793322188527,
+      "updatedAt": 1793322188527
+    },
+    {
+      "id": "b0542237-bfcf-44ea-95b6-37e34c1dc06f",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "控制变量的实验",
+        "prefix": "取决于文档类型、问题类型和 embedding 模型。正确做法是",
+        "suffix": "：固定：embedding 模型、检索器、Top-K、过滤规则、"
+      },
+      "createdAt": 1793322216759,
+      "updatedAt": 1793322216759
+    }
+  ],
+  "/docs/rag/debugging": [
+    {
+      "id": "9fd2f6cc-4654-4880-a77b-7f987266bc68",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "复现",
+        "prefix": "控信号\n\n\n\nLevel 0 · 排查之前怎样确认“错”在哪？\n",
+        "suffix": "：用同样的输入（问题、用户、租户、时间点、对话历史）重跑。LLM"
+      },
+      "createdAt": 1793323160174,
+      "updatedAt": 1793323160174
+    },
+    {
+      "id": "387e4693-75e6-435d-9699-878065516a77",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "写下标准答案和依据",
+        "prefix": "点、对话历史）重跑。LLM 有随机性，要跑几次看是否稳定出错。\n",
+        "suffix": "：正确答案是什么？依据哪个文档的哪个块？这一步最常被跳过，但没有"
+      },
+      "createdAt": 1793323180718,
+      "updatedAt": 1793323180718
+    },
+    {
+      "id": "a32b39fa-ecff-47f7-9374-b17267a76db4",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "检索前做查询改写",
+        "prefix": "5 层之前：检索查询直接用了“那签收以后呢？”，没有指代补全修复",
+        "suffix": "，结合对话历史补全指代（见 Advanced RAG Level"
+      },
+      "createdAt": 1793323278141,
+      "updatedAt": 1793323278141
+    },
+    {
+      "id": "ffff118a-63e9-4907-996a-0625cecbea17",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "过期版本引用",
+        "prefix": "检索分数分布重排最高分的分布整体下移，说明查询分布变了或索引变差",
+        "suffix": "引用的块中非当前生效版本的比例，应为 0索引新鲜度文档更新到可被"
+      },
+      "createdAt": 1793323298324,
+      "updatedAt": 1793323298324
+    },
+    {
+      "id": "75aa7340-688d-41ba-9096-2fb1042e07ff",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "线上抽样 faithfulness",
+        "prefix": "档更新到可被检索的延迟（见 Ingestion Level 3）",
+        "suffix": "用 judge 抽样评估（见 RAG Eval Level 4）"
+      },
+      "createdAt": 1793323300874,
+      "updatedAt": 1793323300874
+    }
+  ],
+  "/docs/rag/embedding": [
+    {
+      "id": "d62df4fa-4087-49c7-a722-9f4c504d89b1",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "意思相近的文本向量方向接近",
+        "prefix": "变成一个固定长度的向量（例如 1,024 个浮点数）。训练目标让",
+        "suffix": "：“还在路上”        → [0.12, -0.33, 0"
+      },
+      "createdAt": 1793322258027,
+      "updatedAt": 1793322258027
+    },
+    {
+      "id": "a5d7c6ea-1b04-4768-9c98-cd5e8a30431c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "embedding 模型把一段文本变成一个固定长度的向量",
+        "prefix": "\n\nLevel 0 · 向量表示语义embedding 是什么？",
+        "suffix": "（例如 1,024 个浮点数）。训练目标让意思相近的文本向量方向"
+      },
+      "createdAt": 1793322261868,
+      "updatedAt": 1793322261868
+    },
+    {
+      "id": "0bebb970-e640-4b54-91df-f5b54e4c71ee",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "问题和文档分别经过编码器得到各自的向量",
+        "prefix": "的双塔模型是什么？为什么检索用它？双塔（bi-encoder）：",
+        "suffix": "，再算相似度。问题 ──编码器──► 问题向量 ┐\n      "
+      },
+      "createdAt": 1793322284035,
+      "updatedAt": 1793322284035
+    },
+    {
+      "id": "c3d923f8-2860-4177-aadf-d56fcad4092e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "拉近相关对，推开不相关对",
+        "prefix": "edding 的？训练数据是大量（问题，相关文档）对。核心思想：",
+        "suffix": "。一个 batch 里有 4 对：(q1,d1) (q2,d2)"
+      },
+      "createdAt": 1793322308906,
+      "updatedAt": 1793322308906
+    },
+    {
+      "id": "c07f2b64-9072-450c-a347-cd7b8a2bf34a",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "必须全量重建索引",
+        "prefix": "· 运维与微调换一个更好的 embedding 模型需要做什么？",
+        "suffix": "。不同模型的向量空间完全不同——模型 A 的“运输中”向量和模型"
+      },
+      "createdAt": 1793322323230,
+      "updatedAt": 1793322323230
+    },
+    {
+      "id": "6699a1e9-4bea-450c-9c9c-113adc007dc2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "内部术语、产品名、行业缩写检索不到",
+        "prefix": "embedding 模型？信号：通用模型在你的领域明显表现差——",
+        "suffix": "；或者“意思相近但业务含义相反”的内容总是混淆（“运输中”和“未"
+      },
+      "createdAt": 1793322344005,
+      "updatedAt": 1793322344005
+    }
+  ],
+  "/docs/rag/hybrid-search": [
+    {
+      "id": "9ca6fbba-52ed-4b9f-b848-031bb6136ffb",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "BM25 和向量各自漏掉什么",
+        "prefix": "桶评估；融合后的逐层排错\n\n\n\nLevel 0 · 为什么要两路",
+        "suffix": "？查询向量检索BM25“还在路上能退钱吗”✓ 能匹配“运输中”“"
+      },
+      "createdAt": 1793322604569,
+      "updatedAt": 1793322604569
+    },
+    {
+      "id": "0d435171-d249-457f-9bec-e74178a2fa65",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "加权融合",
+        "prefix": " 的 k 和 Top-K 有什么区别？\n\n\nLevel 2 · ",
+        "suffix": "分数归一化加权是怎么做的？另一种做法是先把两路分数归一化到同一区"
+      },
+      "createdAt": 1793322614845,
+      "updatedAt": 1793322614845
+    },
+    {
+      "id": "13524a00-9608-4afe-accf-e43185e7bf7e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "按查询类型分桶评估，因为混合检索在不同类型上的收益差别很大",
+        "prefix": "？\n\n\nLevel 3 · 评估与排错怎么证明混合检索真的更好？",
+        "suffix": "：查询类型只用向量 Recall@10只用 BM25RRF 混合"
+      },
+      "createdAt": 1793322634578,
+      "updatedAt": 1793322634578
+    }
+  ],
+  "/docs/rag/ingestion": [
+    {
+      "id": "3e75e6d5-af34-48ab-a4c5-19af8b063279",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "所以 RAG 排错的第一步永远是：正确的原文在索引里是什么样子",
+        "prefix": "ss 评分很高（模型确实忠实于检索内容），只有回到原文才能发现。",
+        "suffix": "？（见 Failure Diagnosis）自测：到这里你应该能"
+      },
+      "createdAt": 1793321815663,
+      "updatedAt": 1793321815663
+    },
+    {
+      "id": "e33f22dc-64f9-4fd3-97c2-2a22b550daa2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "它会被切分、被 embedding、被检索到、被模型忠实地引用——每一步都“正确”，答案却是错的。而且这种错误在下游几乎查不出来",
+        "prefix": "退货，未发货退款流程。运费由买家承担。\n这句话现在的意思是错的。",
+        "suffix": "：faithfulness 评分很高（模型确实忠实于检索内容），"
+      },
+      "createdAt": 1793321824688,
+      "updatedAt": 1793321824688
+    },
+    {
+      "id": "eaa58323-fbc5-44ae-9370-87c4d9925372",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "转成 Markdown / HTML 保留行列",
+        "prefix": "成“1 日”）表格抽取后变成一串数字，丢失行列关系识别表格结构，",
+        "suffix": "HTML导航栏、广告、页脚等噪声提取正文区域；利用 h1–h6 "
+      },
+      "createdAt": 1793321839771,
+      "updatedAt": 1793321839771
+    },
+    {
+      "id": "107df89c-56f1-44d8-861f-2df155ab8e28",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "整表转 Markdown",
+        "prefix": "已签收 | 不可以 | 7 日内可以 | 买家 |\n几种做法：\n",
+        "suffix": "，作为一个块（表格不大时）。\n按行切，每行都带上表头：“订单状态"
+      },
+      "createdAt": 1793321885772,
+      "updatedAt": 1793321885772
+    },
+    {
+      "id": "edf27bab-3eef-435a-8b99-9e330f65e301",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "生成表格描述",
+        "prefix": "货：签收后可以；运费：买家”——每行能独立被检索、独立被理解。\n",
+        "suffix": "：用模型写一段“本表说明不同订单状态下的退款与退货规则”，和表格"
+      },
+      "createdAt": 1793321887794,
+      "updatedAt": 1793321887794
+    },
+    {
+      "id": "784b24f0-781e-42c0-b914-c76536b714b2",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "每份文档要记录",
+        "prefix": "分时，为什么每行要带表头？\n\n\nLevel 2 · 元数据与版本",
+        "suffix": "什么？字段例子用于doc_id、versionP-17、v3版本"
+      },
+      "createdAt": 1793321896584,
+      "updatedAt": 1793321896584
+    },
+    {
+      "id": "4762f498-b59c-44a3-90a4-f14d97ec0e08",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "新旧版本怎么共存",
+        "prefix": "rsed_at解析器名与版本、时间解析器升级后知道哪些要重新处理",
+        "suffix": "？政策从 v2 更新到 v3 时，有两种选择：做法优点缺点删除旧"
+      },
+      "createdAt": 1793321907307,
+      "updatedAt": 1793321907307
+    },
+    {
+      "id": "846161f6-9ad3-4f72-b854-afa8247cc0dc",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "删除旧版本，只保留最新",
+        "prefix": "么共存？政策从 v2 更新到 v3 时，有两种选择：做法优点缺点",
+        "suffix": "简单，不会检索到旧版无法回答“我下单时适用哪个版本？”；审计困难"
+      },
+      "createdAt": 1793321913507,
+      "updatedAt": 1793321913507
+    },
+    {
+      "id": "fead6ee8-8ff0-47aa-a83b-2e0f39d751d9",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "保留所有版本，用生效日期过滤",
+        "prefix": "简单，不会检索到旧版无法回答“我下单时适用哪个版本？”；审计困难",
+        "suffix": "能按时间点回答；可审计必须保证在线过滤一定生效，否则旧版会被检索"
+      },
+      "createdAt": 1793321916315,
+      "updatedAt": 1793321916315
+    },
+    {
+      "id": "36846dd9-3453-4817-a512-295e41cfd4f8",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "近似去重",
+        "prefix": "精确去重：规范化后（去空格、统一标点）算哈希，相同就只留一份。\n",
+        "suffix": "：用 MinHash 等方法找相似度很高的块，合并或只保留权威来"
+      },
+      "createdAt": 1793321925833,
+      "updatedAt": 1793321925833
+    },
+    {
+      "id": "1e3797c8-f6bf-4259-a0a4-0eb749d83a57",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "精确去重",
+        "prefix": "导致检索结果里出现两段重复内容，浪费 Top-K 名额。做法：\n",
+        "suffix": "：规范化后（去空格、统一标点）算哈希，相同就只留一份。\n近似去重"
+      },
+      "createdAt": 1793321927799,
+      "updatedAt": 1793321927799
+    },
+    {
+      "id": "9d9a8ca6-4023-42d2-87d1-bd5604e452cf",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "标记删除（tombstone",
+        "prefix": "源文档（doc_id），才能找到所有相关块。\n向量库的删除很多是",
+        "suffix": "），数据在后台合并时才真正清除；要确认它满足合规时限。\n派生数据"
+      },
+      "createdAt": 1793322033070,
+      "updatedAt": 1793322033070
+    },
+    {
+      "id": "68fa823d-2011-4dcb-8a00-ec6d9e7622cf",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "派生数据也要删",
+        "prefix": "tone），数据在后台合并时才真正清除；要确认它满足合规时限。\n",
+        "suffix": "：缓存的答案、日志里的原文、评估集中的样本、基于该文档生成的摘要"
+      },
+      "createdAt": 1793322035036,
+      "updatedAt": 1793322035036
+    },
+    {
+      "id": "8628f0dc-f651-4441-8ac6-bac9e8b36b36",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "关键事实探针最实用",
+        "prefix": "整率缺版本、缺 ACL 的块不允许发布重复率去重后仍然重复的比例",
+        "suffix": "：它把“入库对不对”变成可以自动跑的回归测试，每次更换解析工具都"
+      },
+      "createdAt": 1793322059620,
+      "updatedAt": 1793322059620
+    }
+  ],
+  "/docs/rag/reranking": [
+    {
+      "id": "45ca0a06-45ce-4d54-948b-1ab1c8a5f99c",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "目标：别漏掉正确答案（高召回），必须极快",
+        "prefix": "么？召回（retrieval）：1,000 万 → 100   ",
+        "suffix": "\n重排（reranking）：100 → 5         目"
+      },
+      "createdAt": 1793322661290,
+      "updatedAt": 1793322661290
+    },
+    {
+      "id": "1774f088-e5d4-41de-af4a-cdf3926fa433",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "目标：把最相关的排到最前（高精度），可以慢一点",
+        "prefix": "快\n重排（reranking）：100 → 5         ",
+        "suffix": "\n召回阶段要在全库里毫秒级完成，只能用双塔向量和 BM25 这类"
+      },
+      "createdAt": 1793322664133,
+      "updatedAt": 1793322664133
+    },
+    {
+      "id": "0516bfdf-46fa-425d-b352-23fafea08970",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "后面的阶段贵、精挑细选。",
+        "prefix": "下去。这是信息检索里经典的“漏斗”设计：前面的阶段便宜、广撒网；",
+        "suffix": "自测：到这里你应该能回答:\n召回和重排各优化什么指标？\n为什么召"
+      },
+      "createdAt": 1793322673226,
+      "updatedAt": 1793322673226
+    },
+    {
+      "id": "15b5ff73-bd2d-4720-b0ad-af0dd6f09405",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "低于阈值的候选不进 context",
+        "prefix": "间。要不要设相关性阈值？重排模型给出相关性分数，可以设一个阈值：",
+        "suffix": "，所有候选都低于阈值时，告诉用户“没有找到相关政策”或转人工。这"
+      },
+      "createdAt": 1793322687999,
+      "updatedAt": 1793322687999
+    }
+  ],
+  "/docs/rag/sparse-retrieval": [
+    {
+      "id": "77319672-287e-4fc6-a5ce-6a82fd9d26ef",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "倒排索引（inverted index）",
+        "prefix": "检索\n\n\n\nLevel 0 · 倒排索引关键词检索为什么这么快？",
+        "suffix": "：为每个词记录“哪些文档包含它、出现几次”。\"P-17\"   →"
+      },
+      "createdAt": 1793322514903,
+      "updatedAt": 1793322514903
+    },
+    {
+      "id": "26e89c85-2e6e-40df-bf8a-33991ef946df",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "BM25 手算",
+        "prefix": "\n为什么关键词检索被称为“稀疏”检索？\n\n\nLevel 1 · ",
+        "suffix": "BM25 公式是什么？文档 d 对查询 q 的得分，是查询中每个"
+      },
+      "createdAt": 1793322517911,
+      "updatedAt": 1793322517911
+    },
+    {
+      "id": "5a7be2bc-2e9a-43b3-adc6-c850d545d05d",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "BM25 什么时候赢过向量检索",
+        "prefix": "处理同义词有哪三种办法？\n\n\nLevel 3 · 为什么仍然重要",
+        "suffix": "？BEIR（2021）基准在 18 个不同领域的数据集上做零样本"
+      },
+      "createdAt": 1793322529537,
+      "updatedAt": 1793322529537
+    }
+  ],
+  "/docs/rag/vector-search": [
+    {
+      "id": "f2693cb9-f508-4d4e-b382-ddcb0e856f1e",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "Pinecone",
+        "prefix": "复杂过滤专用向量库Qdrant、Milvus、Weaviate、",
+        "suffix": "（托管）大规模、高 QPS、需要量化 / 磁盘索引 / 多租户等"
+      },
+      "createdAt": 1793322442442,
+      "updatedAt": 1793322442442
+    },
+    {
+      "id": "b3b8066c-14b0-49c3-84f1-190fdf0869b3",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "为什么要近似",
+        "prefix": "h、专用向量库的取舍；多租户隔离方式\n\n\n\nLevel 0 · ",
+        "suffix": "暴力搜索有多慢？精确的 k 近邻（kNN）要把问题向量和每一个向"
+      },
+      "createdAt": 1793322476175,
+      "updatedAt": 1793322476175
+    },
+    {
+      "id": "09bb857a-b7b4-4324-ae1d-a66c35384bda",
+      "kind": "highlight",
+      "locale": "zh",
+      "quote": {
+        "exact": "召回率、怎么调参",
+        "prefix": "维。只有当规模、QPS 或功能需求超出时才引入专用向量库。怎么测",
+        "suffix": "？1. 取一批真实查询（如 1,000 个）\n2. 用暴力搜索得"
+      },
+      "createdAt": 1793323348839,
+      "updatedAt": 1793323348839
     }
   ]
 }
